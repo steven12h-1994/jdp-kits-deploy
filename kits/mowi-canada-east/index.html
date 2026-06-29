@@ -1,317 +1,93 @@
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="robots" content="noindex">
-<title>Mowi Canada East — Branded Apparel Program · Just Deals Promotions</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<!doctype html><html lang=en><head><meta charset=utf-8>
+<meta name=viewport content="width=device-width,initial-scale=1"><meta name=robots content=noindex>
+<title>Mowi Canada East — Branded Apparel · Just Deals Promotions</title>
+<link rel=preconnect href=https://fonts.googleapis.com><link rel=preconnect href=https://fonts.gstatic.com crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel=stylesheet>
 <style>
-  :root{
-    --coral:#FF6F4A; --coral-d:#e8552f; --ink:#2C2A29; --ink-2:#4a4744;
-    --paper:#F8F8F8; --line:#e8e4e0; --muted:#7b7570; --white:#fff;
-  }
-  *{box-sizing:border-box;margin:0;padding:0}
-  html{scroll-behavior:smooth}
-  body{font-family:'Inter',system-ui,sans-serif;color:var(--ink);background:var(--paper);line-height:1.6;-webkit-font-smoothing:antialiased}
-  .wrap{max-width:1080px;margin:0 auto;padding:0 6%}
-  section{padding:84px 0}
-  h1,h2,h3{line-height:1.12;letter-spacing:-0.02em;font-weight:800}
-  .eyebrow{font-size:12px;font-weight:700;letter-spacing:.22em;text-transform:uppercase;color:var(--coral)}
-  .lead{font-size:19px;color:var(--ink-2);max-width:62ch}
-  .rule{height:3px;width:54px;background:var(--coral);border-radius:2px;margin:18px 0 30px}
-  img{display:block;max-width:100%}
+:root{--a:#FF6F4A;--ink:#23211f;--pap:#f7f6f4;--mut:#8a847e;--line:#e9e5e1}
+*{margin:0;padding:0;box-sizing:border-box}html{scroll-behavior:smooth}
+body{font-family:Inter,system-ui,sans-serif;color:var(--ink);background:var(--pap);-webkit-font-smoothing:antialiased}
+.w{max-width:1080px;margin:0 auto;padding:0 6%}
+.cover{background:#1c1a19;color:#fff;padding:54px 0 46px;position:relative;overflow:hidden}
+.cover::after{content:"";position:absolute;right:-140px;bottom:-160px;width:480px;height:480px;background:radial-gradient(circle,#FF6F4A33,transparent 65%)}
+.cover img.lg{height:26px;margin-bottom:30px}
+.eyb{font-size:11px;font-weight:700;letter-spacing:.22em;text-transform:uppercase;color:#FF6F4A}
+.cover h1{font-size:clamp(30px,5vw,52px);font-weight:900;letter-spacing:-.02em;line-height:1.08;margin:12px 0;max-width:15ch}
+.cover h1 b{color:#FF6F4A}
+.cover p{color:#cfcac4;font-size:17px;max-width:48ch}
+.heroes{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:34px}
+.hc{background:#fff;border-radius:14px;padding:8px;box-shadow:0 22px 50px -26px rgba(0,0,0,.6)}
+.hc img{width:100%;aspect-ratio:1/1;object-fit:contain}
+.why{padding:46px 0 8px}
+.why h2{font-size:24px;font-weight:800;letter-spacing:-.01em;max-width:24ch}
+.why h2 b{color:#FF6F4A}
+.chips{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:22px}
+.chip{border-left:3px solid #FF6F4A;padding:2px 0 2px 14px}.chip b{display:block;font-size:15px}.chip span{font-size:13px;color:var(--mut)}
+.sec{padding:30px 0}
+.lbl{font-size:11px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--mut);margin:18px 0 14px}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.grid.f{grid-template-columns:repeat(3,1fr)}
+.card{background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.stage{position:relative;background:#fbfafa;padding:12px}.stage img{width:100%;aspect-ratio:1/1;object-fit:contain}
+.csa{position:absolute;top:10px;left:10px;background:#FF6F4A;color:#fff;font-size:10px;font-weight:700;letter-spacing:.04em;padding:4px 8px;border-radius:20px}
+.card .b{padding:13px 15px 16px}.card h3{font-size:15px;font-weight:800}
+.sku{font-size:11px;font-weight:700;color:#FF6F4A;margin-top:2px}
+.card p{font-size:12.5px;color:#5e5853;margin-top:7px;line-height:1.5}
+.tag{margin-top:9px;font-size:11px;color:var(--ink);background:#f1ede9;border-radius:6px;padding:5px 8px;display:inline-block}
+.brandstrip{display:flex;gap:26px;flex-wrap:wrap;background:#fff;border:1px solid var(--line);border-radius:14px;padding:20px 24px;margin-top:22px;font-size:13.5px;color:#5e5853}
+.brandstrip b{color:var(--ink)}
+.close{background:#1c1a19;color:#fff;margin-top:40px}
+.offer{background:#FF6F4A;border-radius:16px;padding:30px 32px;margin-bottom:24px}
+.offer h2{font-size:clamp(22px,3vw,30px);font-weight:900;max-width:20ch;color:#fff}.offer p{margin-top:10px;color:#fff;opacity:.95;max-width:56ch;font-size:15px}
+.steps{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.step{background:#2a2725;border-radius:12px;padding:18px 20px}.step b{color:#FF6F4A;font-weight:800} .step h4{margin:8px 0 5px;font-size:15px} .step p{font-size:13px;color:#cbc6c1}
+.src{margin-top:18px;border-left:3px solid #FF6F4A;padding:14px 18px;color:#cfcac4;font-size:13px}.src b{color:#fff}
+.cta{text-align:center;margin-top:26px}.cta a{display:inline-block;background:#FF6F4A;color:#fff;font-weight:800;text-decoration:none;padding:14px 32px;border-radius:28px}
+.cta span{display:block;margin-top:12px;color:#9a948e;font-size:12px}
+.dis{font-size:11px;color:#7d756e;margin-top:18px;max-width:74ch}
+footer{background:#161514;color:#857f79;font-size:12px;text-align:center;padding:20px 0}
+@media(max-width:780px){.heroes,.chips,.grid,.grid.f,.steps{grid-template-columns:1fr 1fr}.cover h1{font-size:30px}}
+@media(max-width:480px){.heroes,.chips,.grid,.grid.f,.steps{grid-template-columns:1fr}}
+</style></head><body>
+<header class=cover><div class=w>
+<img class=lg src="img/logo-white.png" alt="Mowi Canada East">
+<div class=eyb>Prepared for Mowi Canada East</div>
+<h1>Your logo, on gear your crews will actually <b>wear</b>.</h1>
+<p>A two-layer branded program — sharp office wear and CSA hi-vis for the field — built on real, Canadian-supplied gear. Here's the lineup.</p>
+<div class=heroes><div class="hc"><img src="img/vest.png"></div><div class="hc"><img src="img/tee.png"></div><div class="hc"><img src="img/hoodie.png"></div></div>
+</div></header>
 
-  /* COVER */
-  .cover{background:var(--ink);color:#fff;padding:70px 0 64px;position:relative;overflow:hidden}
-  .cover::after{content:"";position:absolute;inset:auto -120px -160px auto;width:520px;height:520px;background:radial-gradient(circle,rgba(255,111,74,.22),transparent 65%);pointer-events:none}
-  .cover .logo{height:30px;filter:none;margin-bottom:54px}
-  .cover h1{font-size:clamp(34px,5.6vw,60px);font-weight:900;color:#fff;max-width:16ch}
-  .cover h1 b{color:var(--coral);font-weight:900}
-  .cover .sub{margin-top:20px;font-size:18px;color:#d9d4cf;max-width:54ch}
-  .cover .prep{margin-top:14px;font-size:14px;color:#a39d97}
-  .heroes{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:54px}
-  .hero-card{background:#fff;border-radius:16px;padding:10px;box-shadow:0 24px 60px -28px rgba(0,0,0,.55)}
-  .hero-card img{width:100%;aspect-ratio:1/1;object-fit:contain}
-  .hero-card span{display:block;text-align:center;font-size:11px;font-weight:600;color:var(--muted);padding:4px 0 8px;letter-spacing:.04em}
+<section class=why><div class=w>
+<h2>One look, <b>head office to job site</b> — and a free proof on every piece.</h2>
+<div class=chips>
+<div class=chip><b>Look the part</b><span>A uniformed crew reads as a serious, safety-first operator.</span></div>
+<div class=chip><b>Seen & compliant</b><span>CSA hi-vis that carries your brand and keeps crews safe.</span></div>
+<div class=chip><b>Worn, not stashed</b><span>Gear that performs gets worn on the clock and off.</span></div>
+</div></div></section>
 
-  /* VALUE */
-  .tiles{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:8px}
-  .tile{background:#fff;border:1px solid var(--line);border-left:4px solid var(--coral);border-radius:12px;padding:24px 26px}
-  .tile .n{font-size:12px;font-weight:800;color:var(--coral);letter-spacing:.08em}
-  .tile h3{font-size:18px;margin:6px 0 8px}
-  .tile p{font-size:15px;color:var(--ink-2)}
-  .program{margin-top:30px;background:var(--ink);color:#fff;border-radius:16px;padding:30px 34px}
-  .program .eyebrow{color:var(--coral)}
-  .program p{margin-top:10px;font-size:17px;color:#e7e2dd;max-width:70ch}
-  .program b{color:#fff}
+<section class=sec><div class=w>
+<div class=lbl>Office & client-facing — embroidered</div>
+<div class=grid><div class="card"><div class="stage"><img src="img/vest.png" alt="Nautilus Quilted Vest"></div><div class="b"><h3>Nautilus Quilted Vest</h3><div class="sku">Stormtech KXV-1</div><p>Lightweight quilted body-warmer — shore base to office.</p><div class="tag">Embroidered · left chest</div></div></div><div class="card"><div class="stage"><img src="img/softshell.png" alt="Balmy Softshell"></div><div class="b"><h3>Balmy Softshell</h3><div class="sku">Canada Sportswear L07260</div><p>Bonded wind- & water-resistant softshell — the sharp company jacket.</p><div class="tag">Embroidered · left chest</div></div></div><div class="card"><div class="stage"><img src="img/polo.png" alt="AllPro Polo"></div><div class="b"><h3>AllPro Polo</h3><div class="sku">SS Activewear 41800</div><p>Moisture-wicking performance knit — the everyday client-facing staple.</p><div class="tag">Embroidered · left chest</div></div></div><div class="card"><div class="stage"><img src="img/vault.png" alt="Vault Pullover Hoodie"></div><div class="b"><h3>Vault Pullover Hoodie</h3><div class="sku">Canada Sportswear L00550</div><p>Heavyweight pullover hoodie — the off-clock crew favourite.</p><div class="tag">Embroidered · left chest</div></div></div></div>
+<div class=lbl style="margin-top:30px">The field layer — CSA hi-vis</div>
+<div class="grid f"><div class="card"><div class="stage"><img src="img/tee.png" alt="Cotton Traffic T-Shirt"><span class="csa">CSA Z96 Class 1</span></div><div class="b"><h3>Cotton Traffic T-Shirt</h3><div class="sku">Ground Force TT3</div><p>Everyday crew layer. Front Loc A (5.5"), big back print Loc D (10").</p><div class="tag">Screen print · 2-colour · Loc A · front centre</div></div></div><div class="card"><div class="stage"><img src="img/tvest.png" alt="5-Point Tear-Away Vest"><span class="csa">CSA Z96 Class 2</span></div><div class="b"><h3>5-Point Tear-Away Vest</h3><div class="sku">Ground Force TV4</div><p>Pull-over-any-layer vest. Embroidered chest (Loc B) + 10" back print (Loc G).</p><div class="tag">Screen print · 1-colour · Loc G · centre back</div></div></div><div class="card"><div class="stage"><img src="img/hoodie.png" alt="Hi-Vis Traffic Hoodie"><span class="csa">CSA Z96 Class 2</span></div><div class="b"><h3>Hi-Vis Traffic Hoodie</h3><div class="sku">Ground Force TH3</div><p>Warm mid-layer for damp shifts. Embroidered chest (Loc B) + 10" back print (Loc G).</p><div class="tag">Screen print · 2-colour · Loc G · centre back</div></div></div></div>
+<div class=brandstrip>
+<div><b>Two ways to brand it.</b> Embroidery (full-colour) on the office layer · screen print in 1-colour or 2-colour on hi-vis.</div>
+<div><b>Ink matched to every garment</b> so the mark always reads — white on dark, charcoal on hi-vis.</div>
+</div>
+</div></section>
 
-  /* PRODUCT SECTIONS */
-  .sec-head{display:flex;align-items:baseline;justify-content:space-between;gap:20px;flex-wrap:wrap}
-  .badge{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#fff;background:var(--ink);padding:6px 12px;border-radius:20px}
-  .badge.csa{background:var(--coral)}
-  .cards3{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;margin-top:34px}
-  .card{background:#fff;border:1px solid var(--line);border-radius:16px;overflow:hidden}
-  .stage{background:#fbfafa;padding:14px}
-  .stage img{width:100%;aspect-ratio:1/1;object-fit:contain}
-  .card .body{padding:18px 20px 22px}
-  .card h3{font-size:18px}
-  .card .sku{font-size:12px;font-weight:700;letter-spacing:.06em;color:var(--coral);margin-top:3px}
-  .card p{font-size:14px;color:var(--ink-2);margin-top:9px}
-  .swatches{margin-top:12px;font-size:12px;color:var(--muted)}
-  .swatches b{color:var(--ink)}
-  .meta{margin-top:12px;font-size:12.5px;color:var(--ink-2);border-top:1px solid var(--line);padding-top:10px}
-  .meta b{color:var(--ink)}
-
-  .field{border-top:1px solid var(--line)}
-  .pair{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:26px}
-  .shot{background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden}
-  .shot .stage{padding:10px}
-  .shot .cap{display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:10px 14px;border-top:1px solid var(--line)}
-  .shot .cap b{font-weight:700}
-  .shot .cap .m{color:var(--coral);font-weight:700;letter-spacing:.04em}
-  .feature{display:grid;grid-template-columns:1.1fr 1fr;gap:22px;align-items:center;margin-top:26px}
-  .feature .stage{border:1px solid var(--line);border-radius:16px}
-  .feature .fx h3{font-size:17px;margin-bottom:6px}
-  .feature .fx p{font-size:14px;color:var(--ink-2);margin-bottom:10px}
-  .tag{display:inline-block;font-size:11px;font-weight:700;color:var(--ink);background:#f1ede9;border-radius:6px;padding:4px 9px;margin:0 6px 6px 0}
-  .desc{font-size:15px;color:var(--ink-2);margin-top:8px;max-width:70ch}
-
-  /* SPECS */
-  .specs{background:#fff;border-top:1px solid var(--line)}
-  .swrap{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:24px 0 8px}
-  .chip{border:1px solid var(--line);border-radius:12px;padding:16px}
-  .chip .sw{height:46px;border-radius:8px;margin-bottom:10px}
-  .chip b{font-size:14px}.chip span{display:block;font-size:12px;color:var(--muted)}
-  table{width:100%;border-collapse:collapse;margin-top:18px;font-size:13.5px}
-  th,td{text-align:left;padding:11px 12px;border-bottom:1px solid var(--line)}
-  th{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
-  td b{color:var(--ink)} tr td:first-child{font-weight:600}
-  .note{font-size:13px;color:var(--muted);margin-top:14px}
-
-  /* CLOSE */
-  .close{background:var(--ink);color:#fff}
-  .offer{background:linear-gradient(135deg,var(--coral),var(--coral-d));border-radius:18px;padding:34px 36px}
-  .offer .eyebrow{color:#fff;opacity:.9}
-  .offer h2{font-size:clamp(24px,3.4vw,32px);color:#fff;margin-top:8px;max-width:20ch}
-  .offer p{margin-top:12px;color:#fff;opacity:.95;max-width:60ch;font-size:16px}
-  .steps{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:30px}
-  .step{background:#36322f;border-radius:14px;padding:22px 24px}
-  .step .num{width:30px;height:30px;border-radius:50%;background:var(--coral);color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center;font-size:14px}
-  .step h3{font-size:16px;margin:12px 0 6px;color:#fff}
-  .step p{font-size:14px;color:#cfc9c3}
-  .sourceit{margin-top:22px;border:1px solid #4a4744;border-left:4px solid var(--coral);border-radius:12px;padding:20px 24px}
-  .sourceit p{font-size:14px;color:#d9d4cf}.sourceit b{color:#fff}
-  .cta{margin-top:30px;text-align:center}
-  .cta a{display:inline-block;background:var(--coral);color:#fff;font-weight:800;text-decoration:none;padding:15px 34px;border-radius:30px;font-size:16px}
-  .cta .small{display:block;margin-top:14px;color:#a39d97;font-size:13px}
-  footer{background:#1f1d1c;color:#8c8681;font-size:12.5px;text-align:center;padding:26px 0}
-  .disclaimer{font-size:11.5px;color:#a39d97;margin-top:18px;max-width:70ch}
-
-  @media(max-width:760px){
-    section{padding:56px 0}
-    .heroes,.cards3,.tiles,.pair,.steps,.swrap{grid-template-columns:1fr}
-    .feature{grid-template-columns:1fr}
-    .cover h1{font-size:34px}
-  }
-</style>
-</head>
-<body>
-
-<!-- COVER -->
-<header class="cover">
-  <div class="wrap">
-    <img class="logo" src="img/mowi-white.png" alt="Mowi">
-    <div class="eyebrow">Prepared exclusively for Mowi Canada East</div>
-    <h1 style="margin-top:14px">A Branded Apparel Program — from the <b>boat deck</b> to the <b>boardroom</b></h1>
-    <p class="sub">One consistent Mowi identity across both sides of the operation: the crews working the pens, barges and shore bases on the water, and the site-management team representing Mowi to partners and visitors. Concept mockups below are built from the Mowi mark on a fixed, Canadian-supplied catalogue.</p>
-    <p class="prep">Presented by Just Deals Promotions · Canadian branded workwear &amp; safety apparel</p>
-    <div class="heroes">
-      <div class="hero-card"><img src="img/office-vest.png" alt="Nautilus Quilted Vest"><span>Office · Quilted Vest</span></div>
-      <div class="hero-card"><img src="img/tee-front-2c.png" alt="Cotton Traffic Tee"><span>Field · Traffic Tee</span></div>
-      <div class="hero-card"><img src="img/hoodie-back-2c.png" alt="Hi-Vis Traffic Hoodie"><span>Field · Hi-Vis Hoodie</span></div>
-    </div>
-  </div>
-</header>
-
-<!-- VALUE -->
-<section>
-  <div class="wrap">
-    <div class="eyebrow">Why a branded program for Mowi</div>
-    <h2 style="font-size:30px;margin-top:10px">Your crews are Mowi, on every wharf</h2>
-    <div class="rule"></div>
-    <p class="lead">Mowi Canada East runs two distinct wardrobes off one brand kit — the field and marine crews who keep the salmon sites running in Atlantic weather, and the site-management team who represent Mowi in the office, in audits and in front of partners. A sharp, consistent program serves both.</p>
-    <div class="tiles">
-      <div class="tile"><div class="n">01</div><h3>Look the part, win the trust</h3><p>A uniformed crew reads as a serious, safety-first operator — to partners, auditors and the coastal communities Mowi works alongside.</p></div>
-      <div class="tile"><div class="n">02</div><h3>A billboard on every wharf</h3><p>Branded crews on boats, feed barges and at the shore base put the Mowi name in front of every community along the coast — visibility that works every shift.</p></div>
-      <div class="tile"><div class="n">03</div><h3>Gear crews wear in Atlantic weather</h3><p>Kit that performs in NL wind, rain and cold gets worn on the clock and off. Issued gear that works signals Mowi invests in its people.</p></div>
-      <div class="tile"><div class="n">04</div><h3>Seen and compliant on the water</h3><p>The field layer carries the Mowi mark and keeps crews CSA-visible in low light and on deck — safety and brand in one garment.</p></div>
-    </div>
-    <div class="program">
-      <div class="eyebrow">Our recommendation for Mowi</div>
-      <p>Run a <b>two-layer program</b>: a <b>client-facing layer</b> (quilted vest, softshell &amp; performance polo) for site management and the office, and a <b>field layer</b> (traffic tee, tear-away vest &amp; hi-vis hoodie) that keeps every crew CSA-compliant and on-brand. One look — feed barge to boardroom.</p>
-    </div>
-  </div>
-</section>
-
-<!-- OFFICE LAYER -->
-<section style="background:#fff;border-top:1px solid var(--line)">
-  <div class="wrap">
-    <div class="sec-head">
-      <div><div class="eyebrow">The client-facing layer</div><h2 style="font-size:28px;margin-top:8px">Office &amp; site management</h2></div>
-      <span class="badge">Embroidered · left chest · full colour</span>
-    </div>
-    <p class="desc">Premium embroidered layers for management, audits and partner visits. On dark garments the Mowi mark is stitched in clean white reverse so it always reads crisp.</p>
-    <div class="cards3">
-      <div class="card"><div class="stage"><img src="img/office-vest.png" alt="Nautilus Quilted Vest"></div>
-        <div class="body"><h3>Nautilus Quilted Vest</h3><div class="sku">Stormtech · KXV-1</div>
-          <p>Lightweight quilted body warmer — the year-round layer that crosses from shore base to office.</p>
-          <div class="swatches"><b>Black</b> · Navy · Red · Azure · Graphite</div>
-          <div class="meta"><b>Embroidery</b> — left chest, white reverse</div></div></div>
-      <div class="card"><div class="stage"><img src="img/office-softshell.png" alt="Balmy Softshell"></div>
-        <div class="body"><h3>Balmy Softshell</h3><div class="sku">Canada Sportswear · L07260</div>
-          <p>Bonded, wind- &amp; water-resistant softshell — the sharp company jacket for management on site and in transit.</p>
-          <div class="swatches"><b>Black</b> · Navy · Cobalt · Gunmetal · Red</div>
-          <div class="meta"><b>Embroidery</b> — left chest, white reverse</div></div></div>
-      <div class="card"><div class="stage"><img src="img/office-polo.png" alt="AllPro Polo"></div>
-        <div class="body"><h3>AllPro Polo</h3><div class="sku">SS Activewear · 41800</div>
-          <p>Moisture-wicking performance knit, clean 3-button placket — the everyday client-facing staple.</p>
-          <div class="swatches"><b>Navy</b> · Black · White</div>
-          <div class="meta"><b>Embroidery</b> — left chest, white reverse</div></div></div>
-    </div>
-  </div>
-</section>
-
-<!-- FIELD: COTTON TRAFFIC TEE -->
-<section class="field">
-  <div class="wrap">
-    <div class="sec-head">
-      <div><div class="eyebrow">The field layer</div><h2 style="font-size:28px;margin-top:8px">Cotton Traffic T-Shirt</h2>
-        <p style="font-size:13px;color:var(--muted);margin-top:4px">WASIP / Ground Force · TT3 · Hi-Vis Orange · 4&quot; silver reflective tape, X-back</p></div>
-      <span class="badge csa">CSA Z96 · Class 1</span>
-    </div>
-    <p class="desc">The everyday crew layer. Screen print comes in <b>1-colour</b> (charcoal — the highest-contrast, recommended look on hi-vis) or <b>2-colour</b> (charcoal + white keyline so the mark pops). Front centre chest (Loc A · 5.5&quot;) and a large back print below the band (Loc D · 10&quot;).</p>
-    <div class="pair">
-      <div class="shot"><div class="stage"><img src="img/tee-front-1c.png" alt="tee front 1-colour"></div><div class="cap"><b>Front · Loc A</b><span class="m">1-colour</span></div></div>
-      <div class="shot"><div class="stage"><img src="img/tee-back-1c.png" alt="tee back 1-colour"></div><div class="cap"><b>Back · Loc D</b><span class="m">1-colour</span></div></div>
-      <div class="shot"><div class="stage"><img src="img/tee-front-2c.png" alt="tee front 2-colour"></div><div class="cap"><b>Front · Loc A</b><span class="m">2-colour</span></div></div>
-      <div class="shot"><div class="stage"><img src="img/tee-back-2c.png" alt="tee back 2-colour"></div><div class="cap"><b>Back · Loc D</b><span class="m">2-colour</span></div></div>
-    </div>
-  </div>
-</section>
-
-<!-- FIELD: TEARAWAY VEST -->
-<section class="field">
-  <div class="wrap">
-    <div class="sec-head">
-      <div><div class="eyebrow">The field layer</div><h2 style="font-size:28px;margin-top:8px">5-Point Tear-Away Vest</h2>
-        <p style="font-size:13px;color:var(--muted);margin-top:4px">WASIP / Ground Force · TV4 · Hi-Vis Orange · 5-pt safety release, X-back</p></div>
-      <span class="badge csa">CSA Z96 · Class 2</span>
-    </div>
-    <div class="feature">
-      <div class="stage"><img src="img/tvest-front.png" alt="Tear-away vest, embroidered left chest"></div>
-      <div class="fx">
-        <h3>Embroidered left chest</h3>
-        <p>A pull-over-any-layer vest for visitors, contractors and quick deck work. The Mowi mark is embroidered full-colour (charcoal on hi-vis) at the left chest.</p>
-        <span class="tag">Embroidery</span><span class="tag">Loc B · left chest · 4.5&quot; × 3&quot;</span>
-      </div>
-    </div>
-    <p class="desc" style="margin-top:30px"><b>Screen-print back</b> (Loc G · centre back · 10&quot;) — choose 1- or 2-colour:</p>
-    <div class="pair">
-      <div class="shot"><div class="stage"><img src="img/tvest-back-1c.png" alt="tear-away vest back 1-colour"></div><div class="cap"><b>Back · Loc G</b><span class="m">1-colour</span></div></div>
-      <div class="shot"><div class="stage"><img src="img/tvest-back-2c.png" alt="tear-away vest back 2-colour"></div><div class="cap"><b>Back · Loc G</b><span class="m">2-colour</span></div></div>
-    </div>
-  </div>
-</section>
-
-<!-- FIELD: HOODIE -->
-<section class="field">
-  <div class="wrap">
-    <div class="sec-head">
-      <div><div class="eyebrow">The field layer</div><h2 style="font-size:28px;margin-top:8px">Hi-Vis Traffic Hoodie</h2>
-        <p style="font-size:13px;color:var(--muted);margin-top:4px">WASIP / Ground Force · TH3 · Hi-Vis Orange · anti-pill fleece, X-back</p></div>
-      <span class="badge csa">CSA Z96 · Class 2</span>
-    </div>
-    <div class="feature">
-      <div class="stage"><img src="img/hoodie-front.png" alt="Hi-vis hoodie, embroidered left chest"></div>
-      <div class="fx">
-        <h3>Embroidered left chest</h3>
-        <p>The warm mid-layer crews live in on cool, damp shifts — with reflective striping for visibility. Mowi mark embroidered at the left chest.</p>
-        <span class="tag">Embroidery</span><span class="tag">Loc B · left chest · 4&quot; × 4&quot;</span>
-      </div>
-    </div>
-    <p class="desc" style="margin-top:30px"><b>Screen-print back</b> (Loc G · centre back · 10&quot;) — choose 1- or 2-colour:</p>
-    <div class="pair">
-      <div class="shot"><div class="stage"><img src="img/hoodie-back-1c.png" alt="hoodie back 1-colour"></div><div class="cap"><b>Back · Loc G</b><span class="m">1-colour</span></div></div>
-      <div class="shot"><div class="stage"><img src="img/hoodie-back-2c.png" alt="hoodie back 2-colour"></div><div class="cap"><b>Back · Loc G</b><span class="m">2-colour</span></div></div>
-    </div>
-  </div>
-</section>
-
-<!-- SPECS -->
-<section class="specs">
-  <div class="wrap">
-    <div class="eyebrow">Specifications &amp; logo placement</div>
-    <h2 style="font-size:28px;margin-top:8px">Your brand, applied with care</h2>
-    <div class="rule"></div>
-    <div class="swrap">
-      <div class="chip"><div class="sw" style="background:#FF6F4A"></div><b>Mowi Coral</b><span>#FF6F4A · accent</span></div>
-      <div class="chip"><div class="sw" style="background:#2C2A29"></div><b>Charcoal</b><span>#2C2A29 · primary ink</span></div>
-      <div class="chip"><div class="sw" style="background:#fff;border:1px solid var(--line)"></div><b>White</b><span>#FFFFFF · reverse</span></div>
-    </div>
-    <ul style="margin:14px 0 0;padding-left:20px;font-size:15px;color:var(--ink-2)">
-      <li><b>Embroidery</b> is stitched full-colour on the office layer — white reverse on the dark garments so the mark always reads.</li>
-      <li><b>Screen print</b> on hi-vis comes 1-colour (charcoal, recommended) or 2-colour (charcoal + a white keyline that lifts the mark off the orange).</li>
-      <li><b>Ink is matched to contrast on every garment</b> — charcoal on hi-vis, white on black/navy — so the logo never disappears into the fabric.</li>
-    </ul>
-
-    <h3 style="font-size:17px;margin-top:34px">Decoration &amp; placement</h3>
-    <table>
-      <tr><th>Product</th><th>Front</th><th>Back</th></tr>
-      <tr><td>Cotton Traffic Tee · TT3</td><td>Screen print · Loc A · 5.5&quot; × 5.5&quot;</td><td>Screen print · Loc D · 10&quot; × 5&quot;</td></tr>
-      <tr><td>5-Point Tear-Away Vest · TV4</td><td>Embroidery · Loc B · 4.5&quot; × 3&quot;</td><td>Screen print · Loc G · 10&quot; × 6&quot;</td></tr>
-      <tr><td>Hi-Vis Traffic Hoodie · TH3</td><td>Embroidery · Loc B · 4&quot; × 4&quot;</td><td>Screen print · Loc G · 10&quot; × 4&quot;</td></tr>
-      <tr><td>Quilted Vest · Softshell · Polo</td><td>Embroidery · left chest · ~3.5&quot; W</td><td>—</td></tr>
-    </table>
-
-    <h3 style="font-size:17px;margin-top:34px">Program at a glance</h3>
-    <table>
-      <tr><th>Product</th><th>Style</th><th>Certification</th><th>Shown</th></tr>
-      <tr><td>Nautilus Quilted Vest</td><td>Stormtech KXV-1</td><td>—</td><td>Black</td></tr>
-      <tr><td>Balmy Softshell</td><td>Canada Sportswear L07260</td><td>—</td><td>Black</td></tr>
-      <tr><td>AllPro Polo</td><td>SS Activewear 41800</td><td>—</td><td>Navy</td></tr>
-      <tr><td>Cotton Traffic T-Shirt</td><td>WASIP / Ground Force TT3</td><td>CSA Z96 Class 1</td><td>Hi-Vis Orange</td></tr>
-      <tr><td>5-Point Tear-Away Vest</td><td>WASIP / Ground Force TV4</td><td>CSA Z96 Class 2</td><td>Hi-Vis Orange</td></tr>
-      <tr><td>Hi-Vis Traffic Hoodie</td><td>WASIP / Ground Force TH3</td><td>CSA Z96 Class 2</td><td>Hi-Vis Orange</td></tr>
-    </table>
-  </div>
-</section>
-
-<!-- CLOSE -->
-<section class="close">
-  <div class="wrap">
-    <div class="offer">
-      <div class="eyebrow">Your no-risk first step</div>
-      <h2>Free digital proofs of the Mowi logo on every piece you like — no cost, no obligation.</h2>
-      <p>Tell us which items and colours catch your eye and we'll send branded proofs back fast. Approve the ones you love, drop the ones you don't. Nothing is committed until the gear looks exactly right.</p>
-    </div>
-    <div class="steps">
-      <div class="step"><div class="num">1</div><h3>Reply with your picks</h3><p>The pieces and garment colours you want, plus a rough headcount across your sites.</p></div>
-      <div class="step"><div class="num">2</div><h3>Approve proofs &amp; quote</h3><p>We send free digital proofs and a firm, volume-based quote. You sign off, send sizes, and the gear goes into production.</p></div>
-    </div>
-    <div class="sourceit">
-      <p><b>Don't see something you need?</b> This is a starting point, not the whole catalogue. Toques, rainwear, gloves, bibs, safety footwear, bags &amp; headwear — we source from every major Canadian supplier, so name the item and we'll add it to your quote. One supplier, one invoice, head to toe.</p>
-    </div>
-    <div class="cta">
-      <a href="mailto:steven@justdealspromotions.com?subject=Mowi%20Canada%20East%20%E2%80%94%20apparel%20proofs%20%26%20quote">Reply to start your proofs &amp; quote →</a>
-      <span class="small">Just Deals Promotions · steven@justdealspromotions.com</span>
-    </div>
-    <p class="disclaimer">Concept mockups shown on representative product photography; final garment styles, colours and decoration confirmed at proof. All pricing is provided by quote — nothing on this page is a committed price.</p>
-  </div>
-</section>
-
-<footer>Just Deals Promotions · Branded Workwear &amp; Safety Apparel · Prepared for Mowi Canada East</footer>
-</body>
-</html>
+<section class=close><div class=w style="padding:40px 6%">
+<div class=offer><div class=eyb style="color:#fff;opacity:.85">Your no-risk first step</div>
+<h2>Free digital proofs on every piece you like — no cost, no obligation.</h2>
+<p>Tell us the items and colours you want and we'll send branded proofs back fast. Approve what you love, drop what you don't.</p></div>
+<div class=steps>
+<div class=step><b>1</b><h4>Reply with your picks</h4><p>The pieces and colours you want, plus a rough headcount.</p></div>
+<div class=step><b>2</b><h4>Approve proofs & quote</h4><p>We send free proofs and a firm, volume-based quote — then it goes to production.</p></div>
+</div>
+<div class=src><b>Don't see something you need?</b> Toques, rainwear, gloves, bags, headwear — we source from every major Canadian supplier. Name it and we'll add it to the quote.</div>
+<div class=cta><a href="mailto:steven@justdealspromotions.com?subject=Branded%20apparel%20proofs%20for%20Mowi Canada East">Reply to start your proofs & quote →</a>
+<span>Just Deals Promotions · steven@justdealspromotions.com</span></div>
+<p class=dis>Concept mockups on representative product photography; final styles, colours and decoration confirmed at proof. All pricing by quote — nothing here is a committed price.</p>
+</div></section>
+<footer>Just Deals Promotions · Branded Workwear & Safety Apparel · Prepared for Mowi Canada East</footer>
+</body></html>
