@@ -6,7 +6,7 @@
 <style>
 :root{--a:#1D3774;--ink:#23211f;--pap:#f7f6f4;--mut:#8a847e;--line:#e9e5e1}
 *{margin:0;padding:0;box-sizing:border-box}html{scroll-behavior:smooth}
-body{font-family:Inter,system-ui,sans-serif;color:var(--ink);background:var(--pap);-webkit-font-smoothing:antialiased}
+body{font-family:Inter,system-ui,sans-serif;color:var(--ink);background:var(--pap);-webkit-font-smoothing:antialiased;overflow-x:hidden}
 .w{max-width:1080px;margin:0 auto;padding:0 6%}
 section[id]{scroll-margin-top:64px}
 .nav{position:sticky;top:0;z-index:50;background:rgba(28,26,25,.92);backdrop-filter:blur(8px);border-bottom:1px solid #2c2a28}
@@ -84,16 +84,59 @@ behold-widget{display:block;margin-top:14px;min-height:120px;--behold-gap:10px;-
 .note span{font-size:13px;color:#5e5853;line-height:1.55}
 .close{background:#1c1a19;color:#fff;margin-top:40px}
 footer{background:#161514;color:#857f79;font-size:12px;text-align:center;padding:20px 0}
-@media(max-width:780px){.heroes,.chips,.grid,.grid.f{grid-template-columns:1fr 1fr}.cover h1{font-size:30px}.fitem,.notes{grid-template-columns:1fr}}
-@media(max-width:480px){.heroes,.chips,.grid,.grid.f{grid-template-columns:1fr}}
+/* ---- responsive: tablet ---- */
+@media(max-width:860px){
+  .grid,.grid.f{grid-template-columns:repeat(2,1fr)}
+  .chips{grid-template-columns:1fr}
+  .fitem{grid-template-columns:1fr;gap:14px}
+  .notes{grid-template-columns:1fr}
+  .cover h1{font-size:clamp(27px,6.5vw,40px)}
+}
+/* ---- responsive: phone ---- */
+@media(max-width:600px){
+  .w{padding:0 5%}
+  section[id]{scroll-margin-top:56px}
+  .navin{gap:10px;height:52px}
+  .nav a:not(.navcta){display:none}                 /* anchors collapse; brand + CTA stay */
+  .navb{font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+  .nav .navcta{padding:8px 13px;font-size:12.5px;flex:none}
+  .cover{padding:32px 0 34px}
+  .cover img.lg{margin-bottom:20px}
+  .cover .eyb{font-size:10px}
+  .cover p{font-size:15px}
+  .heroes{gap:9px;margin-top:24px}                   /* stay a 3-up preview strip */
+  .hc{padding:6px;border-radius:11px;box-shadow:0 12px 26px -18px rgba(0,0,0,.55)}
+  .why{padding:32px 0 4px}
+  .why h2{font-size:21px}
+  .whylead{font-size:14px}
+  .sec{padding:24px 0}
+  .price{padding:16px 13px;border-radius:14px}
+  .inv td{padding:10px 4px;font-size:12.5px}
+  .inv td:first-child{padding-left:2px}
+  .inv td.rt{padding-right:2px}
+  .inv .invh td{font-size:9.5px;letter-spacing:.02em}
+  .inv .psku{font-size:10px}
+  .inv .invsec td{font-size:10px}
+  .pdisc{font-size:11.5px}
+  .fpair{gap:10px}
+  .close h2{font-size:24px}
+  .close .w{padding:44px 5% !important}
+  .fab{right:13px;bottom:13px;padding:12px 17px;font-size:14px}
+  footer{padding:22px 5%}
+}
+/* ---- responsive: small phone ---- */
+@media(max-width:400px){
+  .grid,.grid.f{grid-template-columns:1fr}
+  .cover h1{font-size:25px}
+}
 </style></head><body>
 <nav class=nav><div class="w navin"><span class=navb>PG Construction <i>×</i> Just Deals</span><a href="#kit">The kit</a><a href="#pricing">Pricing</a><a href="#work">Recent work</a><a class=navcta href="#start">Build my quote →</a></div></nav>
 <header class=cover id=top><div class=w>
-<img class=lg src="img/logo-white.png?v=1783003637" alt="PG Construction">
+<img class=lg src="img/logo-white.png?v=1783004353" alt="PG Construction">
 <div class=eyb>Prepared for PG Construction</div>
 <h1>Your logo, on gear your crews will actually <b>wear</b>.</h1>
 <p>A branded apparel program for PG Construction's commercial & industrial construction crews — sharp office wear and hi-vis field gear, on real, Canadian-supplied product. Here's the lineup.</p>
-<div class=heroes><div class="hc"><img src="img/vest.png?v=1783003637"></div><div class="hc"><img src="img/tee-front.png?v=1783003637"></div><div class="hc"><img src="img/hoodie-back.png?v=1783003637"></div></div>
+<div class=heroes><div class="hc"><img src="img/vest.png?v=1783004353"></div><div class="hc"><img src="img/tee-front.png?v=1783004353"></div><div class="hc"><img src="img/hoodie-back.png?v=1783004353"></div></div>
 </div></header>
 
 <section class=why><div class=w>
@@ -107,8 +150,8 @@ footer{background:#161514;color:#857f79;font-size:12px;text-align:center;padding
 
 <section class=sec id=kit><div class=w>
 <div class=lbl>Office & client-facing — embroidered</div>
-<div class=grid><div class="card"><div class="stage"><img src="img/vest.png?v=1783003637" alt="Nautilus Quilted Vest"></div><div class="b"><h3>Nautilus Quilted Vest</h3><div class="sku">Stormtech KXV-1</div><p>Lightweight quilted body-warmer — a sharp layer for cool mornings, site to office.</p><div class="tag">Navy · Embroidered · left chest</div><div class=uprice>from $65.56 ea</div></div></div><div class="card"><div class="stage"><img src="img/softshell.png?v=1783003637" alt="Balmy Softshell"></div><div class="b"><h3>Balmy Softshell</h3><div class="sku">Canada Sportswear L07260</div><p>Bonded wind- & water-resistant softshell — the sharp company jacket.</p><div class="tag">Navy · Embroidered · left chest</div><div class=uprice>from $56.45 ea</div></div></div><div class="card"><div class="stage"><img src="img/polo.png?v=1783003637" alt="AllPro Polo"></div><div class="b"><h3>AllPro Polo</h3><div class="sku">SS Activewear 41800</div><p>Moisture-wicking performance knit — the everyday client-facing staple.</p><div class="tag">Embroidered · left chest</div><div class=uprice>from $25.78 ea</div></div></div><div class="card"><div class="stage"><img src="img/vault.png?v=1783003637" alt="Vault Pullover Hoodie"></div><div class="b"><h3>Vault Pullover Hoodie</h3><div class="sku">Canada Sportswear L00550</div><p>Heavyweight pullover hoodie — the off-clock crew favourite.</p><div class="tag">Embroidered · left chest</div><div class=uprice>from $31.16 ea</div></div></div></div>
-<div class=lbl style="margin-top:30px">The field layer — hi-vis · front &amp; back</div><div class="field"><div class="fitem"><div class="finfo"><h3>Cotton Traffic T-Shirt</h3><div class="sku">Ground Force TT3</div><p>Everyday crew layer — centre-chest mark up front, big print across the back.</p><div class="tag">1-colour screen print</div><div class=uprice>from $21.63 ea</div></div><div class="fpair"><figure><img src="img/tee-front.png?v=1783003637" alt="Cotton Traffic T-Shirt — Front"><figcaption><b>Front</b> · 1-colour screen print · Loc A · centre chest</figcaption></figure><figure><img src="img/tee-back.png?v=1783003637" alt="Cotton Traffic T-Shirt — Back"><figcaption><b>Back</b> · 1-colour screen print · Loc D · 10" below the X</figcaption></figure></div></div><div class="fitem"><div class="finfo"><h3>5-Point Tear-Away Vest</h3><div class="sku">Ground Force TV4</div><p>Pull-over-any-layer vest — embroidered chest up front, 10" print across the back.</p><div class="tag">Embroidery + 1-colour screen print</div><div class=uprice>from $23.21 ea</div></div><div class="fpair"><figure><img src="img/tvest-front.png?v=1783003637" alt="5-Point Tear-Away Vest — Front"><figcaption><b>Front</b> · Embroidered, full colour · Loc B · on reflective brace</figcaption></figure><figure><img src="img/tvest-back.png?v=1783003637" alt="5-Point Tear-Away Vest — Back"><figcaption><b>Back</b> · 1-colour screen print · Loc G · 10" centre back</figcaption></figure></div></div><div class="fitem"><div class="finfo"><h3>Hi-Vis Traffic Hoodie</h3><div class="sku">Ground Force TH3</div><p>Warm mid-layer for damp shifts — embroidered left chest, 10" print across the back.</p><div class="tag">Embroidery + 1-colour screen print</div><div class=uprice>from $49.18 ea</div></div><div class="fpair"><figure><img src="img/hoodie-front.png?v=1783003637" alt="Hi-Vis Traffic Hoodie — Front"><figcaption><b>Front</b> · Embroidered, full colour · Loc D · left chest</figcaption></figure><figure><img src="img/hoodie-back.png?v=1783003637" alt="Hi-Vis Traffic Hoodie — Back"><figcaption><b>Back</b> · 1-colour screen print · Loc G · 10" centre back</figcaption></figure></div></div><div class="fitem"><div class="finfo"><h3>Deluxe Surveyor Vest</h3><div class="sku">Ground Force TV20</div><p>Survey- & inspection-ready vest — multiple pockets up front, big centre-back ID print.</p><div class="tag">1-colour screen print</div><div class=uprice>from $34.65 ea</div></div><div class="fpair"><figure><img src="img/surveyor-front.png?v=1783003637" alt="Deluxe Surveyor Vest — Front"><figcaption><b>Front</b> · Front · multi-pocket</figcaption></figure><figure><img src="img/surveyor-back.png?v=1783003637" alt="Deluxe Surveyor Vest — Back"><figcaption><b>Back</b> · 1-colour screen print · Loc A · 10" centre back</figcaption></figure></div></div><div class="fitem"><div class="finfo"><h3>Quilted Traffic Freezer Jacket</h3><div class="sku">Ground Force TJ1</div><p>Insulated quilted jacket for cold work — embroidered left chest, big logo across the back.</p><div class="tag">Embroidery + 1-colour screen print</div><div class=uprice>from $53.36 ea</div></div><div class="fpair"><figure><img src="img/freezer-front.png?v=1783003637" alt="Quilted Traffic Freezer Jacket — Front"><figcaption><b>Front</b> · Embroidered, full colour · Loc A · left chest</figcaption></figure><figure><img src="img/freezer-back.png?v=1783003637" alt="Quilted Traffic Freezer Jacket — Back"><figcaption><b>Back</b> · 1-colour screen print · Loc E · centre back</figcaption></figure></div></div><div class="fitem"><div class="finfo"><h3>Hi-Vis Rain Jacket</h3><div class="sku">Ground Force RJ90</div><p>Waterproof shell for wet shifts — heat-transfer chest, big logo across the back.</p><div class="tag">Heat-transfer + 1-colour screen print</div><div class=uprice>from $72.98 ea</div></div><div class="fpair"><figure><img src="img/rain-front.png?v=1783003637" alt="Hi-Vis Rain Jacket — Front"><figcaption><b>Front</b> · Heat transfer, full colour · Loc B · chest</figcaption></figure><figure><img src="img/rain-back.png?v=1783003637" alt="Hi-Vis Rain Jacket — Back"><figcaption><b>Back</b> · 1-colour screen print · Loc D · centre back</figcaption></figure></div></div></div>
+<div class=grid><div class="card"><div class="stage"><img src="img/vest.png?v=1783004353" alt="Nautilus Quilted Vest"></div><div class="b"><h3>Nautilus Quilted Vest</h3><div class="sku">Stormtech KXV-1</div><p>Lightweight quilted body-warmer — a sharp layer for cool mornings, site to office.</p><div class="tag">Navy · Embroidered · left chest</div><div class=uprice>from $65.56 ea</div></div></div><div class="card"><div class="stage"><img src="img/softshell.png?v=1783004353" alt="Balmy Softshell"></div><div class="b"><h3>Balmy Softshell</h3><div class="sku">Canada Sportswear L07260</div><p>Bonded wind- & water-resistant softshell — the sharp company jacket.</p><div class="tag">Navy · Embroidered · left chest</div><div class=uprice>from $56.45 ea</div></div></div><div class="card"><div class="stage"><img src="img/polo.png?v=1783004353" alt="AllPro Polo"></div><div class="b"><h3>AllPro Polo</h3><div class="sku">SS Activewear 41800</div><p>Moisture-wicking performance knit — the everyday client-facing staple.</p><div class="tag">Embroidered · left chest</div><div class=uprice>from $25.78 ea</div></div></div><div class="card"><div class="stage"><img src="img/vault.png?v=1783004353" alt="Vault Pullover Hoodie"></div><div class="b"><h3>Vault Pullover Hoodie</h3><div class="sku">Canada Sportswear L00550</div><p>Heavyweight pullover hoodie — the off-clock crew favourite.</p><div class="tag">Embroidered · left chest</div><div class=uprice>from $31.16 ea</div></div></div></div>
+<div class=lbl style="margin-top:30px">The field layer — hi-vis · front &amp; back</div><div class="field"><div class="fitem"><div class="finfo"><h3>Cotton Traffic T-Shirt</h3><div class="sku">Ground Force TT3</div><p>Everyday crew layer — centre-chest mark up front, big print across the back.</p><div class="tag">1-colour screen print</div><div class=uprice>from $21.63 ea</div></div><div class="fpair"><figure><img src="img/tee-front.png?v=1783004353" alt="Cotton Traffic T-Shirt — Front"><figcaption><b>Front</b> · 1-colour screen print · Loc A · centre chest</figcaption></figure><figure><img src="img/tee-back.png?v=1783004353" alt="Cotton Traffic T-Shirt — Back"><figcaption><b>Back</b> · 1-colour screen print · Loc D · 10" below the X</figcaption></figure></div></div><div class="fitem"><div class="finfo"><h3>5-Point Tear-Away Vest</h3><div class="sku">Ground Force TV4</div><p>Pull-over-any-layer vest — embroidered chest up front, 10" print across the back.</p><div class="tag">Embroidery + 1-colour screen print</div><div class=uprice>from $23.21 ea</div></div><div class="fpair"><figure><img src="img/tvest-front.png?v=1783004353" alt="5-Point Tear-Away Vest — Front"><figcaption><b>Front</b> · Embroidered, full colour · Loc B · on reflective brace</figcaption></figure><figure><img src="img/tvest-back.png?v=1783004353" alt="5-Point Tear-Away Vest — Back"><figcaption><b>Back</b> · 1-colour screen print · Loc G · 10" centre back</figcaption></figure></div></div><div class="fitem"><div class="finfo"><h3>Hi-Vis Traffic Hoodie</h3><div class="sku">Ground Force TH3</div><p>Warm mid-layer for damp shifts — embroidered left chest, 10" print across the back.</p><div class="tag">Embroidery + 1-colour screen print</div><div class=uprice>from $49.18 ea</div></div><div class="fpair"><figure><img src="img/hoodie-front.png?v=1783004353" alt="Hi-Vis Traffic Hoodie — Front"><figcaption><b>Front</b> · Embroidered, full colour · Loc D · left chest</figcaption></figure><figure><img src="img/hoodie-back.png?v=1783004353" alt="Hi-Vis Traffic Hoodie — Back"><figcaption><b>Back</b> · 1-colour screen print · Loc G · 10" centre back</figcaption></figure></div></div><div class="fitem"><div class="finfo"><h3>Deluxe Surveyor Vest</h3><div class="sku">Ground Force TV20</div><p>Survey- & inspection-ready vest — multiple pockets up front, big centre-back ID print.</p><div class="tag">1-colour screen print</div><div class=uprice>from $34.65 ea</div></div><div class="fpair"><figure><img src="img/surveyor-front.png?v=1783004353" alt="Deluxe Surveyor Vest — Front"><figcaption><b>Front</b> · Front · multi-pocket</figcaption></figure><figure><img src="img/surveyor-back.png?v=1783004353" alt="Deluxe Surveyor Vest — Back"><figcaption><b>Back</b> · 1-colour screen print · Loc A · 10" centre back</figcaption></figure></div></div><div class="fitem"><div class="finfo"><h3>Quilted Traffic Freezer Jacket</h3><div class="sku">Ground Force TJ1</div><p>Insulated quilted jacket for cold work — embroidered left chest, big logo across the back.</p><div class="tag">Embroidery + 1-colour screen print</div><div class=uprice>from $53.36 ea</div></div><div class="fpair"><figure><img src="img/freezer-front.png?v=1783004353" alt="Quilted Traffic Freezer Jacket — Front"><figcaption><b>Front</b> · Embroidered, full colour · Loc A · left chest</figcaption></figure><figure><img src="img/freezer-back.png?v=1783004353" alt="Quilted Traffic Freezer Jacket — Back"><figcaption><b>Back</b> · 1-colour screen print · Loc E · centre back</figcaption></figure></div></div><div class="fitem"><div class="finfo"><h3>Hi-Vis Rain Jacket</h3><div class="sku">Ground Force RJ90</div><p>Waterproof shell for wet shifts — heat-transfer chest, big logo across the back.</p><div class="tag">Heat-transfer + 1-colour screen print</div><div class=uprice>from $72.98 ea</div></div><div class="fpair"><figure><img src="img/rain-front.png?v=1783004353" alt="Hi-Vis Rain Jacket — Front"><figcaption><b>Front</b> · Heat transfer, full colour · Loc B · chest</figcaption></figure><figure><img src="img/rain-back.png?v=1783004353" alt="Hi-Vis Rain Jacket — Back"><figcaption><b>Back</b> · 1-colour screen print · Loc D · centre back</figcaption></figure></div></div></div>
 <div class=lbl style="margin-top:34px">Decorator's notes — how we'd run your kit</div>
 <p class=notelead>The thinking behind every choice — matched to your brand, your garments and the field.</p>
 <div class=notes><div class=note><b>Method to match the garment</b><span>Embroidery on office wear, screen print on the hi-vis, heat-transfer where colour detail matters.</span></div><div class=note><b>Full colour where the method allows</b><span>Embroidery & heat-transfer run your full brand colour; screen print runs 1-colour.</span></div><div class=note><b>Always readable</b><span>Every mark is colour-matched to its garment, so the logo is never lost on the fabric.</span></div><div class=note><b>On-spec &amp; tape-safe</b><span>Placed to the manufacturer's spec sheet and clear of the reflective tape — hi-vis rating intact.</span></div></div>
