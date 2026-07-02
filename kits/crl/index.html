@@ -1,0 +1,191 @@
+<!doctype html><html lang=en><head><meta charset=utf-8>
+<meta name=viewport content="width=device-width,initial-scale=1"><meta name=robots content=noindex>
+<title>CRL — Branded Apparel · Just Deals Promotions</title>
+<link rel=preconnect href=https://fonts.googleapis.com><link rel=preconnect href=https://fonts.gstatic.com crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel=stylesheet>
+<style>
+:root{--a:#0278d2;--ink:#23211f;--pap:#f7f6f4;--mut:#8a847e;--line:#e9e5e1}
+*{margin:0;padding:0;box-sizing:border-box}html{scroll-behavior:smooth}
+body{font-family:Inter,system-ui,sans-serif;color:var(--ink);background:var(--pap);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+.w{max-width:1080px;margin:0 auto;padding:0 6%}
+section[id]{scroll-margin-top:64px}
+.nav{position:sticky;top:0;z-index:50;background:rgba(28,26,25,.92);backdrop-filter:blur(8px);border-bottom:1px solid #2c2a28}
+.navin{display:flex;align-items:center;gap:22px;height:56px}
+.navb{color:#fff;font-weight:800;font-size:14px;letter-spacing:-.01em;margin-right:auto}.navb i{color:#0278d2;font-style:normal}
+.nav a{color:#cfcac4;text-decoration:none;font-size:13px;font-weight:600}.nav a:hover{color:#fff}
+.nav .navcta{background:#0278d2;color:#fff;padding:8px 15px;border-radius:9px;font-weight:800}
+.fab{position:fixed;right:20px;bottom:20px;z-index:60;background:#0278d2;color:#fff;text-decoration:none;font-weight:800;font-size:15px;padding:14px 20px;border-radius:40px;box-shadow:0 14px 34px -8px rgba(0,0,0,.5)}
+.price{background:#fff;border:1px solid var(--line);border-radius:16px;padding:22px 24px;margin-top:6px}
+.price table{width:100%;border-collapse:collapse;margin:6px 0 4px}
+.price td{padding:9px 0;border-bottom:1px solid var(--line);font-size:14px}
+.price td.rt{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.price tr:last-child td{border-bottom:none}
+.ptot{display:flex;flex-wrap:wrap;gap:14px;margin-top:16px}
+.pbig{flex:1;min-width:200px;background:#0278d2;color:#fff;border-radius:14px;padding:18px 20px}
+.pbig .n{font-size:30px;font-weight:900;letter-spacing:-.02em;line-height:1}.pbig .l{font-size:12.5px;opacity:.9;margin-top:5px}
+.pside{flex:1;min-width:200px;background:#f1ede9;border-radius:14px;padding:18px 20px;font-size:13.5px;color:#5e5853}
+.pside b{color:var(--ink)}
+.voltab{width:100%;border-collapse:collapse;margin-top:8px}
+.voltab td{padding:5px 0;border-bottom:1px solid #e3ded8;font-size:12.5px}
+.voltab tr:last-child td{border-bottom:none}.voltab td.rt{text-align:right;white-space:nowrap}
+.pdisc{font-size:12px;color:var(--mut);margin-top:14px;line-height:1.5}
+.uprice{font-size:11px;font-weight:800;color:#0278d2;margin-top:4px}
+.inv{width:100%;border-collapse:collapse}
+.inv td{padding:11px 8px;border-bottom:1px solid var(--line);font-size:14px;vertical-align:middle}
+.inv td.rt{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;font-weight:700}
+.inv .invh td{font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--mut);border-bottom:2px solid #d9d3cc}
+.inv .invsec td{background:#f1ede9;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--ink);padding:7px 8px}
+.inv .psku{display:block;font-size:11px;font-weight:600;color:var(--mut);margin-top:2px}
+.cover{background:#1c1a19;color:#fff;padding:54px 0 46px;position:relative;overflow:hidden}
+.cover::after{content:"";position:absolute;right:-140px;bottom:-160px;width:480px;height:480px;background:radial-gradient(circle,#0278d233,transparent 65%)}
+.cover img.lg{height:26px;margin-bottom:30px}
+.eyb{font-size:11px;font-weight:700;letter-spacing:.22em;text-transform:uppercase;color:#0278d2}
+.cover h1{font-size:clamp(30px,5vw,52px);font-weight:900;letter-spacing:-.02em;line-height:1.08;margin:12px 0;max-width:15ch}
+.cover h1 b{color:#0278d2}
+.cover p{color:#cfcac4;font-size:17px;max-width:48ch}
+.heroes{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:34px}
+.hc{background:#fff;border-radius:14px;padding:8px;box-shadow:0 22px 50px -26px rgba(0,0,0,.6)}
+.hc img{width:100%;aspect-ratio:1/1;object-fit:contain}
+.why{padding:46px 0 8px}
+.why h2{font-size:24px;font-weight:800;letter-spacing:-.01em;max-width:24ch}
+.why h2 b{color:#0278d2}
+.whylead{font-size:15px;color:#5e5853;margin:12px 0 0;max-width:60ch;line-height:1.55}
+behold-widget{display:block;margin-top:14px;min-height:120px;--behold-gap:10px;--behold-border-radius:12px}
+.chips{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:22px}
+.chip{border-left:3px solid #0278d2;padding:2px 0 2px 14px}.chip b{display:block;font-size:15px}.chip span{font-size:13px;color:var(--mut)}
+.sec{padding:30px 0}
+.lbl{font-size:11px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--mut);margin:18px 0 14px}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.grid.f{grid-template-columns:repeat(3,1fr)}
+.field{display:flex;flex-direction:column;gap:16px}
+.fitem{display:grid;grid-template-columns:1fr 2.1fr;gap:18px;align-items:center;background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px 20px}
+.finfo h3{font-size:17px;font-weight:800}
+.finfo .sku{font-size:11px;font-weight:700;color:#0278d2;margin-top:3px}
+.finfo p{font-size:13px;color:#5e5853;margin-top:9px;line-height:1.5}
+.finfo .tag{margin-top:11px}
+.fpair{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.fpair figure{margin:0}
+.fpair img{width:100%;aspect-ratio:1/1;object-fit:contain;background:#fbfafa;border:1px solid var(--line);border-radius:10px}
+.fpair figcaption{font-size:11px;color:var(--mut);margin-top:6px;text-align:center}
+.fpair figcaption b{color:var(--ink);font-weight:700}
+.card{background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.stage{position:relative;background:#fbfafa;padding:12px}.stage img{width:100%;aspect-ratio:1/1;object-fit:contain}
+.csa{position:absolute;top:10px;left:10px;background:#0278d2;color:#fff;font-size:10px;font-weight:700;letter-spacing:.04em;padding:4px 8px;border-radius:20px}
+.card .b{padding:13px 15px 16px}.card h3{font-size:15px;font-weight:800}
+.sku{font-size:11px;font-weight:700;color:#0278d2;margin-top:2px}
+.card p{font-size:12.5px;color:#5e5853;margin-top:7px;line-height:1.5}
+.tag{margin-top:9px;font-size:11px;color:var(--ink);background:#f1ede9;border-radius:6px;padding:5px 8px;display:inline-block}
+.brandstrip{display:flex;gap:26px;flex-wrap:wrap;background:#fff;border:1px solid var(--line);border-radius:14px;padding:20px 24px;margin-top:22px;font-size:13.5px;color:#5e5853}
+.brandstrip b{color:var(--ink)}
+.notelead{font-size:14px;color:var(--mut);margin:-6px 0 16px;max-width:60ch}
+.notes{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.note{background:#fff;border:1px solid var(--line);border-left:3px solid #0278d2;border-radius:12px;padding:14px 16px}
+.note b{display:block;font-size:14px;font-weight:800;letter-spacing:-.01em;margin-bottom:5px}
+.note span{font-size:13px;color:#5e5853;line-height:1.55}
+.close{background:#1c1a19;color:#fff;margin-top:40px}
+footer{background:#161514;color:#857f79;font-size:12px;text-align:center;padding:20px 0}
+/* ---- responsive: tablet ---- */
+@media(max-width:860px){
+  .grid,.grid.f{grid-template-columns:repeat(2,1fr)}
+  .chips{grid-template-columns:1fr}
+  .fitem{grid-template-columns:1fr;gap:14px}
+  .notes{grid-template-columns:1fr}
+  .cover h1{font-size:clamp(27px,6.5vw,40px)}
+}
+/* ---- responsive: phone ---- */
+@media(max-width:600px){
+  .w{padding:0 5%}
+  section[id]{scroll-margin-top:56px}
+  .navin{gap:10px;height:52px}
+  .nav a:not(.navcta){display:none}                 /* anchors collapse; brand + CTA stay */
+  .navb{font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+  .nav .navcta{padding:8px 13px;font-size:12.5px;flex:none}
+  .cover{padding:32px 0 34px}
+  .cover img.lg{margin-bottom:20px}
+  .cover .eyb{font-size:10px}
+  .cover p{font-size:15px}
+  .heroes{gap:9px;margin-top:24px}                   /* stay a 3-up preview strip */
+  .hc{padding:6px;border-radius:11px;box-shadow:0 12px 26px -18px rgba(0,0,0,.55)}
+  .why{padding:32px 0 4px}
+  .why h2{font-size:21px}
+  .whylead{font-size:14px}
+  .sec{padding:24px 0}
+  .price{padding:16px 13px;border-radius:14px}
+  .inv td{padding:10px 4px;font-size:12.5px}
+  .inv td:first-child{padding-left:2px}
+  .inv td.rt{padding-right:2px}
+  .inv .invh td{font-size:9.5px;letter-spacing:.02em}
+  .inv .psku{font-size:10px}
+  .inv .invsec td{font-size:10px}
+  .pdisc{font-size:11.5px}
+  .fpair{gap:10px}
+  .close h2{font-size:24px}
+  .close .w{padding:44px 5% !important}
+  .fab{right:13px;bottom:13px;padding:12px 17px;font-size:14px}
+  footer{padding:22px 5%}
+}
+/* ---- responsive: small phone ---- */
+@media(max-width:400px){
+  .grid,.grid.f{grid-template-columns:1fr}
+  .cover h1{font-size:25px}
+}
+</style></head><body>
+<nav class=nav><div class="w navin"><span class=navb>CRL <i>×</i> Just Deals</span><a href="#kit">The kit</a><a href="#pricing">Pricing</a><a href="#work">Recent work</a><a class=navcta href="#start">Build my quote →</a></div></nav>
+<header class=cover id=top><div class=w>
+<img class=lg src="img/logo-white.png?v=1783014206" alt="CRL">
+<div class=eyb>Prepared for CRL</div>
+<h1>Your logo, on gear your crews will actually <b>wear</b>.</h1>
+<p>A branded office & client-facing apparel program for CRL's architectural hardware & glazing supplies team — sharp, professional gear on real, premium product — we supply right across the US &amp; Canada. Here's the lineup.</p>
+<div class=heroes><div class="hc"><img src="img/vest.png?v=1783014206"></div><div class="hc"><img src="img/softshell.png?v=1783014206"></div><div class="hc"><img src="img/polo.png?v=1783014206"></div></div>
+</div></header>
+
+<section class=why><div class=w>
+<h2>Your crews <b>are the brand</b> — on every site.</h2>
+<p class=whylead>You've built a name in architectural hardware & glazing supplies — your crew's gear should carry it as sharply as your work does. Here's what a branded program does for you:</p>
+<div class=chips>
+<div class=chip><b>01 · Look the part, win the work</b><span>A uniformed crew reads as a serious operator — image is part of the bid.</span></div>
+<div class=chip><b>02 · Gear crews are proud to wear</b><span>Quality kit that fits gets worn on the clock and off — and a branded crew is trusted on every site.</span></div>
+<div class=chip><b>03 · A billboard on every site</b><span>Branded crews, trucks and staging put your name in front of clients and communities — every shift.</span></div>
+</div></div></section>
+
+<section class=sec id=kit><div class=w>
+<div class=lbl>Office & client-facing — embroidered</div>
+<div class=grid><div class="card"><div class="stage"><img src="img/vest.png?v=1783014206" alt="Nautilus Quilted Vest"></div><div class="b"><h3>Nautilus Quilted Vest</h3><div class="sku">Stormtech KXV-1</div><p>Lightweight quilted body-warmer — a sharp layer for cool mornings, site to office.</p><div class="tag">Royal · Embroidered · left chest</div><div class=uprice>from $65.56 ea</div></div></div><div class="card"><div class="stage"><img src="img/softshell.png?v=1783014206" alt="Balmy Softshell"></div><div class="b"><h3>Balmy Softshell</h3><div class="sku">Canada Sportswear L07260</div><p>Bonded wind- & water-resistant softshell — the sharp company jacket.</p><div class="tag">Royal · Embroidered · left chest</div><div class=uprice>from $56.45 ea</div></div></div><div class="card"><div class="stage"><img src="img/polo.png?v=1783014206" alt="AllPro Polo"></div><div class="b"><h3>AllPro Polo</h3><div class="sku">SS Activewear 41800</div><p>Moisture-wicking performance knit — the everyday client-facing staple.</p><div class="tag">Royal · Embroidered · left chest</div><div class=uprice>from $25.78 ea</div></div></div><div class="card"><div class="stage"><img src="img/vault.png?v=1783014206" alt="Vault Pullover Hoodie"></div><div class="b"><h3>Vault Pullover Hoodie</h3><div class="sku">Canada Sportswear L00550</div><p>Heavyweight pullover hoodie — the off-clock crew favourite.</p><div class="tag">Royal · Embroidered · left chest</div><div class=uprice>from $31.16 ea</div></div></div></div>
+
+<div class=lbl style="margin-top:34px">Decorator's notes — how we'd run your kit</div>
+<p class=notelead>The thinking behind every choice — matched to your brand, your garments and the field.</p>
+<div class=notes><div class=note><b>Embroidery, colour-matched</b><span>Every office piece is embroidered in your full brand colour, matched to the garment so nothing's lost.</span></div><div class=note><b>Garment colour, chosen for the brand</b><span>We pick each garment colour to carry your logo best — deep, professional tones that make the mark pop.</span></div><div class=note><b>Left-chest, executive standard</b><span>Logo sits left-chest at the size that reads sharp up close — the client-facing standard.</span></div><div class=note><b>Real product, exact invoice</b><span>Premium stock supplied across the US &amp; Canada, priced by exact itemised invoice — no surprises.</span></div></div>
+</div></section>
+
+<section class=sec id=pricing><div class=w>
+<div class=lbl>Your price list — decorated, per item</div>
+<p class=notelead>Every item, ready to wear with your logo. Per-piece price drops as you order more — the columns show your rate at each quantity.</p>
+<div class=price>
+<table class=inv>
+<tr class=invh><td>Item — decorated</td><td class=rt>12+</td><td class=rt>48+</td><td class=rt>144+</td></tr>
+<tr class=invsec><td colspan="4">Office &amp; client-facing</td></tr>
+<tr><td><b>Nautilus Quilted Vest</b><span class=psku>Stormtech KXV-1 · Embroidered, left chest</span></td><td class=rt>$78.52</td><td class=rt>$68.71</td><td class=rt>$65.56</td></tr><tr><td><b>Balmy Softshell</b><span class=psku>Canada Sportswear L07260 · Embroidered, left chest</span></td><td class=rt>$67.60</td><td class=rt>$59.15</td><td class=rt>$56.45</td></tr><tr><td><b>AllPro Polo</b><span class=psku>SS Activewear 41800 · Embroidered, left chest</span></td><td class=rt>$30.88</td><td class=rt>$27.02</td><td class=rt>$25.78</td></tr><tr><td><b>Vault Pullover Hoodie</b><span class=psku>Canada Sportswear L00550 · Embroidered, left chest</span></td><td class=rt>$37.32</td><td class=rt>$32.66</td><td class=rt>$31.16</td></tr>
+
+</table>
+<p class=pdisc><b>One-time setup:</b> Screen print $45.00/colour per location · Embroidery $60.00 · Heat-transfer $75.00 — charged once, then reorders are decoration + garment only. Prices in CAD, decorated, per piece. Your exact itemised invoice is confirmed before anything runs.</p>
+</div>
+</div></section>
+
+<section class=sec id=work><div class=w>
+<div class=lbl>Recent work — straight from our shop floor</div>
+<p class=notelead>A look at gear we've branded for crews like yours.</p>
+<behold-widget feed-id="kw9h4cUWOzeEVuIfrSxU"></behold-widget>
+</div></section>
+
+<section class=close id=start><div class=w style="padding:56px 6%;text-align:center">
+<h2 style="font-size:clamp(26px,4vw,40px);font-weight:900;max-width:16ch;margin:0 auto;color:#fff">Let's get your crew kitted out.</h2>
+<div style="background:#0278d2;border-radius:16px;padding:24px 30px;max-width:660px;margin:22px auto 20px">
+<p style="color:#fff;font-size:18px;font-weight:700;margin:0;line-height:1.45">Reply to this email with the <u>items, colours &amp; rough quantities</u> you want — we'll send your quote.</p></div>
+<p style="color:#e7e2dc;font-size:14.5px;max-width:64ch;margin:0 auto 18px;line-height:1.7"><b style="color:#fff">No guesswork on price.</b> Your quote is an exact, itemised invoice — garment cost, decoration (screen print / embroidery / heat-transfer) and one-time setup, spelled out. Nothing hidden.</p>
+<p style="color:#cfcac4;font-size:14px;max-width:72ch;margin:0 auto;line-height:1.8"><b style="color:#fff">Need something we haven't shown?</b> Hoodies &amp; sweatshirts · toques &amp; caps · insulated jackets · rainwear · gloves · helmets · safety footwear · bags &amp; backpacks · notebooks · tumblers &amp; drinkware · pens · banners &amp; signage — if your crews or office need it, we brand it.</p>
+<p style="color:#7d756e;font-size:12px;margin-top:30px;max-width:70ch;margin-left:auto;margin-right:auto">Just Deals Promotions · Concept mockups on representative product photography; pricing by exact invoice.</p>
+</div></section>
+<footer>Just Deals Promotions · Branded Workwear & Safety Apparel · Prepared for CRL</footer>
+<a class=fab href="#start">Reply with your kit →</a>
+<script>(()=>{const d=document,s=d.createElement("script");s.type="module";s.src="https://w.behold.so/widget.js";d.head.append(s);})();</script>
+</body></html>
