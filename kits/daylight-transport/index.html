@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>Daylight Transport — Branded Apparel Program | Just Deals Promotions</title>
+<meta name="description" content="A branded apparel program for Daylight Transport's long-haul LTL crews — office embroidery and CSA-rated hi-vis field gear, mocked up on your logo.">
+<link rel="icon" href="img/favicon.png">
+<style>
+  :root{
+    --navy:#12294a;
+    --blue:#1F6FB2;
+    --blue-dark:#154f82;
+    --red:#D42A2E;
+    --orange:#F5A62E;
+    --ink:#1c2530;
+    --paper:#ffffff;
+    --panel:#f4f6f9;
+    --line:#e4e8ee;
+    --hivis:#FF7A00;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; overflow-x:hidden;
+    font-family:'Helvetica Neue',Arial,sans-serif;
+    color:var(--ink); background:var(--paper);
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3{font-family:'Helvetica Neue',Arial,sans-serif; font-weight:800; letter-spacing:-.01em; margin:0;}
+  p{line-height:1.6; margin:0 0 1em;}
+  a{color:inherit;}
+  img{max-width:100%; display:block;}
+  .wrap{max-width:1180px; margin:0 auto; padding:0 28px;}
+  section{padding:88px 0;}
+  .eyebrow{
+    display:inline-block; font-size:12.5px; font-weight:800; letter-spacing:.14em;
+    text-transform:uppercase; color:var(--blue); margin-bottom:14px;
+  }
+  .eyebrow.on-dark{color:var(--orange);}
+
+  /* ===== NAV ===== */
+  .nav{
+    position:sticky; top:0; z-index:50; background:rgba(255,255,255,.96);
+    backdrop-filter:blur(6px); border-bottom:1px solid var(--line);
+  }
+  .nav .wrap{display:flex; align-items:center; justify-content:space-between; padding:14px 28px;}
+  .nav .brand{display:flex; align-items:center; gap:10px; font-weight:800; font-size:15px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .nav .brand img{height:26px; width:auto;}
+  .nav a.navcta{
+    background:var(--blue); color:#fff; padding:10px 20px; border-radius:3px;
+    font-weight:700; font-size:13.5px; text-decoration:none; white-space:nowrap;
+  }
+
+  /* ===== COVER ===== */
+  .cover{
+    background:linear-gradient(160deg,var(--navy) 0%,#0c1c33 60%,#08141f 100%);
+    color:#fff; padding:100px 0 70px; position:relative; overflow:hidden;
+  }
+  .cover:before{
+    content:""; position:absolute; inset:0;
+    background:
+      radial-gradient(ellipse 900px 500px at 85% -10%, rgba(31,111,178,.35), transparent 60%),
+      linear-gradient(115deg, transparent 55%, rgba(255,122,0,.10) 56%, rgba(255,122,0,.10) 58%, transparent 59%);
+  }
+  .cover .wrap{position:relative;}
+  .cover h1{font-size:46px; line-height:1.08; max-width:760px; color:#fff;}
+  .cover h1 em{font-style:normal; color:var(--orange);}
+  .cover .sub{font-size:18px; color:#c4d2e6; max-width:600px; margin-top:18px;}
+  .chips3{display:flex; gap:10px; flex-wrap:wrap; margin-top:26px;}
+  .chip{
+    background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.18);
+    padding:9px 16px; border-radius:999px; font-size:13px; font-weight:600; color:#dce6f2;
+  }
+  .hero3{
+    display:grid; grid-template-columns:repeat(3,1fr); gap:18px; margin-top:52px;
+  }
+  .herocard{
+    background:#fff; border-radius:8px; padding:20px 16px 14px;
+    box-shadow:0 20px 50px rgba(0,0,0,.35);
+  }
+  .herocard img{margin:0 auto;}
+  .herocard .cap{font-size:12px; font-weight:700; text-align:center; color:#5b6474; margin-top:8px; text-transform:uppercase; letter-spacing:.04em;}
+
+  /* ===== WHY ===== */
+  .why{background:var(--panel);}
+  .why .lede{max-width:760px;}
+  .why h2{font-size:32px; color:var(--navy);}
+  .why .lede p{font-size:17px; color:#38414f;}
+  .tiles{display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-top:44px;}
+  .tile{
+    background:#fff; border:1px solid var(--line); border-radius:8px; padding:26px 20px;
+    border-top:4px solid var(--blue);
+  }
+  .tile .num{font-size:12px; font-weight:800; color:var(--blue); letter-spacing:.08em;}
+  .tile h3{font-size:16.5px; margin:10px 0 8px; color:var(--navy);}
+  .tile p{font-size:13.8px; color:#5b6474; margin:0;}
+  .program{
+    margin-top:52px; background:var(--navy); color:#fff; border-radius:10px;
+    padding:36px 38px; display:grid; grid-template-columns:1fr 1fr; gap:30px;
+  }
+  .program h3{font-size:13px; letter-spacing:.1em; text-transform:uppercase; color:var(--orange); margin-bottom:10px;}
+  .program .layer{border-left:3px solid rgba(255,255,255,.25); padding-left:18px;}
+  .program .layer.hivis{border-left-color:var(--hivis);}
+  .program p{color:#c4d2e6; font-size:14.5px; margin:0;}
+
+  /* ===== SECTION HEADS ===== */
+  .shead{max-width:640px; margin:0 auto 46px; text-align:center;}
+  .shead h2{font-size:30px; color:var(--navy);}
+  .shead p{color:#5b6474; font-size:15.5px; margin-top:10px;}
+
+  /* ===== OFFICE GRID ===== */
+  .office{background:#fff;}
+  .ogrid{display:grid; grid-template-columns:repeat(3,1fr); gap:24px;}
+  .ocard{
+    border:1px solid var(--line); border-radius:10px; overflow:hidden; background:var(--panel);
+  }
+  .ocard .stage{
+    background:radial-gradient(ellipse at 50% 35%, #fff 0%, #eef1f5 72%, #e3e8ee 100%);
+    padding:26px 20px 10px; text-align:center;
+  }
+  .ocard .stage img{max-height:300px; margin:0 auto;}
+  .ocard .info{padding:18px 20px 22px;}
+  .ocard .sku{font-size:11.5px; color:#8791a0; font-weight:700; letter-spacing:.05em; text-transform:uppercase;}
+  .ocard h3{font-size:17.5px; margin:6px 0 8px; color:var(--navy);}
+  .ocard p.blurb{font-size:13.5px; color:#5b6474; margin:0 0 12px;}
+  .tagrow{display:flex; gap:6px; flex-wrap:wrap;}
+  .tag{
+    background:#fff; border:1px solid var(--line); border-radius:999px; padding:5px 12px;
+    font-size:11.8px; font-weight:700; color:var(--blue-dark);
+  }
+
+  /* ===== FIELD ITEM PAGES ===== */
+  .field{background:var(--panel);}
+  .fitem{background:#fff; border:1px solid var(--line); border-radius:12px; padding:34px 34px 30px; margin-bottom:26px;}
+  .fitem .fhead{display:flex; align-items:baseline; justify-content:space-between; gap:20px; margin-bottom:22px; flex-wrap:wrap;}
+  .fitem .fhead .titles .sku{font-size:11.5px; color:#8791a0; font-weight:700; letter-spacing:.05em; text-transform:uppercase;}
+  .fitem .fhead h3{font-size:24px; color:var(--navy); margin:4px 0 6px;}
+  .fitem .fhead p{margin:0; font-size:14px; color:#5b6474; max-width:460px;}
+  .csa{
+    background:var(--navy); color:#fff; font-size:11.5px; font-weight:800; letter-spacing:.06em;
+    padding:8px 14px; border-radius:6px; white-space:nowrap;
+  }
+  .views{display:grid; grid-template-columns:repeat(4,1fr); gap:16px;}
+  .view{border:1px solid var(--line); border-radius:8px; overflow:hidden;}
+  .view .stage{
+    background:radial-gradient(ellipse at 50% 30%, #fff 0%, #eef1f5 75%, #e3e8ee 100%);
+    padding:14px 10px 4px;
+  }
+  .view .stage img{margin:0 auto; max-height:230px;}
+  .view .cap{padding:10px 12px 14px;}
+  .view .cap .m{font-size:11px; font-weight:800; color:var(--blue); letter-spacing:.05em; text-transform:uppercase;}
+  .view .cap .l{font-size:12.5px; color:#5b6474; margin-top:2px;}
+
+  /* ===== SPECS ===== */
+  .specs{background:#fff;}
+  .specgrid{display:grid; grid-template-columns:1.1fr .9fr; gap:44px;}
+  .specgrid h3{font-size:14px; color:var(--navy); text-transform:uppercase; letter-spacing:.06em; margin-bottom:14px;}
+  table.placement{width:100%; border-collapse:collapse; font-size:13.5px;}
+  table.placement th, table.placement td{ text-align:left; padding:11px 10px; border-bottom:1px solid var(--line);}
+  table.placement th{color:#8791a0; font-size:11px; text-transform:uppercase; letter-spacing:.05em; font-weight:800;}
+  table.placement td.item{font-weight:700; color:var(--navy);}
+  .rulecard{background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:22px 24px; margin-bottom:14px;}
+  .rulecard h4{font-size:14.5px; color:var(--navy); margin:0 0 8px;}
+  .rulecard p{font-size:13.5px; color:#5b6474; margin:0;}
+  .inkchips{display:flex; gap:10px; margin-top:8px; flex-wrap:wrap;}
+  .inkchip{display:flex; align-items:center; gap:8px; font-size:12.5px; color:#38414f; font-weight:600;}
+  .swatch{width:16px; height:16px; border-radius:4px; border:1px solid rgba(0,0,0,.12); display:inline-block;}
+
+  /* ===== CLOSE ===== */
+  .close{
+    background:linear-gradient(160deg,var(--navy) 0%,#0c1c33 70%);
+    color:#fff; text-align:center;
+  }
+  .close .free{
+    display:inline-block; background:var(--orange); color:#1c1200; font-weight:800;
+    font-size:12.5px; letter-spacing:.06em; text-transform:uppercase; padding:9px 20px;
+    border-radius:999px; margin-bottom:22px;
+  }
+  .close h2{font-size:32px; max-width:640px; margin:0 auto; color:#fff;}
+  .close p.lead{color:#c4d2e6; font-size:16px; max-width:560px; margin:16px auto 0;}
+  .steps{display:flex; justify-content:center; gap:22px; margin:44px auto 0; max-width:680px; flex-wrap:wrap;}
+  .step{
+    background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.15); border-radius:10px;
+    padding:22px; flex:1; min-width:230px; text-align:left;
+  }
+  .step .n{
+    width:28px; height:28px; border-radius:50%; background:var(--orange); color:#1c1200;
+    font-weight:800; font-size:14px; display:flex; align-items:center; justify-content:center; margin-bottom:12px;
+  }
+  .step p{color:#c4d2e6; font-size:13.8px; margin:0;}
+  .close .btnrow{margin-top:40px;}
+  .btn-reply{
+    display:inline-block; background:var(--orange); color:#1c1200; font-weight:800; font-size:15px;
+    padding:16px 34px; border-radius:4px; text-decoration:none;
+  }
+  .crosssell{margin-top:40px; padding-top:34px; border-top:1px solid rgba(255,255,255,.14); max-width:760px; margin-left:auto; margin-right:auto;}
+  .crosssell .lbl{font-size:11.5px; text-transform:uppercase; letter-spacing:.08em; color:var(--orange); font-weight:800; margin-bottom:10px;}
+  .crosssell p{color:#9fb0c8; font-size:13.3px; margin:0;}
+  footer{background:#08141f; color:#5f7188; text-align:center; padding:26px 0; font-size:12px;}
+
+  @media (max-width:900px){
+    .cover h1{font-size:32px;}
+    .tiles{grid-template-columns:repeat(2,1fr);}
+    .ogrid{grid-template-columns:repeat(2,1fr);}
+    .views{grid-template-columns:repeat(2,1fr);}
+    .program{grid-template-columns:1fr;}
+    .specgrid{grid-template-columns:1fr;}
+    .steps{flex-direction:column;}
+  }
+  @media (max-width:600px){
+    .nav a.navcta{padding:8px 14px; font-size:12.5px;}
+    section{padding:60px 0;}
+    .cover{padding:70px 0 46px;}
+    .cover h1{font-size:26px;}
+    .hero3{grid-template-columns:repeat(3,1fr); gap:8px;}
+    .herocard{padding:10px 8px 8px;}
+    .tiles{grid-template-columns:1fr;}
+    .ogrid{grid-template-columns:1fr;}
+    .views{grid-template-columns:repeat(2,1fr);}
+    .fitem{padding:22px 18px;}
+    .close h2{font-size:24px;}
+  }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="wrap">
+    <div class="brand">Daylight Transport <span style="color:#1F6FB2">×</span> Just Deals Promotions</div>
+    <a class="navcta" href="#start">Build my quote →</a>
+  </div>
+</nav>
+
+<!-- ============ 1. COVER ============ -->
+<header class="cover" id="top">
+  <div class="wrap">
+    <div class="eyebrow on-dark">Branded Apparel Program</div>
+    <h1>Gear that moves as fast as your fleet — <em>branded for Daylight Transport.</em></h1>
+    <p class="sub">A two-layer program for your long-haul LTL crews: sharp embroidered pieces for the office and customer-facing team, and CSA-rated hi-vis gear built for the dock and the yard.</p>
+    <div class="chips3">
+      <div class="chip">Free digital proofs</div>
+      <div class="chip">Your logo, your colours</div>
+      <div class="chip">Genuine product, supplied across the US &amp; Canada</div>
+    </div>
+    <div class="hero3">
+      <div class="herocard"><img src="img/vest.png" alt="Daylight Transport branded quilted vest"><div class="cap">Office · Nautilus Vest</div></div>
+      <div class="herocard"><img src="img/tee-front-2c.png" alt="Daylight Transport hi-vis t-shirt"><div class="cap">Field · Traffic Tee</div></div>
+      <div class="herocard"><img src="img/hoodie-back-2c.png" alt="Daylight Transport hi-vis hoodie back"><div class="cap">Field · Traffic Hoodie</div></div>
+    </div>
+  </div>
+</header>
+
+<!-- ============ 2. WHY ============ -->
+<section class="why" id="why">
+  <div class="wrap">
+    <div class="lede">
+      <div class="eyebrow">Why a branded program for Daylight Transport</div>
+      <h2>Speed is your brand. Your crews should wear it.</h2>
+      <p>Daylight has spent almost 50 years redefining how fast long-haul LTL can move — from the original two-driver sleeper teams to direct-loading that cuts coast-to-coast transit to 2–3 days. That reputation shows up everywhere your name does: on the dock, at the terminal, in front of the shipper. Right now your drivers, dock crews and office team are your biggest walking (and rolling) billboard — this program makes sure every one of them looks like it.</p>
+    </div>
+    <div class="tiles">
+      <div class="tile"><div class="num">01</div><h3>A consistent, professional look</h3><p>Every dispatcher, sales rep and terminal manager in the same sharp, embroidered Daylight kit — client-facing consistency across every location.</p></div>
+      <div class="tile"><div class="num">02</div><h3>Crews that are proud to wear it</h3><p>Branded gear that fits the job — not a giveaway t-shirt — builds the kind of pride that shows up in how the work gets done.</p></div>
+      <div class="tile"><div class="num">03</div><h3>A billboard on every dock</h3><p>Your CSA-rated hi-vis crews are visible on every yard, every terminal, every shipper's dock — free brand exposure, all day, every shift.</p></div>
+      <div class="tile"><div class="num">04</div><h3>Safety that's never an afterthought</h3><p>Every hi-vis mark is placed clear of the reflective tape — your CSA Z96 compliance is never compromised for branding.</p></div>
+    </div>
+    <div class="program">
+      <div class="layer">
+        <h3>Layer 1 — Office &amp; client-facing</h3>
+        <p>Embroidered, full-colour Daylight branding on the pieces your dispatch, sales and terminal-office team wear every day — the Nautilus Vest, Balmy Softshell and AllPro Polo.</p>
+      </div>
+      <div class="layer hivis">
+        <h3>Layer 2 — Field &amp; hi-vis</h3>
+        <p>CSA Z96 hi-vis orange gear for drivers and dock crews — Traffic Tee, 5-Point Tear-Away Vest and Traffic Hoodie — decorated clear of the reflective tape, front and back.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 3. OFFICE LAYER ============ -->
+<section class="office" id="office">
+  <div class="wrap">
+    <div class="shead">
+      <div class="eyebrow">Layer 1 — Office &amp; client-facing</div>
+      <h2>Embroidered, full colour, left chest</h2>
+      <p>Your logo reproduced in true Daylight colours — orange, red and blue — stitched left chest on every piece.</p>
+    </div>
+    <div class="ogrid">
+      <div class="ocard">
+        <div class="stage"><img src="img/vest.png" alt="Nautilus Quilted Vest branded with Daylight Transport logo"></div>
+        <div class="info">
+          <div class="sku">Stormtech KXV-1</div>
+          <h3>Nautilus Quilted Vest</h3>
+          <p class="blurb">Lightweight quilted body-warmer — a sharp layer for cool mornings, dock to office.</p>
+          <div class="tagrow"><span class="tag">Black</span><span class="tag">Embroidered · left chest</span></div>
+        </div>
+      </div>
+      <div class="ocard">
+        <div class="stage"><img src="img/softshell.png" alt="Balmy Softshell branded with Daylight Transport logo"></div>
+        <div class="info">
+          <div class="sku">Canada Sportswear L07260</div>
+          <h3>Balmy Softshell</h3>
+          <p class="blurb">Bonded wind- &amp; water-resistant softshell — the sharp company jacket for terminal and yard visits.</p>
+          <div class="tagrow"><span class="tag">Black</span><span class="tag">Embroidered · left chest</span></div>
+        </div>
+      </div>
+      <div class="ocard">
+        <div class="stage"><img src="img/polo.png" alt="AllPro Polo branded with Daylight Transport logo"></div>
+        <div class="info">
+          <div class="sku">SS Activewear 41800</div>
+          <h3>AllPro Polo</h3>
+          <p class="blurb">Moisture-wicking performance knit — the everyday client-facing staple for dispatch and sales.</p>
+          <div class="tagrow"><span class="tag">Navy</span><span class="tag">Embroidered · left chest</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 4. FIELD / HI-VIS ITEMS ============ -->
+<section class="field" id="field">
+  <div class="wrap">
+    <div class="shead">
+      <div class="eyebrow">Layer 2 — Field &amp; hi-vis</div>
+      <h2>CSA-rated gear, decorated clear of the tape</h2>
+      <p>Each piece is shown in both a 1-colour and a 2-colour screen print, front and back, placed exactly to the manufacturer's spec — every mark verified clear of the reflective tape.</p>
+    </div>
+
+    <div class="fitem">
+      <div class="fhead">
+        <div class="titles">
+          <div class="sku">Ground Force TT3 · CSA Z96 Class 1</div>
+          <h3>Cotton Traffic T-Shirt</h3>
+          <p>Everyday layer for the dock and yard — centre-chest mark up front, a big 10&quot; print across the back.</p>
+        </div>
+        <div class="csa">Hi-Vis Orange</div>
+      </div>
+      <div class="views">
+        <div class="view"><div class="stage"><img src="img/tee-front-1c.png" alt="Traffic Tee front, 1-colour print"></div><div class="cap"><div class="m">Front · 1-colour</div><div class="l">Loc A · 5.5&quot; centre chest, screen print</div></div></div>
+        <div class="view"><div class="stage"><img src="img/tee-front-2c.png" alt="Traffic Tee front, 2-colour print"></div><div class="cap"><div class="m">Front · 2-colour</div><div class="l">Loc A · 5.5&quot; centre chest, screen print</div></div></div>
+        <div class="view"><div class="stage"><img src="img/tee-back-1c.png" alt="Traffic Tee back, 1-colour print"></div><div class="cap"><div class="m">Back · 1-colour</div><div class="l">Loc D · 10&quot; below the X, screen print</div></div></div>
+        <div class="view"><div class="stage"><img src="img/tee-back-2c.png" alt="Traffic Tee back, 2-colour print"></div><div class="cap"><div class="m">Back · 2-colour</div><div class="l">Loc D · 10&quot; below the X, screen print</div></div></div>
+      </div>
+    </div>
+
+    <div class="fitem">
+      <div class="fhead">
+        <div class="titles">
+          <div class="sku">Ground Force TV4 · CSA Z96 Class 2</div>
+          <h3>5-Point Tear-Away Vest</h3>
+          <p>Pull-over-any-layer vest — embroidered chest up front, a 10&quot; print across the back.</p>
+        </div>
+        <div class="csa">Hi-Vis Orange</div>
+      </div>
+      <div class="views">
+        <div class="view"><div class="stage"><img src="img/tvest-front-1c.png" alt="Tear-Away Vest front, 1-colour"></div><div class="cap"><div class="m">Front · 1-colour</div><div class="l">Loc B · left chest, embroidered</div></div></div>
+        <div class="view"><div class="stage"><img src="img/tvest-front-2c.png" alt="Tear-Away Vest front, 2-colour"></div><div class="cap"><div class="m">Front · 2-colour</div><div class="l">Loc B · left chest, embroidered</div></div></div>
+        <div class="view"><div class="stage"><img src="img/tvest-back-1c.png" alt="Tear-Away Vest back, 1-colour print"></div><div class="cap"><div class="m">Back · 1-colour</div><div class="l">Loc G · 10&quot; centre back, screen print</div></div></div>
+        <div class="view"><div class="stage"><img src="img/tvest-back-2c.png" alt="Tear-Away Vest back, 2-colour print"></div><div class="cap"><div class="m">Back · 2-colour</div><div class="l">Loc G · 10&quot; centre back, screen print</div></div></div>
+      </div>
+    </div>
+
+    <div class="fitem">
+      <div class="fhead">
+        <div class="titles">
+          <div class="sku">Ground Force TH3 · CSA Z96 Class 2</div>
+          <h3>Hi-Vis Traffic Hoodie</h3>
+          <p>Warm mid-layer for early starts and cold docks — embroidered left chest, a 10&quot; print across the back.</p>
+        </div>
+        <div class="csa">Hi-Vis Orange</div>
+      </div>
+      <div class="views">
+        <div class="view"><div class="stage"><img src="img/hoodie-front-1c.png" alt="Traffic Hoodie front, 1-colour"></div><div class="cap"><div class="m">Front · 1-colour</div><div class="l">Loc B/D · left chest, embroidered</div></div></div>
+        <div class="view"><div class="stage"><img src="img/hoodie-front-2c.png" alt="Traffic Hoodie front, 2-colour"></div><div class="cap"><div class="m">Front · 2-colour</div><div class="l">Loc B/D · left chest, embroidered</div></div></div>
+        <div class="view"><div class="stage"><img src="img/hoodie-back-1c.png" alt="Traffic Hoodie back, 1-colour print"></div><div class="cap"><div class="m">Back · 1-colour</div><div class="l">Loc G · 10&quot; centre back, screen print</div></div></div>
+        <div class="view"><div class="stage"><img src="img/hoodie-back-2c.png" alt="Traffic Hoodie back, 2-colour print"></div><div class="cap"><div class="m">Back · 2-colour</div><div class="l">Loc G · 10&quot; centre back, screen print</div></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 5. SPECS & PLACEMENT ============ -->
+<section class="specs" id="specs">
+  <div class="wrap">
+    <div class="shead">
+      <div class="eyebrow">Specs &amp; placement</div>
+      <h2>Placed to spec. Safe by design.</h2>
+      <p>Every decoration decision — method, colour and location — is made to keep your brand legible and your hi-vis compliance intact.</p>
+    </div>
+    <div class="specgrid">
+      <div>
+        <h3>Program at a glance</h3>
+        <table class="placement">
+          <tr><th>Item</th><th>Method</th><th>Location</th><th>Colour</th></tr>
+          <tr><td class="item">Nautilus Quilted Vest</td><td>Embroidery</td><td>Left chest</td><td>Full colour</td></tr>
+          <tr><td class="item">Balmy Softshell</td><td>Embroidery</td><td>Left chest</td><td>Full colour</td></tr>
+          <tr><td class="item">AllPro Polo</td><td>Embroidery</td><td>Left chest</td><td>Full colour</td></tr>
+          <tr><td class="item">Cotton Traffic T-Shirt</td><td>Screen print</td><td>Loc A front · Loc D back</td><td>1c or 2c</td></tr>
+          <tr><td class="item">5-Point Tear-Away Vest</td><td>Embroidery + screen print</td><td>Loc B front · Loc G back</td><td>1c or 2c</td></tr>
+          <tr><td class="item">Hi-Vis Traffic Hoodie</td><td>Embroidery + screen print</td><td>Loc B/D front · Loc G back</td><td>1c or 2c</td></tr>
+        </table>
+      </div>
+      <div>
+        <div class="rulecard">
+          <h4>Embroidery vs. screen print</h4>
+          <p>Office pieces are always embroidered in full colour. Hi-vis field pieces are screen printed — you choose 1-colour (cost-effective, high contrast) or 2-colour (closer to your full logo) for the whole program.</p>
+        </div>
+        <div class="rulecard">
+          <h4>Always readable, on every garment</h4>
+          <p>Ink and thread are matched to contrast with the garment at the exact placement — dark ink on hi-vis and light garments, white reverse on navy and black — so the mark never gets lost.</p>
+          <div class="inkchips">
+            <div class="inkchip"><span class="swatch" style="background:#1F6FB2"></span>Daylight blue</div>
+            <div class="inkchip"><span class="swatch" style="background:#D42A2E"></span>Daylight red</div>
+            <div class="inkchip"><span class="swatch" style="background:#F5A62E"></span>Daylight orange</div>
+            <div class="inkchip"><span class="swatch" style="background:#fff"></span>White reverse</div>
+          </div>
+        </div>
+        <div class="rulecard">
+          <h4>Real product, exact invoice</h4>
+          <p>Genuine Stormtech, Canada Sportswear, SS Activewear and Ground Force stock, supplied right across the US &amp; Canada. No guesswork on price — your quote is an exact, itemised invoice: garment, decoration and one-time setup, nothing hidden.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 6. CLOSE ============ -->
+<section class="close" id="start">
+  <div class="wrap">
+    <div class="free">Free digital proofs · No cost, no obligation</div>
+    <h2>Reply on this thread with your picks and a rough headcount — we'll send your quote.</h2>
+    <p class="lead">Two quick steps and Daylight is dressed in your own colours, ready for the next dock, the next terminal, the next mile.</p>
+    <div class="steps">
+      <div class="step"><div class="n">1</div><p><strong>Reply</strong> with the items, colours and rough quantities you want for your office and field crews.</p></div>
+      <div class="step"><div class="n">2</div><p><strong>Approve</strong> your free digital proofs and itemised quote — then we get your gear moving.</p></div>
+    </div>
+    <div class="btnrow"><a class="btn-reply" href="#top">Reply to get your quote →</a></div>
+    <div class="crosssell">
+      <div class="lbl">Don't see it? We'll source it.</div>
+      <p>Hoodies &amp; sweatshirts · toques &amp; caps · insulated jackets · rainwear · gloves · helmets · safety footwear · bags &amp; backpacks · notebooks · tumblers &amp; drinkware · pens · banners &amp; signage — if your crews or office need it, we brand it.</p>
+    </div>
+  </div>
+</section>
+
+<footer>Just Deals Promotions — genuine product, real photography, exact-invoice pricing. Supplied across the US &amp; Canada.</footer>
+
+</body>
+</html>
