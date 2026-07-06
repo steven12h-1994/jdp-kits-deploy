@@ -1,0 +1,18 @@
+{
+  "generator": "assemble_kit",
+  "version": 1,
+  "slug": "metro-animal-emergency-clinic",
+  "client": "Metro Animal Emergency Clinic",
+  "generated": "2026-07-06T12:16:33Z",
+  "mockups": 5,
+  "files": [
+    "index.html",
+    "img/favicon.png",
+    "img/logo-white.png",
+    "img/polo.png",
+    "img/shirt.png",
+    "img/softshell.png",
+    "img/vault.png",
+    "img/vest.png"
+  ]
+}
