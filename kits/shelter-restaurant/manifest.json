@@ -3,10 +3,11 @@
   "version": 1,
   "slug": "shelter-restaurant",
   "client": "Shelter Restaurant",
-  "generated": "2026-07-06T14:12:17Z",
-  "mockups": 5,
+  "generated": "2026-07-06T14:34:06Z",
+  "mockups": 6,
   "files": [
     "index.html",
+    "img/crewtee.png",
     "img/favicon.png",
     "img/logo-white.png",
     "img/polo.png",
