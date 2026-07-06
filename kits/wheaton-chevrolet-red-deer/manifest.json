@@ -1,0 +1,19 @@
+{
+  "generator": "assemble_kit",
+  "version": 1,
+  "slug": "wheaton-chevrolet-red-deer",
+  "client": "Wheaton Chevrolet Of Red Deer",
+  "generated": "2026-07-06T20:20:41Z",
+  "mockups": 6,
+  "files": [
+    "index.html",
+    "img/crewtee.png",
+    "img/favicon.png",
+    "img/logo-white.png",
+    "img/polo.png",
+    "img/shirt.png",
+    "img/softshell.png",
+    "img/vault.png",
+    "img/vest.png"
+  ]
+}
