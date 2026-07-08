@@ -1,6 +1,6 @@
 {
   "generator": "catalog",
-  "version": "1783544639",
+  "version": "1783545460",
   "files": [
     "catalog.json",
     "catalog.js",
@@ -44,7 +44,9 @@
     "img/hoodie_back_g.jpg",
     "img/hoodie_front_g.jpg",
     "img/polo__navy.jpg",
+    "img/polo__navy_b.jpg",
     "img/polo__royal.jpg",
+    "img/polo__royal_b.jpg",
     "img/rain_back_g.jpg",
     "img/rain_front_g.jpg",
     "img/shirt__black.jpg",
