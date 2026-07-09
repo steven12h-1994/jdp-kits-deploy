@@ -155,17 +155,23 @@ inp.addEventListener('change',function(){var f=inp.files&&inp.files[0];if(!f)ret
   img.onerror=function(){if(note)note.textContent='Could not read that file. Try a PNG or JPG.';};
   img.src=url;});
 function processLogo(img){
-  var MAX=1100,w=img.naturalWidth||300,h=img.naturalHeight||300,s=Math.min(1,MAX/Math.max(w,h)),i;
+  var MAX=1400,w=img.naturalWidth||300,h=img.naturalHeight||300,s=Math.min(1,MAX/Math.max(w,h)),i;
   w=Math.max(1,Math.round(w*s));h=Math.max(1,Math.round(h*s));
   var c=document.createElement('canvas');c.width=w;c.height=h;var x=c.getContext('2d');
   x.drawImage(img,0,0,w,h);var d=x.getImageData(0,0,w,h),p=d.data;
   var trans=0;for(i=3;i<p.length;i+=4){if(p[i]<250)trans++;}
-  if(trans<=w*h*0.02){                       // no real alpha -> knock out the near-uniform bg sampled at corners
-    var c0=[p[0],p[1],p[2]],c1=[p[(w-1)*4],p[(w-1)*4+1],p[(w-1)*4+2]],
-        c2=[p[(h-1)*w*4],p[(h-1)*w*4+1],p[(h-1)*w*4+2]],c3=[p[((h*w)-1)*4],p[((h*w)-1)*4+1],p[((h*w)-1)*4+2]];
-    var br=[(c0[0]+c1[0]+c2[0]+c3[0])/4,(c0[1]+c1[1]+c2[1]+c3[1])/4,(c0[2]+c1[2]+c2[2]+c3[2])/4],T=46*46;
-    for(i=0;i<p.length;i+=4){var dr=p[i]-br[0],dg=p[i+1]-br[1],db=p[i+2]-br[2];
-      if(dr*dr+dg*dg+db*db<T)p[i+3]=0;}
+  if(trans<=w*h*0.02){                       // edge flood-fill knockout (preserves interior light areas; survives non-uniform bg)
+    var N=w*h, br=[0,0,0], bn=0;
+    function acc(ix,iy){var o=(iy*w+ix)*4;br[0]+=p[o];br[1]+=p[o+1];br[2]+=p[o+2];bn++;}
+    for(i=0;i<w;i++){acc(i,0);acc(i,h-1);} for(i=1;i<h-1;i++){acc(0,i);acc(w-1,i);}
+    br=[br[0]/bn,br[1]/bn,br[2]/bn];
+    var TOL=62*62, seen=new Uint8Array(N), stack=[];
+    function push(idx){if(!seen[idx]){seen[idx]=1;stack.push(idx);}}
+    for(i=0;i<w;i++){push(i);push((h-1)*w+i);} for(i=0;i<h;i++){push(i*w);push(i*w+w-1);}
+    while(stack.length){var idx=stack.pop(),o=idx*4,dr=p[o]-br[0],dg=p[o+1]-br[1],db=p[o+2]-br[2];
+      if(dr*dr+dg*dg+db*db>TOL)continue; p[o+3]=0;
+      var xx=idx%w, yy=(idx/w)|0;
+      if(xx>0)push(idx-1); if(xx<w-1)push(idx+1); if(yy>0)push(idx-w); if(yy<h-1)push(idx+w);}
   }
   var minx=w,miny=h,maxx=0,maxy=0,any=false,xx,yy;
   for(yy=0;yy<h;yy++)for(xx=0;xx<w;xx++){if(p[(yy*w+xx)*4+3]>16){any=true;if(xx<minx)minx=xx;if(xx>maxx)maxx=xx;if(yy<miny)miny=yy;if(yy>maxy)maxy=yy;}}
