@@ -684,6 +684,24 @@
      "rgb": "#f2681c",
      "front": "tee_front_g.jpg",
      "back": "tee_back_g.jpg"
+    },
+    {
+     "name": "Hi-Vis Yellow",
+     "rgb": "#e9e800",
+     "front": "tee__yellow.jpg",
+     "back": "tee__yellow_b.jpg"
+    },
+    {
+     "name": "Black",
+     "rgb": "#2c2c2c",
+     "front": "tee__black.jpg",
+     "back": "tee__black_b.jpg"
+    },
+    {
+     "name": "Navy",
+     "rgb": "#3a414d",
+     "front": "tee__navy.jpg",
+     "back": "tee__navy_b.jpg"
     }
    ],
    "places": [
@@ -729,6 +747,24 @@
      "rgb": "#f2681c",
      "front": "tvest_front_g.jpg",
      "back": "tvest_back_g.jpg"
+    },
+    {
+     "name": "Hi-Vis Yellow",
+     "rgb": "#f7fb00",
+     "front": "tvest__yellow.jpg",
+     "back": "tvest__yellow_b.jpg"
+    },
+    {
+     "name": "Black",
+     "rgb": "#2c2c2c",
+     "front": "tvest__black.jpg",
+     "back": "tvest__black_b.jpg"
+    },
+    {
+     "name": "Navy",
+     "rgb": "#343d55",
+     "front": "tvest__navy.jpg",
+     "back": "tvest__navy_b.jpg"
     }
    ],
    "places": [
@@ -774,6 +810,24 @@
      "rgb": "#f2681c",
      "front": "hoodie_front_g.jpg",
      "back": "hoodie_back_g.jpg"
+    },
+    {
+     "name": "Hi-Vis Yellow",
+     "rgb": "#f7f901",
+     "front": "hoodie__yellow.jpg",
+     "back": "hoodie__yellow_b.jpg"
+    },
+    {
+     "name": "Black",
+     "rgb": "#252525",
+     "front": "hoodie__black.jpg",
+     "back": "hoodie__black_b.jpg"
+    },
+    {
+     "name": "Navy",
+     "rgb": "#1c233e",
+     "front": "hoodie__navy.jpg",
+     "back": "hoodie__navy_b.jpg"
     }
    ],
    "places": [
