@@ -135,6 +135,11 @@ button{font:inherit;cursor:pointer;border:0;background:none;color:inherit}
 .crow{display:flex;justify-content:space-between;font-size:14px;margin-bottom:6px}
 .crow.tot{font-size:18px;font-weight:900;margin:8px 0}
 .csetup{font-size:11.5px;color:var(--mut);line-height:1.5;margin:6px 0 14px}
+.setupbrk{margin:-2px 0 8px;padding:8px 10px;background:var(--bg);border:1px solid var(--line);border-radius:9px}
+.setupbrk .sbk,.coreview .r.sbk{display:flex;justify-content:space-between;gap:10px;font-size:11.5px;color:var(--mut);padding:2px 0;font-weight:500}
+.setupbrk .sbk span:first-child,.coreview .r.sbk span:first-child{font-weight:500}
+.setupbrk .sbk span:last-child{white-space:nowrap;font-variant-numeric:tabular-nums}
+.coreview .r.sbk{padding:2px 0 2px 8px}
 .checkout{width:100%;background:var(--a);color:#fff;font-weight:800;font-size:16px;padding:15px;border-radius:14px;transition:transform .1s,filter .1s}
 .checkout:hover{filter:brightness(1.06)}.checkout:active{transform:scale(.99)}
 .checkout[disabled]{opacity:.45;pointer-events:none}
