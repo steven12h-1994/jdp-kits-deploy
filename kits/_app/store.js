@@ -70,15 +70,17 @@ function buildStore(){
      '<h1>'+esc(CFG.client)+"'s branded apparel — your logo, already on it.</h1>"+
      '<p>We picked the kit; you just choose colours &amp; quantities and send it back for a quote. No design work.</p>'+
      '<div class="herochips">'+chips+'</div></div></section>'+
+   ((office&&field)?('<nav class="tabs"><div class="w tabsin"><button class="tab on" data-t="sec-office">Office &amp; client-facing</button><button class="tab" data-t="sec-field">Job-site &amp; hi-vis</button></div></nav>'):'')+
    '<main class="w">'+
-     '<section class="sec"><div class="seclbl">Office &amp; client-facing</div><div class="secsub">Tap an item to choose colour &amp; quantity.</div><div class="menu">'+office+'</div></section>'+
-     (field?'<section class="sec"><div class="seclbl">Job-site &amp; hi-vis</div><div class="secsub">CSA-rated, logo-ready.</div><div class="menu">'+field+'</div></section>':'')+
+     (office?'<section class="sec" id="sec-office"><div class="seclbl">Office &amp; client-facing</div><div class="secsub">Tap an item to choose colour &amp; quantity.</div><div class="menu">'+office+'</div></section>':'')+
+     (field?'<section class="sec" id="sec-field"><div class="seclbl">Job-site &amp; hi-vis</div><div class="secsub">CSA-rated, logo-ready.</div><div class="menu">'+field+'</div></section>':'')+
    '</main>'+
    '<footer>Just Deals Promotions · Branded Workwear &amp; Safety Apparel · Prepared for '+esc(CFG.client)+' · Concept mockups on representative product photography; pricing by exact quote.</footer>'+
    '<div class="ov" id="ov"></div>'+
    '<div class="sheet" id="sheet"></div>'+
    '<aside class="cart" id="cart"></aside>'+
-   '<div class="cbar" id="cbar"><div class="cbarin"><button class="cbarbtn" id="openCart2"><span class="n" id="cbarN">0</span> View your kit <span class="p" id="cbarP"></span></button></div></div>';
+   '<div class="cbar" id="cbar"><div class="cbarin"><button class="cbarbtn" id="openCart2"><span class="n" id="cbarN">0</span> View your kit <span class="p" id="cbarP"></span></button></div></div>'+
+   '<div class="toast" id="toast"><span class="k">✓</span><span id="toastM">Added</span></div>';
   document.getElementById('app').innerHTML=html;
   document.getElementById('openCart').addEventListener('click',openCart);
   document.getElementById('openCart2').addEventListener('click',openCart);
@@ -86,7 +88,14 @@ function buildStore(){
   document.querySelectorAll('.mcard').forEach(function(card){
     card.addEventListener('click',function(e){openSheet(card.dataset.key);});
   });
+  document.querySelectorAll('.tab').forEach(function(t){t.addEventListener('click',function(){
+    document.querySelectorAll('.tab').forEach(function(x){x.classList.toggle('on',x===t);});
+    var el=document.getElementById(t.dataset.t);if(el)window.scrollTo({top:el.getBoundingClientRect().top+window.pageYOffset-110,behavior:'smooth'});});});
+  document.querySelectorAll('.mstage .g').forEach(function(im){if(im.complete)im.classList.add('ld');else im.addEventListener('load',function(){im.classList.add('ld');});});
+  document.addEventListener('keydown',function(e){if(e.key==='Escape')closeAll();});
 }
+var TT;
+function toast(msg){var t=document.getElementById('toast'),m=document.getElementById('toastM');if(!t)return;if(m)m.textContent=msg||'Added to your kit';t.classList.add('on');clearTimeout(TT);TT=setTimeout(function(){t.classList.remove('on');},1900);}
 
 /* ---------- item sheet ---------- */
 var SH={key:null,colour:null,face:'front',places:{},qty:12};
@@ -120,6 +129,9 @@ function renderSheet(){
     return '<button class="pchip'+(SH.places[p.id]?' on':'')+(na?' na':'')+'" data-pl="'+p.id+'">'+esc(p.label)+'</button>';}).join('');
   var faceTog=hasBack?'<div class="chips" style="margin-top:10px"><button class="pchip'+(SH.face==='front'?' on':'')+'" data-face="front">Front</button><button class="pchip'+(SH.face==='back'?' on':'')+'" data-face="back">Back</button></div>':'';
   var unit=unitAt(item,SH.qty),line=unit*SH.qty;
+  var p0=item.prices[0],pN=item.prices[item.prices.length-1],topcol=CFG.pricing.cols[CFG.pricing.cols.length-1];
+  var sv=p0>0?Math.round((1-pN/p0)*100):0;
+  var qh=money(unit)+' ea at '+SH.qty+' pcs'+(sv>0?' · <span class="save">save '+sv+'% at '+topcol+'+</span>':'');
   document.getElementById('sheet').innerHTML=
     '<div class="shimg" id="shimg"><button class="shx" id="shx">✕</button><img class="g" src="'+o.g+'" alt=""> '+o.lg+'</div>'+
     '<div class="shb"><h2>'+esc(item.name)+'</h2><div class="shsku">'+esc(item.sku)+' · '+esc(item.method||'Embroidered')+'</div>'+
@@ -128,7 +140,7 @@ function renderSheet(){
     '<div class="optlbl">Logo placement</div><div class="chips" data-role="pl">'+pchips+'</div>'+faceTog+
     '<div class="optlbl">Quantity <i>('+moq()+' minimum)</i></div>'+
     '<div class="qty"><button data-q="-1">–</button><input id="qin" type="number" inputmode="numeric" value="'+SH.qty+'" min="'+moq()+'"><button data-q="1">+</button></div>'+
-    '<div class="qhint" id="qhint">'+money(unit)+' ea at '+SH.qty+' pcs · price drops at 48 &amp; 144</div>'+
+    '<div class="qhint" id="qhint">'+qh+'</div>'+
     '<div class="shadd"><button class="shaddbtn" id="shAdd">'+(CART[SH.key]?'Update kit':'Add to kit')+'<span class="p">'+money(line)+'</span></button></div></div>';
   var sh=document.getElementById('sheet');
   document.getElementById('shx').addEventListener('click',closeAll);
@@ -141,9 +153,11 @@ function renderSheet(){
 }
 function swapPreview(){var im=document.getElementById('shimg');if(im){im.classList.add('sw');setTimeout(function(){im.classList.remove('sw');},220);}}
 function addFromSheet(){
+  var was=!!CART[SH.key];
   var places=Object.keys(SH.places).filter(function(k){return SH.places[k];});
   CART[SH.key]={qty:SH.qty,colour:SH.colour,places:places};
-  saveCart();refreshCartUI();closeAll();openCart();
+  saveCart();closeAll();refreshCartUI();
+  toast((was?'Updated · ':'Added · ')+BYKEY[SH.key].name);
 }
 
 /* ---------- cart ---------- */
@@ -191,10 +205,13 @@ function closeAll(){['ov','sheet','cart'].forEach(function(id){var e=document.ge
 function openCheckout(){
   var sub=cartSubtotal();
   var saved=JSON.parse(localStorage.getItem(LSKEY+'_who')||'{}');
+  var review=Object.keys(CART).map(function(k){var it=BYKEY[k];if(!it)return '';var c=CART[k];
+    return '<div class="r"><span>'+esc(it.name)+' · '+esc(c.colour)+' × '+c.qty+'</span><span>'+money(unitAt(it,c.qty)*c.qty)+'</span></div>';}).join('');
   document.getElementById('cart').innerHTML=
     '<div class="carth"><h2>Request your quote</h2><button class="cartx" id="cartx">✕</button></div>'+
     '<div class="citems"><div class="co">'+
       '<p style="color:var(--mut);font-size:14px;line-height:1.5;margin:10px 0 4px">Send us your kit and we’ll reply with an exact, itemised quote — usually same day. No obligation.</p>'+
+      '<div class="coreview">'+review+'</div>'+
       '<label>Your name</label><input id="coName" value="'+esc(saved.name||'')+'" placeholder="First & last">'+
       '<label>Email</label><input id="coEmail" type="email" value="'+esc(saved.email||'')+'" placeholder="you@company.com">'+
       '<label>Anything to add? (optional)</label><textarea id="coNote" placeholder="Sizes, deadlines, other items…"></textarea>'+
