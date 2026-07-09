@@ -349,14 +349,24 @@ setTimeout(function(){els.forEach(function(e){e.classList.add('in');});},1600);}
 
 (function boot(){
   var cfgEl=document.getElementById('jdpcfg'), cfg;
+  // polished load-in styles (injected so no kit.css change / cache coordination needed)
+  var s=document.createElement('style');
+  s.textContent='#app{opacity:0;transition:opacity .5s ease}#app.rdy{opacity:1}'+
+    '.jdp-load{min-height:70vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;font-family:Inter,system-ui,sans-serif;color:#8a847e}'+
+    '.jdp-spin{width:38px;height:38px;border-radius:50%;border:3px solid #e9e5e1;border-top-color:var(--a,#1BA5D8);animation:jdpspin .8s linear infinite}'+
+    '.jdp-load span.t{font-size:13px;font-weight:600;letter-spacing:.02em}@keyframes jdpspin{to{transform:rotate(360deg)}}';
+  document.head.appendChild(s);
+  function loader(){var a=document.getElementById('app');if(a){a.classList.remove('rdy');a.innerHTML='<div class="jdp-load"><span class="jdp-spin"></span><span class="t">Loading your kit…</span></div>';a.style.opacity=1;}}
+  function revealIn(){var a=document.getElementById('app');if(!a)return;a.style.opacity=0;requestAnimationFrame(function(){a.classList.add('rdy');a.style.opacity='';});}
   function go(cfg){
     try{
       if(cfg.accent)document.documentElement.style.setProperty('--a',cfg.accent);
       document.title=(cfg.client||'Branded Apparel')+' — Branded Apparel · Just Deals Promotions';
+      loader();
       var base=cfg.catalog_base||CATALOG_BASE;
       fetch(base+'/catalog.json?v='+(cfg.ver||'1')).then(function(r){return r.json();}).then(function(catalog){
-        cfg.catalog_base=base; buildPage(cfg, catalog); runWiring();
-      }).catch(function(e){var a=document.getElementById('app');if(a)a.innerHTML='<p style="padding:60px;text-align:center;font-family:Inter,sans-serif">Could not load the catalogue. Please refresh.</p>';});
+        cfg.catalog_base=base; buildPage(cfg, catalog); runWiring(); revealIn();
+      }).catch(function(e){var a=document.getElementById('app');if(a){a.style.opacity=1;a.innerHTML='<p style="padding:60px;text-align:center;font-family:Inter,sans-serif">Could not load the catalogue. Please refresh.</p>';}});
     }catch(e){var a=document.getElementById('app');if(a)a.textContent='';}
   }
   if(cfgEl){ try{cfg=JSON.parse(cfgEl.textContent);}catch(e){cfg=null;} if(cfg){go(cfg);return;} }
