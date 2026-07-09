@@ -33,9 +33,11 @@ function markup(q){var r=CFG.rates||{},mg=r.margin||[],m=(mg[0]&&mg[0][1])||2;mg
 function activeDecos(decos){return (decos||[]).filter(function(d){return d.on;});}
 function unitPrice(key,decos,q){var r=CFG.rates;if(!r||!r.margin){return unitAt(BYKEY[key],q);}
   var c=blankOf(key);activeDecos(decos).forEach(function(d){c+=decoCost(d.method);});return Math.round(c*markup(q)*100)/100;}
-function setupFor(decos){var r=CFG.rates||{},s=r.setup||{},seen={},t=0;
-  activeDecos(decos).forEach(function(d){if(seen[d.method])return;seen[d.method]=1;
-    t+=d.method==='screen'?(s.screen||0):d.method==='heat_transfer'?(s.heat_transfer||0):(s.embroidery||0);});return t;}
+function methodSetup(m,s){return m==='screen'?(s.screen||0):m==='heat_transfer'?(s.heat_transfer||0):(s.embroidery||0);}
+// A setup is charged ONCE per unique DESIGN + LOCATION + METHOD across the WHOLE kit (a stitch file /
+// set of screens / transfer is reused on every garment & quantity). Screens also depend on ink colour,
+// so screen keys include the ink; embroidery & heat-transfer are ink/thread-colour agnostic.
+function setupKey(d){return d.method==='screen' ? ('scr|'+d.lg+'|'+d.pl+'|'+(d.ink||'auto')) : (d.method+'|'+d.lg+'|'+d.pl);}
 function recDecos(key){return ((CFG.items||{})[key]||{}).decos||[];}
 
 /* ---------- persistence ---------- */
@@ -202,7 +204,10 @@ function addRecommended(){
 /* ---------- cart ---------- */
 function cartCount(){return Object.keys(CART).length;}
 function cartSubtotal(){var t=0;Object.keys(CART).forEach(function(k){var it=BYKEY[k];if(!it)return;var c=CART[k];t+=unitPrice(k,c.decos,c.qty)*c.qty;});return t;}
-function cartSetup(){var t=0;Object.keys(CART).forEach(function(k){t+=setupFor(CART[k].decos);});return t;}
+function cartSetup(){var r=CFG.rates||{},s=r.setup||{},seen={},t=0;
+  Object.keys(CART).forEach(function(k){(CART[k].decos||[]).forEach(function(d){if(!d.on)return;
+    var key=setupKey(d);if(seen[key])return;seen[key]=1;t+=methodSetup(d.method,s);});});
+  return Math.round(t*100)/100;}
 function decoSummary(it,c){return (c.decos||[]).map(function(d){var p=placeOf(it,d.pl);return (p?p.label:d.pl)+' ('+(MLAB[d.method]||'Emb')+')';}).join(' + ')||'left chest';}
 function refreshCartUI(){
   var n=cartCount(),sub=cartSubtotal();
@@ -229,8 +234,8 @@ function renderCart(){
     '<div class="citems" id="citems">'+body+'</div>'+
     '<div class="cartf">'+
       '<div class="crow"><span>Estimated subtotal</span><b>'+money(sub)+'</b></div>'+
-      (setup>0?'<div class="crow"><span>One-time setup (decoration)</span><span>'+money(setup)+'</span></div>':'')+
-      '<div class="csetup">Decorated, per piece · screen print, embroidery &amp; heat-transfer priced in. Setup is one-time; reorders are garment + decoration only. Your exact itemised quote is confirmed before anything runs.</div>'+
+      (setup>0?'<div class="crow"><span>One-time setup <i style="color:var(--mut);font-weight:600;font-style:normal">· shared per logo & spot</i></span><span>'+money(setup)+'</span></div>':'')+
+      '<div class="csetup">Decorated, per piece · screen print, embroidery &amp; heat-transfer priced in. Setup is charged once per logo &amp; location and reused across every item — reorders are garment + decoration only. Your exact itemised quote is confirmed before anything runs.</div>'+
       '<button class="checkout" id="checkout"'+(keys.length?'':' disabled')+'>Request my quote →</button>'+
     '</div>';
   document.getElementById('cartx').addEventListener('click',closeAll);
