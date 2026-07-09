@@ -96,6 +96,7 @@ function buildStore(){
   var office=(CFG.order.office||[]).map(menuCard).join('');
   var field=(CFG.order.field||[]).map(menuCard).join('');
   var chips=(C.chips||[]).slice(0,3).map(function(c){return '<span class="hchip">'+esc(c[0])+'</span>';}).join('');
+  var heroart=(CFG.heroes||[]).slice(0,3).map(function(h){return '<div class="ha"><img src="'+h+'" alt="" loading="eager" decoding="async"></div>';}).join('');
   var html=''+
    '<header class="hdr"><div class="w hdrin"><span class="brand"><img src="'+(CFG.cover_logo||'img/logo-white.png')+'" onerror="this.style.display=\'none\'" alt=""><b>'+esc(CFG.client)+'</b> <i>×</i> Just Deals</span>'+
      '<button class="cartbtn" id="openCart"><span class="lbl">Your kit</span> <span class="n" id="cartN">0</span></button></div></header>'+
@@ -104,12 +105,16 @@ function buildStore(){
      '<p>We picked the kit; you just choose colours &amp; quantities and send it back for a quote. No design work.</p>'+
      '<div class="herochips">'+chips+'</div>'+
      '<div class="herorow"><button class="herocta" id="addRec">★ Add the whole recommended kit</button>'+
-     '<span class="herohint">or tap any item below to tweak it</span></div></div></section>'+
+     '<span class="herohint">or tap any item below to pick colour &amp; quantity</span></div>'+
+     (heroart?'<div class="heroart">'+heroart+'</div>':'')+'</div></section>'+
    ((office&&field)?('<nav class="tabs"><div class="w tabsin"><button class="tab on" data-t="sec-office">Office &amp; client-facing</button><button class="tab" data-t="sec-field">Job-site &amp; hi-vis</button></div></nav>'):'')+
    '<main class="w">'+
      (office?'<section class="sec" id="sec-office"><div class="seclbl">Office &amp; client-facing</div><div class="secsub">Hit <b>Add</b> for our recommended setup, or tap an item to pick colour, size the run &amp; tweak the logo.</div><div class="menu">'+office+'</div></section>':'')+
      (field?'<section class="sec" id="sec-field"><div class="seclbl">Job-site &amp; hi-vis</div><div class="secsub">CSA-rated, logo-ready. Hit <b>Add</b>, or tap to customize.</div><div class="menu">'+field+'</div></section>':'')+
    '</main>'+
+   (C.feed?('<section class="social"><div class="w"><div class="seclbl">Recent work — straight from our shop floor</div>'+
+     '<p class="socsub">'+esc(C.work_lead||'Real kits we’ve decorated for crews across the country.')+'</p>'+
+     '<behold-widget feed-id="'+esc(C.feed)+'"></behold-widget></div></section>'):'')+
    '<footer>Just Deals Promotions · Branded Workwear &amp; Safety Apparel · Prepared for '+esc(CFG.client)+' · Concept mockups on representative product photography; pricing by exact quote.</footer>'+
    '<div class="ov" id="ov"></div>'+
    '<div class="sheet" id="sheet"></div>'+
@@ -134,6 +139,8 @@ function buildStore(){
     var el=document.getElementById(t.dataset.t);if(el)window.scrollTo({top:el.getBoundingClientRect().top+window.pageYOffset-110,behavior:'smooth'});});});
   document.querySelectorAll('.mstage .g').forEach(function(im){if(im.complete)im.classList.add('ld');else im.addEventListener('load',function(){im.classList.add('ld');});});
   document.addEventListener('keydown',function(e){if(e.key==='Escape')closeAll();});
+  // Instagram social proof (Behold) — load the widget module once when a feed is configured.
+  if(C.feed&&!document.getElementById('beholdjs')){var bs=document.createElement('script');bs.id='beholdjs';bs.type='module';bs.src='https://w.behold.so/widget.js';document.head.appendChild(bs);}
 }
 var TT;
 function toast(msg){var t=document.getElementById('toast'),m=document.getElementById('toastM');if(!t)return;if(m)m.textContent=msg||'Added to your kit';t.classList.add('on');clearTimeout(TT);TT=setTimeout(function(){t.classList.remove('on');},1900);}
