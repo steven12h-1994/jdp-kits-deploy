@@ -3,6 +3,8 @@
   "files": [
     "kit.css",
     "kit.js",
-    "app.js"
+    "app.js",
+    "store.css",
+    "store.js"
   ]
 }
