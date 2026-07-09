@@ -20,6 +20,19 @@ function placeOf(item,pid){for(var i=0;i<item.places.length;i++)if(item.places[i
 function vmOf(key){return (CFG.items||{})[key]||{colour:(BYKEY[key].cols[0]||{}).name,decos:[]};}
 function unitAt(item,q){var cs=CFG.pricing.cols,pr=item.prices,i=0;for(var k=0;k<cs.length;k++){if(q>=cs[k])i=k;}return pr[i];}
 function moq(){return (CFG.pricing.cols&&CFG.pricing.cols[0])||12;}
+/* ---- decoration-aware pricing (mirrors the server rate card) ---- */
+var MLAB={embroidery:'Embroidery',screen:'Screen print',heat_transfer:'Heat transfer'};
+var METHODS=['embroidery','screen','heat_transfer'];
+function blankOf(key){var r=CFG.rates||{};return (r.blank&&r.blank[key]!=null)?r.blank[key]:((BYKEY[key]||{}).blank||0);}
+function decoCost(m){var r=CFG.rates||{};return m==='screen'?(r.screen||0):m==='heat_transfer'?(r.ht||0):(r.emb||0);}
+function markup(q){var r=CFG.rates||{},mg=r.margin||[],m=(mg[0]&&mg[0][1])||2;mg.forEach(function(t){if(q>=t[0])m=t[1];});return m;}
+function activeDecos(decos){return (decos||[]).filter(function(d){return d.on;});}
+function unitPrice(key,decos,q){var r=CFG.rates;if(!r||!r.margin){return unitAt(BYKEY[key],q);}
+  var c=blankOf(key);activeDecos(decos).forEach(function(d){c+=decoCost(d.method);});return Math.round(c*markup(q)*100)/100;}
+function setupFor(decos){var r=CFG.rates||{},s=r.setup||{},seen={},t=0;
+  activeDecos(decos).forEach(function(d){if(seen[d.method])return;seen[d.method]=1;
+    t+=d.method==='screen'?(s.screen||0):d.method==='heat_transfer'?(s.heat_transfer||0):(s.embroidery||0);});return t;}
+function recDecos(key){return ((CFG.items||{})[key]||{}).decos||[];}
 
 /* ---------- persistence ---------- */
 function loadCart(){try{CART=JSON.parse(localStorage.getItem(LSKEY))||{};}catch(e){CART={};}}
@@ -45,15 +58,19 @@ function menuCard(key){
   var o=overlayHtml(item,vm,vm.colour,'front');
   var dots=item.cols.slice(0,5).map(function(c){return '<span class="mdot" style="background:'+c.rgb+'"></span>';}).join('')+
            (item.cols.length>5?'<span class="mdot more">+'+(item.cols.length-5)+'</span>':'');
-  var placeNames=(vm.decos||[]).filter(function(d){return d.on;}).map(function(d){var p=placeOf(item,d.pl);return p?p.label:'';}).filter(Boolean);
+  var act=activeDecos(vm.decos);
+  var placeNames=act.map(function(d){var p=placeOf(item,d.pl);return p?p.label:'';}).filter(Boolean);
+  var meth=act.length?(MLAB[act[0].method]||'Embroidery'):'Embroidered';
   var meta=item.sku+' · '+(placeNames.join(' + ')||'left chest');
+  var topcol=CFG.pricing.cols[CFG.pricing.cols.length-1];
+  var fromP=unitPrice(key,vm.decos,topcol);
   var rec=(key===CFG.feature||item.rec)?'<span class="mrec">Top pick</span>':'';
   var inkit=CART[key]?' inkit':'';
-  return '<div class="mcard'+inkit+'" data-key="'+key+'">'+rec+
+  return '<div class="mcard'+inkit+'" data-key="'+key+'" tabindex="0">'+rec+
     '<div class="mstage"><img class="g" src="'+o.g+'" alt="'+esc(item.name)+'" loading="lazy" decoding="async">'+o.lg+'</div>'+
-    '<div class="mb"><h3>'+esc(item.name)+'</h3><div class="mmeta">'+esc(meta)+'</div>'+
+    '<div class="mb"><h3>'+esc(item.name)+'</h3><div class="mmeta">'+esc(meta)+' · '+esc(meth)+'</div>'+
     '<div class="mdots">'+dots+'</div>'+
-    '<div class="mfoot"><div class="mprice">from '+money(item.prices[item.prices.length-1])+' <small>ea</small></div>'+
+    '<div class="mfoot"><div class="mprice">from '+money(fromP)+' <small>ea</small></div>'+
     '<button class="madd" data-key="'+key+'">'+(CART[key]?'In kit':'Add')+'</button></div></div></div>';
 }
 
@@ -98,54 +115,55 @@ var TT;
 function toast(msg){var t=document.getElementById('toast'),m=document.getElementById('toastM');if(!t)return;if(m)m.textContent=msg||'Added to your kit';t.classList.add('on');clearTimeout(TT);TT=setTimeout(function(){t.classList.remove('on');},1900);}
 
 /* ---------- item sheet ---------- */
-var SH={key:null,colour:null,face:'front',places:{},qty:12};
+var SH={key:null,colour:null,face:'front',D:{},qty:12};
 function openSheet(key){
-  var item=BYKEY[key],vm=vmOf(key);
-  var existing=CART[key];
-  SH={key:key,colour:(existing&&existing.colour)||vm.colour,face:'front',places:{},qty:(existing&&existing.qty)||moq()};
-  // seed placement toggles from cart or recommendation
+  var item=BYKEY[key],vm=vmOf(key),ex=CART[key],exmap={};
+  if(ex&&ex.decos){ex.decos.forEach(function(d){exmap[d.pl]=d;});}
+  SH={key:key,colour:(ex&&ex.colour)||vm.colour,face:'front',D:{},qty:(ex&&ex.qty)||moq()};
   (item.places||[]).forEach(function(p){if(!p.logo)return;
-    var on=false;
-    if(existing&&existing.places){on=existing.places.indexOf(p.id)>=0;}
-    else{var d=(vm.decos||[]).filter(function(x){return x.pl===p.id;})[0];on=!!(d&&d.on);}
-    SH.places[p.id]=on;});
+    var rd=(vm.decos||[]).filter(function(x){return x.pl===p.id;})[0]||{},use=exmap[p.id];
+    SH.D[p.id]={on: ex?!!use:!!rd.on, lg:(use&&use.lg)||rd.lg||(CFG.logos[0]||{}).id,
+                ink:(use&&use.ink)||rd.ink||'auto', method:(use&&use.method)||rd.method||'embroidery'};});
   renderSheet();
   document.getElementById('ov').classList.add('on');
   document.getElementById('sheet').classList.add('on');
   document.body.style.overflow='hidden';
 }
-function sheetDecos(){var item=BYKEY[SH.key],vm=vmOf(SH.key);
-  return (item.places||[]).filter(function(p){return p.logo;}).map(function(p){
-    var d=(vm.decos||[]).filter(function(x){return x.pl===p.id;})[0]||{};
-    return {pl:p.id,on:!!SH.places[p.id],lg:d.lg||(CFG.logos[0]||{}).id,ink:d.ink||'auto',method:d.method||'embroidery'};});
-}
+function sheetDecos(){return Object.keys(SH.D).map(function(pl){var d=SH.D[pl];return {pl:pl,on:d.on,lg:d.lg,ink:d.ink,method:d.method};});}
 function renderSheet(){
-  var item=BYKEY[SH.key];var col=colOf(item,SH.colour);
-  var o=overlayHtml(item,{decos:sheetDecos()},SH.colour,SH.face);
-  var hasBack=o.hasBack;
+  var item=BYKEY[SH.key];
+  var o=overlayHtml(item,{decos:sheetDecos()},SH.colour,SH.face);var hasBack=o.hasBack;
+  var multi=CFG.logos.length>1;
   var chips=item.cols.map(function(c){return '<button class="cchip'+(c.name===SH.colour?' on':'')+'" data-col="'+esc(c.name)+'" style="background-image:url('+gurl(c.front)+')" title="'+esc(c.name)+'"></button>';}).join('');
-  var pchips=(item.places||[]).filter(function(p){return p.logo;}).map(function(p){
-    var na=(p.face==='back'&&!hasBack);
-    return '<button class="pchip'+(SH.places[p.id]?' on':'')+(na?' na':'')+'" data-pl="'+p.id+'">'+esc(p.label)+'</button>';}).join('');
-  var faceTog=hasBack?'<div class="chips" style="margin-top:10px"><button class="pchip'+(SH.face==='front'?' on':'')+'" data-face="front">Front</button><button class="pchip'+(SH.face==='back'?' on':'')+'" data-face="back">Back</button></div>':'';
-  var unit=unitAt(item,SH.qty),line=unit*SH.qty;
-  var p0=item.prices[0],pN=item.prices[item.prices.length-1],topcol=CFG.pricing.cols[CFG.pricing.cols.length-1];
-  var sv=p0>0?Math.round((1-pN/p0)*100):0;
+  var rows=(item.places||[]).filter(function(p){return p.logo;}).map(function(p){
+    var d=SH.D[p.id],na=(p.face==='back'&&!hasBack);
+    var logos=multi?('<div class="dlogos">'+CFG.logos.map(function(L){return '<button class="dlg2'+(L.id===d.lg?' on':'')+'" data-pl="'+p.id+'" data-lg="'+L.id+'" title="'+esc(L.label||'Logo')+'" style="background-image:url('+(L.inks.dark||L.inks.brand)+')"></button>';}).join('')+'</div>'):'';
+    var mp='<div class="mpills">'+METHODS.map(function(m){return '<button class="mp'+(m===d.method?' on':'')+'" data-pl="'+p.id+'" data-m="'+m+'">'+MLAB[m]+'</button>';}).join('')+'</div>';
+    return '<div class="drow'+(d.on?' on':'')+(na?' na':'')+'" data-pl="'+p.id+'">'+
+      '<button class="dtog" data-pl="'+p.id+'"><span class="dck"></span>'+esc(p.label)+(na?' <em>— needs a colour with a back</em>':'')+'</button>'+
+      '<div class="dctl">'+logos+mp+'</div></div>';}).join('');
+  var faceTog=hasBack?'<div class="chips ftog"><button class="pchip'+(SH.face==='front'?' on':'')+'" data-face="front">Front</button><button class="pchip'+(SH.face==='back'?' on':'')+'" data-face="back">Back</button></div>':'';
+  var decos=sheetDecos();
+  var unit=unitPrice(SH.key,decos,SH.qty),line=unit*SH.qty,topcol=CFG.pricing.cols[CFG.pricing.cols.length-1];
+  var uM=unitPrice(SH.key,decos,moq()),uT=unitPrice(SH.key,decos,topcol);
+  var sv=uM>0?Math.round((1-uT/uM)*100):0;
   var qh=money(unit)+' ea at '+SH.qty+' pcs'+(sv>0?' · <span class="save">save '+sv+'% at '+topcol+'+</span>':'');
   document.getElementById('sheet').innerHTML=
     '<div class="shimg" id="shimg"><button class="shx" id="shx">✕</button><img class="g" src="'+o.g+'" alt=""> '+o.lg+'</div>'+
-    '<div class="shb"><h2>'+esc(item.name)+'</h2><div class="shsku">'+esc(item.sku)+' · '+esc(item.method||'Embroidered')+'</div>'+
-    (item.blurb?'<p class="shblurb">'+esc(item.blurb)+'</p>':'')+
-    '<div class="optlbl">Colour <i id="colName">'+esc(SH.colour)+'</i></div><div class="chips" data-role="col">'+chips+'</div>'+
-    '<div class="optlbl">Logo placement</div><div class="chips" data-role="pl">'+pchips+'</div>'+faceTog+
+    '<div class="shb"><h2>'+esc(item.name)+'</h2><div class="shsku">'+esc(item.sku)+'</div>'+
+    (item.blurb?'<p class="shblurb">'+esc(item.blurb)+'</p>':'')+faceTog+
+    '<div class="optlbl">Colour <i>'+esc(SH.colour)+'</i></div><div class="chips" data-role="col">'+chips+'</div>'+
+    '<div class="optlbl">Your logo — pick the spots &amp; decoration</div><div class="decos2">'+rows+'</div>'+
     '<div class="optlbl">Quantity <i>('+moq()+' minimum)</i></div>'+
     '<div class="qty"><button data-q="-1">–</button><input id="qin" type="number" inputmode="numeric" value="'+SH.qty+'" min="'+moq()+'"><button data-q="1">+</button></div>'+
-    '<div class="qhint" id="qhint">'+qh+'</div>'+
+    '<div class="qhint">'+qh+'</div>'+
     '<div class="shadd"><button class="shaddbtn" id="shAdd">'+(CART[SH.key]?'Update kit':'Add to kit')+'<span class="p">'+money(line)+'</span></button></div></div>';
   var sh=document.getElementById('sheet');
   document.getElementById('shx').addEventListener('click',closeAll);
   sh.querySelectorAll('.cchip').forEach(function(b){b.addEventListener('click',function(){SH.colour=b.dataset.col;swapPreview();renderSheet();});});
-  sh.querySelectorAll('[data-role=pl] .pchip').forEach(function(b){b.addEventListener('click',function(){if(b.classList.contains('na'))return;SH.places[b.dataset.pl]=!SH.places[b.dataset.pl];if(SH.places[b.dataset.pl]){var p=placeOf(item,b.dataset.pl);SH.face=(p.face==='back')?'back':'front';}renderSheet();});});
+  sh.querySelectorAll('.dtog').forEach(function(b){b.addEventListener('click',function(){var pl=b.dataset.pl,p=placeOf(item,pl);if(p.face==='back'&&!colOf(item,SH.colour).back)return;SH.D[pl].on=!SH.D[pl].on;if(SH.D[pl].on)SH.face=(p.face==='back')?'back':'front';renderSheet();});});
+  sh.querySelectorAll('.dlg2').forEach(function(b){b.addEventListener('click',function(){SH.D[b.dataset.pl].lg=b.dataset.lg;renderSheet();});});
+  sh.querySelectorAll('.mp').forEach(function(b){b.addEventListener('click',function(){SH.D[b.dataset.pl].method=b.dataset.m;renderSheet();});});
   sh.querySelectorAll('[data-face]').forEach(function(b){b.addEventListener('click',function(){SH.face=b.dataset.face;renderSheet();});});
   sh.querySelectorAll('.qty button').forEach(function(b){b.addEventListener('click',function(){var step=parseInt(b.dataset.q,10)*(SH.qty<48?6:12);SH.qty=Math.max(moq(),SH.qty+step);renderSheet();});});
   document.getElementById('qin').addEventListener('change',function(e){SH.qty=Math.max(moq(),parseInt(e.target.value,10)||moq());renderSheet();});
@@ -153,16 +171,18 @@ function renderSheet(){
 }
 function swapPreview(){var im=document.getElementById('shimg');if(im){im.classList.add('sw');setTimeout(function(){im.classList.remove('sw');},220);}}
 function addFromSheet(){
-  var was=!!CART[SH.key];
-  var places=Object.keys(SH.places).filter(function(k){return SH.places[k];});
-  CART[SH.key]={qty:SH.qty,colour:SH.colour,places:places};
+  var was=!!CART[SH.key],decos=[];
+  Object.keys(SH.D).forEach(function(pl){var d=SH.D[pl];if(d.on)decos.push({pl:pl,lg:d.lg,ink:d.ink,method:d.method});});
+  CART[SH.key]={qty:SH.qty,colour:SH.colour,decos:decos};
   saveCart();closeAll();refreshCartUI();
   toast((was?'Updated · ':'Added · ')+BYKEY[SH.key].name);
 }
 
 /* ---------- cart ---------- */
 function cartCount(){return Object.keys(CART).length;}
-function cartSubtotal(){var t=0;Object.keys(CART).forEach(function(k){var it=BYKEY[k];if(!it)return;var c=CART[k];t+=unitAt(it,c.qty)*c.qty;});return t;}
+function cartSubtotal(){var t=0;Object.keys(CART).forEach(function(k){var it=BYKEY[k];if(!it)return;var c=CART[k];t+=unitPrice(k,c.decos,c.qty)*c.qty;});return t;}
+function cartSetup(){var t=0;Object.keys(CART).forEach(function(k){t+=setupFor(CART[k].decos);});return t;}
+function decoSummary(it,c){return (c.decos||[]).map(function(d){var p=placeOf(it,d.pl);return (p?p.label:d.pl)+' ('+(MLAB[d.method]||'Emb')+')';}).join(' + ')||'left chest';}
 function refreshCartUI(){
   var n=cartCount(),sub=cartSubtotal();
   var cn=document.getElementById('cartN');if(cn)cn.textContent=n;
@@ -175,20 +195,21 @@ function openCart(){renderCart();document.getElementById('ov').classList.add('on
 function renderCart(){
   var keys=Object.keys(CART),sub=cartSubtotal();
   var items=keys.map(function(k){var it=BYKEY[k];if(!it)return '';var c=CART[k];var col=colOf(it,c.colour);
-    var placeNames=(c.places||[]).map(function(pid){var p=placeOf(it,pid);return p?p.label:'';}).filter(Boolean).join(' + ')||'left chest';
-    var unit=unitAt(it,c.qty);
+    var unit=unitPrice(k,c.decos,c.qty);
     return '<div class="ci" data-key="'+k+'"><div class="t" style="background-image:url('+gurl(col.front)+')"></div>'+
-      '<div class="d"><h4>'+esc(it.name)+'</h4><div class="sub">'+esc(c.colour)+' · '+esc(placeNames)+'</div>'+
+      '<div class="d"><h4>'+esc(it.name)+'</h4><div class="sub">'+esc(c.colour)+' · '+esc(decoSummary(it,c))+'</div>'+
       '<div class="row"><div class="qty"><button data-q="-1">–</button><input class="ciq" type="number" value="'+c.qty+'" min="'+moq()+'"><button data-q="1">+</button></div>'+
       '<div class="lp">'+money(unit*c.qty)+'</div></div>'+
       '<div class="rm" data-rm="'+k+'">Remove</div></div></div>';}).join('');
   var body=keys.length?items:'<div class="cempty">Your kit is empty.<br>Tap any item to add it.</div>';
+  var setup=cartSetup();
   document.getElementById('cart').innerHTML=
     '<div class="carth"><h2>Your kit</h2><button class="cartx" id="cartx">✕</button></div>'+
     '<div class="citems" id="citems">'+body+'</div>'+
     '<div class="cartf">'+
       '<div class="crow"><span>Estimated subtotal</span><b>'+money(sub)+'</b></div>'+
-      '<div class="csetup">Decorated, per piece. One-time setup: '+esc(CFG.pricing.setup_line||'')+'. Your exact itemised quote is confirmed before anything runs.</div>'+
+      (setup>0?'<div class="crow"><span>One-time setup (decoration)</span><span>'+money(setup)+'</span></div>':'')+
+      '<div class="csetup">Decorated, per piece · screen print, embroidery &amp; heat-transfer priced in. Setup is one-time; reorders are garment + decoration only. Your exact itemised quote is confirmed before anything runs.</div>'+
       '<button class="checkout" id="checkout"'+(keys.length?'':' disabled')+'>Request my quote →</button>'+
     '</div>';
   document.getElementById('cartx').addEventListener('click',closeAll);
@@ -206,7 +227,7 @@ function openCheckout(){
   var sub=cartSubtotal();
   var saved=JSON.parse(localStorage.getItem(LSKEY+'_who')||'{}');
   var review=Object.keys(CART).map(function(k){var it=BYKEY[k];if(!it)return '';var c=CART[k];
-    return '<div class="r"><span>'+esc(it.name)+' · '+esc(c.colour)+' × '+c.qty+'</span><span>'+money(unitAt(it,c.qty)*c.qty)+'</span></div>';}).join('');
+    return '<div class="r"><span>'+esc(it.name)+' · '+esc(c.colour)+' × '+c.qty+'</span><span>'+money(unitPrice(k,c.decos,c.qty)*c.qty)+'</span></div>';}).join('');
   document.getElementById('cart').innerHTML=
     '<div class="carth"><h2>Request your quote</h2><button class="cartx" id="cartx">✕</button></div>'+
     '<div class="citems"><div class="co">'+
@@ -223,9 +244,9 @@ function openCheckout(){
 }
 function orderText(who){
   var lines=['Kit request — '+CFG.client,'From: '+(who.name||'')+' <'+(who.email||'')+'>','Link: '+location.href.split('#')[0],''];
-  Object.keys(CART).forEach(function(k){var it=BYKEY[k];if(!it)return;var c=CART[k];var pn=(c.places||[]).map(function(pid){var p=placeOf(it,pid);return p?p.label:'';}).filter(Boolean).join(' + ')||'left chest';
-    lines.push('• '+it.name+' — '+c.colour+' · '+pn+' · qty '+c.qty+' @ '+money(unitAt(it,c.qty))+' = '+money(unitAt(it,c.qty)*c.qty));});
-  lines.push('','Estimated subtotal: '+money(cartSubtotal())+' (+ one-time setup)');
+  Object.keys(CART).forEach(function(k){var it=BYKEY[k];if(!it)return;var c=CART[k];var u=unitPrice(k,c.decos,c.qty);
+    lines.push('• '+it.name+' — '+c.colour+' · '+decoSummary(it,c)+' · qty '+c.qty+' @ '+money(u)+' = '+money(u*c.qty));});
+  lines.push('','Estimated subtotal: '+money(cartSubtotal())+'  +  one-time setup '+money(cartSetup()));
   if(who.note)lines.push('','Note: '+who.note);
   return lines.join('\n');
 }
