@@ -11,9 +11,13 @@ var LSKEY='jdpkit_'+SLUG;
 function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function hexLum(h){h=(h||'').replace('#','');if(h.length<6)return 128;return 0.299*parseInt(h.slice(0,2),16)+0.587*parseInt(h.slice(2,4),16)+0.114*parseInt(h.slice(4,6),16);}
 function autoInk(rgb){return hexLum(rgb)<120?'white':'brand';}
+// Method-aware default ink. EMBROIDERY is full-colour thread — it should always render the full-colour
+// (brand) logo, on light OR dark garments; that's how real embroidery looks. Screen/heat-transfer default
+// to a contrast ink (white on dark, full colour on light) since a single spot print needs to read.
+function autoInkFor(method,rgb){return method==='embroidery' ? 'brand' : autoInk(rgb);}
 function money(x){return '$'+Number(x||0).toLocaleString('en-CA',{minimumFractionDigits:2,maximumFractionDigits:2});}
 function logoOf(id){for(var i=0;i<CFG.logos.length;i++)if(CFG.logos[i].id===id)return CFG.logos[i];return CFG.logos[0]||{inks:{}};}
-function inkUrl(logo,ink,col){var t=(ink&&ink!=='auto')?ink:autoInk(col&&col.rgb);return logo.inks[t]||logo.inks.brand;}
+function inkUrl(logo,ink,col,method){var t=(ink&&ink!=='auto')?ink:autoInkFor(method,col&&col.rgb);return logo.inks[t]||logo.inks.brand;}
 function inkCss(v){return v==='white'?'#fff':(v==='dark'||v==='black')?'#141414':v;}
 var BRANDGRAD='background:conic-gradient(from 210deg,#c9a24b,#6d6c69,#6dd4fa,#c9a24b)';
 function inkOpts(logo){var opts=[['brand','Full colour'],['white','White'],['dark','Black']],seen={brand:1,white:1,dark:1};
@@ -58,7 +62,7 @@ function overlayHtml(item,vm,colName,faces){
   var lg='';
   (vm.decos||[]).forEach(function(d){if(!d.on)return;var p=placeOf(item,d.pl);if(!p||(p.face||'front')!==face)return;
     if(face==='back'&&!hasBack)return;
-    var L=logoOf(d.lg),src=inkUrl(L,d.ink,col);
+    var L=logoOf(d.lg),src=inkUrl(L,d.ink,col,d.method);
     lg+='<img class="l" src="'+src+'" style="left:'+p.cx+'%;top:'+p.cy+'%;width:'+p.wf+'%" alt="">';});
   return {g:gurl(photo),lg:lg,hasBack:hasBack};
 }
@@ -103,8 +107,8 @@ function buildStore(){
      '<span class="herohint">or tap any item below to tweak it</span></div></div></section>'+
    ((office&&field)?('<nav class="tabs"><div class="w tabsin"><button class="tab on" data-t="sec-office">Office &amp; client-facing</button><button class="tab" data-t="sec-field">Job-site &amp; hi-vis</button></div></nav>'):'')+
    '<main class="w">'+
-     (office?'<section class="sec" id="sec-office"><div class="seclbl">Office &amp; client-facing</div><div class="secsub">Tap an item to choose colour &amp; quantity.</div><div class="menu">'+office+'</div></section>':'')+
-     (field?'<section class="sec" id="sec-field"><div class="seclbl">Job-site &amp; hi-vis</div><div class="secsub">CSA-rated, logo-ready.</div><div class="menu">'+field+'</div></section>':'')+
+     (office?'<section class="sec" id="sec-office"><div class="seclbl">Office &amp; client-facing</div><div class="secsub">Hit <b>Add</b> for our recommended setup, or tap an item to pick colour, size the run &amp; tweak the logo.</div><div class="menu">'+office+'</div></section>':'')+
+     (field?'<section class="sec" id="sec-field"><div class="seclbl">Job-site &amp; hi-vis</div><div class="secsub">CSA-rated, logo-ready. Hit <b>Add</b>, or tap to customize.</div><div class="menu">'+field+'</div></section>':'')+
    '</main>'+
    '<footer>Just Deals Promotions · Branded Workwear &amp; Safety Apparel · Prepared for '+esc(CFG.client)+' · Concept mockups on representative product photography; pricing by exact quote.</footer>'+
    '<div class="ov" id="ov"></div>'+
@@ -120,6 +124,10 @@ function buildStore(){
     card.addEventListener('click',function(e){openSheet(card.dataset.key);});
     card.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();openSheet(card.dataset.key);}});
   });
+  // Add button = one-tap add of the recommended setup (fast path). Once in the kit, it opens the
+  // customiser to adjust. stopPropagation so it doesn't also trigger the card's open-sheet.
+  document.querySelectorAll('.madd').forEach(function(b){b.addEventListener('click',function(e){
+    e.stopPropagation();var k=b.dataset.key;if(CART[k]){openSheet(k);}else{quickAdd(k);}});});
   var ar=document.getElementById('addRec');if(ar)ar.addEventListener('click',addRecommended);
   document.querySelectorAll('.tab').forEach(function(t){t.addEventListener('click',function(){
     document.querySelectorAll('.tab').forEach(function(x){x.classList.toggle('on',x===t);});
@@ -135,7 +143,7 @@ var SH={key:null,colour:null,face:'front',D:{},qty:12};
 function openSheet(key){
   var item=BYKEY[key],vm=vmOf(key),ex=CART[key],exmap={};
   if(ex&&ex.decos){ex.decos.forEach(function(d){exmap[d.pl]=d;});}
-  SH={key:key,colour:(ex&&ex.colour)||vm.colour,face:'front',D:{},qty:(ex&&ex.qty)||moq()};
+  SH={key:key,colour:(ex&&ex.colour)||vm.colour,face:'front',D:{},qty:(ex&&ex.qty)||moq(),edit:false};
   (item.places||[]).forEach(function(p){if(!p.logo)return;
     var rd=(vm.decos||[]).filter(function(x){return x.pl===p.id;})[0]||{},use=exmap[p.id];
     SH.D[p.id]={on: ex?!!use:!!rd.on, lg:(use&&use.lg)||rd.lg||(CFG.logos[0]||{}).id,
@@ -155,7 +163,7 @@ function renderSheet(){
   var scol=colOf(item,SH.colour);
   var rows=(item.places||[]).filter(function(p){return p.logo;}).map(function(p){
     var d=SH.D[p.id],na=(p.face==='back'&&!hasBack),Lsel=logoOf(d.lg);
-    var eff=(d.ink&&d.ink!=='auto')?d.ink:autoInk(scol.rgb);
+    var eff=(d.ink&&d.ink!=='auto')?d.ink:autoInkFor(d.method,scol.rgb);
     var logos=multi?('<div class="dgrp"><span class="dcap">Logo</span><div class="dlogos">'+CFG.logos.map(function(L){return '<button class="dlg2'+(L.id===d.lg?' on':'')+'" data-pl="'+p.id+'" data-lg="'+L.id+'" title="'+esc(L.label||'Logo')+'" style="background-image:url('+(L.inks.dark||L.inks.brand)+')"></button>';}).join('')+'</div></div>'):'';
     var inks='<div class="dgrp"><span class="dcap">Colour</span><div class="dinks">'+inkOpts(Lsel).map(function(o){var stl=o[0]==='brand'?BRANDGRAD:('background:'+inkCss(o[0]));return '<button class="dink'+(o[0]===eff?' on':'')+'" data-pl="'+p.id+'" data-ink="'+o[0]+'" title="'+o[1]+'" style="'+stl+'"></button>';}).join('')+'</div></div>';
     var mp='<div class="dgrp"><span class="dcap">Method</span><div class="mpills">'+METHODS.map(function(m){return '<button class="mp'+(m===d.method?' on':'')+'" data-pl="'+p.id+'" data-m="'+m+'">'+MLAB[m]+'</button>';}).join('')+'</div></div>';
@@ -175,13 +183,17 @@ function renderSheet(){
     '<div class="shb"><h2>'+esc(item.name)+'</h2><div class="shsku">'+esc(item.sku)+'</div>'+
     (item.blurb?'<p class="shblurb">'+esc(item.blurb)+'</p>':'')+faceTog+
     '<div class="optlbl">Colour <i>'+esc(SH.colour)+'</i></div><div class="chips" data-role="col">'+chips+'</div>'+
-    '<div class="optlbl">Your logo — pick the spots &amp; decoration</div><div class="decos2">'+rows+'</div>'+
+    '<div class="decobox'+(SH.edit?' open':'')+'" id="decobox">'+
+      '<div class="decohead"><div class="dhl"><span class="dht">Your logo</span><span class="dhs">'+esc(shSummary())+'</span></div>'+
+      '<button class="decoedit" id="decoEdit">'+(SH.edit?'Done':'Customize')+'</button></div>'+
+      '<div class="decos2" id="decos2">'+rows+'</div></div>'+
     '<div class="optlbl">Quantity <i>('+moq()+' minimum)</i></div>'+
     '<div class="qty"><button data-q="-1">–</button><input id="qin" type="number" inputmode="numeric" value="'+SH.qty+'" min="'+moq()+'"><button data-q="1">+</button></div>'+
     '<div class="qhint">'+qh+'</div>'+
     '<div class="shadd"><button class="shaddbtn" id="shAdd">'+(CART[SH.key]?'Update kit':'Add to kit')+'<span class="p">'+money(line)+'</span></button></div></div>';
   var sh=document.getElementById('sheet');
   document.getElementById('shx').addEventListener('click',closeAll);
+  var de=document.getElementById('decoEdit');if(de)de.addEventListener('click',function(){SH.edit=!SH.edit;var box=document.getElementById('decobox');if(box)box.classList.toggle('open',SH.edit);de.textContent=SH.edit?'Done':'Customize';if(SH.edit){var d2=document.getElementById('decos2');if(d2)d2.scrollIntoView({behavior:'smooth',block:'nearest'});}});
   sh.querySelectorAll('.cchip').forEach(function(b){b.addEventListener('click',function(){SH.colour=b.dataset.col;swapPreview();renderSheet();});});
   sh.querySelectorAll('.dtog').forEach(function(b){b.addEventListener('click',function(){var pl=b.dataset.pl,p=placeOf(item,pl);if(p.face==='back'&&!colOf(item,SH.colour).back)return;SH.D[pl].on=!SH.D[pl].on;if(SH.D[pl].on)SH.face=(p.face==='back')?'back':'front';renderSheet();});});
   sh.querySelectorAll('.dlg2').forEach(function(b){b.addEventListener('click',function(){SH.D[b.dataset.pl].lg=b.dataset.lg;renderSheet();});});
@@ -201,14 +213,36 @@ function addFromSheet(){
   saveCart();closeAll();refreshCartUI();
   toast((was?'Updated · ':'Added · ')+BYKEY[SH.key].name);
 }
+// Recommended decoration for one item, as cart-ready deco objects (used by quick-add + add-whole-kit).
+function recCartDecos(key){
+  var vm=vmOf(key),decos=activeDecos(vm.decos).map(function(d){return {pl:d.pl,lg:d.lg,ink:d.ink||'auto',method:d.method||'embroidery',colours:d.colours||1,on:true};});
+  if(!decos.length){var p=(BYKEY[key].places||[]).filter(function(x){return x.logo;})[0];if(p)decos=[{pl:p.id,lg:(CFG.logos[0]||{}).id,ink:'auto',method:(recDecos(key)[0]||{}).method||'embroidery',colours:1,on:true}];}
+  return decos;
+}
+// One-tap add of an item with its recommended decoration + default colour + minimum qty. The fast path:
+// a customer can build the whole kit without ever opening the customiser.
+function quickAdd(key){
+  if(!BYKEY[key])return;var vm=vmOf(key),ex=CART[key];
+  CART[key]={qty:(ex&&ex.qty)||moq(),colour:(ex&&ex.colour)||vm.colour,decos:recCartDecos(key)};
+  saveCart();refreshCartUI();toast('Added · '+BYKEY[key].name);
+}
 function addRecommended(){
   var order=CFG.order||{},keys=(order.office||[]).concat(order.field||[]),n=0;
   keys.forEach(function(k){if(CART[k]||!BYKEY[k])return;
-    var vm=vmOf(k),decos=activeDecos(vm.decos).map(function(d){return {pl:d.pl,lg:d.lg,ink:d.ink||'auto',method:d.method||'embroidery',on:true};});
-    if(!decos.length){var p=(BYKEY[k].places||[]).filter(function(x){return x.logo;})[0];if(p)decos=[{pl:p.id,lg:(CFG.logos[0]||{}).id,ink:'auto',method:(recDecos(k)[0]||{}).method||'embroidery',on:true}];}
-    CART[k]={qty:moq(),colour:vm.colour,decos:decos};n++;});
+    CART[k]={qty:moq(),colour:vmOf(k).colour,decos:recCartDecos(k)};n++;});
   saveCart();refreshCartUI();openCart();
   toast(n?('Added '+n+' items — your recommended kit'):'Your kit already has everything');
+}
+// Plain-language decoration summary of the CURRENT sheet state (for the collapsed "Your logo" line).
+function inkLabel(v){return v==='brand'?'full colour':v==='white'?'white':(v==='dark'||v==='black')?'black':'brand colour';}
+function shSummary(){
+  var item=BYKEY[SH.key],act=Object.keys(SH.D).filter(function(pl){return SH.D[pl].on;});
+  if(!act.length)return 'No logo yet — tap Customize to add one';
+  var scol=colOf(item,SH.colour);
+  var places=act.map(function(pl){var p=placeOf(item,pl);return p?p.label:pl;}).join(' + ');
+  var d0=SH.D[act[0]],meth=MLAB[d0.method]||'Embroidery';
+  var eff=(d0.ink&&d0.ink!=='auto')?d0.ink:autoInkFor(d0.method,scol.rgb);
+  return meth+' · '+places+' · '+inkLabel(eff);
 }
 
 /* ---------- cart ---------- */

@@ -79,8 +79,18 @@ button{font:inherit;cursor:pointer;border:0;background:none;color:inherit}
 .pchip{font-size:12.5px;font-weight:700;color:var(--ink);background:var(--bg);border:1.5px solid var(--line);border-radius:999px;padding:7px 14px;transition:.12s}
 .pchip.on{background:var(--a);color:#fff;border-color:var(--a)}.pchip.na{opacity:.4;pointer-events:none}
 .ftog{margin:0 0 6px}
+/* collapsible decoration block — recommended setup shown as a plain-language line, advanced hidden */
+.decobox{margin-top:16px;border:1.5px solid var(--line);border-radius:14px;padding:12px 14px;background:#fbfcfe}
+.decohead{display:flex;align-items:center;gap:12px}
+.dhl{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
+.dht{font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--mut)}
+.dhs{font-size:14px;font-weight:700;color:var(--ink);line-height:1.35}
+.decoedit{flex-shrink:0;font-size:12.5px;font-weight:800;color:var(--a);background:#fff;border:1.5px solid var(--a);border-radius:999px;padding:8px 15px;transition:.12s}
+.decoedit:hover{background:var(--a);color:#fff}
+.decobox .decos2{display:none;margin-top:12px}
+.decobox.open .decos2{display:flex}
+.decobox.open{border-color:var(--a)}
 /* per-placement logo + method editor */
-.decos2{display:flex;flex-direction:column;gap:9px}
 .drow{border:1.5px solid var(--line);border-radius:13px;padding:10px 12px;transition:border-color .14s,background .14s}
 .drow.on{border-color:var(--a);background:#fbfcfe}.drow.na{opacity:.5}
 .dtog{display:flex;align-items:center;gap:10px;width:100%;text-align:left;font-size:14px;font-weight:800;color:var(--ink);padding:2px}
