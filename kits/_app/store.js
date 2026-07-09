@@ -14,6 +14,10 @@ function autoInk(rgb){return hexLum(rgb)<120?'white':'brand';}
 function money(x){return '$'+Number(x||0).toLocaleString('en-CA',{minimumFractionDigits:2,maximumFractionDigits:2});}
 function logoOf(id){for(var i=0;i<CFG.logos.length;i++)if(CFG.logos[i].id===id)return CFG.logos[i];return CFG.logos[0]||{inks:{}};}
 function inkUrl(logo,ink,col){var t=(ink&&ink!=='auto')?ink:autoInk(col&&col.rgb);return logo.inks[t]||logo.inks.brand;}
+function inkCss(v){return v==='white'?'#fff':(v==='dark'||v==='black')?'#141414':v;}
+var BRANDGRAD='background:conic-gradient(from 210deg,#c9a24b,#6d6c69,#6dd4fa,#c9a24b)';
+function inkOpts(logo){var opts=[['brand','Full colour'],['white','White'],['dark','Black']],seen={brand:1,white:1,dark:1};
+  Object.keys((logo&&logo.inks)||{}).forEach(function(k){if(k.charAt(0)==='#'&&!seen[k.toLowerCase()]){seen[k.toLowerCase()]=1;opts.push([k,'Brand colour']);}});return opts;}
 function gurl(f){return CFG.catalog_base+'/img/'+f;}
 function colOf(item,name){for(var i=0;i<item.cols.length;i++)if(item.cols[i].name===name)return item.cols[i];return item.cols[0];}
 function placeOf(item,pid){for(var i=0;i<item.places.length;i++)if(item.places[i].id===pid)return item.places[i];return null;}
@@ -135,13 +139,16 @@ function renderSheet(){
   var o=overlayHtml(item,{decos:sheetDecos()},SH.colour,SH.face);var hasBack=o.hasBack;
   var multi=CFG.logos.length>1;
   var chips=item.cols.map(function(c){return '<button class="cchip'+(c.name===SH.colour?' on':'')+'" data-col="'+esc(c.name)+'" style="background-image:url('+gurl(c.front)+')" title="'+esc(c.name)+'"></button>';}).join('');
+  var scol=colOf(item,SH.colour);
   var rows=(item.places||[]).filter(function(p){return p.logo;}).map(function(p){
-    var d=SH.D[p.id],na=(p.face==='back'&&!hasBack);
-    var logos=multi?('<div class="dlogos">'+CFG.logos.map(function(L){return '<button class="dlg2'+(L.id===d.lg?' on':'')+'" data-pl="'+p.id+'" data-lg="'+L.id+'" title="'+esc(L.label||'Logo')+'" style="background-image:url('+(L.inks.dark||L.inks.brand)+')"></button>';}).join('')+'</div>'):'';
-    var mp='<div class="mpills">'+METHODS.map(function(m){return '<button class="mp'+(m===d.method?' on':'')+'" data-pl="'+p.id+'" data-m="'+m+'">'+MLAB[m]+'</button>';}).join('')+'</div>';
+    var d=SH.D[p.id],na=(p.face==='back'&&!hasBack),Lsel=logoOf(d.lg);
+    var eff=(d.ink&&d.ink!=='auto')?d.ink:autoInk(scol.rgb);
+    var logos=multi?('<div class="dgrp"><span class="dcap">Logo</span><div class="dlogos">'+CFG.logos.map(function(L){return '<button class="dlg2'+(L.id===d.lg?' on':'')+'" data-pl="'+p.id+'" data-lg="'+L.id+'" title="'+esc(L.label||'Logo')+'" style="background-image:url('+(L.inks.dark||L.inks.brand)+')"></button>';}).join('')+'</div></div>'):'';
+    var inks='<div class="dgrp"><span class="dcap">Colour</span><div class="dinks">'+inkOpts(Lsel).map(function(o){var stl=o[0]==='brand'?BRANDGRAD:('background:'+inkCss(o[0]));return '<button class="dink'+(o[0]===eff?' on':'')+'" data-pl="'+p.id+'" data-ink="'+o[0]+'" title="'+o[1]+'" style="'+stl+'"></button>';}).join('')+'</div></div>';
+    var mp='<div class="dgrp"><span class="dcap">Method</span><div class="mpills">'+METHODS.map(function(m){return '<button class="mp'+(m===d.method?' on':'')+'" data-pl="'+p.id+'" data-m="'+m+'">'+MLAB[m]+'</button>';}).join('')+'</div></div>';
     return '<div class="drow'+(d.on?' on':'')+(na?' na':'')+'" data-pl="'+p.id+'">'+
       '<button class="dtog" data-pl="'+p.id+'"><span class="dck"></span>'+esc(p.label)+(na?' <em>— needs a colour with a back</em>':'')+'</button>'+
-      '<div class="dctl">'+logos+mp+'</div></div>';}).join('');
+      '<div class="dctl">'+logos+inks+mp+'</div></div>';}).join('');
   var faceTog=hasBack?'<div class="chips ftog"><button class="pchip'+(SH.face==='front'?' on':'')+'" data-face="front">Front</button><button class="pchip'+(SH.face==='back'?' on':'')+'" data-face="back">Back</button></div>':'';
   var decos=sheetDecos();
   var unit=unitPrice(SH.key,decos,SH.qty),line=unit*SH.qty,topcol=CFG.pricing.cols[CFG.pricing.cols.length-1];
@@ -149,7 +156,7 @@ function renderSheet(){
   var sv=uM>0?Math.round((1-uT/uM)*100):0;
   var qh=money(unit)+' ea at '+SH.qty+' pcs'+(sv>0?' · <span class="save">save '+sv+'% at '+topcol+'+</span>':'');
   document.getElementById('sheet').innerHTML=
-    '<div class="shimg" id="shimg"><button class="shx" id="shx">✕</button><img class="g" src="'+o.g+'" alt=""> '+o.lg+'</div>'+
+    '<div class="shimg" id="shimg"><button class="shx" id="shx">✕</button><div class="shstage"><img class="g" src="'+o.g+'" alt="">'+o.lg+'</div></div>'+
     '<div class="shb"><h2>'+esc(item.name)+'</h2><div class="shsku">'+esc(item.sku)+'</div>'+
     (item.blurb?'<p class="shblurb">'+esc(item.blurb)+'</p>':'')+faceTog+
     '<div class="optlbl">Colour <i>'+esc(SH.colour)+'</i></div><div class="chips" data-role="col">'+chips+'</div>'+
@@ -163,6 +170,7 @@ function renderSheet(){
   sh.querySelectorAll('.cchip').forEach(function(b){b.addEventListener('click',function(){SH.colour=b.dataset.col;swapPreview();renderSheet();});});
   sh.querySelectorAll('.dtog').forEach(function(b){b.addEventListener('click',function(){var pl=b.dataset.pl,p=placeOf(item,pl);if(p.face==='back'&&!colOf(item,SH.colour).back)return;SH.D[pl].on=!SH.D[pl].on;if(SH.D[pl].on)SH.face=(p.face==='back')?'back':'front';renderSheet();});});
   sh.querySelectorAll('.dlg2').forEach(function(b){b.addEventListener('click',function(){SH.D[b.dataset.pl].lg=b.dataset.lg;renderSheet();});});
+  sh.querySelectorAll('.dink').forEach(function(b){b.addEventListener('click',function(){SH.D[b.dataset.pl].ink=b.dataset.ink;renderSheet();});});
   sh.querySelectorAll('.mp').forEach(function(b){b.addEventListener('click',function(){SH.D[b.dataset.pl].method=b.dataset.m;renderSheet();});});
   sh.querySelectorAll('[data-face]').forEach(function(b){b.addEventListener('click',function(){SH.face=b.dataset.face;renderSheet();});});
   sh.querySelectorAll('.qty button').forEach(function(b){b.addEventListener('click',function(){var step=parseInt(b.dataset.q,10)*(SH.qty<48?6:12);SH.qty=Math.max(moq(),SH.qty+step);renderSheet();});});
@@ -222,51 +230,42 @@ function renderCart(){
 }
 function closeAll(){['ov','sheet','cart'].forEach(function(id){var e=document.getElementById(id);if(e)e.classList.remove('on');});document.body.style.overflow='';}
 
-/* ---------- checkout ---------- */
-function openCheckout(){
-  var sub=cartSubtotal();
-  var saved=JSON.parse(localStorage.getItem(LSKEY+'_who')||'{}');
-  var review=Object.keys(CART).map(function(k){var it=BYKEY[k];if(!it)return '';var c=CART[k];
-    return '<div class="r"><span>'+esc(it.name)+' · '+esc(c.colour)+' × '+c.qty+'</span><span>'+money(unitPrice(k,c.decos,c.qty)*c.qty)+'</span></div>';}).join('');
-  document.getElementById('cart').innerHTML=
-    '<div class="carth"><h2>Request your quote</h2><button class="cartx" id="cartx">✕</button></div>'+
-    '<div class="citems"><div class="co">'+
-      '<p style="color:var(--mut);font-size:14px;line-height:1.5;margin:10px 0 4px">Send us your kit and we’ll reply with an exact, itemised quote — usually same day. No obligation.</p>'+
-      '<div class="coreview">'+review+'</div>'+
-      '<label>Your name</label><input id="coName" value="'+esc(saved.name||'')+'" placeholder="First & last">'+
-      '<label>Email</label><input id="coEmail" type="email" value="'+esc(saved.email||'')+'" placeholder="you@company.com">'+
-      '<label>Anything to add? (optional)</label><textarea id="coNote" placeholder="Sizes, deadlines, other items…"></textarea>'+
-    '</div></div>'+
-    '<div class="cartf"><div class="crow tot"><span>Estimated</span><span>'+money(sub)+'</span></div>'+
-      '<button class="checkout" id="send">Send to Just Deals →</button></div>';
-  document.getElementById('cartx').addEventListener('click',closeAll);
-  document.getElementById('send').addEventListener('click',sendQuote);
-}
-function orderText(who){
-  var lines=['Kit request — '+CFG.client,'From: '+(who.name||'')+' <'+(who.email||'')+'>','Link: '+location.href.split('#')[0],''];
+/* ---------- checkout: copy-paste into the existing email thread ---------- */
+function orderText(note){
+  var lines=['MY KIT — '+CFG.client,''];
   Object.keys(CART).forEach(function(k){var it=BYKEY[k];if(!it)return;var c=CART[k];var u=unitPrice(k,c.decos,c.qty);
-    lines.push('• '+it.name+' — '+c.colour+' · '+decoSummary(it,c)+' · qty '+c.qty+' @ '+money(u)+' = '+money(u*c.qty));});
-  lines.push('','Estimated subtotal: '+money(cartSubtotal())+'  +  one-time setup '+money(cartSetup()));
-  if(who.note)lines.push('','Note: '+who.note);
+    lines.push('• '+it.name+' ('+it.sku+') — '+c.colour+' · '+decoSummary(it,c)+' · qty '+c.qty+' @ '+money(u)+' ea = '+money(u*c.qty));});
+  lines.push('','Estimated subtotal: '+money(cartSubtotal())+'   +   one-time setup: '+money(cartSetup()));
+  lines.push('(Decoration priced in; exact quote to be confirmed.)');
+  if(note)lines.push('','Notes: '+note);
+  lines.push('','Kit link: '+location.href.split('#')[0].split('?')[0]);
   return lines.join('\n');
 }
-function sendQuote(){
-  var who={name:(document.getElementById('coName').value||'').trim(),email:(document.getElementById('coEmail').value||'').trim(),note:(document.getElementById('coNote').value||'').trim()};
-  if(!who.name||!who.email){alert('Please add your name and email so we can send your quote.');return;}
-  try{localStorage.setItem(LSKEY+'_who',JSON.stringify({name:who.name,email:who.email}));}catch(e){}
-  var body=orderText(who);
-  var to='steven@justdealspromotions.com';
-  var subj='Kit request — '+CFG.client+' ('+who.name+')';
-  // capture endpoint if configured on the client, else fall back to a prefilled email
-  if(CFG.lead_endpoint){
-    fetch(CFG.lead_endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client:CFG.client,slug:SLUG,who:who,cart:CART,text:body})}).catch(function(){});
-  } else {
-    var a=document.createElement('a');a.href='mailto:'+to+'?subject='+encodeURIComponent(subj)+'&body='+encodeURIComponent(body);a.click();
-  }
-  document.getElementById('cart').innerHTML='<div class="carth"><h2>Sent ✓</h2><button class="cartx" id="cartx">✕</button></div>'+
-    '<div class="citems"><div class="codone"><div class="big">🎉</div><h3>Your kit is on its way to us</h3>'+
-    '<p>Thanks, '+esc(who.name)+'! We’ll reply to <b>'+esc(who.email)+'</b> with your exact quote — usually same day. Your picks are saved on this device if you want to tweak them.</p></div></div>';
+function openCheckout(){
+  var review=Object.keys(CART).map(function(k){var it=BYKEY[k];if(!it)return '';var c=CART[k];
+    return '<div class="r"><span>'+esc(it.name)+' · '+esc(c.colour)+' · '+esc(decoSummary(it,c))+' × '+c.qty+'</span><span>'+money(unitPrice(k,c.decos,c.qty)*c.qty)+'</span></div>';}).join('');
+  document.getElementById('cart').innerHTML=
+    '<div class="carth"><h2>Send us your kit</h2><button class="cartx" id="cartx">✕</button></div>'+
+    '<div class="citems"><div class="co">'+
+      '<p style="color:var(--mut);font-size:14px;line-height:1.55;margin:10px 0 8px">Copy your kit and <b>paste it into your reply to our email</b> — we\'ll send back an exact, itemised quote (usually same day).</p>'+
+      '<div class="coreview">'+review+
+        '<div class="r" style="border-top:1px solid var(--line);margin-top:4px;padding-top:8px"><span><b>Estimated subtotal</b></span><span><b>'+money(cartSubtotal())+'</b></span></div>'+
+        '<div class="r"><span>One-time setup</span><span>'+money(cartSetup())+'</span></div></div>'+
+      '<label>Anything to add? (optional)</label><textarea id="coNote" placeholder="Sizes, deadlines, other items…"></textarea>'+
+    '</div></div>'+
+    '<div class="cartf"><button class="checkout" id="copyKit">Copy my kit → paste into your reply</button>'+
+      '<div class="csetup" id="copyHint" style="text-align:center;margin-top:10px">No new email needed — just paste it into the thread we\'re already on.</div></div>';
   document.getElementById('cartx').addEventListener('click',closeAll);
+  document.getElementById('copyKit').addEventListener('click',copyKit);
+}
+function copyKit(){
+  var note=(document.getElementById('coNote')&&document.getElementById('coNote').value||'').trim();
+  var txt=orderText(note);
+  var btn=document.getElementById('copyKit'),hint=document.getElementById('copyHint');
+  function done(){if(btn){btn.textContent='✓ Copied — now paste into your reply';}if(hint){hint.innerHTML='Copied to your clipboard. Switch to our email thread and paste (Ctrl/⌘+V) into your reply.';}}
+  if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(txt).then(done,function(){fallback(txt);done();});}
+  else{fallback(txt);done();}
+  function fallback(s){var ta=document.createElement('textarea');ta.value=s;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.focus();ta.select();try{document.execCommand('copy');}catch(e){}document.body.removeChild(ta);}
 }
 
 /* ---------- boot ---------- */
