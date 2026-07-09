@@ -79,6 +79,14 @@ button{font:inherit;cursor:pointer;border:0;background:none;color:inherit}
 .pchip{font-size:12.5px;font-weight:700;color:var(--ink);background:var(--bg);border:1.5px solid var(--line);border-radius:999px;padding:7px 14px;transition:.12s}
 .pchip.on{background:var(--a);color:#fff;border-color:var(--a)}.pchip.na{opacity:.4;pointer-events:none}
 .ftog{margin:0 0 6px}
+/* 80/20 decoration: a fixed "we set it up for you" line — no editable design controls */
+.decoinfo{display:flex;gap:11px;align-items:flex-start;margin-top:16px;padding:12px 14px;border:1.5px solid var(--line);border-radius:14px;background:#fbfcfe}
+.dck2{flex-shrink:0;width:22px;height:22px;border-radius:50%;background:var(--a);position:relative;margin-top:1px}
+.dck2::after{content:"";position:absolute;left:8px;top:4px;width:5px;height:10px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+.dil{display:flex;flex-direction:column;gap:2px;min-width:0}
+.dil b{font-size:13.5px;font-weight:800;color:var(--ink)}
+.dil span{font-size:13.5px;color:var(--mut);font-weight:600;line-height:1.35}
+.shnote{font-size:12px;color:var(--mut);line-height:1.5;margin-top:12px;text-align:center}
 /* collapsible decoration block — recommended setup shown as a plain-language line, advanced hidden */
 .decobox{margin-top:16px;border:1.5px solid var(--line);border-radius:14px;padding:12px 14px;background:#fbfcfe}
 .decohead{display:flex;align-items:center;gap:12px}

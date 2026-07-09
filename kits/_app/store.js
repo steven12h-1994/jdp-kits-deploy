@@ -158,48 +158,29 @@ function sheetDecos(){return Object.keys(SH.D).map(function(pl){var d=SH.D[pl];r
 function renderSheet(){
   var item=BYKEY[SH.key];
   var o=overlayHtml(item,{decos:sheetDecos()},SH.colour,SH.face);var hasBack=o.hasBack;
-  var multi=CFG.logos.length>1;
   var chips=item.cols.map(function(c){return '<button class="cchip'+(c.name===SH.colour?' on':'')+'" data-col="'+esc(c.name)+'" style="background-image:url('+gurl(c.front)+')" title="'+esc(c.name)+'"></button>';}).join('');
-  var scol=colOf(item,SH.colour);
-  var rows=(item.places||[]).filter(function(p){return p.logo;}).map(function(p){
-    var d=SH.D[p.id],na=(p.face==='back'&&!hasBack),Lsel=logoOf(d.lg);
-    var eff=(d.ink&&d.ink!=='auto')?d.ink:autoInkFor(d.method,scol.rgb);
-    var logos=multi?('<div class="dgrp"><span class="dcap">Logo</span><div class="dlogos">'+CFG.logos.map(function(L){return '<button class="dlg2'+(L.id===d.lg?' on':'')+'" data-pl="'+p.id+'" data-lg="'+L.id+'" title="'+esc(L.label||'Logo')+'" style="background-image:url('+(L.inks.dark||L.inks.brand)+')"></button>';}).join('')+'</div></div>'):'';
-    var inks='<div class="dgrp"><span class="dcap">Colour</span><div class="dinks">'+inkOpts(Lsel).map(function(o){var stl=o[0]==='brand'?BRANDGRAD:('background:'+inkCss(o[0]));return '<button class="dink'+(o[0]===eff?' on':'')+'" data-pl="'+p.id+'" data-ink="'+o[0]+'" title="'+o[1]+'" style="'+stl+'"></button>';}).join('')+'</div></div>';
-    var mp='<div class="dgrp"><span class="dcap">Method</span><div class="mpills">'+METHODS.map(function(m){return '<button class="mp'+(m===d.method?' on':'')+'" data-pl="'+p.id+'" data-m="'+m+'">'+MLAB[m]+'</button>';}).join('')+'</div></div>';
-    var cc=(d.method==='screen')?('<div class="dgrp"><span class="dcap">Ink colours</span><div class="mpills">'+[1,2,3].map(function(n){return '<button class="dcnt'+((d.colours||1)===n?' on':'')+'" data-pl="'+p.id+'" data-c="'+n+'">'+n+'-colour</button>';}).join('')+'</div></div>'):'';
-    var warn=(d.method==='screen'&&d.ink==='brand')?'<div class="dwarn">Full-colour art prints best as embroidery or heat transfer — or set the exact screen colours above.</div>':'';
-    return '<div class="drow'+(d.on?' on':'')+(na?' na':'')+'" data-pl="'+p.id+'">'+
-      '<button class="dtog" data-pl="'+p.id+'"><span class="dck"></span>'+esc(p.label)+(na?' <em>— needs a colour with a back</em>':'')+'</button>'+
-      '<div class="dctl">'+logos+inks+mp+cc+warn+'</div></div>';}).join('');
   var faceTog=hasBack?'<div class="chips ftog"><button class="pchip'+(SH.face==='front'?' on':'')+'" data-face="front">Front</button><button class="pchip'+(SH.face==='back'?' on':'')+'" data-face="back">Back</button></div>':'';
   var decos=sheetDecos();
   var unit=unitPrice(SH.key,decos,SH.qty),line=unit*SH.qty,topcol=CFG.pricing.cols[CFG.pricing.cols.length-1];
   var uM=unitPrice(SH.key,decos,moq()),uT=unitPrice(SH.key,decos,topcol);
   var sv=uM>0?Math.round((1-uT/uM)*100):0;
   var qh=money(unit)+' ea at '+SH.qty+' pcs'+(sv>0?' · <span class="save">save '+sv+'% at '+topcol+'+</span>':'');
+  // 80/20: the customer chooses COLOUR + QUANTITY. The decoration is our recommendation, shown as a
+  // fixed, reassuring line (not a pile of editable controls). One-off placements -> the checkout note.
   document.getElementById('sheet').innerHTML=
     '<div class="shimg" id="shimg"><button class="shx" id="shx">✕</button><div class="shstage"><img class="g" src="'+o.g+'" alt="">'+o.lg+'</div></div>'+
     '<div class="shb"><h2>'+esc(item.name)+'</h2><div class="shsku">'+esc(item.sku)+'</div>'+
     (item.blurb?'<p class="shblurb">'+esc(item.blurb)+'</p>':'')+faceTog+
     '<div class="optlbl">Colour <i>'+esc(SH.colour)+'</i></div><div class="chips" data-role="col">'+chips+'</div>'+
-    '<div class="decobox'+(SH.edit?' open':'')+'" id="decobox">'+
-      '<div class="decohead"><div class="dhl"><span class="dht">Your logo</span><span class="dhs">'+esc(shSummary())+'</span></div>'+
-      '<button class="decoedit" id="decoEdit">'+(SH.edit?'Done':'Customize')+'</button></div>'+
-      '<div class="decos2" id="decos2">'+rows+'</div></div>'+
+    '<div class="decoinfo"><span class="dck2"></span><div class="dil"><b>Your logo — set up for you</b><span>'+esc(shSummary())+'</span></div></div>'+
     '<div class="optlbl">Quantity <i>('+moq()+' minimum)</i></div>'+
     '<div class="qty"><button data-q="-1">–</button><input id="qin" type="number" inputmode="numeric" value="'+SH.qty+'" min="'+moq()+'"><button data-q="1">+</button></div>'+
     '<div class="qhint">'+qh+'</div>'+
-    '<div class="shadd"><button class="shaddbtn" id="shAdd">'+(CART[SH.key]?'Update kit':'Add to kit')+'<span class="p">'+money(line)+'</span></button></div></div>';
+    '<div class="shadd"><button class="shaddbtn" id="shAdd">'+(CART[SH.key]?'Update kit':'Add to kit')+'<span class="p">'+money(line)+'</span></button></div>'+
+    '<div class="shnote">Want the logo somewhere specific, or a different size? Just tell us at checkout — we set up the decoration for you.</div></div>';
   var sh=document.getElementById('sheet');
   document.getElementById('shx').addEventListener('click',closeAll);
-  var de=document.getElementById('decoEdit');if(de)de.addEventListener('click',function(){SH.edit=!SH.edit;var box=document.getElementById('decobox');if(box)box.classList.toggle('open',SH.edit);de.textContent=SH.edit?'Done':'Customize';if(SH.edit){var d2=document.getElementById('decos2');if(d2)d2.scrollIntoView({behavior:'smooth',block:'nearest'});}});
   sh.querySelectorAll('.cchip').forEach(function(b){b.addEventListener('click',function(){SH.colour=b.dataset.col;swapPreview();renderSheet();});});
-  sh.querySelectorAll('.dtog').forEach(function(b){b.addEventListener('click',function(){var pl=b.dataset.pl,p=placeOf(item,pl);if(p.face==='back'&&!colOf(item,SH.colour).back)return;SH.D[pl].on=!SH.D[pl].on;if(SH.D[pl].on)SH.face=(p.face==='back')?'back':'front';renderSheet();});});
-  sh.querySelectorAll('.dlg2').forEach(function(b){b.addEventListener('click',function(){SH.D[b.dataset.pl].lg=b.dataset.lg;renderSheet();});});
-  sh.querySelectorAll('.dink').forEach(function(b){b.addEventListener('click',function(){SH.D[b.dataset.pl].ink=b.dataset.ink;renderSheet();});});
-  sh.querySelectorAll('.mp').forEach(function(b){b.addEventListener('click',function(){SH.D[b.dataset.pl].method=b.dataset.m;renderSheet();});});
-  sh.querySelectorAll('.dcnt').forEach(function(b){b.addEventListener('click',function(){SH.D[b.dataset.pl].colours=parseInt(b.dataset.c,10)||1;renderSheet();});});
   sh.querySelectorAll('[data-face]').forEach(function(b){b.addEventListener('click',function(){SH.face=b.dataset.face;renderSheet();});});
   sh.querySelectorAll('.qty button').forEach(function(b){b.addEventListener('click',function(){var step=parseInt(b.dataset.q,10)*(SH.qty<48?6:12);SH.qty=Math.max(moq(),SH.qty+step);renderSheet();});});
   document.getElementById('qin').addEventListener('change',function(e){SH.qty=Math.max(moq(),parseInt(e.target.value,10)||moq());renderSheet();});
