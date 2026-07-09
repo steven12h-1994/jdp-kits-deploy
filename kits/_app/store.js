@@ -90,7 +90,9 @@ function buildStore(){
    '<section class="hero"><div class="w heroin"><div class="eyb">Recommended kit · ready to order</div>'+
      '<h1>'+esc(CFG.client)+"'s branded apparel — your logo, already on it.</h1>"+
      '<p>We picked the kit; you just choose colours &amp; quantities and send it back for a quote. No design work.</p>'+
-     '<div class="herochips">'+chips+'</div></div></section>'+
+     '<div class="herochips">'+chips+'</div>'+
+     '<div class="herorow"><button class="herocta" id="addRec">★ Add the whole recommended kit</button>'+
+     '<span class="herohint">or tap any item below to tweak it</span></div></div></section>'+
    ((office&&field)?('<nav class="tabs"><div class="w tabsin"><button class="tab on" data-t="sec-office">Office &amp; client-facing</button><button class="tab" data-t="sec-field">Job-site &amp; hi-vis</button></div></nav>'):'')+
    '<main class="w">'+
      (office?'<section class="sec" id="sec-office"><div class="seclbl">Office &amp; client-facing</div><div class="secsub">Tap an item to choose colour &amp; quantity.</div><div class="menu">'+office+'</div></section>':'')+
@@ -108,7 +110,9 @@ function buildStore(){
   document.getElementById('ov').addEventListener('click',closeAll);
   document.querySelectorAll('.mcard').forEach(function(card){
     card.addEventListener('click',function(e){openSheet(card.dataset.key);});
+    card.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();openSheet(card.dataset.key);}});
   });
+  var ar=document.getElementById('addRec');if(ar)ar.addEventListener('click',addRecommended);
   document.querySelectorAll('.tab').forEach(function(t){t.addEventListener('click',function(){
     document.querySelectorAll('.tab').forEach(function(x){x.classList.toggle('on',x===t);});
     var el=document.getElementById(t.dataset.t);if(el)window.scrollTo({top:el.getBoundingClientRect().top+window.pageYOffset-110,behavior:'smooth'});});});
@@ -184,6 +188,15 @@ function addFromSheet(){
   CART[SH.key]={qty:SH.qty,colour:SH.colour,decos:decos};
   saveCart();closeAll();refreshCartUI();
   toast((was?'Updated · ':'Added · ')+BYKEY[SH.key].name);
+}
+function addRecommended(){
+  var order=CFG.order||{},keys=(order.office||[]).concat(order.field||[]),n=0;
+  keys.forEach(function(k){if(CART[k]||!BYKEY[k])return;
+    var vm=vmOf(k),decos=activeDecos(vm.decos).map(function(d){return {pl:d.pl,lg:d.lg,ink:d.ink||'auto',method:d.method||'embroidery',on:true};});
+    if(!decos.length){var p=(BYKEY[k].places||[]).filter(function(x){return x.logo;})[0];if(p)decos=[{pl:p.id,lg:(CFG.logos[0]||{}).id,ink:'auto',method:(recDecos(k)[0]||{}).method||'embroidery',on:true}];}
+    CART[k]={qty:moq(),colour:vm.colour,decos:decos};n++;});
+  saveCart();refreshCartUI();openCart();
+  toast(n?('Added '+n+' items — your recommended kit'):'Your kit already has everything');
 }
 
 /* ---------- cart ---------- */
