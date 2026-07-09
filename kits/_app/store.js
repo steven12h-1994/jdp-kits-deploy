@@ -214,11 +214,18 @@ function addRecommended(){
 /* ---------- cart ---------- */
 function cartCount(){return Object.keys(CART).length;}
 function cartSubtotal(){var t=0;Object.keys(CART).forEach(function(k){var it=BYKEY[k];if(!it)return;var c=CART[k];t+=unitPrice(k,c.decos,c.qty)*c.qty;});return t;}
-function cartSetup(){var r=CFG.rates||{},s=r.setup||{},seen={},t=0;
-  Object.keys(CART).forEach(function(k){(CART[k].decos||[]).forEach(function(d){if(!d.on)return;
+// Itemised setup lines — one per unique DESIGN+LOCATION+METHOD across the whole kit (screen keyed by ink,
+// and a screen = one burn PER colour). Single source of truth: cartSetup sums this so the numbers always agree.
+function setupBreakdown(){var r=CFG.rates||{},s=r.setup||{},seen={},out=[];
+  Object.keys(CART).forEach(function(k){var it=BYKEY[k];if(!it)return;(CART[k].decos||[]).forEach(function(d){if(!d.on)return;
     var key=setupKey(d);if(seen[key])return;seen[key]=1;
-    t+= d.method==='screen' ? ((s.screen||0)*(d.colours||1)) : methodSetup(d.method,s);});});   // screen = one screen per colour
-  return Math.round(t*100)/100;}
+    var L=logoOf(d.lg),p=placeOf(it,d.pl),plab=p?p.label:d.pl,lname=(L&&L.label)||'Logo',amt,lab;
+    if(d.method==='screen'){var c=d.colours||1;amt=(s.screen||0)*c;lab=lname+' · '+plab+' · screen ('+c+'-colour, '+c+(c>1?' screens':' screen')+')';}
+    else if(d.method==='heat_transfer'){amt=s.heat_transfer||0;lab=lname+' · '+plab+' · heat-transfer artwork';}
+    else{amt=s.embroidery||0;lab=lname+' · '+plab+' · embroidery digitizing';}
+    out.push({label:lab,amount:Math.round(amt*100)/100});});});
+  return out;}
+function cartSetup(){return Math.round(setupBreakdown().reduce(function(t,x){return t+x.amount;},0)*100)/100;}
 function decoSummary(it,c){return (c.decos||[]).map(function(d){var p=placeOf(it,d.pl),m=MLAB[d.method]||'Emb';if(d.method==='screen')m+=' '+(d.colours||1)+'C';return (p?p.label:d.pl)+' ('+m+')';}).join(' + ')||'left chest';}
 function refreshCartUI(){
   var n=cartCount(),sub=cartSubtotal();
@@ -239,13 +246,14 @@ function renderCart(){
       '<div class="lp">'+money(unit*c.qty)+'</div></div>'+
       '<div class="rm" data-rm="'+k+'">Remove</div></div></div>';}).join('');
   var body=keys.length?items:'<div class="cempty">Your kit is empty.<br>Tap any item to add it.</div>';
-  var setup=cartSetup();
+  var setupRows=setupBreakdown(),setup=setupRows.reduce(function(t,x){return t+x.amount;},0);
+  var brk=setupRows.length?('<div class="setupbrk">'+setupRows.map(function(x){return '<div class="sbk"><span>'+esc(x.label)+'</span><span>'+money(x.amount)+'</span></div>';}).join('')+'</div>'):'';
   document.getElementById('cart').innerHTML=
     '<div class="carth"><h2>Your kit</h2><button class="cartx" id="cartx">✕</button></div>'+
     '<div class="citems" id="citems">'+body+'</div>'+
     '<div class="cartf">'+
       '<div class="crow"><span>Estimated subtotal</span><b>'+money(sub)+'</b></div>'+
-      (setup>0?'<div class="crow"><span>One-time setup <i style="color:var(--mut);font-weight:600;font-style:normal">· shared per logo & spot</i></span><span>'+money(setup)+'</span></div>':'')+
+      (setup>0?'<div class="crow"><span>One-time setup <i style="color:var(--mut);font-weight:600;font-style:normal">· once per design, shared across the kit</i></span><span>'+money(setup)+'</span></div>'+brk:'')+
       '<div class="csetup">Decorated, per piece · screen print, embroidery &amp; heat-transfer priced in. Setup is charged once per logo &amp; location and reused across every item — reorders are garment + decoration only. Your exact itemised quote is confirmed before anything runs.</div>'+
       '<button class="checkout" id="checkout"'+(keys.length?'':' disabled')+'>Request my quote →</button>'+
     '</div>';
@@ -264,7 +272,10 @@ function orderText(note){
   var lines=['MY KIT — '+CFG.client,''];
   Object.keys(CART).forEach(function(k){var it=BYKEY[k];if(!it)return;var c=CART[k];var u=unitPrice(k,c.decos,c.qty);
     lines.push('• '+it.name+' ('+it.sku+') — '+c.colour+' · '+decoSummary(it,c)+' · qty '+c.qty+' @ '+money(u)+' ea = '+money(u*c.qty));});
-  lines.push('','Estimated subtotal: '+money(cartSubtotal())+'   +   one-time setup: '+money(cartSetup()));
+  lines.push('','Estimated subtotal: '+money(cartSubtotal()));
+  var sb=setupBreakdown();
+  if(sb.length){lines.push('One-time setup: '+money(cartSetup())+'  (once per design, shared across the kit)');
+    sb.forEach(function(x){lines.push('   - '+x.label+': '+money(x.amount));});}
   lines.push('(Decoration priced in; exact quote to be confirmed.)');
   if(note)lines.push('','Notes: '+note);
   lines.push('','Kit link: '+location.href.split('#')[0].split('?')[0]);
@@ -279,7 +290,8 @@ function openCheckout(){
       '<p style="color:var(--mut);font-size:14px;line-height:1.55;margin:10px 0 8px">Copy your kit and <b>paste it into your reply to our email</b> — we\'ll send back an exact, itemised quote (usually same day).</p>'+
       '<div class="coreview">'+review+
         '<div class="r" style="border-top:1px solid var(--line);margin-top:4px;padding-top:8px"><span><b>Estimated subtotal</b></span><span><b>'+money(cartSubtotal())+'</b></span></div>'+
-        '<div class="r"><span>One-time setup</span><span>'+money(cartSetup())+'</span></div></div>'+
+        '<div class="r"><span>One-time setup</span><span>'+money(cartSetup())+'</span></div>'+
+        setupBreakdown().map(function(x){return '<div class="r sbk"><span>'+esc(x.label)+'</span><span>'+money(x.amount)+'</span></div>';}).join('')+'</div>'+
       '<label>Anything to add? (optional)</label><textarea id="coNote" placeholder="Sizes, deadlines, other items…"></textarea>'+
     '</div></div>'+
     '<div class="cartf"><button class="checkout" id="copyKit">Copy my kit → paste into your reply</button>'+
