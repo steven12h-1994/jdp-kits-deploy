@@ -914,6 +914,18 @@
      "rgb": "#f2681c",
      "front": "freezer_front_g.jpg",
      "back": "freezer_back_g.jpg"
+    },
+    {
+     "name": "Hi-Vis Yellow",
+     "rgb": "#ebf402",
+     "front": "freezer__yellow.jpg",
+     "back": "freezer__yellow_b.jpg"
+    },
+    {
+     "name": "Black",
+     "rgb": "#242424",
+     "front": "freezer__black.jpg",
+     "back": "freezer__black_b.jpg"
     }
    ],
    "places": [
@@ -959,6 +971,18 @@
      "rgb": "#f2681c",
      "front": "rain_front_g.jpg",
      "back": "rain_back_g.jpg"
+    },
+    {
+     "name": "Hi-Vis Yellow",
+     "rgb": "#fff300",
+     "front": "rain__yellow.jpg",
+     "back": "rain__yellow_b.jpg"
+    },
+    {
+     "name": "Black",
+     "rgb": "#313131",
+     "front": "rain__black.jpg",
+     "back": "rain__black_b.jpg"
     }
    ],
    "places": [
