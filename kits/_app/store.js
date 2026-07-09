@@ -28,11 +28,17 @@ function moq(){return (CFG.pricing.cols&&CFG.pricing.cols[0])||12;}
 var MLAB={embroidery:'Embroidery',screen:'Screen print',heat_transfer:'Heat transfer'};
 var METHODS=['embroidery','screen','heat_transfer'];
 function blankOf(key){var r=CFG.rates||{};return (r.blank&&r.blank[key]!=null)?r.blank[key]:((BYKEY[key]||{}).blank||0);}
-function decoCost(m){var r=CFG.rates||{};return m==='screen'?(r.screen||0):m==='heat_transfer'?(r.ht||0):(r.emb||0);}
+function screenPc(colours){var r=CFG.rates||{},sc=r.screenc||{};return sc[String(colours||1)]||r.screen||0.75;}
+// per-piece decoration cost: screen scales by ink colours; embroidery scales up for oversized (full-back) placements
+function decoCost(d,item){var r=CFG.rates||{};
+  if(d.method==='screen')return screenPc(d.colours||1);
+  if(d.method==='heat_transfer')return r.ht||0;
+  var p=item?placeOf(item,d.pl):null,mult=(p&&p.face==='back')?((r.emb_mult&&r.emb_mult.back)||1):1;
+  return (r.emb||0)*mult;}
 function markup(q){var r=CFG.rates||{},mg=r.margin||[],m=(mg[0]&&mg[0][1])||2;mg.forEach(function(t){if(q>=t[0])m=t[1];});return m;}
 function activeDecos(decos){return (decos||[]).filter(function(d){return d.on;});}
 function unitPrice(key,decos,q){var r=CFG.rates;if(!r||!r.margin){return unitAt(BYKEY[key],q);}
-  var c=blankOf(key);activeDecos(decos).forEach(function(d){c+=decoCost(d.method);});return Math.round(c*markup(q)*100)/100;}
+  var item=BYKEY[key],c=blankOf(key);activeDecos(decos).forEach(function(d){c+=decoCost(d,item);});return Math.round(c*markup(q)*100)/100;}
 function methodSetup(m,s){return m==='screen'?(s.screen||0):m==='heat_transfer'?(s.heat_transfer||0):(s.embroidery||0);}
 // A setup is charged ONCE per unique DESIGN + LOCATION + METHOD across the WHOLE kit (a stitch file /
 // set of screens / transfer is reused on every garment & quantity). Screens also depend on ink colour,
@@ -133,13 +139,14 @@ function openSheet(key){
   (item.places||[]).forEach(function(p){if(!p.logo)return;
     var rd=(vm.decos||[]).filter(function(x){return x.pl===p.id;})[0]||{},use=exmap[p.id];
     SH.D[p.id]={on: ex?!!use:!!rd.on, lg:(use&&use.lg)||rd.lg||(CFG.logos[0]||{}).id,
-                ink:(use&&use.ink)||rd.ink||'auto', method:(use&&use.method)||rd.method||'embroidery'};});
+                ink:(use&&use.ink)||rd.ink||'auto', method:(use&&use.method)||rd.method||'embroidery',
+                colours:(use&&use.colours)||rd.colours||1};});
   renderSheet();
   document.getElementById('ov').classList.add('on');
   document.getElementById('sheet').classList.add('on');
   document.body.style.overflow='hidden';
 }
-function sheetDecos(){return Object.keys(SH.D).map(function(pl){var d=SH.D[pl];return {pl:pl,on:d.on,lg:d.lg,ink:d.ink,method:d.method};});}
+function sheetDecos(){return Object.keys(SH.D).map(function(pl){var d=SH.D[pl];return {pl:pl,on:d.on,lg:d.lg,ink:d.ink,method:d.method,colours:d.colours};});}
 function renderSheet(){
   var item=BYKEY[SH.key];
   var o=overlayHtml(item,{decos:sheetDecos()},SH.colour,SH.face);var hasBack=o.hasBack;
@@ -152,9 +159,11 @@ function renderSheet(){
     var logos=multi?('<div class="dgrp"><span class="dcap">Logo</span><div class="dlogos">'+CFG.logos.map(function(L){return '<button class="dlg2'+(L.id===d.lg?' on':'')+'" data-pl="'+p.id+'" data-lg="'+L.id+'" title="'+esc(L.label||'Logo')+'" style="background-image:url('+(L.inks.dark||L.inks.brand)+')"></button>';}).join('')+'</div></div>'):'';
     var inks='<div class="dgrp"><span class="dcap">Colour</span><div class="dinks">'+inkOpts(Lsel).map(function(o){var stl=o[0]==='brand'?BRANDGRAD:('background:'+inkCss(o[0]));return '<button class="dink'+(o[0]===eff?' on':'')+'" data-pl="'+p.id+'" data-ink="'+o[0]+'" title="'+o[1]+'" style="'+stl+'"></button>';}).join('')+'</div></div>';
     var mp='<div class="dgrp"><span class="dcap">Method</span><div class="mpills">'+METHODS.map(function(m){return '<button class="mp'+(m===d.method?' on':'')+'" data-pl="'+p.id+'" data-m="'+m+'">'+MLAB[m]+'</button>';}).join('')+'</div></div>';
+    var cc=(d.method==='screen')?('<div class="dgrp"><span class="dcap">Ink colours</span><div class="mpills">'+[1,2,3].map(function(n){return '<button class="dcnt'+((d.colours||1)===n?' on':'')+'" data-pl="'+p.id+'" data-c="'+n+'">'+n+'-colour</button>';}).join('')+'</div></div>'):'';
+    var warn=(d.method==='screen'&&d.ink==='brand')?'<div class="dwarn">Full-colour art prints best as embroidery or heat transfer — or set the exact screen colours above.</div>':'';
     return '<div class="drow'+(d.on?' on':'')+(na?' na':'')+'" data-pl="'+p.id+'">'+
       '<button class="dtog" data-pl="'+p.id+'"><span class="dck"></span>'+esc(p.label)+(na?' <em>— needs a colour with a back</em>':'')+'</button>'+
-      '<div class="dctl">'+logos+inks+mp+'</div></div>';}).join('');
+      '<div class="dctl">'+logos+inks+mp+cc+warn+'</div></div>';}).join('');
   var faceTog=hasBack?'<div class="chips ftog"><button class="pchip'+(SH.face==='front'?' on':'')+'" data-face="front">Front</button><button class="pchip'+(SH.face==='back'?' on':'')+'" data-face="back">Back</button></div>':'';
   var decos=sheetDecos();
   var unit=unitPrice(SH.key,decos,SH.qty),line=unit*SH.qty,topcol=CFG.pricing.cols[CFG.pricing.cols.length-1];
@@ -178,6 +187,7 @@ function renderSheet(){
   sh.querySelectorAll('.dlg2').forEach(function(b){b.addEventListener('click',function(){SH.D[b.dataset.pl].lg=b.dataset.lg;renderSheet();});});
   sh.querySelectorAll('.dink').forEach(function(b){b.addEventListener('click',function(){SH.D[b.dataset.pl].ink=b.dataset.ink;renderSheet();});});
   sh.querySelectorAll('.mp').forEach(function(b){b.addEventListener('click',function(){SH.D[b.dataset.pl].method=b.dataset.m;renderSheet();});});
+  sh.querySelectorAll('.dcnt').forEach(function(b){b.addEventListener('click',function(){SH.D[b.dataset.pl].colours=parseInt(b.dataset.c,10)||1;renderSheet();});});
   sh.querySelectorAll('[data-face]').forEach(function(b){b.addEventListener('click',function(){SH.face=b.dataset.face;renderSheet();});});
   sh.querySelectorAll('.qty button').forEach(function(b){b.addEventListener('click',function(){var step=parseInt(b.dataset.q,10)*(SH.qty<48?6:12);SH.qty=Math.max(moq(),SH.qty+step);renderSheet();});});
   document.getElementById('qin').addEventListener('change',function(e){SH.qty=Math.max(moq(),parseInt(e.target.value,10)||moq());renderSheet();});
@@ -186,7 +196,7 @@ function renderSheet(){
 function swapPreview(){var im=document.getElementById('shimg');if(im){im.classList.add('sw');setTimeout(function(){im.classList.remove('sw');},220);}}
 function addFromSheet(){
   var was=!!CART[SH.key],decos=[];
-  Object.keys(SH.D).forEach(function(pl){var d=SH.D[pl];if(d.on)decos.push({pl:pl,lg:d.lg,ink:d.ink,method:d.method,on:true});});
+  Object.keys(SH.D).forEach(function(pl){var d=SH.D[pl];if(d.on)decos.push({pl:pl,lg:d.lg,ink:d.ink,method:d.method,colours:d.colours||1,on:true});});
   CART[SH.key]={qty:SH.qty,colour:SH.colour,decos:decos};
   saveCart();closeAll();refreshCartUI();
   toast((was?'Updated · ':'Added · ')+BYKEY[SH.key].name);
@@ -206,9 +216,10 @@ function cartCount(){return Object.keys(CART).length;}
 function cartSubtotal(){var t=0;Object.keys(CART).forEach(function(k){var it=BYKEY[k];if(!it)return;var c=CART[k];t+=unitPrice(k,c.decos,c.qty)*c.qty;});return t;}
 function cartSetup(){var r=CFG.rates||{},s=r.setup||{},seen={},t=0;
   Object.keys(CART).forEach(function(k){(CART[k].decos||[]).forEach(function(d){if(!d.on)return;
-    var key=setupKey(d);if(seen[key])return;seen[key]=1;t+=methodSetup(d.method,s);});});
+    var key=setupKey(d);if(seen[key])return;seen[key]=1;
+    t+= d.method==='screen' ? ((s.screen||0)*(d.colours||1)) : methodSetup(d.method,s);});});   // screen = one screen per colour
   return Math.round(t*100)/100;}
-function decoSummary(it,c){return (c.decos||[]).map(function(d){var p=placeOf(it,d.pl);return (p?p.label:d.pl)+' ('+(MLAB[d.method]||'Emb')+')';}).join(' + ')||'left chest';}
+function decoSummary(it,c){return (c.decos||[]).map(function(d){var p=placeOf(it,d.pl),m=MLAB[d.method]||'Emb';if(d.method==='screen')m+=' '+(d.colours||1)+'C';return (p?p.label:d.pl)+' ('+m+')';}).join(' + ')||'left chest';}
 function refreshCartUI(){
   var n=cartCount(),sub=cartSubtotal();
   var cn=document.getElementById('cartN');if(cn)cn.textContent=n;
