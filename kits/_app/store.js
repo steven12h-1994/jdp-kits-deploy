@@ -218,12 +218,15 @@ function addRecommended(){
 function inkLabel(v){return v==='brand'?'full colour':v==='white'?'white':(v==='dark'||v==='black')?'black':'brand colour';}
 function shSummary(){
   var item=BYKEY[SH.key],act=Object.keys(SH.D).filter(function(pl){return SH.D[pl].on;});
-  if(!act.length)return 'No logo yet — tap Customize to add one';
+  if(!act.length)return 'No logo yet';
   var scol=colOf(item,SH.colour);
-  var places=act.map(function(pl){var p=placeOf(item,pl);return p?p.label:pl;}).join(' + ');
-  var d0=SH.D[act[0]],meth=MLAB[d0.method]||'Embroidery';
-  var eff=(d0.ink&&d0.ink!=='auto')?d0.ink:autoInkFor(d0.method,scol.rgb);
-  return meth+' · '+places+' · '+inkLabel(eff);
+  // Per-placement + method so mixed-method items (embroidered front + printed back) read accurately.
+  var parts=act.map(function(pl){var p=placeOf(item,pl),d=SH.D[pl];
+    var m=d.method==='screen'?'screen print':d.method==='heat_transfer'?'heat transfer':'embroidered';
+    return (p?p.label:pl)+' · '+m;});
+  var d0=SH.D[act[0]],eff=(d0.ink&&d0.ink!=='auto')?d0.ink:autoInkFor(d0.method,scol.rgb);
+  var tail=(act.length===1&&d0.method==='embroidery')?(' · '+inkLabel(eff)):'';
+  return parts.join('  +  ')+tail;
 }
 
 /* ---------- cart ---------- */
