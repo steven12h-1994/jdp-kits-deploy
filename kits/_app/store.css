@@ -96,6 +96,9 @@ button{font:inherit;cursor:pointer;border:0;background:none;color:inherit}
 .mpills{display:flex;gap:6px;flex-wrap:wrap}
 .mp{font-size:12px;font-weight:700;color:var(--ink);background:var(--bg);border:1.5px solid var(--line);border-radius:999px;padding:7px 12px;transition:.12s}
 .mp:hover{border-color:var(--a)}.mp.on{background:var(--a);color:#fff;border-color:var(--a)}
+.dcnt{font-size:12px;font-weight:700;color:var(--ink);background:var(--bg);border:1.5px solid var(--line);border-radius:999px;padding:7px 12px;transition:.12s}
+.dcnt:hover{border-color:var(--a)}.dcnt.on{background:var(--a);color:#fff;border-color:var(--a)}
+.dwarn{flex-basis:100%;font-size:12px;color:#8a5a00;background:#fff8ec;border:1px solid #f4d089;border-radius:9px;padding:8px 11px;line-height:1.4}
 .dgrp{display:flex;flex-direction:column;gap:6px}
 .dcap{font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--mut)}
 .dinks{display:flex;gap:7px}
