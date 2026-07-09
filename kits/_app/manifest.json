@@ -2,6 +2,7 @@
   "generator": "app",
   "files": [
     "kit.css",
-    "kit.js"
+    "kit.js",
+    "app.js"
   ]
 }
