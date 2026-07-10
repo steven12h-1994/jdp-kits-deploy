@@ -224,3 +224,27 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,.mcard:focus-vis
   .cartbtn .lbl{display:none}
 }
 @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* ---- decoration finish + price variations (v14) ---- */
+.decohd{font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--mut);margin:20px 0 4px;display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.dhint{font-size:11.5px;font-weight:600;color:var(--a);text-transform:none;letter-spacing:0}
+.decoblk{margin-top:10px}
+.mchips{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.mchip{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;border:1.5px solid var(--line);border-radius:13px;padding:10px 12px;background:var(--card);transition:border-color .12s,box-shadow .12s,background .12s;cursor:pointer}
+.mchip:hover{border-color:color-mix(in srgb,var(--a) 45%,var(--line))}
+.mchip.on{border-color:var(--a);box-shadow:0 0 0 1.5px var(--a);background:color-mix(in srgb,var(--a) 6%,#fff)}
+.mchip b{font-size:13.5px;font-weight:800;color:var(--ink);line-height:1.2}
+.mchip .ms{font-size:11px;color:var(--mut);font-weight:600}
+.mchip .mprc{margin-top:4px;font-size:13px;font-weight:800;color:var(--a)}
+.mchip .mprc i{font-style:normal;font-weight:600;color:var(--mut);font-size:11px}
+.mchip.on .mprc{color:var(--a)}
+.ptable{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:8px;margin-top:10px}
+.pt{display:flex;flex-direction:column;align-items:center;gap:1px;border:1.5px solid var(--line);border-radius:12px;padding:9px 6px;background:var(--card);cursor:pointer;transition:border-color .12s,box-shadow .12s,background .12s}
+.pt:hover{border-color:color-mix(in srgb,var(--a) 45%,var(--line))}
+.pt.on{border-color:var(--a);box-shadow:0 0 0 1.5px var(--a);background:color-mix(in srgb,var(--a) 6%,#fff)}
+.pt span{font-size:10.5px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:var(--mut)}
+.pt b{font-size:15px;font-weight:800;color:var(--ink)}
+.pt i{font-style:normal;font-size:10.5px;color:var(--mut);font-weight:600}
+.pt.on b{color:var(--a)}
+.qhint .save{display:inline-block;margin-top:8px;font-size:12px;font-weight:800;color:#0a7d3c;background:#e8f7ee;border-radius:999px;padding:5px 12px}
+@media(max-width:380px){.mchips{grid-template-columns:1fr}}

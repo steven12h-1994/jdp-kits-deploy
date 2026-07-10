@@ -161,33 +161,73 @@ function openSheet(key){
   document.body.style.overflow='hidden';
 }
 function sheetDecos(){return Object.keys(SH.D).map(function(pl){var d=SH.D[pl];return {pl:pl,on:d.on,lg:d.lg,ink:d.ink,method:d.method,colours:d.colours};});}
+/* The popular decoration variations we quote on every logo location. Embroidery = full-colour
+   stitch; screen print in 1- or 2-colour; heat transfer = full colour. Each is priced live from
+   the shared rate card so the customer can compare finishes and pick the design + price they want. */
+var METHOD_OPTS=[
+  {m:'embroidery',c:1,lab:'Embroidery',sub:'full-colour stitch'},
+  {m:'screen',c:1,lab:'Screen · 1-colour',sub:'one ink'},
+  {m:'screen',c:2,lab:'Screen · 2-colour',sub:'two inks'},
+  {m:'heat_transfer',c:1,lab:'Heat transfer',sub:'full colour'}
+];
+function decoIsSel(pl,opt){var d=SH.D[pl];if(!d||!d.on||d.method!==opt.m)return false;return opt.m!=='screen'||(d.colours||1)===opt.c;}
+// Per-piece price if placement `pl` used decoration `opt` (holding every other placement as-is).
+function priceIf(pl,opt,on){
+  var decos=sheetDecos().map(function(d){return d.pl===pl?{pl:pl,on:on,lg:d.lg,ink:'auto',method:opt.m,colours:opt.c}:d;});
+  return unitPrice(SH.key,decos,SH.qty);
+}
+function methodChips(item,p,primary){
+  var chips='';
+  if(!primary){chips+='<button class="mchip'+(SH.D[p.id].on?'':' on')+'" data-pl="'+p.id+'" data-off="1"><b>None</b><span class="ms">skip this spot</span></button>';}
+  METHOD_OPTS.forEach(function(opt){
+    var sel=decoIsSel(p.id,opt),u=priceIf(p.id,opt,true);
+    chips+='<button class="mchip'+(sel?' on':'')+'" data-pl="'+p.id+'" data-m="'+opt.m+'" data-c="'+opt.c+'">'+
+      '<b>'+opt.lab+'</b><span class="ms">'+opt.sub+'</span><span class="mprc">'+money(u)+' <i>ea</i></span></button>';
+  });
+  return chips;
+}
 function renderSheet(){
   var item=BYKEY[SH.key];
   var o=overlayHtml(item,{decos:sheetDecos()},SH.colour,SH.face);var hasBack=o.hasBack;
   var chips=item.cols.map(function(c){return '<button class="cchip'+(c.name===SH.colour?' on':'')+'" data-col="'+esc(c.name)+'" style="background-image:url('+gurl(c.front)+')" title="'+esc(c.name)+'"></button>';}).join('');
   var faceTog=hasBack?'<div class="chips ftog"><button class="pchip'+(SH.face==='front'?' on':'')+'" data-face="front">Front</button><button class="pchip'+(SH.face==='back'?' on':'')+'" data-face="back">Back</button></div>':'';
+  var logoPlaces=(item.places||[]).filter(function(p){return p.logo;});
+  var primaryId=(logoPlaces[0]||{}).id;
+  var decoBlocks=logoPlaces.map(function(p){var primary=p.id===primaryId;
+    return '<div class="decoblk"><div class="optlbl">'+esc(p.label)+' <i>'+(primary?'included':'optional add-on')+'</i></div>'+
+      '<div class="mchips">'+methodChips(item,p,primary)+'</div></div>';}).join('');
   var decos=sheetDecos();
-  var unit=unitPrice(SH.key,decos,SH.qty),line=unit*SH.qty,topcol=CFG.pricing.cols[CFG.pricing.cols.length-1];
+  var unit=unitPrice(SH.key,decos,SH.qty),line=unit*SH.qty,tiers=CFG.pricing.cols||[12],topcol=tiers[tiers.length-1];
+  var ptable=tiers.map(function(t,i){var u=unitPrice(SH.key,decos,t);
+    var on=SH.qty>=t&&(i===tiers.length-1||SH.qty<tiers[i+1]);
+    return '<button class="pt'+(on?' on':'')+'" data-t="'+t+'"><span>'+t+'+ pcs</span><b>'+money(u)+'</b><i>ea</i></button>';}).join('');
   var uM=unitPrice(SH.key,decos,moq()),uT=unitPrice(SH.key,decos,topcol);
   var sv=uM>0?Math.round((1-uT/uM)*100):0;
-  var qh=money(unit)+' ea at '+SH.qty+' pcs'+(sv>0?' · <span class="save">save '+sv+'% at '+topcol+'+</span>':'');
-  // 80/20: the customer chooses COLOUR + QUANTITY. The decoration is our recommendation, shown as a
-  // fixed, reassuring line (not a pile of editable controls). One-off placements -> the checkout note.
+  // Customer chooses COLOUR + DECORATION FINISH (priced live) + QUANTITY. Mockup shows a
+  // representative finish; the price always reflects the finish + quantity they pick.
   document.getElementById('sheet').innerHTML=
     '<div class="shimg" id="shimg"><button class="shx" id="shx">✕</button><div class="shstage"><img class="g" src="'+o.g+'" alt="">'+o.lg+'</div></div>'+
     '<div class="shb"><h2>'+esc(item.name)+'</h2><div class="shsku">'+esc(item.sku)+'</div>'+
     (item.blurb?'<p class="shblurb">'+esc(item.blurb)+'</p>':'')+faceTog+
     '<div class="optlbl">Colour <i>'+esc(SH.colour)+'</i></div><div class="chips" data-role="col">'+chips+'</div>'+
-    '<div class="decoinfo"><span class="dck2"></span><div class="dil"><b>Your logo — set up for you</b><span>'+esc(shSummary())+'</span></div></div>'+
-    '<div class="optlbl">Quantity <i>('+moq()+' minimum)</i></div>'+
+    '<div class="decohd">Decoration &amp; price <span class="dhint">tap to compare finishes</span></div>'+
+    decoBlocks+
+    '<div class="optlbl">Quantity <i>('+moq()+' min · price drops at each tier)</i></div>'+
     '<div class="qty"><button data-q="-1">–</button><input id="qin" type="number" inputmode="numeric" value="'+SH.qty+'" min="'+moq()+'"><button data-q="1">+</button></div>'+
-    '<div class="qhint">'+qh+'</div>'+
+    '<div class="ptable">'+ptable+'</div>'+
+    (sv>0?'<div class="qhint"><span class="save">Save '+sv+'% per piece at '+topcol+'+</span></div>':'')+
     '<div class="shadd"><button class="shaddbtn" id="shAdd">'+(CART[SH.key]?'Update kit':'Add to kit')+'<span class="p">'+money(line)+'</span></button></div>'+
-    '<div class="shnote">Want the logo somewhere specific, or a different size? Just tell us at checkout — we set up the decoration for you.</div></div>';
+    '<div class="shnote">Price includes the decoration shown. One-time setup (stitch file / screens) is added once per design and shared across your whole kit — reorders are garment + decoration only. Custom placement or size? Just tell us at checkout.</div></div>';
   var sh=document.getElementById('sheet');
   document.getElementById('shx').addEventListener('click',closeAll);
   sh.querySelectorAll('.cchip').forEach(function(b){b.addEventListener('click',function(){SH.colour=b.dataset.col;swapPreview();renderSheet();});});
   sh.querySelectorAll('[data-face]').forEach(function(b){b.addEventListener('click',function(){SH.face=b.dataset.face;renderSheet();});});
+  sh.querySelectorAll('.mchip').forEach(function(b){b.addEventListener('click',function(){var pl=b.dataset.pl;
+    if(b.dataset.off){SH.D[pl].on=false;}
+    else{var chg=SH.D[pl].method!==b.dataset.m;SH.D[pl].on=true;SH.D[pl].method=b.dataset.m;SH.D[pl].colours=parseInt(b.dataset.c,10)||1;if(chg)SH.D[pl].ink='auto';
+      var p=placeOf(item,pl);if(p&&(p.face||'front')!==SH.face&&hasBack)SH.face=p.face||'front';}
+    swapPreview();renderSheet();});});
+  sh.querySelectorAll('.pt').forEach(function(b){b.addEventListener('click',function(){SH.qty=Math.max(moq(),parseInt(b.dataset.t,10)||moq());renderSheet();});});
   sh.querySelectorAll('.qty button').forEach(function(b){b.addEventListener('click',function(){var step=parseInt(b.dataset.q,10)*(SH.qty<48?6:12);SH.qty=Math.max(moq(),SH.qty+step);renderSheet();});});
   document.getElementById('qin').addEventListener('change',function(e){SH.qty=Math.max(moq(),parseInt(e.target.value,10)||moq());renderSheet();});
   document.getElementById('shAdd').addEventListener('click',addFromSheet);
