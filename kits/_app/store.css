@@ -224,3 +224,29 @@ footer{padding:30px 0 40px;color:var(--mut);font-size:12px;line-height:1.6}
 .skl2{height:11px;width:45%;margin-bottom:12px}
 .skl3{height:16px;width:35%}
 @media(prefers-reduced-motion:reduce){.sk::after{animation:none}}
+
+/* ---- savings nudge (v19) ---- */
+.nudge{margin-top:12px;font-size:13px;font-weight:700;color:#0a7d3c;background:#e8f7ee;border:1px solid #bce7cd;border-radius:12px;padding:10px 13px;line-height:1.4}
+.nudge b{font-weight:850}
+/* ---- size breakdown (v19) ---- */
+.lnk{font-size:12.5px;font-weight:700;color:var(--a);text-transform:none;letter-spacing:0}
+.szopen{margin-top:12px}
+.szgrid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.szrow{display:flex;align-items:center;justify-content:space-between;gap:8px;border:1.5px solid var(--line);border-radius:12px;padding:7px 8px 7px 13px}
+.szl{font-size:14px;font-weight:800}
+.szqty{border-width:1px}
+.szqty button{width:32px;height:32px;font-size:17px}
+.szqty input{width:36px;font-size:14px}
+.sztot{margin-top:12px;font-size:14px;font-weight:700;color:var(--ink)}
+.sztot b{font-weight:850}
+.sztot span{color:var(--mut);font-weight:600;font-size:12.5px}
+.sztot.under b{color:#c0392b}
+.sztot.under span{color:#c0392b}
+@media(max-width:400px){.szgrid{grid-template-columns:1fr}}
+.shaddbtn[disabled]{background:#c9ccd1;box-shadow:none;cursor:not-allowed}
+.shaddbtn[disabled]:hover{filter:none}
+/* ---- cart: sizes + per-line nudge + edit ---- */
+.szln{font-size:11.5px;color:var(--mut);font-weight:700}
+.cinudge{display:inline-block;margin:2px 0 7px;font-size:11.5px;font-weight:800;color:#0a7d3c;background:#e8f7ee;border-radius:999px;padding:3px 9px}
+.editln{font-size:13px;font-weight:800;color:var(--a);background:color-mix(in srgb,var(--a) 7%,#fff);border:1.5px solid color-mix(in srgb,var(--a) 30%,#fff);border-radius:999px;padding:8px 13px}
+.editln:hover{border-color:var(--a)}

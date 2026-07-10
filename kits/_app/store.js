@@ -152,10 +152,18 @@ var METHOD_OPTS=[
   {m:'screen',c:2,lab:'Screen print · 2 colour',sub:'two inks'},
   {m:'heat_transfer',c:1,lab:'Heat transfer',sub:'full colour'}
 ];
+var SIZES=['S','M','L','XL','2XL','3XL'];
+function sizeTotal(sz){sz=sz||SH.sizes||{};var t=0;SIZES.forEach(function(s){t+=parseInt(sz[s],10)||0;});return t;}
+function effQty(){return SH.useSizes?sizeTotal():SH.qty;}
+// The next price tier above q (or null). Used to nudge orders up to the next volume break.
+function nextTier(q){var t=CFG.pricing.cols||[];for(var i=0;i<t.length;i++){if(q<t[i])return t[i];}return null;}
+function savingsNudge(key,decos,q){var nt=nextTier(q);if(!nt)return null;var a=unitPrice(key,decos,q),b=unitPrice(key,decos,nt);var pct=a>0?Math.round((1-b/a)*100):0;if(pct<=0)return null;return {need:nt-q,tier:nt,pct:pct};}
+function sizesSummary(c){if(!c||!c.sizes)return '';return SIZES.filter(function(s){return c.sizes[s];}).map(function(s){return s+' '+c.sizes[s];}).join(' · ');}
 function openSheet(key){
   var item=BYKEY[key],vm=vmOf(key),ex=CART[key],exmap={};
   if(ex&&ex.decos){ex.decos.forEach(function(d){exmap[d.pl]=d;});}
-  SH={key:key,colour:(ex&&ex.colour)||vm.colour,face:'front',D:{},qty:(ex&&ex.qty)||moq(),showExtra:false};
+  SH={key:key,colour:(ex&&ex.colour)||vm.colour,face:'front',D:{},qty:(ex&&ex.qty)||moq(),showExtra:false,useSizes:!!(ex&&ex.sizes),sizes:{}};
+  SIZES.forEach(function(s){SH.sizes[s]=(ex&&ex.sizes&&ex.sizes[s])||0;});
   var logoPlaces=(item.places||[]).filter(function(p){return p.logo;}),primaryId=(logoPlaces[0]||{}).id;
   logoPlaces.forEach(function(p){
     var rd=(vm.decos||[]).filter(function(x){return x.pl===p.id;})[0]||{},use=exmap[p.id];
@@ -205,12 +213,30 @@ function renderSheet(){
     else{extraHtml='<button class="addspot" id="addSpot">＋ Add a logo to '+extras.map(function(p){return esc(p.label.toLowerCase());}).join(' or ')+'</button>';}
   }
   var decos=sheetDecos();
-  var unit=unitPrice(SH.key,decos,SH.qty),line=unit*SH.qty,tiers=CFG.pricing.cols||[12],topcol=tiers[tiers.length-1];
+  var q=effQty(),tiers=CFG.pricing.cols||[12],topcol=tiers[tiers.length-1];
+  var unit=unitPrice(SH.key,decos,q),line=unit*q;
   var ptable=tiers.map(function(t,i){var u=unitPrice(SH.key,decos,t);
-    var on=SH.qty>=t&&(i===tiers.length-1||SH.qty<tiers[i+1]);
+    var on=q>=t&&(i===tiers.length-1||q<tiers[i+1]);
     return '<button class="pt'+(on?' on':'')+'" data-t="'+t+'"><span>'+t+'+ pcs</span><b>'+money(u)+'</b><i>/pc</i></button>';}).join('');
-  var uM=unitPrice(SH.key,decos,moq()),uT=unitPrice(SH.key,decos,topcol);
-  var sv=uM>0?Math.round((1-uT/uM)*100):0;
+  var nud=savingsNudge(SH.key,decos,q);
+  var nudHtml=nud?('<div class="nudge">💡 Add '+nud.need+' more to reach the '+nud.tier+'+ price — <b>save '+nud.pct+'% per piece</b></div>'):'';
+  // Quantity: either a single total (stepper) or an optional per-size breakdown whose total drives qty.
+  var qtyGrp;
+  if(!SH.useSizes){
+    qtyGrp='<div class="grp"><div class="grphd"><span>Quantity</span><i>'+moq()+' min · price drops at each tier</i></div>'+
+      '<div class="qtyrow"><div class="qty" id="qtyStep"><button data-q="-1" aria-label="Less">–</button><input id="qin" type="number" inputmode="numeric" value="'+SH.qty+'" min="'+moq()+'"><button data-q="1" aria-label="More">+</button></div></div>'+
+      '<div class="ptable">'+ptable+'</div>'+nudHtml+
+      '<button class="addspot szopen" id="szOpen">＋ Add size breakdown (optional)</button></div>';
+  } else {
+    var total=sizeTotal(),under=total<moq();
+    var grid=SIZES.map(function(s){return '<div class="szrow"><span class="szl">'+s+'</span>'+
+      '<div class="qty sm szqty"><button data-sz="'+s+'" data-d="-1" aria-label="Less '+s+'">–</button><input class="szin" data-sz="'+s+'" type="number" inputmode="numeric" value="'+(SH.sizes[s]||0)+'" min="0"><button data-sz="'+s+'" data-d="1" aria-label="More '+s+'">+</button></div></div>';}).join('');
+    qtyGrp='<div class="grp"><div class="grphd"><span>Size breakdown</span><button class="lnk" id="szClose">use one total instead</button></div>'+
+      '<div class="szgrid">'+grid+'</div>'+
+      '<div class="sztot'+(under?' under':'')+'">Total <b>'+total+' pcs</b>'+(under?' <span>· '+moq()+' minimum</span>':'')+'</div>'+
+      '<div class="ptable">'+ptable+'</div>'+nudHtml+'</div>';
+  }
+  var canAdd=!(SH.useSizes&&sizeTotal()<moq());
   document.getElementById('sheet').innerHTML=
     '<button class="shx" id="shx" aria-label="Close">✕</button>'+
     '<div class="shscroll">'+
@@ -218,13 +244,9 @@ function renderSheet(){
       '<div class="shb"><h2>'+esc(item.name)+'</h2><div class="shsku">'+esc(item.sku)+(item.layer==='field'?' · CSA hi-vis':'')+'</div>'+
       (item.blurb?'<p class="shblurb">'+esc(item.blurb)+'</p>':'')+
       '<div class="grp"><div class="grphd"><span>Colour</span><i>'+esc(SH.colour)+'</i></div><div class="cchips">'+chips+'</div></div>'+
-      primaryHtml+extraHtml+
-      '<div class="grp"><div class="grphd"><span>Quantity</span><i>'+moq()+' minimum · save more at each tier</i></div>'+
-        '<div class="qtyrow"><div class="qty"><button data-q="-1" aria-label="Less">–</button><input id="qin" type="number" inputmode="numeric" value="'+SH.qty+'" min="'+moq()+'"><button data-q="1" aria-label="More">+</button></div>'+
-        (sv>0?'<span class="savep">Save '+sv+'% at '+topcol+'+</span>':'')+'</div>'+
-        '<div class="ptable">'+ptable+'</div></div>'+
+      primaryHtml+extraHtml+qtyGrp+
     '</div></div>'+
-    '<div class="shfoot"><button class="shaddbtn" id="shAdd"><span>'+(CART[SH.key]?'Update kit':'Add to kit')+'</span><span class="p">'+money(line)+'</span></button>'+
+    '<div class="shfoot"><button class="shaddbtn" id="shAdd"'+(canAdd?'':' disabled')+'><span>'+(canAdd?(CART[SH.key]?'Update kit':'Add to kit'):('Add '+moq()+'+ pieces'))+'</span><span class="p">'+money(line)+'</span></button>'+
       '<div class="shtrust">✓ Free digital proof before you commit · no obligation</div></div>';
   var sh=document.getElementById('sheet');
   document.getElementById('shx').addEventListener('click',closeAll);
@@ -236,16 +258,25 @@ function renderSheet(){
     else{var chg=!SH.D[pl].on||SH.D[pl].method!==b.dataset.m;SH.D[pl].on=true;SH.D[pl].method=b.dataset.m;SH.D[pl].colours=parseInt(b.dataset.c,10)||1;if(chg)SH.D[pl].ink='auto';
       var p=placeOf(item,pl);if(p&&(p.face||'front')!==SH.face&&hasBack)SH.face=p.face||'front';}
     swapPreview();renderSheet();});});
-  sh.querySelectorAll('.pt').forEach(function(b){b.addEventListener('click',function(){SH.qty=Math.max(moq(),parseInt(b.dataset.t,10)||moq());renderSheet();});});
-  sh.querySelectorAll('.qty button').forEach(function(b){b.addEventListener('click',function(){var step=parseInt(b.dataset.q,10)*(SH.qty<48?6:12);SH.qty=Math.max(moq(),SH.qty+step);renderSheet();});});
-  document.getElementById('qin').addEventListener('change',function(e){SH.qty=Math.max(moq(),parseInt(e.target.value,10)||moq());renderSheet();});
+  sh.querySelectorAll('.pt').forEach(function(b){b.addEventListener('click',function(){if(SH.useSizes)return;SH.qty=Math.max(moq(),parseInt(b.dataset.t,10)||moq());renderSheet();});});
+  var qstep=document.getElementById('qtyStep');
+  if(qstep)qstep.querySelectorAll('button').forEach(function(b){b.addEventListener('click',function(){var step=parseInt(b.dataset.q,10)*(SH.qty<48?6:12);SH.qty=Math.max(moq(),SH.qty+step);renderSheet();});});
+  var qin=document.getElementById('qin');if(qin)qin.addEventListener('change',function(e){SH.qty=Math.max(moq(),parseInt(e.target.value,10)||moq());renderSheet();});
+  var szo=document.getElementById('szOpen');if(szo)szo.addEventListener('click',function(){SH.useSizes=true;renderSheet();});
+  var szc=document.getElementById('szClose');if(szc)szc.addEventListener('click',function(){SH.useSizes=false;renderSheet();});
+  sh.querySelectorAll('.szqty button').forEach(function(b){b.addEventListener('click',function(){var s=b.dataset.sz,d=parseInt(b.dataset.d,10);SH.sizes[s]=Math.max(0,(parseInt(SH.sizes[s],10)||0)+d);renderSheet();});});
+  sh.querySelectorAll('.szin').forEach(function(inp){inp.addEventListener('change',function(e){SH.sizes[e.target.dataset.sz]=Math.max(0,parseInt(e.target.value,10)||0);renderSheet();});});
   document.getElementById('shAdd').addEventListener('click',addFromSheet);
 }
 function swapPreview(){var im=document.getElementById('shimg');if(im){im.classList.add('sw');setTimeout(function(){im.classList.remove('sw');},220);}}
 function addFromSheet(){
+  var q=effQty();
+  if(SH.useSizes&&q<moq()){toast('Add at least '+moq()+' pieces');return;}
   var was=!!CART[SH.key],decos=[];
   Object.keys(SH.D).forEach(function(pl){var d=SH.D[pl];if(d.on)decos.push({pl:pl,lg:d.lg,ink:d.ink,method:d.method,colours:d.colours||1,on:true});});
-  CART[SH.key]={qty:SH.qty,colour:SH.colour,decos:decos};
+  var entry={qty:q,colour:SH.colour,decos:decos};
+  if(SH.useSizes){var sz={};SIZES.forEach(function(s){if(SH.sizes[s])sz[s]=SH.sizes[s];});if(Object.keys(sz).length)entry.sizes=sz;}
+  CART[SH.key]=entry;
   saveCart();closeAll();refreshCartUI();
   toast((was?'Updated · ':'Added · ')+BYKEY[SH.key].name);
 }
@@ -293,11 +324,13 @@ function openCart(){renderCart();document.getElementById('ov').classList.add('on
 function renderCart(){
   var keys=Object.keys(CART),sub=cartSubtotal();
   var items=keys.map(function(k){var it=BYKEY[k];if(!it)return '';var c=CART[k];var col=colOf(it,c.colour);
-    var unit=unitPrice(k,c.decos,c.qty);
+    var unit=unitPrice(k,c.decos,c.qty);var szsum=sizesSummary(c);var nud=savingsNudge(k,c.decos,c.qty);
+    var ctrl=c.sizes ? '<button class="editln" data-edit="'+k+'">'+c.qty+' pcs · by size ✎</button>'
+      : '<div class="qty sm"><button data-q="-1">–</button><input class="ciq" type="number" value="'+c.qty+'" min="'+moq()+'"><button data-q="1">+</button></div>';
     return '<div class="ci" data-key="'+k+'"><div class="t" style="background-image:url('+gurl(col.front)+')"></div>'+
-      '<div class="d"><h4>'+esc(it.name)+'</h4><div class="sub">'+esc(c.colour)+' · '+esc(decoSummary(it,c))+'</div>'+
-      '<div class="row"><div class="qty sm"><button data-q="-1">–</button><input class="ciq" type="number" value="'+c.qty+'" min="'+moq()+'"><button data-q="1">+</button></div>'+
-      '<div class="lp">'+money(unit*c.qty)+'</div></div></div>'+
+      '<div class="d"><h4>'+esc(it.name)+'</h4><div class="sub">'+esc(c.colour)+' · '+esc(decoSummary(it,c))+(szsum?'<br><span class="szln">Sizes: '+esc(szsum)+'</span>':'')+'</div>'+
+      (nud?'<div class="cinudge">＋'+nud.need+' to reach '+nud.tier+'+ · save '+nud.pct+'%</div>':'')+
+      '<div class="row">'+ctrl+'<div class="lp">'+money(unit*c.qty)+'</div></div></div>'+
       '<button class="rm" data-rm="'+k+'" aria-label="Remove">✕</button></div>';}).join('');
   var body=keys.length?items:'<div class="cempty"><div class="ce-ic">🛒</div>Your kit is empty.<br><span>Tap any item to add it.</span></div>';
   var setupRows=setupBreakdown(),setup=setupRows.reduce(function(t,x){return t+x.amount;},0);
@@ -315,17 +348,20 @@ function renderCart(){
   var ck=document.getElementById('checkout');if(ck)ck.addEventListener('click',openCheckout);
   document.querySelectorAll('.ci').forEach(function(ci){var k=ci.dataset.key;
     ci.querySelectorAll('.qty button').forEach(function(b){b.addEventListener('click',function(){var step=parseInt(b.dataset.q,10)*(CART[k].qty<48?6:12);CART[k].qty=Math.max(moq(),CART[k].qty+step);saveCart();renderCart();refreshCartUI();});});
-    ci.querySelector('.ciq').addEventListener('change',function(e){CART[k].qty=Math.max(moq(),parseInt(e.target.value,10)||moq());saveCart();renderCart();refreshCartUI();});
+    var ciq=ci.querySelector('.ciq');if(ciq)ciq.addEventListener('change',function(e){CART[k].qty=Math.max(moq(),parseInt(e.target.value,10)||moq());saveCart();renderCart();refreshCartUI();});
+    var ed=ci.querySelector('[data-edit]');if(ed)ed.addEventListener('click',function(){editItem(k);});
     ci.querySelector('[data-rm]').addEventListener('click',function(){delete CART[k];saveCart();renderCart();refreshCartUI();});
   });
 }
+function editItem(k){document.getElementById('cart').classList.remove('on');openSheet(k);}
 function closeAll(){['ov','sheet','cart'].forEach(function(id){var e=document.getElementById(id);if(e)e.classList.remove('on');});document.body.style.overflow='';}
 
 /* ---------- checkout: copy-paste into the existing email thread ---------- */
 function orderText(note){
   var lines=['MY KIT — '+CFG.client,''];
   Object.keys(CART).forEach(function(k){var it=BYKEY[k];if(!it)return;var c=CART[k];var u=unitPrice(k,c.decos,c.qty);
-    lines.push('• '+it.name+' ('+it.sku+') — '+c.colour+' · '+decoSummary(it,c)+' · qty '+c.qty+' @ '+money(u)+' ea = '+money(u*c.qty));});
+    lines.push('• '+it.name+' ('+it.sku+') — '+c.colour+' · '+decoSummary(it,c)+' · qty '+c.qty+' @ '+money(u)+' ea = '+money(u*c.qty));
+    var ss=sizesSummary(c);if(ss)lines.push('    sizes: '+ss);});
   lines.push('','Estimated subtotal: '+money(cartSubtotal()));
   var sb=setupBreakdown();
   if(sb.length){lines.push('One-time setup: '+money(cartSetup())+'  (once per design, shared across the kit)');
@@ -336,8 +372,8 @@ function orderText(note){
   return lines.join('\n');
 }
 function openCheckout(){
-  var review=Object.keys(CART).map(function(k){var it=BYKEY[k];if(!it)return '';var c=CART[k];
-    return '<div class="r"><span>'+esc(it.name)+' · '+esc(c.colour)+' · '+esc(decoSummary(it,c))+' × '+c.qty+'</span><span>'+money(unitPrice(k,c.decos,c.qty)*c.qty)+'</span></div>';}).join('');
+  var review=Object.keys(CART).map(function(k){var it=BYKEY[k];if(!it)return '';var c=CART[k];var ss=sizesSummary(c);
+    return '<div class="r"><span>'+esc(it.name)+' · '+esc(c.colour)+' · '+esc(decoSummary(it,c))+' × '+c.qty+(ss?'<br><small style="color:var(--mut)">Sizes: '+esc(ss)+'</small>':'')+'</span><span>'+money(unitPrice(k,c.decos,c.qty)*c.qty)+'</span></div>';}).join('');
   document.getElementById('cart').innerHTML=
     '<div class="carth"><button class="cartback" id="cartback" aria-label="Back">‹</button><h2>Send us your kit</h2><button class="cartx" id="cartx" aria-label="Close">✕</button></div>'+
     '<div class="citems"><div class="co">'+
