@@ -709,9 +709,9 @@
      "id": "front",
      "label": "Centre chest",
      "face": "front",
-     "cx": 50.0,
-     "cy": 30.0,
-     "wf": 17.0,
+     "cx": 50,
+     "cy": 32,
+     "wf": 15,
      "logo": true,
      "cxb": 0.014
     },
@@ -772,9 +772,9 @@
      "id": "front",
      "label": "Left chest",
      "face": "front",
-     "cx": 57.0,
-     "cy": 34.0,
-     "wf": 7.0,
+     "cx": 61,
+     "cy": 30,
+     "wf": 8,
      "logo": true,
      "cxb": 0.0
     },
@@ -886,9 +886,9 @@
      "id": "back",
      "label": "Back print",
      "face": "back",
-     "cx": 50.0,
-     "cy": 82.0,
-     "wf": 22.0,
+     "cx": 50,
+     "cy": 72,
+     "wf": 24,
      "logo": true,
      "cxb": 0.0
     }
@@ -943,9 +943,9 @@
      "id": "back",
      "label": "Back print",
      "face": "back",
-     "cx": 50.0,
-     "cy": 62.0,
-     "wf": 26.0,
+     "cx": 50,
+     "cy": 61,
+     "wf": 18,
      "logo": true,
      "cxb": 0.0
     }
@@ -991,8 +991,8 @@
      "label": "Left chest",
      "face": "front",
      "cx": 56.5,
-     "cy": 32.0,
-     "wf": 7.5,
+     "cy": 32,
+     "wf": 8,
      "logo": true,
      "cxb": 0.0
     },
@@ -1000,9 +1000,9 @@
      "id": "back",
      "label": "Back print",
      "face": "back",
-     "cx": 50.0,
-     "cy": 76.0,
-     "wf": 24.0,
+     "cx": 50,
+     "cy": 80,
+     "wf": 24,
      "logo": true,
      "cxb": 0.0
     }
