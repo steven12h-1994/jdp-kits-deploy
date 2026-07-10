@@ -887,8 +887,8 @@
      "label": "Back print",
      "face": "back",
      "cx": 50,
-     "cy": 60,
-     "wf": 22,
+     "cy": 83,
+     "wf": 20,
      "logo": true,
      "cxb": 0.0
     }
