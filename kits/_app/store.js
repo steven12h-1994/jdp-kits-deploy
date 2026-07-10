@@ -67,11 +67,12 @@ function menuCard(key){
   var topcol=CFG.pricing.cols[CFG.pricing.cols.length-1];
   var fromP=unitPrice(key,vm.decos,topcol);
   var rec=(key===CFG.feature||item.rec)?'<span class="mrec">★ Top pick</span>':'';
-  var inkit=CART[key]?' inkit':'';
-  var addlbl=CART[key]?'✓':'+';
+  var q=CART[key]?CART[key].qty:0;
+  var inkit=q?' inkit':'';
+  var addlbl=q?('<b>'+q+'</b>'):'+';
   return '<article class="mcard'+inkit+'" data-key="'+key+'" tabindex="0" role="button" aria-label="'+esc(item.name)+'">'+
     '<div class="mstage">'+rec+'<img class="g" src="'+o.g+'" alt="'+esc(item.name)+'" loading="lazy" decoding="async">'+o.lg+
-      '<button class="madd" data-key="'+key+'" aria-label="Add '+esc(item.name)+'">'+addlbl+'</button></div>'+
+      '<button class="madd'+(q?' has':'')+'" data-key="'+key+'" aria-label="'+(q?'Edit ':'Add ')+esc(item.name)+'">'+addlbl+'</button></div>'+
     '<div class="mb"><h3>'+esc(item.name)+'</h3>'+
       '<div class="mmeta">'+esc(item.sku)+' · '+ncol+' colours</div>'+
       '<div class="mprice">from <b>'+money(fromP)+'</b> <small>/pc</small></div></div></article>';
@@ -286,7 +287,7 @@ function refreshCartUI(){
   var bar=document.getElementById('cbar');if(bar)bar.classList.toggle('on',n>0);
   var bn=document.getElementById('cbarN');if(bn)bn.textContent=n;
   var bp=document.getElementById('cbarP');if(bp)bp.textContent=money0(sub);
-  document.querySelectorAll('.mcard').forEach(function(card){var k=card.dataset.key;var on=!!CART[k];card.classList.toggle('inkit',on);var b=card.querySelector('.madd');if(b)b.textContent=on?'✓':'+';});
+  document.querySelectorAll('.mcard').forEach(function(card){var k=card.dataset.key;var on=!!CART[k];card.classList.toggle('inkit',on);var b=card.querySelector('.madd');if(b){b.classList.toggle('has',on);b.innerHTML=on?('<b>'+CART[k].qty+'</b>'):'+';}});
 }
 function openCart(){renderCart();document.getElementById('ov').classList.add('on');document.getElementById('cart').classList.add('on');document.body.style.overflow='hidden';}
 function renderCart(){
@@ -363,10 +364,20 @@ function copyKit(){
 }
 
 /* ---------- boot ---------- */
+function renderSkeleton(cfg){
+  var cards='';for(var i=0;i<8;i++){cards+='<div class="skcard"><div class="sk skimg"></div><div class="skb"><div class="sk skl1"></div><div class="sk skl2"></div><div class="sk skl3"></div></div></div>';}
+  document.getElementById('app').innerHTML=
+    '<header class="hdr"><div class="w hdrin"><span class="brand"><b>'+esc((cfg&&cfg.client)||'')+'</b><i>× Just Deals</i></span></div></header>'+
+    '<section class="hero"><div class="w heroin"><div class="eyb">Branded apparel · ready to order</div>'+
+      '<h1>'+esc((cfg&&cfg.client)||'Your')+"'s team store</h1>"+
+      '<p class="herosub">Loading your kit…</p></div></section>'+
+    '<main class="w"><div class="menu">'+cards+'</div></main>';
+}
 function go(cfg){
   CFG=cfg;
   if(cfg.accent)document.documentElement.style.setProperty('--a',cfg.accent);
   document.title=(cfg.client||'Branded Apparel')+' — Team Store · Just Deals Promotions';
+  renderSkeleton(cfg);
   fetch((cfg.catalog_base||CATALOG_BASE)+'/catalog.json?v='+(cfg.ver||'1')).then(function(r){return r.json();}).then(function(cat){
     CFG.catalog_base=cfg.catalog_base||CATALOG_BASE;CAT=cat;(cat.items||[]).forEach(function(it){BYKEY[it.key]=it;});
     loadCart();buildStore();refreshCartUI();
