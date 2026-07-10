@@ -102,15 +102,14 @@ function buildStore(){
      '<button class="cartbtn" id="openCart"><span class="lbl">Your kit</span> <span class="n" id="cartN">0</span></button></div></header>'+
    '<section class="hero"><div class="w heroin"><div class="eyb">Recommended kit · ready to order</div>'+
      '<h1>'+esc(CFG.client)+"'s branded apparel — your logo, already on it.</h1>"+
-     '<p>We picked the kit; you just choose colours &amp; quantities and send it back for a quote. No design work.</p>'+
      '<div class="herochips">'+chips+'</div>'+
      '<div class="herorow"><button class="herocta" id="addRec">★ Add the whole recommended kit</button>'+
      '<span class="herohint">or tap any item below to pick colour &amp; quantity</span></div>'+
      (heroart?'<div class="heroart">'+heroart+'</div>':'')+'</div></section>'+
    ((office&&field)?('<nav class="tabs"><div class="w tabsin"><button class="tab on" data-t="sec-office">Office &amp; client-facing</button><button class="tab" data-t="sec-field">Job-site &amp; hi-vis</button></div></nav>'):'')+
    '<main class="w">'+
-     (office?'<section class="sec" id="sec-office"><div class="seclbl">Office &amp; client-facing</div><div class="secsub">Hit <b>Add</b> for our recommended setup, or tap an item to pick colour, size the run &amp; tweak the logo.</div><div class="menu">'+office+'</div></section>':'')+
-     (field?'<section class="sec" id="sec-field"><div class="seclbl">Job-site &amp; hi-vis</div><div class="secsub">CSA-rated, logo-ready. Hit <b>Add</b>, or tap to customize.</div><div class="menu">'+field+'</div></section>':'')+
+     (office?'<section class="sec" id="sec-office"><div class="seclbl">Office &amp; client-facing</div><div class="menu">'+office+'</div></section>':'')+
+     (field?'<section class="sec" id="sec-field"><div class="seclbl">Job-site &amp; hi-vis <span class="csa">CSA-rated</span></div><div class="menu">'+field+'</div></section>':'')+
    '</main>'+
    (C.feed?('<section class="social"><div class="w"><div class="seclbl">Recent work — straight from our shop floor</div>'+
      '<p class="socsub">'+esc(C.work_lead||'Real kits we’ve decorated for crews across the country.')+'</p>'+

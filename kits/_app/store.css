@@ -45,6 +45,7 @@ behold-widget{--behold-row-gap:10px;--behold-column-gap:10px;--behold-border-rad
 /* menu */
 .sec{padding:26px 0 8px}
 .seclbl{font-size:19px;font-weight:800;letter-spacing:-.01em;margin:8px 0 4px}
+.csa{font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--a);background:color-mix(in srgb,var(--a) 12%,#fff);border:1px solid color-mix(in srgb,var(--a) 30%,#fff);border-radius:999px;padding:3px 9px;margin-left:8px;vertical-align:middle;white-space:nowrap}
 .secsub{font-size:13.5px;color:var(--mut);margin-bottom:16px}
 .menu{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;align-items:start}
 .mcard{background:var(--card);border-radius:var(--rad);overflow:hidden;box-shadow:0 1px 2px rgba(0,0,0,.05),0 12px 30px -22px rgba(0,0,0,.45);cursor:pointer;transition:transform .14s,box-shadow .14s;display:flex;flex-direction:column;position:relative}
