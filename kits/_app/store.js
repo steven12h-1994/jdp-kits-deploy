@@ -96,7 +96,11 @@ function buildStore(){
   var office=(CFG.order.office||[]).map(menuCard).join('');
   var field=(CFG.order.field||[]).map(menuCard).join('');
   var chips=(C.chips||[]).slice(0,3).map(function(c){return '<span class="hchip">'+esc(c[0])+'</span>';}).join('');
-  var heroart=(CFG.heroes||[]).slice(0,3).map(function(h){return '<div class="ha"><img src="'+h+'" alt="" loading="eager" decoding="async"></div>';}).join('');
+  // Hero strip = LIVE overlays of the top 3 recommended items (same technique as the menu cards), so
+  // it always reflects the real garment colours — no baked hero PNGs that go stale when colours change.
+  var heroKeys=[],hseen={};(CFG.order.office||[]).concat(CFG.order.field||[]).forEach(function(k){if(!hseen[k]&&BYKEY[k]){hseen[k]=1;heroKeys.push(k);}});
+  var heroart=heroKeys.slice(0,3).map(function(k){var it=BYKEY[k],vm=vmOf(k),o=overlayHtml(it,vm,vm.colour,'front');
+    return '<div class="ha"><img class="g" src="'+o.g+'" alt="'+esc(it.name)+'" loading="eager" decoding="async">'+o.lg+'</div>';}).join('');
   var html=''+
    '<header class="hdr"><div class="w hdrin"><span class="brand"><img src="'+(CFG.cover_logo||'img/logo-white.png')+'" onerror="this.style.display=\'none\'" alt=""><b>'+esc(CFG.client)+'</b> <i>×</i> Just Deals</span>'+
      '<button class="cartbtn" id="openCart"><span class="lbl">Your kit</span> <span class="n" id="cartN">0</span></button></div></header>'+
