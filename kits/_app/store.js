@@ -126,9 +126,9 @@ function buildStore(){
     card.addEventListener('click',function(){openSheet(card.dataset.key);});
     card.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();openSheet(card.dataset.key);}});
   });
-  // "+" on a card = one-tap add of the recommended setup; if already in the kit, open the customiser.
+  // "+" on a card opens the customiser (so a size split is always chosen) — no silent quick-add.
   document.querySelectorAll('.madd').forEach(function(b){b.addEventListener('click',function(e){
-    e.stopPropagation();var k=b.dataset.key;if(CART[k]){openSheet(k);}else{quickAdd(k);}});});
+    e.stopPropagation();openSheet(b.dataset.key);});});
   var ar=document.getElementById('addRec');if(ar)ar.addEventListener('click',addRecommended);
   // category pills: click to scroll; scroll-spy to highlight
   var pills=[].slice.call(document.querySelectorAll('.cpill'));
@@ -147,14 +147,14 @@ function toast(msg){var t=document.getElementById('toast'),m=document.getElement
 /* ---------- item customiser (one clean screen) ---------- */
 var SH={key:null,colour:null,face:'front',D:{},qty:12,showExtra:false};
 var METHOD_OPTS=[
-  {m:'embroidery',c:1,lab:'Embroidery',sub:'full-colour stitched'},
-  {m:'screen',c:1,lab:'Screen print · 1 colour',sub:'one ink'},
-  {m:'screen',c:2,lab:'Screen print · 2 colour',sub:'two inks'},
-  {m:'heat_transfer',c:1,lab:'Heat transfer',sub:'full colour'}
+  {m:'embroidery',c:1,lab:'Embroidery',sub:'Stitched in thread — premium & long-lasting. Best on polos, jackets & vests.'},
+  {m:'screen',c:1,lab:'Screen print — 1 colour',sub:'Your logo printed in one solid ink — best value on tees & hi-vis.'},
+  {m:'screen',c:2,lab:'Screen print — 2 colour',sub:'Printed in two inks — a little more of your logo’s detail.'},
+  {m:'heat_transfer',c:1,lab:'Heat transfer',sub:'Full-colour design pressed on with heat — best for detailed logos & rain gear.'}
 ];
 var SIZES=['S','M','L','XL','2XL','3XL'];
 function sizeTotal(sz){sz=sz||SH.sizes||{};var t=0;SIZES.forEach(function(s){t+=parseInt(sz[s],10)||0;});return t;}
-function effQty(){return SH.useSizes?sizeTotal():SH.qty;}
+function effQty(){var t=sizeTotal();return t>0?t:(SH.baseQty||0);}
 // The next price tier above q (or null). Used to nudge orders up to the next volume break.
 function nextTier(q){var t=CFG.pricing.cols||[];for(var i=0;i<t.length;i++){if(q<t[i])return t[i];}return null;}
 function savingsNudge(key,decos,q){var nt=nextTier(q);if(!nt)return null;var a=unitPrice(key,decos,q),b=unitPrice(key,decos,nt);var pct=a>0?Math.round((1-b/a)*100):0;if(pct<=0)return null;return {need:nt-q,tier:nt,pct:pct};}
@@ -162,7 +162,9 @@ function sizesSummary(c){if(!c||!c.sizes)return '';return SIZES.filter(function(
 function openSheet(key){
   var item=BYKEY[key],vm=vmOf(key),ex=CART[key],exmap={};
   if(ex&&ex.decos){ex.decos.forEach(function(d){exmap[d.pl]=d;});}
-  SH={key:key,colour:(ex&&ex.colour)||vm.colour,face:'front',D:{},qty:(ex&&ex.qty)||moq(),showExtra:false,useSizes:!!(ex&&ex.sizes),sizes:{}};
+  // Size breakdown is the ONLY quantity control. baseQty preserves the count of an item that was
+  // quick-started without a size split (e.g. the recommended kit) so reopening it doesn't lose it.
+  SH={key:key,colour:(ex&&ex.colour)||vm.colour,face:'front',D:{},showExtra:false,sizes:{},baseQty:(ex&&!ex.sizes)?(ex.qty||0):0};
   SIZES.forEach(function(s){SH.sizes[s]=(ex&&ex.sizes&&ex.sizes[s])||0;});
   var logoPlaces=(item.places||[]).filter(function(p){return p.logo;}),primaryId=(logoPlaces[0]||{}).id;
   logoPlaces.forEach(function(p){
@@ -184,15 +186,19 @@ function priceIf(pl,opt,on){
   var decos=sheetDecos().map(function(d){return d.pl===pl?{pl:pl,on:on,lg:d.lg,ink:'auto',method:opt.m,colours:opt.c}:d;});
   return unitPrice(SH.key,decos,SH.qty);
 }
-// A "choose one" finish group for a location (Uber-Eats style radio rows). Optional locations get a "None" row.
+// Our recommended decoration for a placement (from the build) — used to guide the customer.
+function recFor(pl){var d=recDecos(SH.key).filter(function(x){return x.pl===pl;})[0];return d?{m:d.method||'embroidery',c:d.colours||1}:{m:'embroidery',c:1};}
+function isRec(pl,opt){var r=recFor(pl);return opt.m===r.m&&(opt.m!=='screen'||opt.c===(r.c||1));}
+// A "choose one" finish group for a location (Uber-Eats style radio rows). The recommended finish is
+// tagged so an unsure customer has clear guidance; each row explains the method in plain language.
 function finishGroup(pl,primary){
   var rows='';
   if(!primary){var off=!SH.D[pl].on;
     rows+='<button class="frow'+(off?' on':'')+'" data-pl="'+pl+'" data-off="1"><span class="fr"></span>'+
       '<span class="ft"><b>No logo here</b></span></button>';}
-  METHOD_OPTS.forEach(function(opt){var sel=decoIsSel(pl,opt),u=priceIf(pl,opt,true);
+  METHOD_OPTS.forEach(function(opt){var sel=decoIsSel(pl,opt),u=priceIf(pl,opt,true),rec=isRec(pl,opt);
     rows+='<button class="frow'+(sel?' on':'')+'" data-pl="'+pl+'" data-m="'+opt.m+'" data-c="'+opt.c+'">'+
-      '<span class="fr"></span><span class="ft"><b>'+opt.lab+'</b><span>'+opt.sub+'</span></span>'+
+      '<span class="fr"></span><span class="ft"><b>'+opt.lab+(rec?' <span class="frec">★ Recommended</span>':'')+'</b><span>'+opt.sub+'</span></span>'+
       '<span class="fp">'+money(u)+'<i>/pc</i></span></button>';});
   return rows;
 }
@@ -203,7 +209,8 @@ function renderSheet(){
   var faceTog=hasBack?'<div class="ftog"><button class="pchip'+(SH.face==='front'?' on':'')+'" data-face="front">Front</button><button class="pchip'+(SH.face==='back'?' on':'')+'" data-face="back">Back</button></div>':'';
   var logoPlaces=(item.places||[]).filter(function(p){return p.logo;});
   var primary=logoPlaces[0],extras=logoPlaces.slice(1);
-  var primaryHtml=primary?('<div class="grp"><div class="grphd"><span>Your logo finish</span><i>choose one · '+esc(primary.label)+'</i></div>'+
+  var primaryHtml=primary?('<div class="grp"><div class="grphd"><span>Your logo finish</span><i>'+esc(primary.label)+'</i></div>'+
+      '<div class="ghelp">Not sure which to pick? Go with the ★ Recommended option — we’ll confirm the best method on your free proof.</div>'+
       '<div class="frows">'+finishGroup(primary.id,true)+'</div></div>'):'';
   var extraHtml='';
   if(extras.length){
@@ -214,29 +221,25 @@ function renderSheet(){
   }
   var decos=sheetDecos();
   var q=effQty(),tiers=CFG.pricing.cols||[12],topcol=tiers[tiers.length-1];
-  var unit=unitPrice(SH.key,decos,q),line=unit*q;
+  var unit=unitPrice(SH.key,decos,q||moq()),line=unit*q;
   var ptable=tiers.map(function(t,i){var u=unitPrice(SH.key,decos,t);
     var on=q>=t&&(i===tiers.length-1||q<tiers[i+1]);
-    return '<button class="pt'+(on?' on':'')+'" data-t="'+t+'"><span>'+t+'+ pcs</span><b>'+money(u)+'</b><i>/pc</i></button>';}).join('');
-  var nud=savingsNudge(SH.key,decos,q);
+    return '<div class="pt'+(on?' on':'')+'"><span>'+t+'+ pcs</span><b>'+money(u)+'</b><i>/pc</i></div>';}).join('');
+  var nud=savingsNudge(SH.key,decos,q||moq());
   var nudHtml=nud?('<div class="nudge">💡 Add '+nud.need+' more to reach the '+nud.tier+'+ price — <b>save '+nud.pct+'% per piece</b></div>'):'';
-  // Quantity: either a single total (stepper) or an optional per-size breakdown whose total drives qty.
-  var qtyGrp;
-  if(!SH.useSizes){
-    qtyGrp='<div class="grp"><div class="grphd"><span>Quantity</span><i>'+moq()+' min · price drops at each tier</i></div>'+
-      '<div class="qtyrow"><div class="qty" id="qtyStep"><button data-q="-1" aria-label="Less">–</button><input id="qin" type="number" inputmode="numeric" value="'+SH.qty+'" min="'+moq()+'"><button data-q="1" aria-label="More">+</button></div></div>'+
-      '<div class="ptable">'+ptable+'</div>'+nudHtml+
-      '<button class="addspot szopen" id="szOpen">＋ Add size breakdown (optional)</button></div>';
-  } else {
-    var total=sizeTotal(),under=total<moq();
-    var grid=SIZES.map(function(s){return '<div class="szrow"><span class="szl">'+s+'</span>'+
-      '<div class="qty sm szqty"><button data-sz="'+s+'" data-d="-1" aria-label="Less '+s+'">–</button><input class="szin" data-sz="'+s+'" type="number" inputmode="numeric" value="'+(SH.sizes[s]||0)+'" min="0"><button data-sz="'+s+'" data-d="1" aria-label="More '+s+'">+</button></div></div>';}).join('');
-    qtyGrp='<div class="grp"><div class="grphd"><span>Size breakdown</span><button class="lnk" id="szClose">use one total instead</button></div>'+
-      '<div class="szgrid">'+grid+'</div>'+
-      '<div class="sztot'+(under?' under':'')+'">Total <b>'+total+' pcs</b>'+(under?' <span>· '+moq()+' minimum</span>':'')+'</div>'+
-      '<div class="ptable">'+ptable+'</div>'+nudHtml+'</div>';
-  }
-  var canAdd=!(SH.useSizes&&sizeTotal()<moq());
+  // Quantity = a size breakdown, always (the ONLY quantity control — no confusing total-vs-sizes choice).
+  var under=q<moq();
+  var grid=SIZES.map(function(s){return '<div class="szrow"><span class="szl">'+s+'</span>'+
+    '<div class="qty sm szqty"><button data-sz="'+s+'" data-d="-1" aria-label="Less '+s+'">–</button><input class="szin" data-sz="'+s+'" type="number" inputmode="numeric" value="'+(SH.sizes[s]||0)+'" min="0"><button data-sz="'+s+'" data-d="1" aria-label="More '+s+'">+</button></div></div>';}).join('');
+  var totHint = under ? (' <span>· add '+(moq()-q)+' more to reach the '+moq()+' minimum</span>')
+    : (sizeTotal()===0&&SH.baseQty>0 ? ' <span>· set your split below (optional)</span>' : '');
+  var qtyGrp='<div class="grp"><div class="grphd"><span>How many of each size?</span><i>'+moq()+' minimum</i></div>'+
+    '<div class="szgrid">'+grid+'</div>'+
+    '<div class="sztot'+(under?' under':'')+'">Total <b>'+q+' pcs</b>'+totHint+'</div>'+
+    '<div class="ptable">'+ptable+'</div>'+nudHtml+'</div>';
+  var canAdd=q>=moq();
+  // Preserve the customiser's scroll position across re-renders so tapping a finish / size doesn't jump.
+  var _prev=document.querySelector('#sheet .shscroll'),_top=_prev?_prev.scrollTop:0;
   document.getElementById('sheet').innerHTML=
     '<button class="shx" id="shx" aria-label="Close">✕</button>'+
     '<div class="shscroll">'+
@@ -258,24 +261,20 @@ function renderSheet(){
     else{var chg=!SH.D[pl].on||SH.D[pl].method!==b.dataset.m;SH.D[pl].on=true;SH.D[pl].method=b.dataset.m;SH.D[pl].colours=parseInt(b.dataset.c,10)||1;if(chg)SH.D[pl].ink='auto';
       var p=placeOf(item,pl);if(p&&(p.face||'front')!==SH.face&&hasBack)SH.face=p.face||'front';}
     swapPreview();renderSheet();});});
-  sh.querySelectorAll('.pt').forEach(function(b){b.addEventListener('click',function(){if(SH.useSizes)return;SH.qty=Math.max(moq(),parseInt(b.dataset.t,10)||moq());renderSheet();});});
-  var qstep=document.getElementById('qtyStep');
-  if(qstep)qstep.querySelectorAll('button').forEach(function(b){b.addEventListener('click',function(){var step=parseInt(b.dataset.q,10)*(SH.qty<48?6:12);SH.qty=Math.max(moq(),SH.qty+step);renderSheet();});});
-  var qin=document.getElementById('qin');if(qin)qin.addEventListener('change',function(e){SH.qty=Math.max(moq(),parseInt(e.target.value,10)||moq());renderSheet();});
-  var szo=document.getElementById('szOpen');if(szo)szo.addEventListener('click',function(){SH.useSizes=true;renderSheet();});
-  var szc=document.getElementById('szClose');if(szc)szc.addEventListener('click',function(){SH.useSizes=false;renderSheet();});
   sh.querySelectorAll('.szqty button').forEach(function(b){b.addEventListener('click',function(){var s=b.dataset.sz,d=parseInt(b.dataset.d,10);SH.sizes[s]=Math.max(0,(parseInt(SH.sizes[s],10)||0)+d);renderSheet();});});
   sh.querySelectorAll('.szin').forEach(function(inp){inp.addEventListener('change',function(e){SH.sizes[e.target.dataset.sz]=Math.max(0,parseInt(e.target.value,10)||0);renderSheet();});});
   document.getElementById('shAdd').addEventListener('click',addFromSheet);
+  var _n=document.querySelector('#sheet .shscroll');if(_n)_n.scrollTop=_top;
 }
 function swapPreview(){var im=document.getElementById('shimg');if(im){im.classList.add('sw');setTimeout(function(){im.classList.remove('sw');},220);}}
 function addFromSheet(){
   var q=effQty();
-  if(SH.useSizes&&q<moq()){toast('Add at least '+moq()+' pieces');return;}
+  if(q<moq()){toast('Add at least '+moq()+' pieces');return;}
   var was=!!CART[SH.key],decos=[];
   Object.keys(SH.D).forEach(function(pl){var d=SH.D[pl];if(d.on)decos.push({pl:pl,lg:d.lg,ink:d.ink,method:d.method,colours:d.colours||1,on:true});});
   var entry={qty:q,colour:SH.colour,decos:decos};
-  if(SH.useSizes){var sz={};SIZES.forEach(function(s){if(SH.sizes[s])sz[s]=SH.sizes[s];});if(Object.keys(sz).length)entry.sizes=sz;}
+  var sz={};SIZES.forEach(function(s){if(SH.sizes[s])sz[s]=SH.sizes[s];});
+  if(Object.keys(sz).length)entry.sizes=sz;   // else keep the plain qty (a quick-started item reopened & saved as-is)
   CART[SH.key]=entry;
   saveCart();closeAll();refreshCartUI();
   toast((was?'Updated · ':'Added · ')+BYKEY[SH.key].name);
@@ -325,8 +324,7 @@ function renderCart(){
   var keys=Object.keys(CART),sub=cartSubtotal();
   var items=keys.map(function(k){var it=BYKEY[k];if(!it)return '';var c=CART[k];var col=colOf(it,c.colour);
     var unit=unitPrice(k,c.decos,c.qty);var szsum=sizesSummary(c);var nud=savingsNudge(k,c.decos,c.qty);
-    var ctrl=c.sizes ? '<button class="editln" data-edit="'+k+'">'+c.qty+' pcs · by size ✎</button>'
-      : '<div class="qty sm"><button data-q="-1">–</button><input class="ciq" type="number" value="'+c.qty+'" min="'+moq()+'"><button data-q="1">+</button></div>';
+    var ctrl='<button class="editln" data-edit="'+k+'">'+c.qty+' pcs · '+(c.sizes?'by size':'add sizes')+' ✎</button>';
     return '<div class="ci" data-key="'+k+'"><div class="t" style="background-image:url('+gurl(col.front)+')"></div>'+
       '<div class="d"><h4>'+esc(it.name)+'</h4><div class="sub">'+esc(c.colour)+' · '+esc(decoSummary(it,c))+(szsum?'<br><span class="szln">Sizes: '+esc(szsum)+'</span>':'')+'</div>'+
       (nud?'<div class="cinudge">＋'+nud.need+' to reach '+nud.tier+'+ · save '+nud.pct+'%</div>':'')+
@@ -347,8 +345,6 @@ function renderCart(){
   document.getElementById('cartx').addEventListener('click',closeAll);
   var ck=document.getElementById('checkout');if(ck)ck.addEventListener('click',openCheckout);
   document.querySelectorAll('.ci').forEach(function(ci){var k=ci.dataset.key;
-    ci.querySelectorAll('.qty button').forEach(function(b){b.addEventListener('click',function(){var step=parseInt(b.dataset.q,10)*(CART[k].qty<48?6:12);CART[k].qty=Math.max(moq(),CART[k].qty+step);saveCart();renderCart();refreshCartUI();});});
-    var ciq=ci.querySelector('.ciq');if(ciq)ciq.addEventListener('change',function(e){CART[k].qty=Math.max(moq(),parseInt(e.target.value,10)||moq());saveCart();renderCart();refreshCartUI();});
     var ed=ci.querySelector('[data-edit]');if(ed)ed.addEventListener('click',function(){editItem(k);});
     ci.querySelector('[data-rm]').addEventListener('click',function(){delete CART[k];saveCart();renderCart();refreshCartUI();});
   });
@@ -381,7 +377,7 @@ function openCheckout(){
       '<div class="coreview">'+review+
         '<div class="r tot"><span><b>Estimated subtotal</b></span><span><b>'+money(cartSubtotal())+'</b></span></div>'+
         '<div class="r"><span>One-time setup</span><span>'+money(cartSetup())+'</span></div></div>'+
-      '<label>Anything to add? (optional)</label><textarea id="coNote" placeholder="Sizes, deadlines, other items…"></textarea>'+
+      '<label>Anything to add? (optional)</label><textarea id="coNote" placeholder="Deadlines, extra notes, other items…"></textarea>'+
     '</div></div>'+
     '<div class="cartf"><button class="checkout" id="copyKit">Copy my kit → paste into your reply</button>'+
       '<div class="csetup" id="copyHint" style="text-align:center;margin-top:10px">No new email needed — just paste it into the thread we’re already on.</div></div>';
