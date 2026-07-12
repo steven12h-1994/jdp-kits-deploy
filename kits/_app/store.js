@@ -95,16 +95,20 @@ function buildStore(){
   }).join('');
   var catbar=cats.length>1?('<nav class="catbar" id="catbar"><div class="w catin">'+
     cats.map(function(c,i){return '<button class="cpill'+(i===0?' on':'')+'" data-t="sec-'+c+'">'+catName(c)+'</button>';}).join('')+'</div></nav>'):'';
+  var demo=!!CFG.demo,cta=CFG.cta||{};
+  var heroCta = demo
+    ? ('<a class="reccta" href="'+esc(cta.href||'#')+'">'+esc(cta.label||'Get your store — free')+' →</a>'+(cta.phone?'<div class="herophone">or call <b>'+esc(cta.phone)+'</b></div>':''))
+    : (recN?'<button class="reccta" id="addRec">★ Add the recommended kit <span>'+recN+' pieces</span></button>':'');
   var html=''+
    '<header class="hdr"><div class="w hdrin">'+
      '<span class="brand"><img src="'+(CFG.cover_logo||'img/logo-white.png')+'" onerror="this.style.display=\'none\'" alt=""><b>'+esc(CFG.client)+'</b><i>× Just Deals</i></span>'+
      '<button class="cartbtn" id="openCart"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2 3h3l2.4 12.2a1.5 1.5 0 0 0 1.5 1.2h8.2a1.5 1.5 0 0 0 1.5-1.2L22 7H6"/></svg>'+
        '<span class="lbl">Your kit</span><span class="n" id="cartN">0</span></button></div></header>'+
    '<section class="hero"><div class="w heroin">'+
-     '<div class="eyb">Branded apparel · ready to order</div>'+
+     '<div class="eyb">'+(demo?'Sample store · your logo goes here':'Branded apparel · ready to order')+'</div>'+
      '<h1>'+esc(CFG.client)+"'s team store</h1>"+
-     '<p class="herosub">Your logo, already on it. Pick your pieces, choose a finish, and send it over for a free proof &amp; exact quote — no obligation.</p>'+
-     (recN?'<button class="reccta" id="addRec">★ Add the recommended kit <span>'+recN+' pieces</span></button>':'')+
+     '<p class="herosub">'+(demo?'This is a live sample. Every item shows exactly where your logo goes — swap in your brand and it becomes your team’s store. Free digital proofs, no obligation.':'Your logo, already on it. Pick your pieces, choose a finish, and send it over for a free proof &amp; exact quote — no obligation.')+'</p>'+
+     heroCta+
    '</div></section>'+
    catbar+
    '<main class="w">'+sections+'</main>'+
@@ -115,9 +119,10 @@ function buildStore(){
    '<div class="ov" id="ov"></div>'+
    '<div class="sheet" id="sheet"></div>'+
    '<aside class="cart" id="cart"></aside>'+
+   (demo?('<div class="demobar"><div class="demobarin w"><span class="demotxt"><b>Like the look?</b> Get this store with <b>your</b> logo — free, no obligation.</span><a class="demobtn" href="'+esc(cta.href||'#')+'">'+esc(cta.label||'Get your store — free')+'</a></div></div>'):'')+
    '<div class="cbar" id="cbar"><div class="cbarin w"><div class="cbarL"><span class="n" id="cbarN">0</span> in your kit</div>'+
      '<button class="cbarbtn" id="openCart2">View kit <span class="p" id="cbarP"></span> <span class="ar">→</span></button></div></div>'+
-   '<div class="toast" id="toast"><span class="k">✓</span><span id="toastM">Added</span></div>';
+   '<div class="toast" id="toast"><span class="tk">✓</span><span class="tm" id="toastM">Added</span><button class="tview" id="toastView">View kit →</button></div>';
   document.getElementById('app').innerHTML=html;
   document.getElementById('openCart').addEventListener('click',openCart);
   document.getElementById('openCart2').addEventListener('click',openCart);
@@ -140,9 +145,10 @@ function buildStore(){
   document.querySelectorAll('.mstage .g').forEach(function(im){if(im.complete)im.classList.add('ld');else im.addEventListener('load',function(){im.classList.add('ld');});});
   document.addEventListener('keydown',function(e){if(e.key==='Escape')closeAll();});
   if(C.feed&&!document.getElementById('beholdjs')){var bs=document.createElement('script');bs.id='beholdjs';bs.type='module';bs.src='https://w.behold.so/widget.js';document.head.appendChild(bs);}
+  var tv=document.getElementById('toastView');if(tv)tv.addEventListener('click',function(){document.getElementById('toast').classList.remove('on');openCart();});
 }
 var TT;
-function toast(msg){var t=document.getElementById('toast'),m=document.getElementById('toastM');if(!t)return;if(m)m.textContent=msg||'Added to your kit';t.classList.add('on');clearTimeout(TT);TT=setTimeout(function(){t.classList.remove('on');},1900);}
+function toast(msg){var t=document.getElementById('toast'),m=document.getElementById('toastM');if(!t)return;if(m)m.textContent=msg||'Added to your kit';t.classList.add('on');clearTimeout(TT);TT=setTimeout(function(){t.classList.remove('on');},3600);}
 
 /* ---------- item customiser (one clean screen) ---------- */
 var SH={key:null,colour:null,face:'front',D:{},qty:12,showExtra:false};
@@ -314,7 +320,7 @@ function decoSummary(it,c){return (c.decos||[]).map(function(d){var p=placeOf(it
 function refreshCartUI(){
   var n=cartCount(),sub=cartSubtotal();
   var cn=document.getElementById('cartN');if(cn){cn.textContent=n;cn.classList.toggle('has',n>0);}
-  var bar=document.getElementById('cbar');if(bar)bar.classList.toggle('on',n>0);
+  var bar=document.getElementById('cbar');if(bar)bar.classList.toggle('on',n>0&&!CFG.demo);
   var bn=document.getElementById('cbarN');if(bn)bn.textContent=n;
   var bp=document.getElementById('cbarP');if(bp)bp.textContent=money0(sub);
   document.querySelectorAll('.mcard').forEach(function(card){var k=card.dataset.key;var on=!!CART[k];card.classList.toggle('inkit',on);var b=card.querySelector('.madd');if(b){b.classList.toggle('has',on);b.innerHTML=on?('<b>'+CART[k].qty+'</b>'):'+';}});
