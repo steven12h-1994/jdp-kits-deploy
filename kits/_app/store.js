@@ -154,15 +154,23 @@ function buildStore(){
 // (CFG.cta_form), it embeds that form (submissions land straight in Airtable). Otherwise it shows a
 // clear contact fallback so the CTA always works.
 function openLead(){
-  var cta=CFG.cta||{},form=CFG.cta_form;
-  var body='<div class="eyb">Free · no obligation</div>'+
-    '<h2>Get your own branded store</h2>'+
-    '<p class="leadsub">Tell us about your team and we’ll build a store like this — your logo, your colours, your gear — and send <b>free digital proofs</b>, usually same day.</p>'+
-    '<ul class="leadben"><li>Your logo on real gear — free mockups</li><li>Your team’s colours &amp; sizes</li><li>Live pricing · no minimum beyond 12 pcs</li></ul>'+
-    (form
-      ? '<iframe class="leadform" src="'+esc(form)+'" frameborder="0"></iframe>'
-      : ('<a class="leadbtn" href="'+esc(cta.href||'#')+'">Email us to start →</a>'+(cta.phone?'<div class="leadphone">or call <b>'+esc(cta.phone)+'</b></div>':'')));
-  document.getElementById('lead').innerHTML='<button class="shx" id="leadX" aria-label="Close">✕</button><div class="leadb">'+body+'</div>';
+  var cta=CFG.cta||{},form=CFG.cta_form,el=document.getElementById('lead');
+  var inner;
+  if(form){
+    // Embedded Airtable form carries its own title/fields — keep our chrome minimal so it's the focus.
+    el.classList.add('embed');
+    inner='<button class="shx" id="leadX" aria-label="Close">✕</button>'+
+      '<div class="leadhd"><span class="eyb">Free · no obligation</span> Get your own branded store</div>'+
+      '<iframe class="leadform" src="'+esc(form)+'" frameborder="0"></iframe>';
+  } else {
+    el.classList.remove('embed');
+    inner='<button class="shx" id="leadX" aria-label="Close">✕</button><div class="leadb">'+
+      '<div class="eyb">Free · no obligation</div><h2>Get your own branded store</h2>'+
+      '<p class="leadsub">Tell us about your team and we’ll build a store like this — your logo, your colours, your gear — and send <b>free digital proofs</b>, usually same day.</p>'+
+      '<ul class="leadben"><li>Your logo on real gear — free mockups</li><li>Your team’s colours &amp; sizes</li><li>Live pricing · no minimum beyond 12 pcs</li></ul>'+
+      '<a class="leadbtn" href="'+esc(cta.href||'#')+'">Email us to start →</a>'+(cta.phone?'<div class="leadphone">or call <b>'+esc(cta.phone)+'</b></div>':'')+'</div>';
+  }
+  el.innerHTML=inner;
   document.getElementById('leadX').addEventListener('click',closeAll);
   document.getElementById('ov').classList.add('on');
   document.getElementById('lead').classList.add('on');

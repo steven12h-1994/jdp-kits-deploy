@@ -302,3 +302,10 @@ body:has(.demobar){padding-bottom:76px}
 .leadphone{text-align:center;margin-top:12px;font-size:14px;color:var(--mut)}
 .leadphone b{color:var(--ink)}
 .lead .shx{position:sticky;top:12px;margin-left:auto;margin-right:12px;margin-top:12px;flex-shrink:0}
+
+/* ---- lead modal: embedded-form mode (v23) ---- */
+.lead.embed{max-width:560px}
+.leadhd{padding:16px 46px 12px 20px;font-size:16px;font-weight:850;border-bottom:1px solid var(--line)}
+.leadhd .eyb{display:block;color:#0a7d3c;margin-bottom:3px}
+.lead.embed .leadform{height:74vh;min-height:520px;margin:0;border-radius:0 0 22px 22px}
+@media(max-width:600px){.lead.embed .leadform{height:78vh}}
