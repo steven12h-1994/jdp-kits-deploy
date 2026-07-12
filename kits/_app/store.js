@@ -55,7 +55,8 @@ function overlayHtml(item,vm,colName,faces){
   (vm.decos||[]).forEach(function(d){if(!d.on)return;var p=placeOf(item,d.pl);if(!p||(p.face||'front')!==face)return;
     if(face==='back'&&!hasBack)return;
     var L=logoOf(d.lg),src=inkUrl(L,d.ink,col,d.method);
-    lg+='<img class="l" src="'+src+'" style="left:'+p.cx+'%;top:'+p.cy+'%;width:'+p.wf+'%" alt="">';});
+    var wf=p.wf*(CFG.logo_scale||1);
+    lg+='<img class="l" src="'+src+'" style="left:'+p.cx+'%;top:'+p.cy+'%;width:'+wf+'%" alt="">';});
   return {g:gurl(photo),lg:lg,hasBack:hasBack};
 }
 
@@ -97,7 +98,7 @@ function buildStore(){
     cats.map(function(c,i){return '<button class="cpill'+(i===0?' on':'')+'" data-t="sec-'+c+'">'+catName(c)+'</button>';}).join('')+'</div></nav>'):'';
   var demo=!!CFG.demo,cta=CFG.cta||{};
   var heroCta = demo
-    ? ('<a class="reccta" href="'+esc(cta.href||'#')+'">'+esc(cta.label||'Get your store — free')+' →</a>'+(cta.phone?'<div class="herophone">or call <b>'+esc(cta.phone)+'</b></div>':''))
+    ? ('<button class="reccta" id="leadOpen1">'+esc(cta.label||'Get your store — free')+' →</button>'+(cta.phone?'<div class="herophone">or call <b>'+esc(cta.phone)+'</b></div>':''))
     : (recN?'<button class="reccta" id="addRec">★ Add the recommended kit <span>'+recN+' pieces</span></button>':'');
   var html=''+
    '<header class="hdr"><div class="w hdrin">'+
@@ -119,7 +120,8 @@ function buildStore(){
    '<div class="ov" id="ov"></div>'+
    '<div class="sheet" id="sheet"></div>'+
    '<aside class="cart" id="cart"></aside>'+
-   (demo?('<div class="demobar"><div class="demobarin w"><span class="demotxt"><b>Like the look?</b> Get this store with <b>your</b> logo — free, no obligation.</span><a class="demobtn" href="'+esc(cta.href||'#')+'">'+esc(cta.label||'Get your store — free')+'</a></div></div>'):'')+
+   (demo?('<div class="demobar"><div class="demobarin w"><span class="demotxt"><b>Like the look?</b> Get this store with <b>your</b> logo — free, no obligation.</span><button class="demobtn" id="leadOpen2">'+esc(cta.label||'Get your store — free')+'</button></div></div>'):'')+
+   (demo?'<div class="lead" id="lead"></div>':'')+
    '<div class="cbar" id="cbar"><div class="cbarin w"><div class="cbarL"><span class="n" id="cbarN">0</span> in your kit</div>'+
      '<button class="cbarbtn" id="openCart2">View kit <span class="p" id="cbarP"></span> <span class="ar">→</span></button></div></div>'+
    '<div class="toast" id="toast"><span class="tk">✓</span><span class="tm" id="toastM">Added</span><button class="tview" id="toastView">View kit →</button></div>';
@@ -146,6 +148,25 @@ function buildStore(){
   document.addEventListener('keydown',function(e){if(e.key==='Escape')closeAll();});
   if(C.feed&&!document.getElementById('beholdjs')){var bs=document.createElement('script');bs.id='beholdjs';bs.type='module';bs.src='https://w.behold.so/widget.js';document.head.appendChild(bs);}
   var tv=document.getElementById('toastView');if(tv)tv.addEventListener('click',function(){document.getElementById('toast').classList.remove('on');openCart();});
+  ['leadOpen1','leadOpen2'].forEach(function(id){var b=document.getElementById(id);if(b)b.addEventListener('click',openLead);});
+}
+// Generic/demo store: a conversion-focused lead modal. When a published Airtable form URL is configured
+// (CFG.cta_form), it embeds that form (submissions land straight in Airtable). Otherwise it shows a
+// clear contact fallback so the CTA always works.
+function openLead(){
+  var cta=CFG.cta||{},form=CFG.cta_form;
+  var body='<div class="eyb">Free · no obligation</div>'+
+    '<h2>Get your own branded store</h2>'+
+    '<p class="leadsub">Tell us about your team and we’ll build a store like this — your logo, your colours, your gear — and send <b>free digital proofs</b>, usually same day.</p>'+
+    '<ul class="leadben"><li>Your logo on real gear — free mockups</li><li>Your team’s colours &amp; sizes</li><li>Live pricing · no minimum beyond 12 pcs</li></ul>'+
+    (form
+      ? '<iframe class="leadform" src="'+esc(form)+'" frameborder="0"></iframe>'
+      : ('<a class="leadbtn" href="'+esc(cta.href||'#')+'">Email us to start →</a>'+(cta.phone?'<div class="leadphone">or call <b>'+esc(cta.phone)+'</b></div>':'')));
+  document.getElementById('lead').innerHTML='<button class="shx" id="leadX" aria-label="Close">✕</button><div class="leadb">'+body+'</div>';
+  document.getElementById('leadX').addEventListener('click',closeAll);
+  document.getElementById('ov').classList.add('on');
+  document.getElementById('lead').classList.add('on');
+  document.body.style.overflow='hidden';
 }
 var TT;
 function toast(msg){var t=document.getElementById('toast'),m=document.getElementById('toastM');if(!t)return;if(m)m.textContent=msg||'Added to your kit';t.classList.add('on');clearTimeout(TT);TT=setTimeout(function(){t.classList.remove('on');},3600);}
@@ -356,7 +377,7 @@ function renderCart(){
   });
 }
 function editItem(k){document.getElementById('cart').classList.remove('on');openSheet(k);}
-function closeAll(){['ov','sheet','cart'].forEach(function(id){var e=document.getElementById(id);if(e)e.classList.remove('on');});document.body.style.overflow='';}
+function closeAll(){['ov','sheet','cart','lead'].forEach(function(id){var e=document.getElementById(id);if(e)e.classList.remove('on');});document.body.style.overflow='';}
 
 /* ---------- checkout: copy-paste into the existing email thread ---------- */
 function orderText(note){

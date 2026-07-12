@@ -281,3 +281,24 @@ footer{padding:30px 0 40px;color:var(--mut);font-size:12px;line-height:1.6}
 .demobtn:hover{filter:brightness(1.08)}.demobtn:active{transform:scale(.98)}
 body:has(.demobar){padding-bottom:76px}
 @media(max-width:600px){.demotxt{font-size:13px;text-align:center;flex:1 1 100%}.demobarin{gap:9px}}
+
+/* ---- generic/demo lead modal (v22) ---- */
+.lead{position:fixed;z-index:72;background:var(--card);display:flex;flex-direction:column;pointer-events:none;
+  left:50%;bottom:0;width:100%;max-width:520px;transform:translate(-50%,102%);max-height:94vh;overflow-y:auto;
+  border-radius:22px 22px 0 0;box-shadow:0 -10px 40px -12px rgba(16,18,29,.45);transition:transform .32s cubic-bezier(.22,1,.36,1)}
+.lead.on{transform:translate(-50%,0);pointer-events:auto}
+@media(min-width:600px){.lead{bottom:auto;top:50%;border-radius:22px;transform:translate(-50%,-46%) scale(.98);opacity:0;max-height:92vh;transition:transform .28s cubic-bezier(.22,1,.36,1),opacity .2s}
+  .lead.on{transform:translate(-50%,-50%) scale(1);opacity:1;pointer-events:auto}}
+.leadb{padding:26px 24px 26px}
+.leadb .eyb{color:#0a7d3c}
+.leadb h2{font-size:25px;font-weight:850;margin:8px 0 0}
+.leadsub{color:var(--mut);font-size:14.5px;line-height:1.55;margin:10px 0 0}
+.leadben{list-style:none;margin:15px 0 4px;display:flex;flex-direction:column;gap:9px}
+.leadben li{position:relative;padding-left:26px;font-size:14px;font-weight:600;color:var(--ink)}
+.leadben li:before{content:"✓";position:absolute;left:0;top:0;width:18px;height:18px;border-radius:50%;background:#e8f7ee;color:#0a7d3c;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center}
+.leadform{width:100%;height:62vh;min-height:440px;border:0;margin-top:16px;background:#fff;border-radius:12px}
+.leadbtn{display:block;text-align:center;margin-top:18px;background:var(--a);color:#fff;font-weight:850;font-size:16px;padding:15px 20px;border-radius:14px;transition:filter .12s,transform .12s}
+.leadbtn:hover{filter:brightness(1.07)}.leadbtn:active{transform:scale(.99)}
+.leadphone{text-align:center;margin-top:12px;font-size:14px;color:var(--mut)}
+.leadphone b{color:var(--ink)}
+.lead .shx{position:sticky;top:12px;margin-left:auto;margin-right:12px;margin-top:12px;flex-shrink:0}
