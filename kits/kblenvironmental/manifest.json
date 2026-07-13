@@ -1,12 +1,15 @@
 {
-  "generator": "customer",
-  "version": "1783943475",
+  "generator": "client-app",
+  "version": "1783948451",
   "slug": "kblenvironmental",
   "client": "KBL Environmental Ltd.",
-  "mockups": 12,
   "files": [
     "index.html",
+    "client.json",
     "img/favicon.png",
+    "img/hero1.png",
+    "img/hero2.png",
+    "img/hero3.png",
     "img/lg_full_007935.png",
     "img/lg_full_brand.png",
     "img/lg_full_dark.png",
