@@ -1,0 +1,30 @@
+{
+  "generator": "client-app",
+  "version": "1783984913",
+  "slug": "north-america-construction",
+  "client": "North America Construction LTD",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_02333a.png",
+    "img/lg_full_497063.png",
+    "img/lg_full_81b753.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_white.png",
+    "img/lg_icon_02333a.png",
+    "img/lg_icon_497063.png",
+    "img/lg_icon_81b753.png",
+    "img/lg_icon_brand.png",
+    "img/lg_icon_dark.png",
+    "img/lg_icon_white.png",
+    "img/lg_word_02333a.png",
+    "img/lg_word_497063.png",
+    "img/lg_word_81b753.png",
+    "img/lg_word_brand.png",
+    "img/lg_word_dark.png",
+    "img/lg_word_white.png",
+    "img/logo-white.png"
+  ]
+}
