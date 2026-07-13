@@ -25,7 +25,7 @@ header{background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0
 .dec{position:absolute;transform:translate(-50%,-50%);pointer-events:none;filter:drop-shadow(0 1px 1.5px rgba(0,0,0,.2))}
 .dec img{width:100%;display:block}
 .txt{position:absolute;transform:translate(-50%,-50%);pointer-events:none;white-space:nowrap;font-weight:700;letter-spacing:.01em;line-height:1}
-.hint{position:absolute;left:36.5%;top:37%;transform:translateX(-50%);font-size:2.2cqw;color:#9aa39e;font-weight:600;white-space:nowrap;pointer-events:none}
+.hint{position:absolute;left:36.5%;top:32.8%;transform:translate(-50%,-50%);font-size:2.4cqw;color:#9aa39e;font-weight:600;white-space:nowrap;pointer-events:none}
 .panel{align-self:start}
 .panel h2{font-size:15px;font-weight:800}
 .sub{font-size:13px;color:var(--mut);margin:3px 0 14px;line-height:1.5}
@@ -103,9 +103,9 @@ function render(){
  var nm=(document.getElementById('nameinput')&&document.getElementById('nameinput').value||"").trim();
  var h='<img class="g" src="'+BASE+c.f+'" alt="AllPro Polo '+c.n+'">';
  // Left chest (wearer's left = image right): Foundation logo
- h+='<div class="dec" style="left:63.5%;top:30%;width:22%"><img src="img/'+(dark?'pmf_white.png':'pmf_dark.png')+'" alt="Port Moody Foundation"></div>';
- // Right chest (image left): member name, clean sans
- if(nm){ h+='<div class="txt" style="left:36.5%;top:30.5%;font-size:3.2cqw;color:'+ink+'">'+esc(nm)+'</div>'; }
+ h+='<div class="dec" style="left:63.5%;top:30%;width:20%"><img src="img/'+(dark?'pmf_white.png':'pmf_dark.png')+'" alt="Port Moody Foundation"></div>';
+ // Right chest (image left): member name — vertical centre aligned to the logo's "Port Moody" wordmark (fy~0.77)
+ if(nm){ h+='<div class="txt" style="left:36.5%;top:32.8%;font-size:3cqw;color:'+ink+'">'+esc(nm)+'</div>'; }
  else { h+='<div class="hint">member’s name</div>'; }
  document.getElementById('stage').innerHTML=h;
  document.getElementById('colname').textContent=c.n;
