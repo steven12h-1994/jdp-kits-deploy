@@ -1,12 +1,15 @@
 {
   "generator": "client-app",
-  "version": "1783984688",
+  "version": "1784058759",
   "slug": "sukhi-bath-motors",
   "client": "Sukhi Bath Motors",
   "files": [
     "index.html",
     "client.json",
     "img/favicon.png",
+    "img/hero1.png",
+    "img/hero2.png",
+    "img/hero3.png",
     "img/lg_full_228ec0.png",
     "img/lg_full_brand.png",
     "img/lg_full_dark.png",
