@@ -1,6 +1,6 @@
 {
   "generator": "app",
-  "version": "24",
+  "version": "25",
   "files": [
     "app.js",
     "kit.css",

@@ -84,16 +84,17 @@ function menuCard(key){
 }
 
 /* ---------- build page ---------- */
-function catName(id){return id==='office'?'Office &amp; client-facing':'Job-site &amp; hi-vis';}
+function catName(id){return id==='office'?'Office &amp; client-facing':(id==='premium'?'Premium — Nike &amp; The North Face':'Job-site &amp; hi-vis');}
 function buildStore(){
   var C=CFG.copy||{};
   var order=CFG.order||{};
   var cats=[];
   if((order.office||[]).length)cats.push('office');
+  if((order.premium||[]).length)cats.push('premium');
   if((order.field||[]).length)cats.push('field');
   var recN=(order.office||[]).concat(order.field||[]).filter(function(k){return BYKEY[k];}).length;
   var sections=cats.map(function(cat){
-    var keys=(cat==='office'?order.office:order.field)||[];
+    var keys=order[cat]||[];
     var cards=keys.map(menuCard).join('');
     var csa=cat==='field'?' <span class="csa">CSA-rated</span>':'';
     return '<section class="sec" id="sec-'+cat+'"><h2 class="seclbl">'+catName(cat)+csa+'</h2><div class="menu">'+cards+'</div></section>';
