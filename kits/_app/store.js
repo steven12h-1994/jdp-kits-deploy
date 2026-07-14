@@ -10,9 +10,13 @@ var LSKEY='jdpkit_'+SLUG;
 
 function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function hexLum(h){h=(h||'').replace('#','');if(h.length<6)return 128;return 0.299*parseInt(h.slice(0,2),16)+0.587*parseInt(h.slice(2,4),16)+0.114*parseInt(h.slice(4,6),16);}
-function autoInk(rgb){return hexLum(rgb)<120?'white':'brand';}
+function hexSat(h){h=(h||'').replace('#','');if(h.length<6)return 0;var r=parseInt(h.slice(0,2),16),g=parseInt(h.slice(2,4),16),b=parseInt(h.slice(4,6),16);return Math.max(r,g,b)-Math.min(r,g,b);}
+// A single spot print must READ on the garment: crisp WHITE on dark garments AND on saturated hi-vis
+// (orange/lime — bright but vivid, where white pops); a very light garment would swallow white so use
+// a dark ink; otherwise the full-colour brand mark.
+function autoInk(rgb){var l=hexLum(rgb),s=hexSat(rgb);if(l<120||s>=70)return 'white';if(l>210)return 'dark';return 'brand';}
 // EMBROIDERY = full-colour thread -> always render the full-colour (brand) logo. Screen/heat-transfer
-// default to a contrast ink (white on dark, full colour on light) since a single spot print must read.
+// default to a contrast ink (white on dark/hi-vis, dark on very light, full colour otherwise).
 function autoInkFor(method,rgb){return method==='embroidery' ? 'brand' : autoInk(rgb);}
 function money(x){return '$'+Number(x||0).toLocaleString('en-CA',{minimumFractionDigits:2,maximumFractionDigits:2});}
 function money0(x){return '$'+Math.round(Number(x||0)).toLocaleString('en-CA');}

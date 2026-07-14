@@ -1,9 +1,10 @@
 {
   "generator": "app",
+  "version": "24",
   "files": [
+    "app.js",
     "kit.css",
     "kit.js",
-    "app.js",
     "store.css",
     "store.js"
   ]
