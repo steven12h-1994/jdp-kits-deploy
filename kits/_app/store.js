@@ -84,15 +84,16 @@ function menuCard(key){
 }
 
 /* ---------- build page ---------- */
-function catName(id){return id==='office'?'Office &amp; client-facing':id==='premium'?'Premium — Nike &amp; The North Face':id==='bags'?'Bags &amp; Gear':'Job-site &amp; hi-vis';}
+function catName(id){return id==='office'?'Company Apparel':id==='field'?'Job-site &amp; Hi-Vis':id==='premium'?'Premium Brands':'Accessories';}
 function buildStore(){
   var C=CFG.copy||{};
   var order=CFG.order||{};
   var cats=[];
+  // Steven's nav order: Company Apparel · Job-site & Hi-Vis · Premium Brands · Accessories
   if((order.office||[]).length)cats.push('office');
+  if((order.field||[]).length)cats.push('field');
   if((order.premium||[]).length)cats.push('premium');
   if((order.bags||[]).length)cats.push('bags');
-  if((order.field||[]).length)cats.push('field');
   var recN=(order.office||[]).concat(order.field||[]).filter(function(k){return BYKEY[k];}).length;
   var sections=cats.map(function(cat){
     var keys=order[cat]||[];
