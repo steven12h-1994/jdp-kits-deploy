@@ -231,7 +231,7 @@ function decoIsSel(pl,opt){var d=SH.D[pl];if(!d||!d.on||d.method!==opt.m)return 
 // Per-piece price if placement `pl` used decoration `opt` (holding every other placement as-is).
 function priceIf(pl,opt,on){
   var decos=sheetDecos().map(function(d){return d.pl===pl?{pl:pl,on:on,lg:d.lg,ink:'auto',method:opt.m,colours:opt.c}:d;});
-  return unitPrice(SH.key,decos,SH.qty);
+  return unitPrice(SH.key,decos,effQty());   // ALWAYS price at the current quantity — keeps finish prices in sync with the size step + footer
 }
 // Our recommended decoration for a placement (from the build) — used to guide the customer.
 function recFor(pl){var d=recDecos(SH.key).filter(function(x){return x.pl===pl;})[0];return d?{m:d.method||'embroidery',c:d.colours||1}:{m:'embroidery',c:1};}
@@ -240,13 +240,22 @@ function isRec(pl,opt){var r=recFor(pl);return opt.m===r.m&&(opt.m!=='screen'||o
 // tagged so an unsure customer has clear guidance; each row explains the method in plain language.
 function finishGroup(pl,primary){
   var rows='';
+  // Finish options are shown as a price DELTA against a fixed baseline (not competing absolute /pc numbers,
+  // which is what confused customers vs the size step). Baseline: primary spot = its recommended finish;
+  // extra spots = "no logo" (so adding one reads as a clear "+$x/pc"). The live absolute price stays in the footer.
+  var recm=recFor(pl);
+  var base= primary ? priceIf(pl,{m:recm.m,c:recm.c},true)
+    : (function(){var offD=sheetDecos().map(function(x){return x.pl===pl?{pl:pl,on:false,lg:x.lg,ink:x.ink,method:x.method,colours:x.colours}:x;});return unitPrice(SH.key,offD,effQty());})();
+  function tag(u){var d=Math.round((u-base)*100)/100;return Math.abs(d)<0.005
+    ?'<span class="fp inc">Included</span>'
+    :'<span class="fp">'+(d>0?'+':'−')+money(Math.abs(d))+'<i>/pc</i></span>';}
   if(!primary){var off=!SH.D[pl].on;
     rows+='<button class="frow'+(off?' on':'')+'" data-pl="'+pl+'" data-off="1"><span class="fr"></span>'+
-      '<span class="ft"><b>No logo here</b></span></button>';}
+      '<span class="ft"><b>No logo here</b></span><span class="fp inc">Included</span></button>';}
   METHOD_OPTS.forEach(function(opt){var sel=decoIsSel(pl,opt),u=priceIf(pl,opt,true),rec=isRec(pl,opt);
     rows+='<button class="frow'+(sel?' on':'')+'" data-pl="'+pl+'" data-m="'+opt.m+'" data-c="'+opt.c+'">'+
       '<span class="fr"></span><span class="ft"><b>'+opt.lab+(rec?' <span class="frec">★ Recommended</span>':'')+'</b><span>'+opt.sub+'</span></span>'+
-      '<span class="fp">'+money(u)+'<i>/pc</i></span></button>';});
+      tag(u)+'</button>';});
   return rows;
 }
 function renderSheet(){
@@ -263,7 +272,8 @@ function renderSheet(){
     ".shprice b{color:#141414;font-size:18px;font-weight:800}"+
     ".shprice.under,.shprice.under b{color:#c0392b}"+
     ".shnote{margin:22px 2px 2px;font-size:11.5px;line-height:1.6;color:#9a9a9a}"+
-    ".shfrom{margin:7px 0 4px;font-size:14px;color:#666;font-weight:600}.shfrom b{color:#141414;font-size:17px;font-weight:800}.shfrom small{color:#8a8a8a;font-weight:600}";
+    ".shfrom{margin:7px 0 4px;font-size:14px;color:#666;font-weight:600}.shfrom b{color:#141414;font-size:17px;font-weight:800}.shfrom small{color:#8a8a8a;font-weight:600}"+
+    ".fp.inc{color:#2e7d32;font-weight:700}";
     document.head.appendChild(_st);}
   var o=overlayHtml(item,{decos:sheetDecos()},SH.colour,SH.face);var hasBack=o.hasBack;
   var chips=item.cols.map(function(c){return '<button class="cchip'+(c.name===SH.colour?' on':'')+'" data-col="'+esc(c.name)+'" style="background-image:url('+gurl(c.front)+')" title="'+esc(c.name)+'"></button>';}).join('');
