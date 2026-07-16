@@ -1,8 +1,8 @@
 {
   "generator": "client-app",
-  "version": "1784216105",
-  "slug": "shelter-restaurant",
-  "client": "Shelter Restaurant",
+  "version": "1784216098",
+  "slug": "mowi-canada-east",
+  "client": "Mowi Canada East",
   "files": [
     "index.html",
     "client.json",
