@@ -92,6 +92,24 @@ function menuCard(key){
 function catName(id){return id==='office'?'Company Apparel':id==='field'?'Job-site &amp; Hi-Vis':id==='premium'?'Premium Brands':'Accessories';}
 function buildStore(){
   var C=CFG.copy||{};
+  if(!document.getElementById('jdpBenCss')){var _b=document.createElement('style');_b.id='jdpBenCss';_b.textContent=
+    ".benefits{background:#fff;border-bottom:1px solid #eef0f4}"+
+    ".benin{padding:15px 0 14px}"+
+    ".bengrid{display:flex;justify-content:center;flex-wrap:wrap}"+
+    ".bcell{flex:1;min-width:140px;text-align:center;padding:3px 20px;position:relative}"+
+    ".bcell+.bcell::before{content:'';position:absolute;left:0;top:14%;height:72%;width:1px;background:#e9ecf1}"+
+    ".bcell b{font-size:clamp(21px,3vw,27px);font-weight:900;color:var(--a,#141821);letter-spacing:-.02em}"+
+    ".bcell span{display:block;font-size:12px;color:#5b6675;margin-top:2px;line-height:1.3}"+
+    ".bensrc{text-align:center;font-size:10.5px;color:#b2b8c2;margin-top:9px}";
+    document.head.appendChild(_b);}
+  var benBand='<section class="benefits"><div class="w benin">'+
+    '<div class="bengrid">'+
+      '<div class="bcell"><b>65%</b><span>stronger first impression</span></div>'+
+      '<div class="bcell"><b>77%</b><span>of crews wear it with pride</span></div>'+
+      '<div class="bcell"><b>76%</b><span>more likely to stay a year</span></div>'+
+    '</div>'+
+    '<div class="bensrc">Why branded teams win · Harris · J.D. Power · 2023 workforce study</div>'+
+  '</div></section>';
   var order=CFG.order||{};
   var cats=[];
   // Steven's nav order: Company Apparel · Job-site & Hi-Vis · Premium Brands · Accessories
@@ -123,6 +141,7 @@ function buildStore(){
      '<p class="herosub">'+(demo?'This is a live sample. Every item shows exactly where your logo goes — swap in your brand and it becomes your team’s store. Free digital proofs, no obligation.':'Your logo, already on it. Pick your pieces, choose a finish, and send it over for a free proof &amp; exact quote — no obligation.')+'</p>'+
      heroCta+
    '</div></section>'+
+   benBand+
    catbar+
    '<main class="w">'+sections+'</main>'+
    (C.feed?('<section class="social"><div class="w"><h2 class="seclbl">Recent work — from our shop floor</h2>'+
