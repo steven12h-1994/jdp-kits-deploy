@@ -251,14 +251,27 @@ function finishGroup(pl,primary){
 }
 function renderSheet(){
   var item=BYKEY[SH.key];
+  if(!document.getElementById('jdpStepCss')){var _st=document.createElement('style');_st.id='jdpStepCss';_st.textContent=
+    ".step{margin-top:22px;padding-top:20px;border-top:1px solid #eee}"+
+    ".shb .step:first-of-type{border-top:0;margin-top:4px;padding-top:0}"+
+    ".steph{display:flex;align-items:center;gap:10px;margin-bottom:13px}"+
+    ".stepn{flex:none;width:26px;height:26px;border-radius:50%;background:var(--a,#E0801A);color:#fff;font-weight:800;font-size:14px;display:flex;align-items:center;justify-content:center}"+
+    ".stept{font-weight:800;font-size:16px;color:#141414;flex:1}"+
+    ".steph i{font-style:normal;color:#8a8a8a;font-size:13px;font-weight:600}"+
+    ".pthead{font-size:12px;color:#8a8a8a;margin:16px 0 8px;font-weight:600}"+
+    ".shprice{display:flex;align-items:center;justify-content:space-between;padding:2px 2px 10px;font-size:14px;color:#555}"+
+    ".shprice b{color:#141414;font-size:18px;font-weight:800}"+
+    ".shprice.under,.shprice.under b{color:#c0392b}"+
+    ".shnote{margin:22px 2px 2px;font-size:11.5px;line-height:1.6;color:#9a9a9a}";
+    document.head.appendChild(_st);}
   var o=overlayHtml(item,{decos:sheetDecos()},SH.colour,SH.face);var hasBack=o.hasBack;
   var chips=item.cols.map(function(c){return '<button class="cchip'+(c.name===SH.colour?' on':'')+'" data-col="'+esc(c.name)+'" style="background-image:url('+gurl(c.front)+')" title="'+esc(c.name)+'"></button>';}).join('');
   var faceTog=hasBack?'<div class="ftog"><button class="pchip'+(SH.face==='front'?' on':'')+'" data-face="front">Front</button><button class="pchip'+(SH.face==='back'?' on':'')+'" data-face="back">Back</button></div>':'';
   var logoPlaces=(item.places||[]).filter(function(p){return p.logo;});
   var primary=logoPlaces[0],extras=logoPlaces.slice(1);
-  var primaryHtml=primary?('<div class="grp"><div class="grphd"><span>Your logo finish</span><i>'+esc(primary.label)+'</i></div>'+
-      '<div class="ghelp">Not sure which to pick? Go with the ★ Recommended option — we’ll confirm the best method on your free proof.</div>'+
-      '<div class="frows">'+finishGroup(primary.id,true)+'</div></div>'):'';
+  var primaryHtml=primary?('<section class="step"><div class="steph"><span class="stepn">3</span><span class="stept">Logo finish</span><i>'+esc(primary.label)+'</i></div>'+
+      '<div class="ghelp">Not sure? Go with the ★ Recommended finish — we’ll confirm it on your free proof.</div>'+
+      '<div class="frows">'+finishGroup(primary.id,true)+'</div></section>'):'';
   var extraHtml='';
   if(extras.length){
     if(SH.showExtra){extraHtml=extras.map(function(p){
@@ -280,23 +293,29 @@ function renderSheet(){
     '<div class="qty sm szqty"><button data-sz="'+s+'" data-d="-1" aria-label="Less '+s+'">–</button><input class="szin" data-sz="'+s+'" type="number" inputmode="numeric" value="'+(SH.sizes[s]||0)+'" min="0"><button data-sz="'+s+'" data-d="1" aria-label="More '+s+'">+</button></div></div>';}).join('');
   var totHint = under ? (' <span>· add '+(moq()-q)+' more to reach the '+moq()+' minimum</span>')
     : (sizeTotal()===0&&SH.baseQty>0 ? ' <span>· set your split below (optional)</span>' : '');
-  var qtyGrp='<div class="grp"><div class="grphd"><span>How many of each size?</span><i>'+moq()+' minimum</i></div>'+
+  var qtyGrp='<section class="step"><div class="steph"><span class="stepn">2</span><span class="stept">How many of each size?</span><i>'+moq()+' min</i></div>'+
     '<div class="szgrid">'+grid+'</div>'+
     '<div class="sztot'+(under?' under':'')+'">Total <b>'+q+' pcs</b>'+totHint+'</div>'+
-    '<div class="ptable">'+ptable+'</div>'+nudHtml+'</div>';
+    '<div class="pthead">Price per piece — the more you order, the less each costs</div>'+
+    '<div class="ptable">'+ptable+'</div>'+nudHtml+'</section>';
   var canAdd=q>=moq();
   // Preserve the customiser's scroll position across re-renders so tapping a finish / size doesn't jump.
   var _prev=document.querySelector('#sheet .shscroll'),_top=_prev?_prev.scrollTop:0;
+  var step1='<section class="step"><div class="steph"><span class="stepn">1</span><span class="stept">Select a colour</span><i>'+esc(SH.colour)+'</i></div><div class="cchips">'+chips+'</div></section>';
+  var priceClar=canAdd
+    ? '<div class="shprice"><span>'+q+' pcs × '+money(unit)+'/pc</span><b>'+money(line)+' total</b></div>'
+    : '<div class="shprice under"><span>Minimum '+moq()+' pieces</span><b>add '+(moq()-q)+' more</b></div>';
   document.getElementById('sheet').innerHTML=
     '<button class="shx" id="shx" aria-label="Close">✕</button>'+
     '<div class="shscroll">'+
       '<div class="shimg" id="shimg"><div class="shstage"><img class="g" src="'+o.g+'" alt="">'+o.lg+'</div>'+faceTog+'</div>'+
       '<div class="shb"><h2>'+esc(item.name)+'</h2><div class="shsku">'+esc(item.sku)+(item.layer==='field'?' · CSA hi-vis':'')+'</div>'+
       (item.blurb?'<p class="shblurb">'+esc(item.blurb)+'</p>':'')+
-      '<div class="grp"><div class="grphd"><span>Colour</span><i>'+esc(SH.colour)+'</i></div><div class="cchips">'+chips+'</div></div>'+
-      primaryHtml+extraHtml+qtyGrp+
+      step1+qtyGrp+primaryHtml+extraHtml+
+      '<div class="shnote">Prices are per piece, decorated — your logo (embroidery / print) is included. One-time setup shows once in your kit summary. Exact quote confirmed before anything runs.</div>'+
     '</div></div>'+
-    '<div class="shfoot"><button class="shaddbtn" id="shAdd"'+(canAdd?'':' disabled')+'><span>'+(canAdd?(CART[SH.key]?'Update kit':'Add to kit'):('Add '+moq()+'+ pieces'))+'</span><span class="p">'+money(line)+'</span></button>'+
+    '<div class="shfoot">'+priceClar+
+      '<button class="shaddbtn" id="shAdd"'+(canAdd?'':' disabled')+'><span>'+(canAdd?(CART[SH.key]?'Update kit':'Add to kit'):('Add '+moq()+'+ pieces'))+'</span><span class="p">'+money(line)+'</span></button>'+
       '<div class="shtrust">✓ Free digital proof before you commit · no obligation</div></div>';
   var sh=document.getElementById('sheet');
   document.getElementById('shx').addEventListener('click',closeAll);
