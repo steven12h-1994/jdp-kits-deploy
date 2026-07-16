@@ -1,19 +1,24 @@
 {
-  "generator": "assemble_kit",
-  "version": 1,
+  "generator": "client-app",
+  "version": "1784217923",
   "slug": "branded-apparel",
   "client": "Your Brand",
-  "generated": "2026-07-07T10:41:09Z",
-  "mockups": 6,
   "files": [
     "index.html",
-    "img/crewtee.png",
+    "client.json",
     "img/favicon.png",
-    "img/logo-white.png",
-    "img/polo.png",
-    "img/shirt.png",
-    "img/softshell.png",
-    "img/vault.png",
-    "img/vest.png"
+    "img/lg_full_2764eb.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_white.png",
+    "img/lg_icon_2764eb.png",
+    "img/lg_icon_brand.png",
+    "img/lg_icon_dark.png",
+    "img/lg_icon_white.png",
+    "img/lg_word_2764eb.png",
+    "img/lg_word_brand.png",
+    "img/lg_word_dark.png",
+    "img/lg_word_white.png",
+    "img/logo-white.png"
   ]
 }
