@@ -37,10 +37,15 @@ function decoCost(d,item){var r=CFG.rates||{};
   if(d.method==='heat_transfer')return r.ht||0;
   var p=item?placeOf(item,d.pl):null,mult=(p&&p.face==='back')?((r.emb_mult&&r.emb_mult.back)||1):1;
   return (r.emb||0)*mult;}
-function markup(q){var r=CFG.rates||{},mg=r.margin||[],m=(mg[0]&&mg[0][1])||2;mg.forEach(function(t){if(q>=t[0])m=t[1];});return m;}
+/* JDP Pricing Model v2.1 — markup declines along a cost curve on the BLANK; decoration passed at cost. */
+function costMult(c){if(c<=1)return 3.50;if(c<=3)return 2.80;if(c<=7)return 2.30;if(c<=15)return 2.00;if(c<=25)return 1.80;if(c<=40)return 1.65;if(c<=75)return 1.49;if(c<=150)return 1.40;if(c<=350)return 1.34;if(c<=700)return 1.28;return 1.22;}
+function volFactor(q){if(q<24)return 1.075;if(q<48)return 1.035;if(q<100)return 1.00;if(q<250)return 0.89;return 0.86;}
 function activeDecos(decos){return (decos||[]).filter(function(d){return d.on;});}
-function unitPrice(key,decos,q){var r=CFG.rates;if(!r||!r.margin){return unitAt(BYKEY[key],q);}
-  var item=BYKEY[key],c=blankOf(key);activeDecos(decos).forEach(function(d){c+=decoCost(d,item);});return Math.round(c*markup(q)*100)/100;}
+function unitPrice(key,decos,q){var r=CFG.rates;if(!r||r.blank==null){return unitAt(BYKEY[key],q);}
+  var item=BYKEY[key],c=blankOf(key),dec=0;activeDecos(decos).forEach(function(d){dec+=decoCost(d,item);});
+  var price=c*costMult(c)*volFactor(q)+dec,floor=(c+dec)/0.85;   // hard 15% total-margin clamp
+  if(price<floor)price=floor; if(price<2.50)price=2.50;          // min piece price
+  return Math.ceil(price/0.5)*0.5;}                              // round UP to nearest $0.50
 // A setup is charged ONCE per unique DESIGN+LOCATION+METHOD across the whole kit (a stitch file / set of
 // screens is reused on every garment & quantity). Screens also depend on ink colour, so screen keys include ink.
 function setupKey(d){return d.method==='screen' ? ('scr|'+d.lg+'|'+d.pl+'|'+(d.ink||'auto')) : (d.method+'|'+d.lg+'|'+d.pl);}
