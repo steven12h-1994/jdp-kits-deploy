@@ -147,7 +147,7 @@ function buildStore(){
   });
   // "+" on a card opens the customiser (so a size split is always chosen) — no silent quick-add.
   document.querySelectorAll('.madd').forEach(function(b){b.addEventListener('click',function(e){
-    e.stopPropagation();openSheet(b.dataset.key);});});
+    e.stopPropagation();var k=b.dataset.key;if(CART[k]){openSheet(k);}else{quickAdd(k);}});});
   var ar=document.getElementById('addRec');if(ar)ar.addEventListener('click',addRecommended);
   // category pills: click to scroll; scroll-spy to highlight
   var pills=[].slice.call(document.querySelectorAll('.cpill'));
@@ -211,7 +211,7 @@ function openSheet(key){
   if(ex&&ex.decos){ex.decos.forEach(function(d){exmap[d.pl]=d;});}
   // Size breakdown is the ONLY quantity control. baseQty preserves the count of an item that was
   // quick-started without a size split (e.g. the recommended kit) so reopening it doesn't lose it.
-  SH={key:key,colour:(ex&&ex.colour)||vm.colour,face:'front',D:{},showExtra:false,sizes:{},baseQty:(ex&&!ex.sizes)?(ex.qty||0):0};
+  SH={key:key,colour:(ex&&ex.colour)||vm.colour,face:'front',D:{},showExtra:false,sizes:{},baseQty:ex?(ex.sizes?0:(ex.qty||moq())):moq()};
   SIZES.forEach(function(s){SH.sizes[s]=(ex&&ex.sizes&&ex.sizes[s])||0;});
   var logoPlaces=(item.places||[]).filter(function(p){return p.logo;}),primaryId=(logoPlaces[0]||{}).id;
   logoPlaces.forEach(function(p){
@@ -262,7 +262,8 @@ function renderSheet(){
     ".shprice{display:flex;align-items:center;justify-content:space-between;padding:2px 2px 10px;font-size:14px;color:#555}"+
     ".shprice b{color:#141414;font-size:18px;font-weight:800}"+
     ".shprice.under,.shprice.under b{color:#c0392b}"+
-    ".shnote{margin:22px 2px 2px;font-size:11.5px;line-height:1.6;color:#9a9a9a}";
+    ".shnote{margin:22px 2px 2px;font-size:11.5px;line-height:1.6;color:#9a9a9a}"+
+    ".shfrom{margin:7px 0 4px;font-size:14px;color:#666;font-weight:600}.shfrom b{color:#141414;font-size:17px;font-weight:800}.shfrom small{color:#8a8a8a;font-weight:600}";
     document.head.appendChild(_st);}
   var o=overlayHtml(item,{decos:sheetDecos()},SH.colour,SH.face);var hasBack=o.hasBack;
   var chips=item.cols.map(function(c){return '<button class="cchip'+(c.name===SH.colour?' on':'')+'" data-col="'+esc(c.name)+'" style="background-image:url('+gurl(c.front)+')" title="'+esc(c.name)+'"></button>';}).join('');
@@ -301,6 +302,7 @@ function renderSheet(){
   var canAdd=q>=moq();
   // Preserve the customiser's scroll position across re-renders so tapping a finish / size doesn't jump.
   var _prev=document.querySelector('#sheet .shscroll'),_top=_prev?_prev.scrollTop:0;
+  var fromP=unitPrice(SH.key,decos,topcol);
   var step1='<section class="step"><div class="steph"><span class="stepn">1</span><span class="stept">Select a colour</span><i>'+esc(SH.colour)+'</i></div><div class="cchips">'+chips+'</div></section>';
   var priceClar=canAdd
     ? '<div class="shprice"><span>'+q+' pcs × '+money(unit)+'/pc</span><b>'+money(line)+' total</b></div>'
@@ -310,6 +312,7 @@ function renderSheet(){
     '<div class="shscroll">'+
       '<div class="shimg" id="shimg"><div class="shstage"><img class="g" src="'+o.g+'" alt="">'+o.lg+'</div>'+faceTog+'</div>'+
       '<div class="shb"><h2>'+esc(item.name)+'</h2><div class="shsku">'+esc(item.sku)+(item.layer==='field'?' · CSA hi-vis':'')+'</div>'+
+      '<div class="shfrom">from <b>'+money(fromP)+'</b> <small>/pc</small> · decorated</div>'+
       (item.blurb?'<p class="shblurb">'+esc(item.blurb)+'</p>':'')+
       step1+qtyGrp+primaryHtml+extraHtml+
       '<div class="shnote">Prices are per piece, decorated — your logo (embroidery / print) is included. One-time setup shows once in your kit summary. Exact quote confirmed before anything runs.</div>'+
