@@ -99,7 +99,7 @@ function buildStore(){
   if((order.field||[]).length)cats.push('field');
   if((order.premium||[]).length)cats.push('premium');
   if((order.bags||[]).length)cats.push('bags');
-  var recN=(order.office||[]).concat(order.field||[]).filter(function(k){return BYKEY[k];}).length;
+  var recN=recKeysAll().length;
   var sections=cats.map(function(cat){
     var keys=order[cat]||[];
     var cards=keys.map(menuCard).join('');
@@ -111,7 +111,7 @@ function buildStore(){
   var demo=!!CFG.demo,cta=CFG.cta||{};
   var heroCta = demo
     ? ('<button class="reccta" id="leadOpen1">'+esc(cta.label||'Get your store — free')+' →</button>'+(cta.phone?'<div class="herophone">or call <b>'+esc(cta.phone)+'</b></div>':''))
-    : (recN?'<button class="reccta" id="addRec">★ Add the recommended kit <span>'+recN+' pieces</span></button>':'');
+    : (recN?'<button class="reccta" id="addRec">★ Add our top picks <span>'+recN+' item'+(recN===1?'':'s')+'</span></button>':'');
   var html=''+
    '<header class="hdr"><div class="w hdrin">'+
      '<span class="brand"><img src="'+(CFG.cover_logo||'img/logo-white.png')+'" onerror="this.style.display=\'none\'" alt=""><b>'+esc(CFG.client)+'</b><i>× Just Deals</i></span>'+
@@ -368,12 +368,18 @@ function quickAdd(key){
   CART[key]={qty:(ex&&ex.qty)||moq(),colour:(ex&&ex.colour)||vm.colour,decos:recCartDecos(key)};
   saveCart();refreshCartUI();toast('Added · '+BYKEY[key].name);
 }
+// The curated "top picks" set = items flagged rec across every category (not the whole catalogue — a
+// full dump overwhelms and inflates the quote). Falls back to the first few office items if none flagged.
+function recKeysAll(){var order=CFG.order||{},cats=['office','field','premium','bags'],out=[];
+  cats.forEach(function(c){(order[c]||[]).forEach(function(k){if(BYKEY[k]&&BYKEY[k].rec&&out.indexOf(k)<0)out.push(k);});});
+  if(!out.length)out=(order.office||[]).filter(function(k){return BYKEY[k];}).slice(0,4);
+  return out;}
 function addRecommended(){
-  var order=CFG.order||{},keys=(order.office||[]).concat(order.field||[]),n=0;
+  var keys=recKeysAll(),n=0;
   keys.forEach(function(k){if(CART[k]||!BYKEY[k])return;
     CART[k]={qty:moq(),colour:vmOf(k).colour,decos:recCartDecos(k)};n++;});
   saveCart();refreshCartUI();openCart();
-  toast(n?('Added '+n+' items — your recommended kit'):'Your kit already has everything');
+  toast(n?('Added '+n+' top pick'+(n===1?'':'s')+' — edit or add more anytime'):'Your kit already has our top picks');
 }
 
 /* ---------- cart ---------- */
@@ -458,11 +464,20 @@ function openCheckout(){
         '<div class="r"><span>One-time setup</span><span>'+money(cartSetup())+'</span></div></div>'+
       '<label>Anything to add? (optional)</label><textarea id="coNote" placeholder="Deadlines, extra notes, other items…"></textarea>'+
     '</div></div>'+
-    '<div class="cartf"><button class="checkout" id="copyKit">Copy my kit → paste into your reply</button>'+
-      '<div class="csetup" id="copyHint" style="text-align:center;margin-top:10px">No new email needed — just paste it into the thread we’re already on.</div></div>';
+    '<div class="cartf"><button class="checkout" id="emailKit">Email my kit to Just Deals →</button>'+
+      '<button id="copyKit" style="background:none;border:0;color:var(--a);font:inherit;font-weight:700;padding:11px;margin-top:4px;cursor:pointer;width:100%">or copy &amp; paste into your reply</button>'+
+      '<div class="csetup" id="copyHint" style="text-align:center;margin-top:8px">We’ll reply with a free proof + exact quote — usually same day. No obligation.</div></div>';
   document.getElementById('cartx').addEventListener('click',closeAll);
   document.getElementById('cartback').addEventListener('click',openCart);
+  document.getElementById('emailKit').addEventListener('click',emailKit);
   document.getElementById('copyKit').addEventListener('click',copyKit);
+}
+function emailKit(){
+  var note=(document.getElementById('coNote')&&document.getElementById('coNote').value||'').trim();
+  var body=orderText(note);
+  var url='mailto:steven@justdealspromotions.com?subject='+encodeURIComponent('My kit — '+CFG.client+' — proof & quote request')+'&body='+encodeURIComponent(body);
+  var hint=document.getElementById('copyHint');if(hint)hint.textContent='Opening your email with the kit pre-filled — just hit send. (If it doesn’t open, use copy & paste below.)';
+  window.location.href=url;
 }
 function copyKit(){
   var note=(document.getElementById('coNote')&&document.getElementById('coNote').value||'').trim();
