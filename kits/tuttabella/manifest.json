@@ -1,20 +1,23 @@
 {
   "generator": "client-app",
-  "version": "1784216588",
-  "slug": "eddy-solutions",
-  "client": "Eddy Solutions",
+  "version": "1784216552",
+  "slug": "tuttabella",
+  "client": "Tutta Bella",
   "files": [
     "index.html",
     "client.json",
     "img/favicon.png",
     "img/lg_full_brand.png",
     "img/lg_full_dark.png",
+    "img/lg_full_ed2e25.png",
     "img/lg_full_white.png",
     "img/lg_icon_brand.png",
     "img/lg_icon_dark.png",
+    "img/lg_icon_ed2e25.png",
     "img/lg_icon_white.png",
     "img/lg_word_brand.png",
     "img/lg_word_dark.png",
+    "img/lg_word_ed2e25.png",
     "img/lg_word_white.png",
     "img/logo-white.png"
   ]
