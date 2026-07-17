@@ -104,9 +104,9 @@ function buildStore(){
     document.head.appendChild(_b);}
   var benBand='<section class="benefits"><div class="w benin">'+
     '<div class="bengrid">'+
-      '<div class="bcell"><b>65%</b><span>stronger first impression</span></div>'+
-      '<div class="bcell"><b>77%</b><span>of crews wear it with pride</span></div>'+
-      '<div class="bcell"><b>76%</b><span>more likely to stay a year</span></div>'+
+      '<div class="bcell"><b>65%</b><span>better first impression — win more work</span></div>'+
+      '<div class="bcell"><b>58%</b><span>expect higher-quality work from a uniformed pro</span></div>'+
+      '<div class="bcell"><b>76%</b><span>of crews stay a year longer when you kit them out</span></div>'+
     '</div>'+
     '<div class="bensrc">Why branded teams win · Harris · J.D. Power · 2023 workforce study</div>'+
   '</div></section>';
@@ -523,7 +523,7 @@ function go(cfg){
   if(cfg.accent)document.documentElement.style.setProperty('--a',cfg.accent);
   document.title=(cfg.client||'Branded Apparel')+' — Team Store · Just Deals Promotions';
   renderSkeleton(cfg);
-  fetch((cfg.catalog_base||CATALOG_BASE)+'/catalog.json?v='+(cfg.ver||'1')).then(function(r){return r.json();}).then(function(cat){
+  fetch((cfg.catalog_base||CATALOG_BASE)+'/catalog.json?v='+(cfg.ver||'1')+'&c=20260716b').then(function(r){return r.json();}).then(function(cat){
     CFG.catalog_base=cfg.catalog_base||CATALOG_BASE;CAT=cat;(cat.items||[]).forEach(function(it){BYKEY[it.key]=it;});
     loadCart();buildStore();refreshCartUI();
     // Deep link: /kits/<slug>/?item=<key> (or #item=<key>) opens straight to that product — handy for
