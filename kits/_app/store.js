@@ -94,21 +94,20 @@ function buildStore(){
   var C=CFG.copy||{};
   if(!document.getElementById('jdpBenCss')){var _b=document.createElement('style');_b.id='jdpBenCss';_b.textContent=
     ".benefits{background:#fff;border-bottom:1px solid #eef0f4}"+
-    ".benin{padding:15px 0 14px}"+
-    ".bengrid{display:flex;justify-content:center;flex-wrap:wrap}"+
-    ".bcell{flex:1;min-width:140px;text-align:center;padding:3px 20px;position:relative}"+
-    ".bcell+.bcell::before{content:'';position:absolute;left:0;top:14%;height:72%;width:1px;background:#e9ecf1}"+
-    ".bcell b{font-size:clamp(21px,3vw,27px);font-weight:900;color:var(--a,#141821);letter-spacing:-.02em}"+
-    ".bcell span{display:block;font-size:12px;color:#5b6675;margin-top:2px;line-height:1.3}"+
-    ".bensrc{text-align:center;font-size:10.5px;color:#b2b8c2;margin-top:9px}";
+    ".benin{padding:24px 0 22px}"+
+    ".bengrid{display:flex;justify-content:center;flex-wrap:wrap;gap:2px}"+
+    ".bcell{flex:1;min-width:180px;max-width:360px;text-align:center;padding:6px 30px;position:relative}"+
+    ".bcell+.bcell::before{content:'';position:absolute;left:0;top:8%;height:84%;width:1px;background:#e9ecf1}"+
+    ".bcell b{display:block;font-size:clamp(28px,3.6vw,36px);font-weight:900;color:var(--a,#141821);letter-spacing:-.03em;line-height:1}"+
+    ".bcell span{display:block;font-size:13px;color:#6b7686;margin-top:9px;line-height:1.45}"+
+    ".bcell span strong{font-weight:800;color:#1c2431}";
     document.head.appendChild(_b);}
   var benBand='<section class="benefits"><div class="w benin">'+
     '<div class="bengrid">'+
-      '<div class="bcell"><b>58%</b><span>expect product, service &amp; quality to be higher from uniformed staff</span></div>'+
-      '<div class="bcell"><b>65%</b><span>say uniformed employees give a more positive perception of a company</span></div>'+
-      '<div class="bcell"><b>77%</b><span>of workers feel a uniform gives them pride in the company brand</span></div>'+
+      '<div class="bcell"><b>58%</b><span>expect <strong>product, service, and quality to be higher</strong> when delivered by <strong>uniformed staff</strong>.</span></div>'+
+      '<div class="bcell"><b>65%</b><span>say employees in uniforms give them a <strong>more positive perception</strong> of a company.</span></div>'+
+      '<div class="bcell"><b>77%</b><span>of workers feel a uniform gives them a <strong>sense of pride</strong> in wearing the <strong>company brand</strong>.</span></div>'+
     '</div>'+
-    '<div class="bensrc">Why uniformed teams win · uniform &amp; workwear industry research</div>'+
   '</div></section>';
   var order=CFG.order||{};
   var cats=[];
