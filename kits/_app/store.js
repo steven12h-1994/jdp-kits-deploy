@@ -104,11 +104,11 @@ function buildStore(){
     document.head.appendChild(_b);}
   var benBand='<section class="benefits"><div class="w benin">'+
     '<div class="bengrid">'+
-      '<div class="bcell"><b>65%</b><span>better first impression — win more work</span></div>'+
-      '<div class="bcell"><b>58%</b><span>expect higher-quality work from a uniformed pro</span></div>'+
-      '<div class="bcell"><b>76%</b><span>of crews stay a year longer when you kit them out</span></div>'+
+      '<div class="bcell"><b>58%</b><span>expect product, service &amp; quality to be higher from uniformed staff</span></div>'+
+      '<div class="bcell"><b>65%</b><span>say uniformed employees give a more positive perception of a company</span></div>'+
+      '<div class="bcell"><b>77%</b><span>of workers feel a uniform gives them pride in the company brand</span></div>'+
     '</div>'+
-    '<div class="bensrc">Why branded teams win · Harris · J.D. Power · 2023 workforce study</div>'+
+    '<div class="bensrc">Why uniformed teams win · uniform &amp; workwear industry research</div>'+
   '</div></section>';
   var order=CFG.order||{};
   var cats=[];
