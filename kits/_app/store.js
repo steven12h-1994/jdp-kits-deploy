@@ -523,7 +523,7 @@ function go(cfg){
   if(cfg.accent)document.documentElement.style.setProperty('--a',cfg.accent);
   document.title=(cfg.client||'Branded Apparel')+' — Team Store · Just Deals Promotions';
   renderSkeleton(cfg);
-  fetch((cfg.catalog_base||CATALOG_BASE)+'/catalog.json?v='+(cfg.ver||'1')+'&c=20260716b').then(function(r){return r.json();}).then(function(cat){
+  fetch((cfg.catalog_base||CATALOG_BASE)+'/catalog.json?v='+(cfg.ver||'1')+'&c=20260717a').then(function(r){return r.json();}).then(function(cat){
     CFG.catalog_base=cfg.catalog_base||CATALOG_BASE;CAT=cat;(cat.items||[]).forEach(function(it){BYKEY[it.key]=it;});
     loadCart();buildStore();refreshCartUI();
     // Deep link: /kits/<slug>/?item=<key> (or #item=<key>) opens straight to that product — handy for
