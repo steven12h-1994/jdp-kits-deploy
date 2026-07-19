@@ -81,7 +81,7 @@ function menuCard(key){
   var inkit=q?' inkit':'';
   var addlbl=q?('<b>'+q+'</b>'):'+';
   return '<article class="mcard'+inkit+'" data-key="'+key+'" tabindex="0" role="button" aria-label="'+esc(item.name)+'">'+
-    '<div class="mstage">'+rec+'<img class="g" src="'+o.g+'" alt="'+esc(item.name)+'" loading="lazy" decoding="async">'+o.lg+
+    '<div class="mstage">'+rec+(item.video?'<button class="mvid" data-vid="'+esc(item.video)+'" aria-label="Play product video">▶ Video</button>':'')+'<img class="g" src="'+o.g+'" alt="'+esc(item.name)+'" loading="lazy" decoding="async">'+o.lg+
       '<button class="madd'+(q?' has':'')+'" data-key="'+key+'" aria-label="'+(q?'Edit ':'Add ')+esc(item.name)+'">'+addlbl+'</button></div>'+
     '<div class="mb"><h3>'+esc(item.name)+'</h3>'+
       '<div class="mmeta">'+esc(item.sku)+' · '+ncol+' colours</div>'+
@@ -100,7 +100,14 @@ function buildStore(){
     ".bcell+.bcell::before{content:'';position:absolute;left:0;top:8%;height:84%;width:1px;background:#e9ecf1}"+
     ".bcell b{display:block;font-size:clamp(28px,3.6vw,36px);font-weight:900;color:var(--a,#141821);letter-spacing:-.03em;line-height:1}"+
     ".bcell span{display:block;font-size:13px;color:#6b7686;margin-top:9px;line-height:1.45}"+
-    ".bcell span strong{font-weight:800;color:#1c2431}";
+    ".bcell span strong{font-weight:800;color:#1c2431}"+
+    ".mstage{position:relative}"+
+    ".mvid{position:absolute;left:8px;bottom:8px;z-index:3;display:inline-flex;align-items:center;gap:5px;background:rgba(20,24,33,.82);color:#fff;border:0;border-radius:20px;padding:5px 11px;font:inherit;font-size:11.5px;font-weight:700;cursor:pointer}"+
+    ".vwatch{display:inline-flex;align-items:center;gap:6px;margin:12px auto 0;background:var(--a,#141821);color:#fff;border:0;border-radius:10px;padding:9px 16px;font:inherit;font-weight:700;font-size:13px;cursor:pointer}"+
+    ".vmodal{position:fixed;inset:0;z-index:120;display:none;align-items:center;justify-content:center;padding:4vw}"+
+    ".vmodal.on{display:flex}"+
+    ".vmodal video{max-width:min(960px,94vw);max-height:88vh;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.5);background:#000}"+
+    ".vmodal .vx{position:absolute;top:16px;right:20px;background:#fff;color:#141821;border:0;border-radius:50%;width:40px;height:40px;font-size:18px;cursor:pointer;font-weight:700;z-index:2}";
     document.head.appendChild(_b);}
   var benBand='<section class="benefits"><div class="w benin">'+
     '<div class="bengrid">'+
@@ -148,6 +155,7 @@ function buildStore(){
      '<behold-widget feed-id="'+esc(C.feed)+'"></behold-widget></div></section>'):'')+
    '<footer><div class="w">Just Deals Promotions · Branded Workwear &amp; Safety Apparel<br>Prepared for '+esc(CFG.client)+' · Concept mockups on representative product photography · Pricing confirmed by exact quote.</div></footer>'+
    '<div class="ov" id="ov"></div>'+
+   '<div class="vmodal" id="vmodal"></div>'+
    '<div class="sheet" id="sheet"></div>'+
    '<aside class="cart" id="cart"></aside>'+
    (demo?('<div class="demobar"><div class="demobarin w"><span class="demotxt"><b>Like the look?</b> Get this store with <b>your</b> logo — free, no obligation.</span><button class="demobtn" id="leadOpen2">'+esc(cta.label||'Get your store — free')+'</button></div></div>'):'')+
@@ -166,6 +174,7 @@ function buildStore(){
   // "+" on a card opens the customiser (so a size split is always chosen) — no silent quick-add.
   document.querySelectorAll('.madd').forEach(function(b){b.addEventListener('click',function(e){
     e.stopPropagation();var k=b.dataset.key;if(CART[k]){openSheet(k);}else{quickAdd(k);}});});
+  document.querySelectorAll('.mvid').forEach(function(b){b.addEventListener('click',function(e){e.stopPropagation();openVideo(b.dataset.vid);});});
   var ar=document.getElementById('addRec');if(ar)ar.addEventListener('click',addRecommended);
   // category pills: click to scroll; scroll-spy to highlight
   var pills=[].slice.call(document.querySelectorAll('.cpill'));
@@ -338,7 +347,7 @@ function renderSheet(){
   document.getElementById('sheet').innerHTML=
     '<button class="shx" id="shx" aria-label="Close">✕</button>'+
     '<div class="shscroll">'+
-      '<div class="shimg" id="shimg"><div class="shstage"><img class="g" src="'+o.g+'" alt="">'+o.lg+'</div>'+faceTog+'</div>'+
+      '<div class="shimg" id="shimg"><div class="shstage"><img class="g" src="'+o.g+'" alt="">'+o.lg+'</div>'+faceTog+(item.video?'<button class="vwatch" id="vwatch">▶ Watch product video</button>':'')+'</div>'+
       '<div class="shb"><h2>'+esc(item.name)+'</h2><div class="shsku">'+esc(item.sku)+(item.layer==='field'?' · CSA hi-vis':'')+'</div>'+
       '<div class="shfrom">from <b>'+money(fromP)+'</b> <small>/pc</small> · decorated</div>'+
       (item.blurb?'<p class="shblurb">'+esc(item.blurb)+'</p>':'')+
@@ -350,6 +359,7 @@ function renderSheet(){
       '<div class="shtrust">✓ Free digital proof before you commit · no obligation</div></div>';
   var sh=document.getElementById('sheet');
   document.getElementById('shx').addEventListener('click',closeAll);
+  var vw=document.getElementById('vwatch');if(vw)vw.addEventListener('click',function(){openVideo(item.video);});
   sh.querySelectorAll('.cchip').forEach(function(b){b.addEventListener('click',function(){SH.colour=b.dataset.col;swapPreview();renderSheet();});});
   sh.querySelectorAll('[data-face]').forEach(function(b){b.addEventListener('click',function(){SH.face=b.dataset.face;renderSheet();});});
   var as=document.getElementById('addSpot');if(as)as.addEventListener('click',function(){SH.showExtra=true;renderSheet();});
@@ -453,7 +463,11 @@ function renderCart(){
   });
 }
 function editItem(k){document.getElementById('cart').classList.remove('on');openSheet(k);}
-function closeAll(){['ov','sheet','cart','lead'].forEach(function(id){var e=document.getElementById(id);if(e)e.classList.remove('on');});document.body.style.overflow='';}
+function openVideo(src){var m=document.getElementById('vmodal');if(!m||!src)return;
+  m.innerHTML='<button class="vx" id="vx" aria-label="Close">✕</button><video src="'+esc(src)+'" controls autoplay playsinline></video>';
+  document.getElementById('ov').classList.add('on');m.classList.add('on');document.body.style.overflow='hidden';
+  var vx=document.getElementById('vx');if(vx)vx.addEventListener('click',closeAll);}
+function closeAll(){['ov','sheet','cart','lead','vmodal'].forEach(function(id){var e=document.getElementById(id);if(e)e.classList.remove('on');});var mv=document.getElementById('vmodal');if(mv)mv.innerHTML='';document.body.style.overflow='';}
 
 /* ---------- checkout: copy-paste into the existing email thread ---------- */
 function orderText(note){
@@ -522,7 +536,7 @@ function go(cfg){
   if(cfg.accent)document.documentElement.style.setProperty('--a',cfg.accent);
   document.title=(cfg.client||'Branded Apparel')+' — Team Store · Just Deals Promotions';
   renderSkeleton(cfg);
-  fetch((cfg.catalog_base||CATALOG_BASE)+'/catalog.json?v='+(cfg.ver||'1')+'&c=20260717a').then(function(r){return r.json();}).then(function(cat){
+  fetch((cfg.catalog_base||CATALOG_BASE)+'/catalog.json?v='+(cfg.ver||'1')+'&c=20260719a').then(function(r){return r.json();}).then(function(cat){
     CFG.catalog_base=cfg.catalog_base||CATALOG_BASE;CAT=cat;(cat.items||[]).forEach(function(it){BYKEY[it.key]=it;});
     loadCart();buildStore();refreshCartUI();
     // Deep link: /kits/<slug>/?item=<key> (or #item=<key>) opens straight to that product — handy for
