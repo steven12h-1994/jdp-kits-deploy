@@ -80,7 +80,7 @@ function menuCard(key){
   var q=CART[key]?CART[key].qty:0;
   var inkit=q?' inkit':'';
   var addlbl=q?('<b>'+q+'</b>'):'+';
-  return '<article class="mcard'+inkit+'" data-key="'+key+'" tabindex="0" role="button" aria-label="'+esc(item.name)+'">'+
+  return '<article class="mcard'+inkit+'" data-key="'+key+'" data-name="'+esc((item.name+' '+item.sku).toLowerCase().replace(/"/g,''))+'" tabindex="0" role="button" aria-label="'+esc(item.name)+'">'+
     '<div class="mstage">'+rec+(item.video?'<button class="mvid" data-vid="'+esc(item.video)+'" aria-label="Play product video">▶ Video</button>':'')+'<img class="g" src="'+o.g+'" alt="'+esc(item.name)+'" loading="lazy" decoding="async">'+o.lg+
       '<button class="madd'+(q?' has':'')+'" data-key="'+key+'" aria-label="'+(q?'Edit ':'Add ')+esc(item.name)+'">'+addlbl+'</button></div>'+
     '<div class="mb"><h3>'+esc(item.name)+'</h3>'+
@@ -88,6 +88,34 @@ function menuCard(key){
       '<div class="mprice">from <b>'+money(fromP)+'</b> <small>/pc</small></div></div></article>';
 }
 
+/* ---------- sub-grouping (chunk long categories so the catalogue is easy to scan) ---------- */
+var SUBORDER={office:['Jackets & Outerwear','Fleece & Sweaters','Polos','Shirts','Tees','Vests','Apparel'],
+              bags:['Backpacks','Duffels','Coolers','Tool Bags','Bags'],
+              premium:['Nike','The North Face','Cutter & Buck']};
+function subGroup(it){
+  var n=((it.name||'')+' '+(it.key||'')).toLowerCase(),layer=it.layer;
+  if(layer==='premium'){var b=(it.brand||it.sku||'').toLowerCase();
+    if(b.indexOf('nike')>=0)return 'Nike';if(b.indexOf('north')>=0)return 'The North Face';
+    if(b.indexOf('cutter')>=0)return 'Cutter & Buck';return it.sku||'Premium';}
+  if(layer==='bags'){if(n.indexOf('cooler')>=0)return 'Coolers';if(n.indexOf('duffel')>=0)return 'Duffels';
+    if(n.indexOf('tool')>=0)return 'Tool Bags';if(n.indexOf('backpack')>=0||n.indexOf('pack')>=0)return 'Backpacks';return 'Bags';}
+  if(n.indexOf('vest')>=0)return 'Vests';
+  if(n.indexOf('polo')>=0)return 'Polos';
+  if(n.indexOf('shirt')>=0)return 'Shirts';
+  if(n.indexOf('tee')>=0||n.indexOf('t-shirt')>=0)return 'Tees';
+  if(/fleece|sweatshirt|crewneck|hoodie|pullover|zip|treeline|sweater/.test(n))return 'Fleece & Sweaters';
+  if(/jacket|shell|softshell|raincoat|matrix|cascade|greenwich|sierra|rainier|parka|coat|vest/.test(n))return 'Jackets & Outerwear';
+  return 'Apparel';
+}
+function applySearch(q){q=(q||'').trim().toLowerCase();
+  document.querySelectorAll('.sec').forEach(function(sc){
+    var secVis=0;
+    sc.querySelectorAll('.mcard').forEach(function(c){var m=!q||(c.getAttribute('data-name')||'').indexOf(q)>=0;c.style.display=m?'':'none';if(m)secVis++;});
+    sc.querySelectorAll('.subgrp').forEach(function(sg){var v=0;sg.querySelectorAll('.mcard').forEach(function(c){if(c.style.display!=='none')v++;});sg.style.display=v?'':'none';});
+    sc.style.display=secVis?'':'none';
+  });
+  var ne=document.getElementById('noResults');if(ne){var anyVis=!!document.querySelector('.mcard:not([style*="none"])');ne.style.display=(q&&!anyVis)?'':'none';}
+}
 /* ---------- build page ---------- */
 function catName(id){return id==='office'?'Company Apparel':id==='field'?'Job-site &amp; Hi-Vis':id==='premium'?'Premium Brands':'Accessories';}
 function buildStore(){
@@ -107,7 +135,19 @@ function buildStore(){
     ".vmodal{position:fixed;inset:0;z-index:120;display:none;align-items:center;justify-content:center;padding:4vw}"+
     ".vmodal.on{display:flex}"+
     ".vmodal video{max-width:min(960px,94vw);max-height:88vh;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.5);background:#000}"+
-    ".vmodal .vx{position:absolute;top:16px;right:20px;background:#fff;color:#141821;border:0;border-radius:50%;width:40px;height:40px;font-size:18px;cursor:pointer;font-weight:700;z-index:2}";
+    ".vmodal .vx{position:absolute;top:16px;right:20px;background:#fff;color:#141821;border:0;border-radius:50%;width:40px;height:40px;font-size:18px;cursor:pointer;font-weight:700;z-index:2}"+
+    ".catin{display:flex;align-items:center;gap:12px;flex-wrap:wrap}"+
+    ".cpills{display:flex;gap:8px;flex-wrap:wrap;min-width:0}"+
+    ".catsearch{margin-left:auto;display:flex;align-items:center;gap:7px;background:#fff;border:1px solid #e2e6ec;border-radius:22px;padding:7px 14px;color:#8a93a0}"+
+    ".catsearch:focus-within{border-color:var(--a,#141821);color:var(--a,#141821)}"+
+    ".catsearch input{border:0;outline:0;font:inherit;font-size:13.5px;min-width:150px;width:170px;background:transparent;color:#141821}"+
+    ".subgrp{margin-top:6px}"+
+    ".subhd{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:#7a8493;margin:26px 2px 14px}"+
+    ".subhd:after{content:'';flex:1;height:1px;background:#eceff3}"+
+    ".subgrp:first-child .subhd{margin-top:8px}"+
+    ".subn{flex:none;background:#f0f2f6;color:#8a93a0;border-radius:20px;padding:2px 9px;font-size:11px;letter-spacing:.02em}"+
+    ".noresults{text-align:center;color:#8a93a0;font-size:15px;padding:60px 20px}"+
+    "@media(max-width:640px){.catsearch{margin-left:0;width:100%}.catsearch input{width:100%;flex:1}}";
     document.head.appendChild(_b);}
   var benBand='<section class="benefits"><div class="w benin">'+
     '<div class="bengrid">'+
@@ -126,12 +166,22 @@ function buildStore(){
   var recN=recKeysAll().length;
   var sections=cats.map(function(cat){
     var keys=order[cat]||[];
-    var cards=keys.map(menuCard).join('');
     var csa=cat==='field'?' <span class="csa">CSA-rated</span>':'';
-    return '<section class="sec" id="sec-'+cat+'"><h2 class="seclbl">'+catName(cat)+csa+'</h2><div class="menu">'+cards+'</div></section>';
+    var inner;
+    if(keys.length>8&&cat!=='field'){                 // chunk long categories into scannable sub-groups
+      var groups={};keys.forEach(function(k){if(!BYKEY[k])return;var g=subGroup(BYKEY[k]);(groups[g]=groups[g]||[]).push(k);});
+      var ordArr=SUBORDER[cat]||[];
+      var gnames=Object.keys(groups).sort(function(a,b){var ia=ordArr.indexOf(a),ib=ordArr.indexOf(b);return (ia<0?99:ia)-(ib<0?99:ib);});
+      inner=gnames.map(function(g){return '<div class="subgrp"><h3 class="subhd">'+esc(g)+' <span class="subn">'+groups[g].length+'</span></h3><div class="menu">'+groups[g].map(menuCard).join('')+'</div></div>';}).join('');
+    } else {
+      inner='<div class="menu">'+keys.map(menuCard).join('')+'</div>';
+    }
+    return '<section class="sec" id="sec-'+cat+'"><h2 class="seclbl">'+catName(cat)+csa+'</h2>'+inner+'</section>';
   }).join('');
   var catbar=cats.length>1?('<nav class="catbar" id="catbar"><div class="w catin">'+
-    cats.map(function(c,i){return '<button class="cpill'+(i===0?' on':'')+'" data-t="sec-'+c+'">'+catName(c)+'</button>';}).join('')+'</div></nav>'):'';
+    '<div class="cpills">'+cats.map(function(c,i){return '<button class="cpill'+(i===0?' on':'')+'" data-t="sec-'+c+'">'+catName(c)+'</button>';}).join('')+'</div>'+
+    '<div class="catsearch"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input id="kitSearch" type="search" placeholder="Search products…" aria-label="Search products"></div>'+
+    '</div></nav>'):'';
   var demo=!!CFG.demo,cta=CFG.cta||{};
   var heroCta = demo
     ? ('<button class="reccta" id="leadOpen1">'+esc(cta.label||'Get your store — free')+' →</button>'+(cta.phone?'<div class="herophone">or call <b>'+esc(cta.phone)+'</b></div>':''))
@@ -149,7 +199,7 @@ function buildStore(){
    '</div></section>'+
    benBand+
    catbar+
-   '<main class="w">'+sections+'</main>'+
+   '<main class="w">'+sections+'<div class="noresults" id="noResults" style="display:none">No products match your search.</div></main>'+
    (C.feed?('<section class="social"><div class="w"><h2 class="seclbl">Recent work — from our shop floor</h2>'+
      '<p class="socsub">'+esc(C.work_lead||'Real kits we’ve decorated for crews across the country.')+'</p>'+
      '<behold-widget feed-id="'+esc(C.feed)+'"></behold-widget></div></section>'):'')+
@@ -177,6 +227,8 @@ function buildStore(){
   document.querySelectorAll('.mvid').forEach(function(b){b.addEventListener('click',function(e){e.stopPropagation();openVideo(b.dataset.vid);});});
   var ar=document.getElementById('addRec');if(ar)ar.addEventListener('click',addRecommended);
   // category pills: click to scroll; scroll-spy to highlight
+  var si=document.getElementById('kitSearch');
+  if(si)si.addEventListener('input',function(){applySearch(si.value);});
   var pills=[].slice.call(document.querySelectorAll('.cpill'));
   pills.forEach(function(t){t.addEventListener('click',function(){
     var el=document.getElementById(t.dataset.t);if(el)window.scrollTo({top:el.getBoundingClientRect().top+window.pageYOffset-118,behavior:'smooth'});});});
@@ -536,7 +588,7 @@ function go(cfg){
   if(cfg.accent)document.documentElement.style.setProperty('--a',cfg.accent);
   document.title=(cfg.client||'Branded Apparel')+' — Team Store · Just Deals Promotions';
   renderSkeleton(cfg);
-  fetch((cfg.catalog_base||CATALOG_BASE)+'/catalog.json?v='+(cfg.ver||'1')+'&c=20260719a').then(function(r){return r.json();}).then(function(cat){
+  fetch((cfg.catalog_base||CATALOG_BASE)+'/catalog.json?v='+(cfg.ver||'1')+'&c=20260719b').then(function(r){return r.json();}).then(function(cat){
     CFG.catalog_base=cfg.catalog_base||CATALOG_BASE;CAT=cat;(cat.items||[]).forEach(function(it){BYKEY[it.key]=it;});
     loadCart();buildStore();refreshCartUI();
     // Deep link: /kits/<slug>/?item=<key> (or #item=<key>) opens straight to that product — handy for
