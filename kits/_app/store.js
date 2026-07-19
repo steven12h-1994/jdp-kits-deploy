@@ -24,6 +24,8 @@ function logoOf(id){for(var i=0;i<CFG.logos.length;i++)if(CFG.logos[i].id===id)r
 function inkUrl(logo,ink,col,method){var t=(ink&&ink!=='auto')?ink:autoInkFor(method,col&&col.rgb);return logo.inks[t]||logo.inks.brand;}
 function gurl(f){return CFG.catalog_base+'/img/'+f;}
 function colOf(item,name){for(var i=0;i<item.cols.length;i++)if(item.cols[i].name===name)return item.cols[i];return item.cols[0];}
+function colInList(cols,name){for(var i=0;i<cols.length;i++)if(cols[i].name===name)return cols[i];return cols[0];}
+function curColsOf(item,fit){return (fit==='womens'&&item.wcols&&item.wcols.length)?item.wcols:item.cols;}
 function placeOf(item,pid){for(var i=0;i<item.places.length;i++)if(item.places[i].id===pid)return item.places[i];return null;}
 function vmOf(key){return (CFG.items||{})[key]||{colour:(BYKEY[key].cols[0]||{}).name,decos:[]};}
 function unitAt(item,q){var cs=CFG.pricing.cols,pr=item.prices,i=0;for(var k=0;k<cs.length;k++){if(q>=cs[k])i=k;}return pr[i];}
@@ -56,8 +58,8 @@ function loadCart(){try{CART=JSON.parse(localStorage.getItem(LSKEY))||{};}catch(
 function saveCart(){try{localStorage.setItem(LSKEY,JSON.stringify(CART));}catch(e){}}
 
 /* ---------- overlay (garment photo + logo at a placement) ---------- */
-function overlayHtml(item,vm,colName,faces){
-  var col=colOf(item,colName);var face=faces||'front';var hasBack=!!col.back;
+function overlayHtml(item,vm,colName,faces,colsOverride){
+  var cols=colsOverride||item.cols;var col=colInList(cols,colName);var face=faces||'front';var hasBack=!!col.back;
   if(face==='back'&&!hasBack)face='front';
   var photo=(face==='back'&&col.back)?col.back:col.front;
   var lg='';
@@ -271,27 +273,32 @@ var TT;
 function toast(msg){var t=document.getElementById('toast'),m=document.getElementById('toastM');if(!t)return;if(m)m.textContent=msg||'Added to your kit';t.classList.add('on');clearTimeout(TT);TT=setTimeout(function(){t.classList.remove('on');},3600);}
 
 /* ---------- item customiser (one clean screen) ---------- */
-var SH={key:null,colour:null,face:'front',D:{},qty:12,showExtra:false};
+var SH={key:null,colour:null,face:'front',D:{},qty:12,showExtra:false,fit:'mens'};
 var METHOD_OPTS=[
   {m:'embroidery',c:1,lab:'Embroidery',sub:'Stitched in thread — premium & long-lasting. Best on polos, jackets & vests.'},
   {m:'screen',c:1,lab:'Screen print — 1 colour',sub:'Your logo printed in one solid ink — best value on tees & hi-vis.'},
   {m:'screen',c:2,lab:'Screen print — 2 colour',sub:'Printed in two inks — a little more of your logo’s detail.'},
   {m:'heat_transfer',c:1,lab:'Heat transfer',sub:'Full-colour design pressed on with heat — best for detailed logos & rain gear.'}
 ];
-var SIZES=['S','M','L','XL','2XL','3XL'];
-function sizeTotal(sz){sz=sz||SH.sizes||{};var t=0;SIZES.forEach(function(s){t+=parseInt(sz[s],10)||0;});return t;}
+var MENS_SIZES=['S','M','L','XL','2XL','3XL'],WOMENS_SIZES=['XS','S','M','L','XL','2XL'];
+var ALLSIZES=['XS','S','M','L','XL','2XL','3XL'];
+function sheetSizes(){return (SH.fit==='womens')?WOMENS_SIZES:MENS_SIZES;}
+function sizeTotal(sz){sz=sz||SH.sizes||{};var t=0;for(var k in sz){t+=parseInt(sz[k],10)||0;}return t;}
 function effQty(){var t=sizeTotal();return t>0?t:(SH.baseQty||0);}
 // The next price tier above q (or null). Used to nudge orders up to the next volume break.
 function nextTier(q){var t=CFG.pricing.cols||[];for(var i=0;i<t.length;i++){if(q<t[i])return t[i];}return null;}
 function savingsNudge(key,decos,q){var nt=nextTier(q);if(!nt)return null;var a=unitPrice(key,decos,q),b=unitPrice(key,decos,nt);var pct=a>0?Math.round((1-b/a)*100):0;if(pct<=0)return null;return {need:nt-q,tier:nt,pct:pct};}
-function sizesSummary(c){if(!c||!c.sizes)return '';return SIZES.filter(function(s){return c.sizes[s];}).map(function(s){return s+' '+c.sizes[s];}).join(' · ');}
+function sizesSummary(c){if(!c||!c.sizes)return '';return ALLSIZES.filter(function(s){return c.sizes[s];}).map(function(s){return s+' '+c.sizes[s];}).join(' · ');}
 function openSheet(key){
   var item=BYKEY[key],vm=vmOf(key),ex=CART[key],exmap={};
   if(ex&&ex.decos){ex.decos.forEach(function(d){exmap[d.pl]=d;});}
   // Size breakdown is the ONLY quantity control. baseQty preserves the count of an item that was
   // quick-started without a size split (e.g. the recommended kit) so reopening it doesn't lose it.
-  SH={key:key,colour:(ex&&ex.colour)||vm.colour,face:'front',D:{},showExtra:false,sizes:{},baseQty:ex?(ex.sizes?0:(ex.qty||moq())):moq()};
-  SIZES.forEach(function(s){SH.sizes[s]=(ex&&ex.sizes&&ex.sizes[s])||0;});
+  var exfit=(ex&&ex.fit)||'mens';
+  SH={key:key,colour:(ex&&ex.colour)||vm.colour,face:'front',D:{},showExtra:false,sizes:{},fit:exfit,baseQty:ex?(ex.sizes?0:(ex.qty||moq())):moq()};
+  // if the saved colour isn't in the active fit's colour set, fall back to that set's first colour
+  var _cc=curColsOf(item,SH.fit);if(!colInList(_cc,SH.colour)||colInList(_cc,SH.colour).name!==SH.colour)SH.colour=_cc[0].name;
+  sheetSizes().forEach(function(s){SH.sizes[s]=(ex&&ex.sizes&&ex.sizes[s])||0;});
   var logoPlaces=(item.places||[]).filter(function(p){return p.logo;}),primaryId=(logoPlaces[0]||{}).id;
   logoPlaces.forEach(function(p){
     var rd=(vm.decos||[]).filter(function(x){return x.pl===p.id;})[0]||{},use=exmap[p.id];
@@ -352,10 +359,22 @@ function renderSheet(){
     ".shprice.under,.shprice.under b{color:#c0392b}"+
     ".shnote{margin:22px 2px 2px;font-size:11.5px;line-height:1.6;color:#9a9a9a}"+
     ".shfrom{margin:7px 0 4px;font-size:14px;color:#666;font-weight:600}.shfrom b{color:#141414;font-size:17px;font-weight:800}.shfrom small{color:#8a8a8a;font-weight:600}"+
-    ".fp.inc{color:#2e7d32;font-weight:700}";
+    ".fp.inc{color:#2e7d32;font-weight:700}"+
+    ".fittog{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:14px 0 2px}"+
+    ".fitl{font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#8a8a8a;margin-right:2px}"+
+    ".fitb{border:1.5px solid #e2e6ec;background:#fff;color:#141414;border-radius:22px;padding:8px 18px;font:inherit;font-weight:700;font-size:13.5px;cursor:pointer}"+
+    ".fitb.on{border-color:var(--a,#141821);background:var(--a,#141821);color:#fff}"+
+    ".fitnote{flex-basis:100%;font-size:11.5px;color:#8a8a8a;margin-top:4px}"+
+    ".fitbadge{display:inline-block;background:var(--a,#141821);color:#fff;border-radius:5px;padding:1px 7px;font-size:10.5px;font-weight:800;letter-spacing:.02em;vertical-align:middle}";
     document.head.appendChild(_st);}
-  var o=overlayHtml(item,{decos:sheetDecos()},SH.colour,SH.face);var hasBack=o.hasBack;
-  var chips=item.cols.map(function(c){return '<button class="cchip'+(c.name===SH.colour?' on':'')+'" data-col="'+esc(c.name)+'" style="background-image:url('+gurl(c.front)+')" title="'+esc(c.name)+'"></button>';}).join('');
+  var cols=curColsOf(item,SH.fit);
+  var o=overlayHtml(item,{decos:sheetDecos()},SH.colour,SH.face,cols);var hasBack=o.hasBack;
+  var chips=cols.map(function(c){return '<button class="cchip'+(c.name===SH.colour?' on':'')+'" data-col="'+esc(c.name)+'" style="background-image:url('+gurl(c.front)+')" title="'+esc(c.name)+'"></button>';}).join('');
+  var fitTog=item.womens?('<div class="fittog"><span class="fitl">Fit</span>'+
+    '<button class="fitb'+(SH.fit==='mens'?' on':'')+'" data-fit="mens">Men’s</button>'+
+    '<button class="fitb'+(SH.fit==='womens'?' on':'')+'" data-fit="womens">Women’s</button>'+
+    (SH.fit==='womens'&&!(item.wcols&&item.wcols.length)?'<span class="fitnote">Ladies’ cut confirmed on your free proof</span>':'')+
+    '</div>'):'';
   var faceTog=hasBack?'<div class="ftog"><button class="pchip'+(SH.face==='front'?' on':'')+'" data-face="front">Front</button><button class="pchip'+(SH.face==='back'?' on':'')+'" data-face="back">Back</button></div>':'';
   var logoPlaces=(item.places||[]).filter(function(p){return p.logo;});
   var primary=logoPlaces[0],extras=logoPlaces.slice(1);
@@ -379,7 +398,7 @@ function renderSheet(){
   var nudHtml=nud?('<div class="nudge">💡 Add '+nud.need+' more to reach the '+nud.tier+'+ price — <b>save '+nud.pct+'% per piece</b></div>'):'';
   // Quantity = a size breakdown, always (the ONLY quantity control — no confusing total-vs-sizes choice).
   var under=q<moq();
-  var grid=SIZES.map(function(s){return '<div class="szrow"><span class="szl">'+s+'</span>'+
+  var grid=sheetSizes().map(function(s){return '<div class="szrow"><span class="szl">'+s+'</span>'+
     '<div class="qty sm szqty"><button data-sz="'+s+'" data-d="-1" aria-label="Less '+s+'">–</button><input class="szin" data-sz="'+s+'" type="number" inputmode="numeric" value="'+(SH.sizes[s]||0)+'" min="0"><button data-sz="'+s+'" data-d="1" aria-label="More '+s+'">+</button></div></div>';}).join('');
   var totHint = under ? (' <span>· add '+(moq()-q)+' more to reach the '+moq()+' minimum</span>')
     : (sizeTotal()===0&&SH.baseQty>0 ? ' <span>· set your split below (optional)</span>' : '');
@@ -403,7 +422,7 @@ function renderSheet(){
       '<div class="shb"><h2>'+esc(item.name)+'</h2><div class="shsku">'+esc(item.sku)+(item.layer==='field'?' · CSA hi-vis':'')+'</div>'+
       '<div class="shfrom">from <b>'+money(fromP)+'</b> <small>/pc</small> · decorated</div>'+
       (item.blurb?'<p class="shblurb">'+esc(item.blurb)+'</p>':'')+
-      step1+qtyGrp+primaryHtml+extraHtml+
+      fitTog+step1+qtyGrp+primaryHtml+extraHtml+
       '<div class="shnote">Prices are per piece, decorated — your logo (embroidery / print) is included. One-time setup shows once in your kit summary. Exact quote confirmed before anything runs.</div>'+
     '</div></div>'+
     '<div class="shfoot">'+priceClar+
@@ -414,6 +433,11 @@ function renderSheet(){
   var vw=document.getElementById('vwatch');if(vw)vw.addEventListener('click',function(){openVideo(item.video);});
   sh.querySelectorAll('.cchip').forEach(function(b){b.addEventListener('click',function(){SH.colour=b.dataset.col;swapPreview();renderSheet();});});
   sh.querySelectorAll('[data-face]').forEach(function(b){b.addEventListener('click',function(){SH.face=b.dataset.face;renderSheet();});});
+  sh.querySelectorAll('[data-fit]').forEach(function(b){b.addEventListener('click',function(){
+    if(SH.fit===b.dataset.fit)return;SH.fit=b.dataset.fit;
+    var cc=curColsOf(item,SH.fit);var cur=colInList(cc,SH.colour);if(!cur||cur.name!==SH.colour)SH.colour=cc[0].name;
+    var keep=SH.sizes||{};SH.sizes={};sheetSizes().forEach(function(s){SH.sizes[s]=keep[s]||0;});
+    swapPreview();renderSheet();});});
   var as=document.getElementById('addSpot');if(as)as.addEventListener('click',function(){SH.showExtra=true;renderSheet();});
   sh.querySelectorAll('.frow').forEach(function(b){b.addEventListener('click',function(){var pl=b.dataset.pl;
     if(b.dataset.off){SH.D[pl].on=false;}
@@ -431,8 +455,8 @@ function addFromSheet(){
   if(q<moq()){toast('Add at least '+moq()+' pieces');return;}
   var was=!!CART[SH.key],decos=[];
   Object.keys(SH.D).forEach(function(pl){var d=SH.D[pl];if(d.on)decos.push({pl:pl,lg:d.lg,ink:d.ink,method:d.method,colours:d.colours||1,on:true});});
-  var entry={qty:q,colour:SH.colour,decos:decos};
-  var sz={};SIZES.forEach(function(s){if(SH.sizes[s])sz[s]=SH.sizes[s];});
+  var entry={qty:q,colour:SH.colour,decos:decos,fit:SH.fit};
+  var sz={};sheetSizes().forEach(function(s){if(SH.sizes[s])sz[s]=SH.sizes[s];});
   if(Object.keys(sz).length)entry.sizes=sz;   // else keep the plain qty (a quick-started item reopened & saved as-is)
   CART[SH.key]=entry;
   saveCart();closeAll();refreshCartUI();
@@ -475,6 +499,7 @@ function setupBreakdown(){var r=CFG.rates||{},s=r.setup||{},seen={},out=[];
     out.push({label:lab,amount:Math.round(amt*100)/100});});});
   return out;}
 function cartSetup(){return Math.round(setupBreakdown().reduce(function(t,x){return t+x.amount;},0)*100)/100;}
+function fitLabel(c){return (c&&c.fit==='womens')?'Women’s':'';}
 function decoSummary(it,c){return (c.decos||[]).map(function(d){var p=placeOf(it,d.pl),m=MLAB[d.method]||'Emb';if(d.method==='screen')m+=' '+(d.colours||1)+'C';return (p?p.label:d.pl)+' · '+m;}).join('  ·  ')||'left chest';}
 function refreshCartUI(){
   var n=cartCount(),sub=cartSubtotal();
@@ -487,11 +512,12 @@ function refreshCartUI(){
 function openCart(){renderCart();document.getElementById('ov').classList.add('on');document.getElementById('cart').classList.add('on');document.body.style.overflow='hidden';}
 function renderCart(){
   var keys=Object.keys(CART),sub=cartSubtotal();
-  var items=keys.map(function(k){var it=BYKEY[k];if(!it)return '';var c=CART[k];var col=colOf(it,c.colour);
+  var items=keys.map(function(k){var it=BYKEY[k];if(!it)return '';var c=CART[k];var col=colInList(curColsOf(it,c.fit),c.colour);
     var unit=unitPrice(k,c.decos,c.qty);var szsum=sizesSummary(c);var nud=savingsNudge(k,c.decos,c.qty);
+    var fitb=fitLabel(c)?'<span class="fitbadge">'+fitLabel(c)+'</span> ':'';
     var ctrl='<button class="editln" data-edit="'+k+'">'+c.qty+' pcs · '+(c.sizes?'by size':'add sizes')+' ✎</button>';
     return '<div class="ci" data-key="'+k+'"><div class="t" style="background-image:url('+gurl(col.front)+')"></div>'+
-      '<div class="d"><h4>'+esc(it.name)+'</h4><div class="sub">'+esc(c.colour)+' · '+esc(decoSummary(it,c))+(szsum?'<br><span class="szln">Sizes: '+esc(szsum)+'</span>':'')+'</div>'+
+      '<div class="d"><h4>'+esc(it.name)+'</h4><div class="sub">'+fitb+esc(c.colour)+' · '+esc(decoSummary(it,c))+(szsum?'<br><span class="szln">Sizes: '+esc(szsum)+'</span>':'')+'</div>'+
       (nud?'<div class="cinudge">＋'+nud.need+' to reach '+nud.tier+'+ · save '+nud.pct+'%</div>':'')+
       '<div class="row">'+ctrl+'<div class="lp">'+money(unit*c.qty)+'</div></div></div>'+
       '<button class="rm" data-rm="'+k+'" aria-label="Remove">✕</button></div>';}).join('');
@@ -525,7 +551,7 @@ function closeAll(){['ov','sheet','cart','lead','vmodal'].forEach(function(id){v
 function orderText(note){
   var lines=['MY KIT — '+CFG.client,''];
   Object.keys(CART).forEach(function(k){var it=BYKEY[k];if(!it)return;var c=CART[k];var u=unitPrice(k,c.decos,c.qty);
-    lines.push('• '+it.name+' ('+it.sku+') — '+c.colour+' · '+decoSummary(it,c)+' · qty '+c.qty+' @ '+money(u)+' ea = '+money(u*c.qty));
+    lines.push('• '+it.name+' ('+it.sku+') — '+(fitLabel(c)?fitLabel(c)+' · ':'')+c.colour+' · '+decoSummary(it,c)+' · qty '+c.qty+' @ '+money(u)+' ea = '+money(u*c.qty));
     var ss=sizesSummary(c);if(ss)lines.push('    sizes: '+ss);});
   lines.push('','Estimated subtotal: '+money(cartSubtotal()));
   var sb=setupBreakdown();
@@ -538,7 +564,7 @@ function orderText(note){
 }
 function openCheckout(){
   var review=Object.keys(CART).map(function(k){var it=BYKEY[k];if(!it)return '';var c=CART[k];var ss=sizesSummary(c);
-    return '<div class="r"><span>'+esc(it.name)+' · '+esc(c.colour)+' · '+esc(decoSummary(it,c))+' × '+c.qty+(ss?'<br><small style="color:var(--mut)">Sizes: '+esc(ss)+'</small>':'')+'</span><span>'+money(unitPrice(k,c.decos,c.qty)*c.qty)+'</span></div>';}).join('');
+    return '<div class="r"><span>'+esc(it.name)+' · '+(fitLabel(c)?esc(fitLabel(c))+' · ':'')+esc(c.colour)+' · '+esc(decoSummary(it,c))+' × '+c.qty+(ss?'<br><small style="color:var(--mut)">Sizes: '+esc(ss)+'</small>':'')+'</span><span>'+money(unitPrice(k,c.decos,c.qty)*c.qty)+'</span></div>';}).join('');
   document.getElementById('cart').innerHTML=
     '<div class="carth"><button class="cartback" id="cartback" aria-label="Back">‹</button><h2>Send us your kit</h2><button class="cartx" id="cartx" aria-label="Close">✕</button></div>'+
     '<div class="citems"><div class="co">'+
@@ -588,7 +614,7 @@ function go(cfg){
   if(cfg.accent)document.documentElement.style.setProperty('--a',cfg.accent);
   document.title=(cfg.client||'Branded Apparel')+' — Team Store · Just Deals Promotions';
   renderSkeleton(cfg);
-  fetch((cfg.catalog_base||CATALOG_BASE)+'/catalog.json?v='+(cfg.ver||'1')+'&c=20260719b').then(function(r){return r.json();}).then(function(cat){
+  fetch((cfg.catalog_base||CATALOG_BASE)+'/catalog.json?v='+(cfg.ver||'1')+'&c=20260719c').then(function(r){return r.json();}).then(function(cat){
     CFG.catalog_base=cfg.catalog_base||CATALOG_BASE;CAT=cat;(cat.items||[]).forEach(function(it){BYKEY[it.key]=it;});
     loadCart();buildStore();refreshCartUI();
     // Deep link: /kits/<slug>/?item=<key> (or #item=<key>) opens straight to that product — handy for
