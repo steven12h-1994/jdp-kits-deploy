@@ -365,7 +365,8 @@ function renderSheet(){
     ".fitb{border:1.5px solid #e2e6ec;background:#fff;color:#141414;border-radius:22px;padding:8px 18px;font:inherit;font-weight:700;font-size:13.5px;cursor:pointer}"+
     ".fitb.on{border-color:var(--a,#141821);background:var(--a,#141821);color:#fff}"+
     ".fitnote{flex-basis:100%;font-size:11.5px;color:#8a8a8a;margin-top:4px}"+
-    ".fitbadge{display:inline-block;background:var(--a,#141821);color:#fff;border-radius:5px;padding:1px 7px;font-size:10.5px;font-weight:800;letter-spacing:.02em;vertical-align:middle}";
+    ".fitbadge{display:inline-block;background:var(--a,#141821);color:#fff;border-radius:5px;padding:1px 7px;font-size:10.5px;font-weight:800;letter-spacing:.02em;vertical-align:middle}"+
+    ".unitag{border:1.5px solid var(--a,#141821);color:var(--a,#141821);border-radius:22px;padding:7px 16px;font-weight:800;font-size:13px;letter-spacing:.03em}";
     document.head.appendChild(_st);}
   var cols=curColsOf(item,SH.fit);
   var o=overlayHtml(item,{decos:sheetDecos()},SH.colour,SH.face,cols);var hasBack=o.hasBack;
@@ -374,7 +375,7 @@ function renderSheet(){
     '<button class="fitb'+(SH.fit==='mens'?' on':'')+'" data-fit="mens">Men’s</button>'+
     '<button class="fitb'+(SH.fit==='womens'?' on':'')+'" data-fit="womens">Women’s</button>'+
     (SH.fit==='womens'&&!(item.wcols&&item.wcols.length)?'<span class="fitnote">Ladies’ cut confirmed on your free proof</span>':'')+
-    '</div>'):'';
+    '</div>'):(item.unisex?'<div class="fittog"><span class="fitl">Fit</span><span class="unitag">Unisex</span><span class="fitnote">One unisex cut — fits everyone</span></div>':'');
   var faceTog=hasBack?'<div class="ftog"><button class="pchip'+(SH.face==='front'?' on':'')+'" data-face="front">Front</button><button class="pchip'+(SH.face==='back'?' on':'')+'" data-face="back">Back</button></div>':'';
   var logoPlaces=(item.places||[]).filter(function(p){return p.logo;});
   var primary=logoPlaces[0],extras=logoPlaces.slice(1);
@@ -419,7 +420,7 @@ function renderSheet(){
     '<button class="shx" id="shx" aria-label="Close">✕</button>'+
     '<div class="shscroll">'+
       '<div class="shimg" id="shimg"><div class="shstage"><img class="g" src="'+o.g+'" alt="">'+o.lg+'</div>'+faceTog+(item.video?'<button class="vwatch" id="vwatch">▶ Watch product video</button>':'')+'</div>'+
-      '<div class="shb"><h2>'+esc(item.name)+'</h2><div class="shsku">'+esc(item.sku)+(item.layer==='field'?' · CSA hi-vis':'')+'</div>'+
+      '<div class="shb"><h2>'+esc(item.name)+'</h2><div class="shsku">'+esc(item.sku)+(item.womens?(SH.fit==='womens'?' · Ladies’':' · Men’s'):(item.unisex?' · Unisex':''))+(item.layer==='field'?' · CSA hi-vis':'')+'</div>'+
       '<div class="shfrom">from <b>'+money(fromP)+'</b> <small>/pc</small> · decorated</div>'+
       (item.blurb?'<p class="shblurb">'+esc(item.blurb)+'</p>':'')+
       fitTog+step1+qtyGrp+primaryHtml+extraHtml+
@@ -500,6 +501,8 @@ function setupBreakdown(){var r=CFG.rates||{},s=r.setup||{},seen={},out=[];
   return out;}
 function cartSetup(){return Math.round(setupBreakdown().reduce(function(t,x){return t+x.amount;},0)*100)/100;}
 function fitLabel(c){return (c&&c.fit==='womens')?'Women’s':'';}
+function fitTag(it,c){if(c&&c.fit==='womens')return 'Women’s';if(it&&it.unisex)return 'Unisex';return '';}
+function fitSku(it,c){return (c&&c.fit==='womens'&&it&&it.wsku)?it.wsku:((it&&it.msku)||'');}
 function decoSummary(it,c){return (c.decos||[]).map(function(d){var p=placeOf(it,d.pl),m=MLAB[d.method]||'Emb';if(d.method==='screen')m+=' '+(d.colours||1)+'C';return (p?p.label:d.pl)+' · '+m;}).join('  ·  ')||'left chest';}
 function refreshCartUI(){
   var n=cartCount(),sub=cartSubtotal();
@@ -514,7 +517,7 @@ function renderCart(){
   var keys=Object.keys(CART),sub=cartSubtotal();
   var items=keys.map(function(k){var it=BYKEY[k];if(!it)return '';var c=CART[k];var col=colInList(curColsOf(it,c.fit),c.colour);
     var unit=unitPrice(k,c.decos,c.qty);var szsum=sizesSummary(c);var nud=savingsNudge(k,c.decos,c.qty);
-    var fitb=fitLabel(c)?'<span class="fitbadge">'+fitLabel(c)+'</span> ':'';
+    var fitb=fitTag(it,c)?'<span class="fitbadge">'+fitTag(it,c)+'</span> ':'';
     var ctrl='<button class="editln" data-edit="'+k+'">'+c.qty+' pcs · '+(c.sizes?'by size':'add sizes')+' ✎</button>';
     return '<div class="ci" data-key="'+k+'"><div class="t" style="background-image:url('+gurl(col.front)+')"></div>'+
       '<div class="d"><h4>'+esc(it.name)+'</h4><div class="sub">'+fitb+esc(c.colour)+' · '+esc(decoSummary(it,c))+(szsum?'<br><span class="szln">Sizes: '+esc(szsum)+'</span>':'')+'</div>'+
@@ -551,7 +554,7 @@ function closeAll(){['ov','sheet','cart','lead','vmodal'].forEach(function(id){v
 function orderText(note){
   var lines=['MY KIT — '+CFG.client,''];
   Object.keys(CART).forEach(function(k){var it=BYKEY[k];if(!it)return;var c=CART[k];var u=unitPrice(k,c.decos,c.qty);
-    lines.push('• '+it.name+' ('+it.sku+') — '+(fitLabel(c)?fitLabel(c)+' · ':'')+c.colour+' · '+decoSummary(it,c)+' · qty '+c.qty+' @ '+money(u)+' ea = '+money(u*c.qty));
+    lines.push('• '+it.name+(fitSku(it,c)?' '+fitSku(it,c):'')+' ('+it.sku+') — '+(fitTag(it,c)?fitTag(it,c)+' · ':'')+c.colour+' · '+decoSummary(it,c)+' · qty '+c.qty+' @ '+money(u)+' ea = '+money(u*c.qty));
     var ss=sizesSummary(c);if(ss)lines.push('    sizes: '+ss);});
   lines.push('','Estimated subtotal: '+money(cartSubtotal()));
   var sb=setupBreakdown();
@@ -564,7 +567,7 @@ function orderText(note){
 }
 function openCheckout(){
   var review=Object.keys(CART).map(function(k){var it=BYKEY[k];if(!it)return '';var c=CART[k];var ss=sizesSummary(c);
-    return '<div class="r"><span>'+esc(it.name)+' · '+(fitLabel(c)?esc(fitLabel(c))+' · ':'')+esc(c.colour)+' · '+esc(decoSummary(it,c))+' × '+c.qty+(ss?'<br><small style="color:var(--mut)">Sizes: '+esc(ss)+'</small>':'')+'</span><span>'+money(unitPrice(k,c.decos,c.qty)*c.qty)+'</span></div>';}).join('');
+    return '<div class="r"><span>'+esc(it.name)+' · '+(fitTag(it,c)?esc(fitTag(it,c))+' · ':'')+esc(c.colour)+' · '+esc(decoSummary(it,c))+' × '+c.qty+(ss?'<br><small style="color:var(--mut)">Sizes: '+esc(ss)+'</small>':'')+'</span><span>'+money(unitPrice(k,c.decos,c.qty)*c.qty)+'</span></div>';}).join('');
   document.getElementById('cart').innerHTML=
     '<div class="carth"><button class="cartback" id="cartback" aria-label="Back">‹</button><h2>Send us your kit</h2><button class="cartx" id="cartx" aria-label="Close">✕</button></div>'+
     '<div class="citems"><div class="co">'+
@@ -614,7 +617,7 @@ function go(cfg){
   if(cfg.accent)document.documentElement.style.setProperty('--a',cfg.accent);
   document.title=(cfg.client||'Branded Apparel')+' — Team Store · Just Deals Promotions';
   renderSkeleton(cfg);
-  fetch((cfg.catalog_base||CATALOG_BASE)+'/catalog.json?v='+(cfg.ver||'1')+'&c=20260719c').then(function(r){return r.json();}).then(function(cat){
+  fetch((cfg.catalog_base||CATALOG_BASE)+'/catalog.json?v='+(cfg.ver||'1')+'&c=20260719d').then(function(r){return r.json();}).then(function(cat){
     CFG.catalog_base=cfg.catalog_base||CATALOG_BASE;CAT=cat;(cat.items||[]).forEach(function(it){BYKEY[it.key]=it;});
     loadCart();buildStore();refreshCartUI();
     // Deep link: /kits/<slug>/?item=<key> (or #item=<key>) opens straight to that product — handy for
