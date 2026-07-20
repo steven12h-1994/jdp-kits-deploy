@@ -5,7 +5,7 @@
 (function(){
 document.documentElement.classList.add('js');
 var CATALOG_BASE="https://justdealspromotions.com/kits/_catalog";
-var CFG,CAT,BYKEY={},CART={},SLUG=(location.pathname.split('/').filter(Boolean).pop()||'kit');
+var CFG,CAT,CATVER='',BYKEY={},CART={},SLUG=(location.pathname.split('/').filter(Boolean).pop()||'kit');
 var LSKEY='jdpkit_'+SLUG;
 
 function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
@@ -22,7 +22,9 @@ function money(x){return '$'+Number(x||0).toLocaleString('en-CA',{minimumFractio
 function money0(x){return '$'+Math.round(Number(x||0)).toLocaleString('en-CA');}
 function logoOf(id){for(var i=0;i<CFG.logos.length;i++)if(CFG.logos[i].id===id)return CFG.logos[i];return CFG.logos[0]||{inks:{}};}
 function inkUrl(logo,ink,col,method){var t=(ink&&ink!=='auto')?ink:autoInkFor(method,col&&col.rgb);return logo.inks[t]||logo.inks.brand;}
-function gurl(f){return CFG.catalog_base+'/img/'+f;}
+// Every image URL carries the catalogue's build version so a changed-content/same-filename asset
+// (e.g. a product re-shot on a model) is re-fetched instead of served stale from cache.
+function gurl(f){return CFG.catalog_base+'/img/'+f+(CATVER?((f.indexOf('?')<0?'?':'&')+'v='+CATVER):'');}
 function colOf(item,name){for(var i=0;i<item.cols.length;i++)if(item.cols[i].name===name)return item.cols[i];return item.cols[0];}
 function colInList(cols,name){for(var i=0;i<cols.length;i++)if(cols[i].name===name)return cols[i];return cols[0];}
 function curColsOf(item,fit){return (fit==='womens'&&item.wcols&&item.wcols.length)?item.wcols:item.cols;}
@@ -84,7 +86,7 @@ function menuCard(key){
   var inkit=q?' inkit':'';
   var addlbl=q?('<b>'+q+'</b>'):'+';
   return '<article class="mcard'+inkit+'" data-key="'+key+'" data-name="'+esc((item.name+' '+item.sku).toLowerCase().replace(/"/g,''))+'" tabindex="0" role="button" aria-label="'+esc(item.name)+'">'+
-    '<div class="mstage">'+rec+(item.video?'<button class="mvid" data-vid="'+esc(item.video)+'" aria-label="Play product video">▶ Video</button>':'')+'<img class="g" src="'+o.g+'" alt="'+esc(item.name)+'" loading="lazy" decoding="async">'+o.lg+
+    '<div class="mstage">'+rec+(item.video?'<button class="mvid" data-vid="'+esc(item.video)+'" data-vname="'+esc(item.name)+'" aria-label="Play product video">▶ Video</button>':'')+'<img class="g" src="'+o.g+'" alt="'+esc(item.name)+'" loading="lazy" decoding="async">'+o.lg+
       '<button class="madd'+(q?' has':'')+'" data-key="'+key+'" aria-label="'+(q?'Edit ':'Add ')+esc(item.name)+'">'+addlbl+'</button></div>'+
     '<div class="mb"><h3>'+esc(item.name)+'</h3>'+
       '<div class="mmeta">'+esc(item.sku)+' · '+ncol+' colours</div>'+
@@ -92,7 +94,8 @@ function menuCard(key){
 }
 
 /* ---------- sub-grouping (chunk long categories so the catalogue is easy to scan) ---------- */
-var SUBORDER={office:['Jackets & Outerwear','Fleece & Sweaters','Polos','Shirts','Tees','Vests','Apparel'],
+// Logical retail browse order: everyday client-facing first -> layers -> outerwear -> vests.
+var SUBORDER={office:['Polos','Shirts','Tees','Fleece & Sweaters','Jackets & Outerwear','Vests','Apparel'],
               bags:['Backpacks','Duffels','Coolers','Tool Bags','Bags'],
               premium:['Nike','The North Face','Cutter & Buck']};
 function subGroup(it){
@@ -104,10 +107,12 @@ function subGroup(it){
     if(n.indexOf('tool')>=0)return 'Tool Bags';if(n.indexOf('backpack')>=0||n.indexOf('pack')>=0)return 'Backpacks';return 'Bags';}
   if(n.indexOf('vest')>=0)return 'Vests';
   if(n.indexOf('polo')>=0)return 'Polos';
-  if(n.indexOf('shirt')>=0)return 'Shirts';
+  // Fleece/sweatshirt BEFORE shirt/tee: "…Sweatshirt" contains "shirt", and crewnecks/quarter-zips
+  // are fleece, not shirts. Match them here first so they land in Fleece & Sweaters.
+  if(/fleece|sweatshirt|crewneck|hoodie|hooded|pullover|quarter-zip|quarter zip|half-zip|1\/4|treeline|sweater/.test(n))return 'Fleece & Sweaters';
   if(n.indexOf('tee')>=0||n.indexOf('t-shirt')>=0)return 'Tees';
-  if(/fleece|sweatshirt|crewneck|hoodie|pullover|zip|treeline|sweater/.test(n))return 'Fleece & Sweaters';
-  if(/jacket|shell|softshell|raincoat|matrix|cascade|greenwich|sierra|rainier|parka|coat|vest/.test(n))return 'Jackets & Outerwear';
+  if(n.indexOf('shirt')>=0)return 'Shirts';
+  if(/jacket|shell|softshell|raincoat|matrix|cascade|greenwich|sierra|rainier|parka|coat/.test(n))return 'Jackets & Outerwear';
   return 'Apparel';
 }
 function applySearch(q){q=(q||'').trim().toLowerCase();
@@ -135,10 +140,14 @@ function buildStore(){
     ".mstage{position:relative}"+
     ".mvid{position:absolute;left:8px;bottom:8px;z-index:3;display:inline-flex;align-items:center;gap:5px;background:rgba(20,24,33,.82);color:#fff;border:0;border-radius:20px;padding:5px 11px;font:inherit;font-size:11.5px;font-weight:700;cursor:pointer}"+
     ".vwatch{display:inline-flex;align-items:center;gap:6px;margin:12px auto 0;background:var(--a,#141821);color:#fff;border:0;border-radius:10px;padding:9px 16px;font:inherit;font-weight:700;font-size:13px;cursor:pointer}"+
-    ".vmodal{position:fixed;inset:0;z-index:120;display:none;align-items:center;justify-content:center;padding:4vw}"+
-    ".vmodal.on{display:flex}"+
-    ".vmodal video{max-width:min(960px,94vw);max-height:88vh;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.5);background:#000}"+
-    ".vmodal .vx{position:absolute;top:16px;right:20px;background:#fff;color:#141821;border:0;border-radius:50%;width:40px;height:40px;font-size:18px;cursor:pointer;font-weight:700;z-index:2}"+
+    ".vmodal{position:fixed;inset:0;z-index:120;display:none;align-items:center;justify-content:center;padding:5vw;background:rgba(8,10,14,.9);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);opacity:0;transition:opacity .2s}"+
+    ".vmodal.on{display:flex;opacity:1}"+
+    ".vmodal .vwrap{position:relative;display:flex;flex-direction:column;align-items:center;gap:14px;max-width:min(1000px,94vw)}"+
+    ".vmodal video{width:100%;max-width:min(1000px,94vw);max-height:78vh;border-radius:14px;box-shadow:0 30px 80px rgba(0,0,0,.6);background:#000;display:block}"+
+    ".vmodal .vcap{color:#fff;font-weight:700;font-size:15px;text-align:center;opacity:.92}"+
+    ".vmodal .vx{position:absolute;top:-52px;right:0;display:inline-flex;align-items:center;gap:7px;background:#fff;color:#141821;border:0;border-radius:999px;padding:9px 17px;font:inherit;font-size:14px;font-weight:800;cursor:pointer;box-shadow:0 6px 20px rgba(0,0,0,.35);z-index:2}"+
+    ".vmodal .vx:hover{filter:brightness(.95)}.vmodal .vx:active{transform:scale(.97)}"+
+    "@media(max-width:600px){.vmodal{padding:16px}.vmodal .vx{top:-44px;padding:8px 15px}.vmodal video{max-height:68vh}}"+
     ".catin{display:flex;align-items:center;gap:12px;flex-wrap:wrap}"+
     ".cpills{display:flex;gap:8px;flex-wrap:wrap;min-width:0}"+
     ".catsearch{margin-left:auto;display:flex;align-items:center;gap:7px;background:#fff;border:1px solid #e2e6ec;border-radius:22px;padding:7px 14px;color:#8a93a0}"+
@@ -191,7 +200,7 @@ function buildStore(){
     : (recN?'<button class="reccta" id="addRec">★ Add our top picks <span>'+recN+' item'+(recN===1?'':'s')+'</span></button>':'');
   var html=''+
    '<header class="hdr"><div class="w hdrin">'+
-     '<span class="brand"><img src="'+(CFG.cover_logo||'img/logo-white.png')+'" onerror="this.style.display=\'none\'" alt=""><b>'+esc(CFG.client)+'</b><i>× Just Deals</i></span>'+
+     '<span class="brand"><img src="'+(((CFG.logos&&CFG.logos[0]&&CFG.logos[0].inks&&CFG.logos[0].inks.dark))||CFG.cover_logo||'img/logo-white.png')+'" onerror="this.style.display=\'none\'" alt=""><b>'+esc(CFG.client)+'</b><i>× Just Deals</i></span>'+
      '<button class="cartbtn" id="openCart"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2 3h3l2.4 12.2a1.5 1.5 0 0 0 1.5 1.2h8.2a1.5 1.5 0 0 0 1.5-1.2L22 7H6"/></svg>'+
        '<span class="lbl">Your kit</span><span class="n" id="cartN">0</span></button></div></header>'+
    '<section class="hero"><div class="w heroin">'+
@@ -227,7 +236,7 @@ function buildStore(){
   // "+" on a card opens the customiser (so a size split is always chosen) — no silent quick-add.
   document.querySelectorAll('.madd').forEach(function(b){b.addEventListener('click',function(e){
     e.stopPropagation();var k=b.dataset.key;if(CART[k]){openSheet(k);}else{quickAdd(k);}});});
-  document.querySelectorAll('.mvid').forEach(function(b){b.addEventListener('click',function(e){e.stopPropagation();openVideo(b.dataset.vid);});});
+  document.querySelectorAll('.mvid').forEach(function(b){b.addEventListener('click',function(e){e.stopPropagation();openVideo(b.dataset.vid,b.dataset.vname);});});
   var ar=document.getElementById('addRec');if(ar)ar.addEventListener('click',addRecommended);
   // category pills: click to scroll; scroll-spy to highlight
   var si=document.getElementById('kitSearch');
@@ -433,7 +442,7 @@ function renderSheet(){
       '<div class="shtrust">✓ Free digital proof before you commit · no obligation</div></div>';
   var sh=document.getElementById('sheet');
   document.getElementById('shx').addEventListener('click',closeAll);
-  var vw=document.getElementById('vwatch');if(vw)vw.addEventListener('click',function(){openVideo(item.video);});
+  var vw=document.getElementById('vwatch');if(vw)vw.addEventListener('click',function(){openVideo(item.video,item.name);});
   sh.querySelectorAll('.cchip').forEach(function(b){b.addEventListener('click',function(){SH.colour=b.dataset.col;swapPreview();renderSheet();});});
   sh.querySelectorAll('[data-face]').forEach(function(b){b.addEventListener('click',function(){SH.face=b.dataset.face;renderSheet();});});
   sh.querySelectorAll('[data-fit]').forEach(function(b){b.addEventListener('click',function(){
@@ -546,10 +555,15 @@ function renderCart(){
   });
 }
 function editItem(k){document.getElementById('cart').classList.remove('on');openSheet(k);}
-function openVideo(src){var m=document.getElementById('vmodal');if(!m||!src)return;
-  m.innerHTML='<button class="vx" id="vx" aria-label="Close">✕</button><video src="'+esc(src)+'" controls autoplay playsinline></video>';
-  document.getElementById('ov').classList.add('on');m.classList.add('on');document.body.style.overflow='hidden';
-  var vx=document.getElementById('vx');if(vx)vx.addEventListener('click',closeAll);}
+function openVideo(src,title){var m=document.getElementById('vmodal');if(!m||!src)return;
+  m.innerHTML='<div class="vwrap"><button class="vx" id="vx" aria-label="Close video">✕ Close</button>'+
+    '<video src="'+esc(src)+'" controls autoplay playsinline preload="auto"></video>'+
+    (title?'<div class="vcap">'+esc(title)+'</div>':'')+'</div>';
+  m.classList.add('on');document.body.style.overflow='hidden';
+  var vx=document.getElementById('vx');if(vx)vx.addEventListener('click',closeAll);
+  // Click the dark backdrop (anywhere outside the player) to close; clicks on the player itself don't.
+  m.onclick=function(e){if(e.target===m)closeAll();};
+  var w=m.querySelector('.vwrap');if(w)w.addEventListener('click',function(e){e.stopPropagation();});}
 function closeAll(){['ov','sheet','cart','lead','vmodal'].forEach(function(id){var e=document.getElementById(id);if(e)e.classList.remove('on');});var mv=document.getElementById('vmodal');if(mv)mv.innerHTML='';document.body.style.overflow='';}
 
 /* ---------- checkout: copy-paste into the existing email thread ---------- */
@@ -614,13 +628,23 @@ function renderSkeleton(cfg){
       '<p class="herosub">Loading your kit…</p></div></section>'+
     '<main class="w"><div class="menu">'+cards+'</div></main>';
 }
+// Keep the accent readable: a near-white / very light brand colour is invisible as text on the
+// white UI and washes out on accent buttons, so darken it toward a legible luminance (hue preserved).
+function safeAccent(hex){hex=(hex||'').replace('#','');if(hex.length<6)return '#'+(hex||'1d6fe0');
+  var r=parseInt(hex.slice(0,2),16),g=parseInt(hex.slice(2,4),16),b=parseInt(hex.slice(4,6),16);
+  var lum=0.299*r+0.587*g+0.114*b,guard=0;
+  while(lum>176&&guard++<12){r=Math.round(r*0.9);g=Math.round(g*0.9);b=Math.round(b*0.9);lum=0.299*r+0.587*g+0.114*b;}
+  function h(x){x=Math.max(0,Math.min(255,x)).toString(16);return x.length<2?'0'+x:x;}
+  return '#'+h(r)+h(g)+h(b);}
 function go(cfg){
   CFG=cfg;
-  if(cfg.accent)document.documentElement.style.setProperty('--a',cfg.accent);
+  if(cfg.accent)document.documentElement.style.setProperty('--a',safeAccent(cfg.accent));
   document.title=(cfg.client||'Branded Apparel')+' — Team Store · Just Deals Promotions';
   renderSkeleton(cfg);
-  fetch((cfg.catalog_base||CATALOG_BASE)+'/catalog.json?v='+(cfg.ver||'1')+'&c=20260720d').then(function(r){return r.json();}).then(function(cat){
-    CFG.catalog_base=cfg.catalog_base||CATALOG_BASE;CAT=cat;(cat.items||[]).forEach(function(it){BYKEY[it.key]=it;});
+  // no-cache: always revalidate the shared catalogue so customers get the current products/photos
+  // (returns 304 when unchanged). Image URLs are versioned via CATVER below.
+  fetch((cfg.catalog_base||CATALOG_BASE)+'/catalog.json?v='+(cfg.ver||'1'),{cache:'no-cache'}).then(function(r){return r.json();}).then(function(cat){
+    CFG.catalog_base=cfg.catalog_base||CATALOG_BASE;CAT=cat;CATVER=cat.version||cat.v||'';(cat.items||[]).forEach(function(it){BYKEY[it.key]=it;});
     loadCart();buildStore();refreshCartUI();
     // Deep link: /kits/<slug>/?item=<key> (or #item=<key>) opens straight to that product — handy for
     // linking a prospect right to a specific piece's finishes + pricing.
