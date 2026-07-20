@@ -97,12 +97,12 @@ function menuCard(key){
 // Logical retail browse order: everyday client-facing first -> layers -> outerwear -> vests.
 var SUBORDER={office:['Polos','Shirts','Tees','Fleece & Sweaters','Jackets & Outerwear','Vests','Apparel'],
               bags:['Backpacks','Duffels','Coolers','Tool Bags','Bags'],
-              premium:['Nike','The North Face','Cutter & Buck']};
+              premium:['Nike','The North Face','Cutter & Buck','Clique']};
 function subGroup(it){
   var n=((it.name||'')+' '+(it.key||'')).toLowerCase(),layer=it.layer;
   if(layer==='premium'){var b=(it.brand||it.sku||'').toLowerCase();
     if(b.indexOf('nike')>=0)return 'Nike';if(b.indexOf('north')>=0)return 'The North Face';
-    if(b.indexOf('cutter')>=0)return 'Cutter & Buck';return it.sku||'Premium';}
+    if(b.indexOf('cutter')>=0)return 'Cutter & Buck';if(b.indexOf('clique')>=0)return 'Clique';return it.sku||'Premium';}
   if(layer==='bags'){if(n.indexOf('cooler')>=0)return 'Coolers';if(n.indexOf('duffel')>=0)return 'Duffels';
     if(n.indexOf('tool')>=0)return 'Tool Bags';if(n.indexOf('backpack')>=0||n.indexOf('pack')>=0)return 'Backpacks';return 'Bags';}
   if(n.indexOf('vest')>=0)return 'Vests';
@@ -434,6 +434,7 @@ function renderSheet(){
       '<div class="shb"><h2>'+esc(item.name)+'</h2><div class="shsku">'+esc(item.sku)+(item.womens?(SH.fit==='womens'?' · Ladies’':' · Men’s'):(item.unisex?' · Unisex':''))+(item.layer==='field'?' · CSA hi-vis':'')+'</div>'+
       '<div class="shfrom">from <b>'+money(fromP)+'</b> <small>/pc</small> · decorated</div>'+
       (item.blurb?'<p class="shblurb">'+esc(item.blurb)+'</p>':'')+
+      (item.scenic?'<div class="shscenic"><img src="'+gurl(item.scenic)+'" alt="'+esc(item.name)+' — worn" loading="lazy"><span class="shsceniclab">In the field</span></div>':'')+
       fitTog+step1+qtyGrp+primaryHtml+extraHtml+
       '<div class="shnote">Prices are per piece, decorated — your logo (embroidery / print) is included. One-time setup shows once in your kit summary. Exact quote confirmed before anything runs.</div>'+
     '</div></div>'+
