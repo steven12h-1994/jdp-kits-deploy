@@ -58,12 +58,13 @@ function loadCart(){try{CART=JSON.parse(localStorage.getItem(LSKEY))||{};}catch(
 function saveCart(){try{localStorage.setItem(LSKEY,JSON.stringify(CART));}catch(e){}}
 
 /* ---------- overlay (garment photo + logo at a placement) ---------- */
-function overlayHtml(item,vm,colName,faces,colsOverride){
-  var cols=colsOverride||item.cols;var col=colInList(cols,colName);var face=faces||'front';var hasBack=!!col.back;
+function placeInList(places,pid){for(var i=0;i<places.length;i++)if(places[i].id===pid)return places[i];return null;}
+function overlayHtml(item,vm,colName,faces,colsOverride,placesOverride){
+  var cols=colsOverride||item.cols;var places=placesOverride||item.places;var col=colInList(cols,colName);var face=faces||'front';var hasBack=!!col.back;
   if(face==='back'&&!hasBack)face='front';
   var photo=(face==='back'&&col.back)?col.back:col.front;
   var lg='';
-  (vm.decos||[]).forEach(function(d){if(!d.on)return;var p=placeOf(item,d.pl);if(!p||(p.face||'front')!==face)return;
+  (vm.decos||[]).forEach(function(d){if(!d.on)return;var p=placeInList(places,d.pl);if(!p||(p.face||'front')!==face)return;
     if(face==='back'&&!hasBack)return;
     var L=logoOf(d.lg),src=inkUrl(L,d.ink,col,d.method);
     var wf=p.wf*(CFG.logo_scale||1);
@@ -369,7 +370,8 @@ function renderSheet(){
     ".unitag{border:1.5px solid var(--a,#141821);color:var(--a,#141821);border-radius:22px;padding:7px 16px;font-weight:800;font-size:13px;letter-spacing:.03em}";
     document.head.appendChild(_st);}
   var cols=curColsOf(item,SH.fit);
-  var o=overlayHtml(item,{decos:sheetDecos()},SH.colour,SH.face,cols);var hasBack=o.hasBack;
+  var curPlaces=(SH.fit==='womens'&&item.wplaces&&item.wplaces.length)?item.wplaces:item.places;
+  var o=overlayHtml(item,{decos:sheetDecos()},SH.colour,SH.face,cols,curPlaces);var hasBack=o.hasBack;
   var chips=cols.map(function(c){return '<button class="cchip'+(c.name===SH.colour?' on':'')+'" data-col="'+esc(c.name)+'" style="background-image:url('+gurl(c.front)+')" title="'+esc(c.name)+'"></button>';}).join('');
   var fitTog=item.womens?('<div class="fittog"><span class="fitl">Fit</span>'+
     '<button class="fitb'+(SH.fit==='mens'?' on':'')+'" data-fit="mens">Men’s</button>'+
@@ -617,7 +619,7 @@ function go(cfg){
   if(cfg.accent)document.documentElement.style.setProperty('--a',cfg.accent);
   document.title=(cfg.client||'Branded Apparel')+' — Team Store · Just Deals Promotions';
   renderSkeleton(cfg);
-  fetch((cfg.catalog_base||CATALOG_BASE)+'/catalog.json?v='+(cfg.ver||'1')+'&c=20260720b').then(function(r){return r.json();}).then(function(cat){
+  fetch((cfg.catalog_base||CATALOG_BASE)+'/catalog.json?v='+(cfg.ver||'1')+'&c=20260720c').then(function(r){return r.json();}).then(function(cat){
     CFG.catalog_base=cfg.catalog_base||CATALOG_BASE;CAT=cat;(cat.items||[]).forEach(function(it){BYKEY[it.key]=it;});
     loadCart();buildStore();refreshCartUI();
     // Deep link: /kits/<slug>/?item=<key> (or #item=<key>) opens straight to that product — handy for
