@@ -430,11 +430,12 @@ function renderSheet(){
   document.getElementById('sheet').innerHTML=
     '<button class="shx" id="shx" aria-label="Close">✕</button>'+
     '<div class="shscroll">'+
-      '<div class="shimg" id="shimg"><div class="shstage"><img class="g" src="'+o.g+'" alt="">'+o.lg+'</div>'+faceTog+(item.video?'<button class="vwatch" id="vwatch">▶ Watch product video</button>':'')+'</div>'+
+      '<div class="shimg" id="shimg"><div class="shstage"><img class="g" src="'+o.g+'" alt="">'+o.lg+
+        (item.scenic?'<button class="shworn" id="shworn" aria-label="See it worn"><img src="'+gurl(item.scenic)+'" alt="" loading="lazy"><span>See it worn</span></button>':'')+
+        '</div>'+faceTog+(item.video?'<button class="vwatch" id="vwatch">▶ Watch product video</button>':'')+'</div>'+
       '<div class="shb"><h2>'+esc(item.name)+'</h2><div class="shsku">'+esc(item.sku)+(item.womens?(SH.fit==='womens'?' · Ladies’':' · Men’s'):(item.unisex?' · Unisex':''))+(item.layer==='field'?' · CSA hi-vis':'')+'</div>'+
       '<div class="shfrom">from <b>'+money(fromP)+'</b> <small>/pc</small> · decorated</div>'+
       (item.blurb?'<p class="shblurb">'+esc(item.blurb)+'</p>':'')+
-      (item.scenic?'<div class="shscenic"><img src="'+gurl(item.scenic)+'" alt="'+esc(item.name)+' — worn" loading="lazy"><span class="shsceniclab">In the field</span></div>':'')+
       fitTog+step1+qtyGrp+primaryHtml+extraHtml+
       '<div class="shnote">Prices are per piece, decorated — your logo (embroidery / print) is included. One-time setup shows once in your kit summary. Exact quote confirmed before anything runs.</div>'+
     '</div></div>'+
@@ -444,6 +445,7 @@ function renderSheet(){
   var sh=document.getElementById('sheet');
   document.getElementById('shx').addEventListener('click',closeAll);
   var vw=document.getElementById('vwatch');if(vw)vw.addEventListener('click',function(){openVideo(item.video,item.name);});
+  var sw=document.getElementById('shworn');if(sw)sw.addEventListener('click',function(){openScenic(gurl(item.scenic),item.name);});
   sh.querySelectorAll('.cchip').forEach(function(b){b.addEventListener('click',function(){SH.colour=b.dataset.col;swapPreview();renderSheet();});});
   sh.querySelectorAll('[data-face]').forEach(function(b){b.addEventListener('click',function(){SH.face=b.dataset.face;renderSheet();});});
   sh.querySelectorAll('[data-fit]').forEach(function(b){b.addEventListener('click',function(){
@@ -556,6 +558,15 @@ function renderCart(){
   });
 }
 function editItem(k){document.getElementById('cart').classList.remove('on');openSheet(k);}
+// Lifestyle/scenic image in a clean lightbox (reuses the video modal chrome) — keeps it out of the buy flow.
+function openScenic(src,title){var m=document.getElementById('vmodal');if(!m||!src)return;
+  m.innerHTML='<div class="vwrap"><button class="vx" id="vx" aria-label="Close">✕ Close</button>'+
+    '<img class="vscenic" src="'+esc(src)+'" alt="'+esc(title||'')+'">'+
+    (title?'<div class="vcap">'+esc(title)+' — in the field</div>':'')+'</div>';
+  m.classList.add('on');document.body.style.overflow='hidden';
+  var vx=document.getElementById('vx');if(vx)vx.addEventListener('click',closeAll);
+  m.onclick=function(e){if(e.target===m)closeAll();};
+  var w=m.querySelector('.vwrap');if(w)w.addEventListener('click',function(e){e.stopPropagation();});}
 function openVideo(src,title){var m=document.getElementById('vmodal');if(!m||!src)return;
   m.innerHTML='<div class="vwrap"><button class="vx" id="vx" aria-label="Close video">✕ Close</button>'+
     '<video src="'+esc(src)+'" controls autoplay playsinline preload="auto"></video>'+
