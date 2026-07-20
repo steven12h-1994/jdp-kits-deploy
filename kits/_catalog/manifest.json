@@ -1,6 +1,6 @@
 {
   "generator": "catalog",
-  "version": "1784549771",
+  "version": "1784559991",
   "files": [
     "catalog.json",
     "catalog.js",
@@ -461,6 +461,13 @@
     "img/polo__red_b.jpg",
     "img/polo__royal.jpg",
     "img/polo__royal_b.jpg",
+    "img/polo__w_black.jpg",
+    "img/polo__w_brightpink.jpg",
+    "img/polo__w_heathersteel.jpg",
+    "img/polo__w_navy.jpg",
+    "img/polo__w_purple.jpg",
+    "img/polo__w_royal.jpg",
+    "img/polo__w_white.jpg",
     "img/polo__white.jpg",
     "img/polo__white_b.jpg",
     "img/rain__black.jpg",
