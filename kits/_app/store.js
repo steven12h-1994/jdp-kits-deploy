@@ -93,27 +93,50 @@ function menuCard(key){
       '<div class="mprice">from <b>'+money(fromP)+'</b> <small>/pc</small></div></div></article>';
 }
 
-/* ---------- sub-grouping (chunk long categories so the catalogue is easy to scan) ---------- */
-// Logical retail browse order: everyday client-facing first -> layers -> outerwear -> vests.
-var SUBORDER={office:['Polos','Shirts','Tees','Fleece & Sweaters','Jackets & Outerwear','Vests','Apparel'],
-              bags:['Backpacks','Duffels','Coolers','Tool Bags','Bags'],
-              premium:['Nike','The North Face','Cutter & Buck','Clique']};
-function subGroup(it){
-  var n=((it.name||'')+' '+(it.key||'')).toLowerCase(),layer=it.layer;
-  if(layer==='premium'){var b=(it.brand||it.sku||'').toLowerCase();
-    if(b.indexOf('nike')>=0)return 'Nike';if(b.indexOf('north')>=0)return 'The North Face';
-    if(b.indexOf('cutter')>=0)return 'Cutter & Buck';if(b.indexOf('clique')>=0)return 'Clique';return it.sku||'Premium';}
-  if(layer==='bags'){if(n.indexOf('cooler')>=0)return 'Coolers';if(n.indexOf('duffel')>=0)return 'Duffels';
-    if(n.indexOf('tool')>=0)return 'Tool Bags';if(n.indexOf('backpack')>=0||n.indexOf('pack')>=0)return 'Backpacks';return 'Bags';}
-  if(n.indexOf('vest')>=0)return 'Vests';
-  if(n.indexOf('polo')>=0)return 'Polos';
-  // Fleece/sweatshirt BEFORE shirt/tee: "…Sweatshirt" contains "shirt", and crewnecks/quarter-zips
-  // are fleece, not shirts. Match them here first so they land in Fleece & Sweaters.
-  if(/fleece|sweatshirt|crewneck|hoodie|hooded|pullover|quarter-zip|quarter zip|half-zip|1\/4|treeline|sweater/.test(n))return 'Fleece & Sweaters';
-  if(n.indexOf('tee')>=0||n.indexOf('t-shirt')>=0)return 'Tees';
-  if(n.indexOf('shirt')>=0)return 'Shirts';
-  if(/jacket|shell|softshell|raincoat|matrix|cascade|greenwich|sierra|rainier|parka|coat/.test(n))return 'Jackets & Outerwear';
-  return 'Apparel';
+/* ---------- category / subcategory navigation (by GARMENT TYPE, brand-agnostic) ----------
+   No "Premium Brands" bucket — office & premium apparel merge into the same type categories so a
+   shopper browses by what they want (Polos, Fleece, Jackets…), with the brand shown on each card. */
+var MEGA=[
+  {id:'tops',name:'Polos, Shirts & Tees'},
+  {id:'layers',name:'Sweaters & Fleece'},
+  {id:'outerwear',name:'Jackets & Vests'},
+  {id:'hivis',name:'Hi-Vis & Safety'},
+  {id:'bags',name:'Bags & Gear'}
+];
+var MEGASUB={
+  tops:['Polos','Shirts','Tees'],
+  layers:['Quarter & Half-Zips','Crewnecks & Sweatshirts','Hoodies','Fleece'],
+  outerwear:['Softshell Jackets','Insulated & Puffer','3-in-1 Systems','Jackets','Vests','Rainwear'],
+  hivis:['Hi-Vis T-Shirts','Safety Vests','Hi-Vis Hoodies','Hi-Vis Gear'],
+  bags:['Backpacks','Duffels','Coolers','Tool Bags','Bags']
+};
+function megaName(id){for(var i=0;i<MEGA.length;i++)if(MEGA[i].id===id)return MEGA[i].name;return id;}
+// classify an item into {mega, sub} purely by garment type (names carry raw "&"; escaped at render).
+function classify(it){
+  var layer=it.layer,n=((it.name||'')+' '+(it.key||'')).toLowerCase();
+  if(layer==='bags'){var b='Bags';
+    if(n.indexOf('cooler')>=0)b='Coolers';else if(n.indexOf('duffel')>=0)b='Duffels';
+    else if(n.indexOf('tool')>=0)b='Tool Bags';else if(n.indexOf('backpack')>=0||n.indexOf('pack')>=0)b='Backpacks';
+    return {mega:'bags',sub:b};}
+  if(layer==='field'){var h='Hi-Vis Gear';
+    if(n.indexOf('vest')>=0)h='Safety Vests';else if(/hood/.test(n))h='Hi-Vis Hoodies';
+    else if(/tee|t-shirt|shirt/.test(n))h='Hi-Vis T-Shirts';
+    return {mega:'hivis',sub:h};}
+  // apparel (office + premium). LAYERS matched before "shirt" so "…Sweatshirt" doesn't read as a shirt.
+  if(/quarter-?zip|half-?zip|1\/4/.test(n))return {mega:'layers',sub:'Quarter & Half-Zips'};
+  if(/crewneck|sweatshirt/.test(n)&&!/hood/.test(n))return {mega:'layers',sub:'Crewnecks & Sweatshirts'};
+  if(/hoodie|hooded/.test(n))return {mega:'layers',sub:'Hoodies'};
+  if(/fleece/.test(n))return {mega:'layers',sub:'Fleece'};
+  if(n.indexOf('polo')>=0)return {mega:'tops',sub:'Polos'};
+  if(/tee|t-shirt/.test(n))return {mega:'tops',sub:'Tees'};
+  if(n.indexOf('shirt')>=0)return {mega:'tops',sub:'Shirts'};
+  if(/3-?in-?1/.test(n))return {mega:'outerwear',sub:'3-in-1 Systems'};
+  if(/rain|dryvent/.test(n))return {mega:'outerwear',sub:'Rainwear'};
+  if(n.indexOf('vest')>=0)return {mega:'outerwear',sub:'Vests'};
+  if(/puffer|insulated|thermoball|down|quilted|puffy/.test(n))return {mega:'outerwear',sub:'Insulated & Puffer'};
+  if(/softshell|soft shell|shell/.test(n))return {mega:'outerwear',sub:'Softshell Jackets'};
+  if(/jacket|coat|parka/.test(n))return {mega:'outerwear',sub:'Jackets'};
+  return {mega:'tops',sub:'Shirts'};
 }
 function applySearch(q){q=(q||'').trim().toLowerCase();
   document.querySelectorAll('.sec').forEach(function(sc){
@@ -125,7 +148,6 @@ function applySearch(q){q=(q||'').trim().toLowerCase();
   var ne=document.getElementById('noResults');if(ne){var anyVis=!!document.querySelector('.mcard:not([style*="none"])');ne.style.display=(q&&!anyVis)?'':'none';}
 }
 /* ---------- build page ---------- */
-function catName(id){return id==='office'?'Company Apparel':id==='field'?'Job-site &amp; Hi-Vis':id==='premium'?'Premium Brands':'Accessories';}
 function buildStore(){
   var C=CFG.copy||{};
   if(!document.getElementById('jdpBenCss')){var _b=document.createElement('style');_b.id='jdpBenCss';_b.textContent=
@@ -169,29 +191,29 @@ function buildStore(){
     '</div>'+
   '</div></section>';
   var order=CFG.order||{};
-  var cats=[];
-  // Steven's nav order: Company Apparel · Job-site & Hi-Vis · Premium Brands · Accessories
-  if((order.office||[]).length)cats.push('office');
-  if((order.field||[]).length)cats.push('field');
-  if((order.premium||[]).length)cats.push('premium');
-  if((order.bags||[]).length)cats.push('bags');
+  // Merge every layer's items and bucket them into type-based mega-categories -> subcategories.
+  var allKeys=[];['office','premium','bags','field'].forEach(function(L){(order[L]||[]).forEach(function(k){if(allKeys.indexOf(k)<0)allKeys.push(k);});});
+  var buckets={},totals={};
+  allKeys.forEach(function(k){var it=BYKEY[k];if(!it)return;var c=classify(it);
+    (buckets[c.mega]=buckets[c.mega]||{});(buckets[c.mega][c.sub]=buckets[c.mega][c.sub]||[]).push(k);
+    totals[c.mega]=(totals[c.mega]||0)+1;});
+  var cats=MEGA.filter(function(m){return buckets[m.id];}).map(function(m){return m.id;});
   var recN=recKeysAll().length;
-  var sections=cats.map(function(cat){
-    var keys=order[cat]||[];
-    var csa=cat==='field'?' <span class="csa">CSA-rated</span>':'';
+  var sections=cats.map(function(mega){
+    var subs=buckets[mega],ord=MEGASUB[mega]||[];
+    var snames=Object.keys(subs).sort(function(a,b){var ia=ord.indexOf(a),ib=ord.indexOf(b);return (ia<0?99:ia)-(ib<0?99:ib);});
+    var csa=mega==='hivis'?' <span class="csa">CSA-rated</span>':'';
     var inner;
-    if(keys.length>8&&cat!=='field'){                 // chunk long categories into scannable sub-groups
-      var groups={};keys.forEach(function(k){if(!BYKEY[k])return;var g=subGroup(BYKEY[k]);(groups[g]=groups[g]||[]).push(k);});
-      var ordArr=SUBORDER[cat]||[];
-      var gnames=Object.keys(groups).sort(function(a,b){var ia=ordArr.indexOf(a),ib=ordArr.indexOf(b);return (ia<0?99:ia)-(ib<0?99:ib);});
-      inner=gnames.map(function(g){return '<div class="subgrp"><h3 class="subhd">'+esc(g)+' <span class="subn">'+groups[g].length+'</span></h3><div class="menu">'+groups[g].map(menuCard).join('')+'</div></div>';}).join('');
+    if(snames.length>1&&totals[mega]>6){              // scannable subcategory headers for larger categories
+      inner=snames.map(function(g){return '<div class="subgrp"><h3 class="subhd">'+esc(g)+' <span class="subn">'+subs[g].length+'</span></h3><div class="menu">'+subs[g].map(menuCard).join('')+'</div></div>';}).join('');
     } else {
-      inner='<div class="menu">'+keys.map(menuCard).join('')+'</div>';
+      var flat=[];snames.forEach(function(g){flat=flat.concat(subs[g]);});
+      inner='<div class="menu">'+flat.map(menuCard).join('')+'</div>';
     }
-    return '<section class="sec" id="sec-'+cat+'"><h2 class="seclbl">'+catName(cat)+csa+'</h2>'+inner+'</section>';
+    return '<section class="sec" id="sec-'+mega+'"><h2 class="seclbl">'+esc(megaName(mega))+csa+'</h2>'+inner+'</section>';
   }).join('');
   var catbar=cats.length>1?('<nav class="catbar" id="catbar"><div class="w catin">'+
-    '<div class="cpills">'+cats.map(function(c,i){return '<button class="cpill'+(i===0?' on':'')+'" data-t="sec-'+c+'">'+catName(c)+'</button>';}).join('')+'</div>'+
+    '<div class="cpills">'+cats.map(function(c,i){return '<button class="cpill'+(i===0?' on':'')+'" data-t="sec-'+c+'">'+esc(megaName(c))+'</button>';}).join('')+'</div>'+
     '<div class="catsearch"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input id="kitSearch" type="search" placeholder="Search products…" aria-label="Search products"></div>'+
     '</div></nav>'):'';
   var demo=!!CFG.demo,cta=CFG.cta||{};
