@@ -89,8 +89,16 @@ function menuCard(key){
     '<div class="mstage">'+rec+(item.video?'<button class="mvid" data-vid="'+esc(item.video)+'" data-vname="'+esc(item.name)+'" aria-label="Play product video">▶ Video</button>':'')+'<img class="g" src="'+o.g+'" alt="'+esc(item.name)+'" loading="lazy" decoding="async">'+o.lg+
       '<button class="madd'+(q?' has':'')+'" data-key="'+key+'" aria-label="'+(q?'Edit ':'Add ')+esc(item.name)+'">'+addlbl+'</button></div>'+
     '<div class="mb"><h3>'+esc(item.name)+'</h3>'+
-      '<div class="mmeta">'+esc(item.sku)+' · '+ncol+' colours</div>'+
-      '<div class="mprice">from <b>'+money(fromP)+'</b> <small>/pc</small></div></div></article>';
+      '<div class="mmeta">'+esc(item.sku)+(item.womens?' · Men’s &amp; Women’s':(item.unisex?' · Unisex':''))+'</div>'+
+      colourDots(item)+
+      '<div class="mprice">from <b>'+money(fromP)+'</b> <small>/pc · decorated</small></div></div></article>';
+}
+// A row of real colour swatches on each card — shows selection depth at a glance (conversion signal).
+function colourDots(item){
+  var cs=item.cols||[],max=7,dots='';
+  for(var i=0;i<cs.length&&i<max;i++){dots+='<span class="cdot" style="background:'+(cs[i].rgb||'#ccc')+'" title="'+esc(cs[i].name||'')+'"></span>';}
+  var extra=cs.length>max?('<span class="cmore">+'+(cs.length-max)+'</span>'):'';
+  return '<div class="cdots">'+dots+extra+'<span class="cdlbl">'+cs.length+' colour'+(cs.length===1?'':'s')+'</span></div>';
 }
 
 /* ---------- category / subcategory navigation (by GARMENT TYPE, brand-agnostic) ----------
@@ -213,7 +221,7 @@ function buildStore(){
     return '<section class="sec" id="sec-'+mega+'"><h2 class="seclbl">'+esc(megaName(mega))+csa+'</h2>'+inner+'</section>';
   }).join('');
   var catbar=cats.length>1?('<nav class="catbar" id="catbar"><div class="w catin">'+
-    '<div class="cpills">'+cats.map(function(c,i){return '<button class="cpill'+(i===0?' on':'')+'" data-t="sec-'+c+'">'+esc(megaName(c))+'</button>';}).join('')+'</div>'+
+    '<div class="cpills">'+cats.map(function(c,i){return '<button class="cpill'+(i===0?' on':'')+'" data-t="sec-'+c+'">'+esc(megaName(c))+'<span class="cpn">'+totals[c]+'</span></button>';}).join('')+'</div>'+
     '<div class="catsearch"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input id="kitSearch" type="search" placeholder="Search products…" aria-label="Search products"></div>'+
     '</div></nav>'):'';
   var demo=!!CFG.demo,cta=CFG.cta||{};
@@ -230,6 +238,7 @@ function buildStore(){
      '<h1>'+esc(CFG.client)+"'s team store</h1>"+
      '<p class="herosub">'+(demo?'This is a live sample. Every item shows exactly where your logo goes — swap in your brand and it becomes your team’s store. Free digital proofs, no obligation.':'Your logo, already on it. Pick your pieces, choose a finish, and send it over for a free proof &amp; exact quote — no obligation.')+'</p>'+
      heroCta+
+     '<div class="herotrust"><span>Free digital proofs</span><span>No obligation</span><span>Low 12-piece minimum</span><span>Embroidery &amp; print in-house</span></div>'+
    '</div></section>'+
    benBand+
    catbar+
@@ -266,9 +275,11 @@ function buildStore(){
   var pills=[].slice.call(document.querySelectorAll('.cpill'));
   pills.forEach(function(t){t.addEventListener('click',function(){
     var el=document.getElementById(t.dataset.t);if(el)window.scrollTo({top:el.getBoundingClientRect().top+window.pageYOffset-118,behavior:'smooth'});});});
-  if(pills.length){window.addEventListener('scroll',function(){
+  if(pills.length){var lastBest=null;window.addEventListener('scroll',function(){
     var best=null,bt=1e9;pills.forEach(function(t){var el=document.getElementById(t.dataset.t);if(!el)return;var d=Math.abs(el.getBoundingClientRect().top-130);if(d<bt){bt=d;best=t;}});
-    pills.forEach(function(t){t.classList.toggle('on',t===best);});},{passive:true});}
+    pills.forEach(function(t){t.classList.toggle('on',t===best);});
+    if(best&&best!==lastBest){lastBest=best;var tr=best.closest('.catin');if(tr&&tr.scrollWidth>tr.clientWidth){tr.scrollTo({left:best.offsetLeft-tr.clientWidth/2+best.clientWidth/2,behavior:'smooth'});}}
+  },{passive:true});}
   document.querySelectorAll('.mstage .g').forEach(function(im){if(im.complete)im.classList.add('ld');else im.addEventListener('load',function(){im.classList.add('ld');});});
   document.addEventListener('keydown',function(e){if(e.key==='Escape')closeAll();});
   if(C.feed&&!document.getElementById('beholdjs')){var bs=document.createElement('script');bs.id='beholdjs';bs.type='module';bs.src='https://w.behold.so/widget.js';document.head.appendChild(bs);}
