@@ -114,7 +114,7 @@ var MEGA=[
 var MEGASUB={
   tops:['Polos','Shirts','Tees'],
   layers:['Quarter & Half-Zips','Crewnecks & Sweatshirts','Hoodies','Fleece'],
-  outerwear:['Softshell Jackets','Insulated & Puffer','3-in-1 Systems','Jackets','Vests','Rainwear'],
+  outerwear:['Softshell Jackets','Shackets & Overshirts','Insulated & Quilted','3-in-1 Systems','Shells & Rainwear','Vests','Jackets'],
   hivis:['Hi-Vis T-Shirts','Safety Vests','Hi-Vis Hoodies','Hi-Vis Gear'],
   bags:['Backpacks','Duffels','Coolers','Tool Bags','Bags']
 };
@@ -130,19 +130,22 @@ function classify(it){
     if(n.indexOf('vest')>=0)h='Safety Vests';else if(/hood/.test(n))h='Hi-Vis Hoodies';
     else if(/tee|t-shirt|shirt/.test(n))h='Hi-Vis T-Shirts';
     return {mega:'hivis',sub:h};}
-  // apparel (office + premium). LAYERS matched before "shirt" so "…Sweatshirt" doesn't read as a shirt.
+  // apparel (office + premium + Stormtech). Order matters: shackets/vests before shirt/fleece;
+  // layers (zip/sweatshirt/hood) before "shirt" so "…Sweatshirt" doesn't read as a shirt.
+  if(/shacket|overshirt/.test(n))return {mega:'outerwear',sub:'Shackets & Overshirts'};
   if(/quarter-?zip|half-?zip|1\/4/.test(n))return {mega:'layers',sub:'Quarter & Half-Zips'};
   if(/crewneck|sweatshirt/.test(n)&&!/hood/.test(n))return {mega:'layers',sub:'Crewnecks & Sweatshirts'};
   if(/hoodie|hooded/.test(n))return {mega:'layers',sub:'Hoodies'};
+  if(n.indexOf('vest')>=0)return {mega:'outerwear',sub:'Vests'};      // fleece/quilted vests -> Vests, not Fleece
   if(/fleece/.test(n))return {mega:'layers',sub:'Fleece'};
   if(n.indexOf('polo')>=0)return {mega:'tops',sub:'Polos'};
   if(/tee|t-shirt/.test(n))return {mega:'tops',sub:'Tees'};
   if(n.indexOf('shirt')>=0)return {mega:'tops',sub:'Shirts'};
-  if(/3-?in-?1/.test(n))return {mega:'outerwear',sub:'3-in-1 Systems'};
-  if(/rain|dryvent/.test(n))return {mega:'outerwear',sub:'Rainwear'};
-  if(n.indexOf('vest')>=0)return {mega:'outerwear',sub:'Vests'};
-  if(/puffer|insulated|thermoball|down|quilted|puffy/.test(n))return {mega:'outerwear',sub:'Insulated & Puffer'};
-  if(/softshell|soft shell|shell/.test(n))return {mega:'outerwear',sub:'Softshell Jackets'};
+  if(/3-?in-?1|5-?in-?1|system jacket/.test(n))return {mega:'outerwear',sub:'3-in-1 Systems'};
+  if(/rain|dryvent|raincoat/.test(n))return {mega:'outerwear',sub:'Shells & Rainwear'};
+  if(/softshell|soft shell/.test(n))return {mega:'outerwear',sub:'Softshell Jackets'};
+  if(/thermal|quilted|puffer|insulated|thermoball|down|sherpa|hybrid|puffy/.test(n))return {mega:'outerwear',sub:'Insulated & Quilted'};
+  if(/shell/.test(n))return {mega:'outerwear',sub:'Shells & Rainwear'};
   if(/jacket|coat|parka/.test(n))return {mega:'outerwear',sub:'Jackets'};
   return {mega:'tops',sub:'Shirts'};
 }
