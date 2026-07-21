@@ -114,7 +114,7 @@ var MEGA=[
 var MEGASUB={
   tops:['Polos','Shirts','Tees'],
   layers:['Quarter & Half-Zips','Crewnecks & Sweatshirts','Hoodies','Fleece'],
-  outerwear:['Softshell Jackets','Shackets & Overshirts','Insulated & Quilted','3-in-1 Systems','Shells & Rainwear','Vests','Jackets'],
+  outerwear:['Softshell Jackets','Shackets & Overshirts','Insulated & Thermal','Puffer & Quilted','3-in-1 Systems','Shells & Rainwear','Vests','Jackets'],
   hivis:['Hi-Vis T-Shirts','Safety Vests','Hi-Vis Hoodies','Hi-Vis Gear'],
   bags:['Backpacks','Duffels','Coolers','Tool Bags','Bags']
 };
@@ -144,7 +144,8 @@ function classify(it){
   if(/3-?in-?1|5-?in-?1|system jacket/.test(n))return {mega:'outerwear',sub:'3-in-1 Systems'};
   if(/rain|dryvent|raincoat/.test(n))return {mega:'outerwear',sub:'Shells & Rainwear'};
   if(/softshell|soft shell/.test(n))return {mega:'outerwear',sub:'Softshell Jackets'};
-  if(/thermal|quilted|puffer|insulated|thermoball|down|sherpa|hybrid|puffy/.test(n))return {mega:'outerwear',sub:'Insulated & Quilted'};
+  if(/puffer|quilted|down|thermoball|puffy/.test(n))return {mega:'outerwear',sub:'Puffer & Quilted'};
+  if(/thermal|insulated|sherpa|hybrid/.test(n))return {mega:'outerwear',sub:'Insulated & Thermal'};
   if(/shell/.test(n))return {mega:'outerwear',sub:'Shells & Rainwear'};
   if(/jacket|coat|parka/.test(n))return {mega:'outerwear',sub:'Jackets'};
   return {mega:'tops',sub:'Shirts'};
@@ -161,6 +162,11 @@ function buildBuckets(){
   all.forEach(function(k){var it=BYKEY[k];if(!it)return;var c=classify(it);
     (BUCKETS[c.mega]=BUCKETS[c.mega]||{});(BUCKETS[c.mega][c.sub]=BUCKETS[c.mega][c.sub]||[]).push(k);
     TOTALS[c.mega]=(TOTALS[c.mega]||0)+1;});
+  // Order within each subcategory for optimal browsing: top picks first, then price low → high.
+  var pc=(CFG.pricing&&CFG.pricing.cols)?CFG.pricing.cols:[12,48,144],top=pc[pc.length-1];
+  function pkey(k){var it=BYKEY[k],rec=(it.rec||k===CFG.feature)?0:1,p;try{p=unitPrice(k,vmOf(k).decos,top);}catch(e){p=it.blank||0;}return [rec,p];}
+  Object.keys(BUCKETS).forEach(function(m){Object.keys(BUCKETS[m]).forEach(function(s){
+    BUCKETS[m][s].sort(function(a,b){var pa=pkey(a),pb=pkey(b);return (pa[0]-pb[0])||(pa[1]-pb[1]);});});});
   CATS=MEGA.filter(function(m){return BUCKETS[m.id];}).map(function(m){return m.id;});
 }
 var ALLKEYS=[];
@@ -229,7 +235,6 @@ function buildStore(){
     ".bcell span strong{font-weight:800;color:#1c2431}"+
     ".mstage{position:relative}"+
     ".mvid{position:absolute;left:8px;bottom:8px;z-index:3;display:inline-flex;align-items:center;gap:5px;background:rgba(20,24,33,.82);color:#fff;border:0;border-radius:20px;padding:5px 11px;font:inherit;font-size:11.5px;font-weight:700;cursor:pointer}"+
-    ".vwatch{display:inline-flex;align-items:center;gap:6px;margin:12px auto 0;background:var(--a,#141821);color:#fff;border:0;border-radius:10px;padding:9px 16px;font:inherit;font-weight:700;font-size:13px;cursor:pointer}"+
     ".vmodal{position:fixed;inset:0;z-index:120;display:none;align-items:center;justify-content:center;padding:5vw;background:rgba(8,10,14,.9);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);opacity:0;transition:opacity .2s}"+
     ".vmodal.on{display:flex;opacity:1}"+
     ".vmodal .vwrap{position:relative;display:flex;flex-direction:column;align-items:center;gap:14px;max-width:min(1000px,94vw)}"+
@@ -273,7 +278,7 @@ function buildStore(){
      '<h1>'+esc(CFG.client)+"'s team store</h1>"+
      '<p class="herosub">'+(demo?'This is a live sample. Every item shows exactly where your logo goes — swap in your brand and it becomes your team’s store. Free digital proofs, no obligation.':'Your logo, already on it. Pick your pieces, choose a finish, and send it over for a free proof &amp; exact quote — no obligation.')+'</p>'+
      heroCta+
-     '<div class="herotrust"><span>Free digital proofs</span><span>No obligation</span><span>Low 12-piece minimum</span><span>Embroidery &amp; print in-house</span></div>'+
+     '<div class="herotrust"><span>Family-owned in Toronto since 1994</span><span>12,846+ teams outfitted</span><span>Ships across Canada &amp; the U.S.</span></div>'+
    '</div></section>'+
    benBand+
    '<div class="navwrap" id="navwrap">'+
@@ -314,7 +319,7 @@ function buildStore(){
   if(si){si.addEventListener('input',function(){VIEW.q=si.value;renderGrid();});
     si.addEventListener('keydown',function(e){if(e.key==='Escape')closeSearch();});}
   setCat(VIEW.cat,false);       // initial focused render
-  document.addEventListener('keydown',function(e){if(e.key==='Escape')closeAll();});
+  document.addEventListener('keydown',function(e){if(e.key==='Escape'){if(mediaOpen())closeMedia();else closeAll();}});
   if(C.feed&&!document.getElementById('beholdjs')){var bs=document.createElement('script');bs.id='beholdjs';bs.type='module';bs.src='https://w.behold.so/widget.js';document.head.appendChild(bs);}
   var tv=document.getElementById('toastView');if(tv)tv.addEventListener('click',function(){document.getElementById('toast').classList.remove('on');openCart();});
   ['leadOpen1','leadOpen2'].forEach(function(id){var b=document.getElementById(id);if(b)b.addEventListener('click',openLead);});
@@ -496,9 +501,11 @@ function renderSheet(){
   document.getElementById('sheet').innerHTML=
     '<button class="shx" id="shx" aria-label="Close">✕</button>'+
     '<div class="shscroll">'+
-      '<div class="shimg" id="shimg"><div class="shstage"><img class="g" src="'+o.g+'" alt="">'+o.lg+
-        (item.scenic?'<button class="shworn" id="shworn" aria-label="See it worn"><img src="'+gurl(item.scenic)+'" alt="" loading="lazy"><span>See it worn</span></button>':'')+
-        '</div>'+faceTog+(item.video?'<button class="vwatch" id="vwatch">▶ Watch product video</button>':'')+'</div>'+
+      '<div class="shimg" id="shimg"><div class="shstage"><img class="g" src="'+o.g+'" alt="">'+o.lg+'</div>'+faceTog+'</div>'+
+      ((item.scenic||item.video)?('<div class="shmedia">'+
+        (item.scenic?'<button class="shworn" id="shworn" aria-label="See it worn"><img src="'+gurl(item.scenic)+'" alt="" loading="lazy"><span class="swt"><b>See it worn</b><i>real in-the-field photo</i></span><span class="swgo">→</span></button>':'')+
+        (item.video?'<button class="vwatch" id="vwatch"><svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>Watch video</button>':'')+
+      '</div>'):'')+
       '<div class="shb"><h2>'+esc(item.name)+'</h2><div class="shsku">'+esc(item.sku)+(item.womens?(SH.fit==='womens'?' · Ladies’':' · Men’s'):(item.unisex?' · Unisex':''))+(item.layer==='field'?' · CSA hi-vis':'')+'</div>'+
       '<div class="shfrom">from <b>'+money(fromP)+'</b> <small>/pc</small> · decorated</div>'+
       (item.blurb?'<p class="shblurb">'+esc(item.blurb)+'</p>':'')+
@@ -624,23 +631,29 @@ function renderCart(){
   });
 }
 function editItem(k){document.getElementById('cart').classList.remove('on');openSheet(k);}
+// Close ONLY the media lightbox and return to whatever is underneath (the product sheet) — not the whole store.
+function mediaOpen(){var m=document.getElementById('vmodal');return !!(m&&m.classList.contains('on'));}
+function closeMedia(){var m=document.getElementById('vmodal');if(!m)return;m.classList.remove('on');m.onclick=null;
+  setTimeout(function(){if(!m.classList.contains('on'))m.innerHTML='';},260);
+  var under=['sheet','cart','lead'].some(function(id){var e=document.getElementById(id);return e&&e.classList.contains('on');});
+  document.body.style.overflow=under?'hidden':'';}
 // Lifestyle/scenic image in a clean lightbox (reuses the video modal chrome) — keeps it out of the buy flow.
 function openScenic(src,title){var m=document.getElementById('vmodal');if(!m||!src)return;
   m.innerHTML='<div class="vwrap"><button class="vx" id="vx" aria-label="Close">✕ Close</button>'+
     '<img class="vscenic" src="'+esc(src)+'" alt="'+esc(title||'')+'">'+
     (title?'<div class="vcap">'+esc(title)+' — in the field</div>':'')+'</div>';
   m.classList.add('on');document.body.style.overflow='hidden';
-  var vx=document.getElementById('vx');if(vx)vx.addEventListener('click',closeAll);
-  m.onclick=function(e){if(e.target===m)closeAll();};
+  var vx=document.getElementById('vx');if(vx)vx.addEventListener('click',closeMedia);
+  m.onclick=function(e){if(e.target===m)closeMedia();};
   var w=m.querySelector('.vwrap');if(w)w.addEventListener('click',function(e){e.stopPropagation();});}
 function openVideo(src,title){var m=document.getElementById('vmodal');if(!m||!src)return;
   m.innerHTML='<div class="vwrap"><button class="vx" id="vx" aria-label="Close video">✕ Close</button>'+
     '<video src="'+esc(src)+'" controls autoplay playsinline preload="auto"></video>'+
     (title?'<div class="vcap">'+esc(title)+'</div>':'')+'</div>';
   m.classList.add('on');document.body.style.overflow='hidden';
-  var vx=document.getElementById('vx');if(vx)vx.addEventListener('click',closeAll);
+  var vx=document.getElementById('vx');if(vx)vx.addEventListener('click',closeMedia);
   // Click the dark backdrop (anywhere outside the player) to close; clicks on the player itself don't.
-  m.onclick=function(e){if(e.target===m)closeAll();};
+  m.onclick=function(e){if(e.target===m)closeMedia();};
   var w=m.querySelector('.vwrap');if(w)w.addEventListener('click',function(e){e.stopPropagation();});}
 function closeAll(){['ov','sheet','cart','lead','vmodal'].forEach(function(id){var e=document.getElementById(id);if(e)e.classList.remove('on');});var mv=document.getElementById('vmodal');if(mv)mv.innerHTML='';document.body.style.overflow='';}
 
