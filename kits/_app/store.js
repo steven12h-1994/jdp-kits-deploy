@@ -611,7 +611,7 @@ function renderCart(){
       (nud?'<div class="cinudge">＋'+nud.need+' to reach '+nud.tier+'+ · save '+nud.pct+'%</div>':'')+
       '<div class="row">'+ctrl+'<div class="lp">'+money(unit*c.qty)+'</div></div></div>'+
       '<button class="rm" data-rm="'+k+'" aria-label="Remove">✕</button></div>';}).join('');
-  var body=keys.length?items:'<div class="cempty"><div class="ce-ic">🛒</div>Your kit is empty.<br><span>Tap any item to add it.</span></div>';
+  var body=keys.length?items:('<div class="cempty"><div class="ce-ic">🛒</div><b>Your kit is empty</b><span>Add a few pieces to get free proofs &amp; an exact quote.</span>'+(recKeysAll().length?'<button class="ceadd" id="emptyAddRec">★ Add our top picks</button>':'')+'</div>');
   var setupRows=setupBreakdown(),setup=setupRows.reduce(function(t,x){return t+x.amount;},0);
   var brk=setupRows.length?('<details class="setupbrk"><summary>One-time setup '+money(setup)+' <i>· once per design, shared across the kit</i></summary>'+setupRows.map(function(x){return '<div class="sbk"><span>'+esc(x.label)+'</span><span>'+money(x.amount)+'</span></div>';}).join('')+'</details>'):'';
   document.getElementById('cart').innerHTML=
@@ -621,10 +621,12 @@ function renderCart(){
       '<div class="crow"><span>Estimated subtotal</span><b>'+money(sub)+'</b></div>'+
       (setup>0?brk:'')+
       '<div class="csetup">Decorated, per piece — embroidery, screen &amp; heat-transfer priced in. Setup is once per logo &amp; location, reused across the kit. Exact itemised quote confirmed before anything runs.</div>'+
-      '<button class="checkout" id="checkout">Request my quote <span class="ar">→</span></button></div>'):'')+
+      '<button class="checkout" id="checkout">Get my free proof &amp; quote <span class="ar">→</span></button>'+
+      '<div class="cktrust"><span>Free digital proof</span><span>No payment now</span><span>Reply usually same day</span></div></div>'):'')+
     '';
   document.getElementById('cartx').addEventListener('click',closeAll);
   var ck=document.getElementById('checkout');if(ck)ck.addEventListener('click',openCheckout);
+  var ea=document.getElementById('emptyAddRec');if(ea)ea.addEventListener('click',function(){addRecommended();});
   document.querySelectorAll('.ci').forEach(function(ci){var k=ci.dataset.key;
     var ed=ci.querySelector('[data-edit]');if(ed)ed.addEventListener('click',function(){editItem(k);});
     ci.querySelector('[data-rm]').addEventListener('click',function(){delete CART[k];saveCart();renderCart();refreshCartUI();});
@@ -664,56 +666,75 @@ function openVideo(src,title){var m=document.getElementById('vmodal');if(!m||!sr
   var w=m.querySelector('.vwrap');if(w)w.addEventListener('click',function(e){e.stopPropagation();});}
 function closeAll(){['ov','sheet','cart','lead','vmodal'].forEach(function(id){var e=document.getElementById(id);if(e)e.classList.remove('on');});var mv=document.getElementById('vmodal');if(mv)mv.innerHTML='';document.body.style.overflow='';}
 
-/* ---------- checkout: copy-paste into the existing email thread ---------- */
-function orderText(note){
-  var lines=['MY KIT — '+CFG.client,''];
-  Object.keys(CART).forEach(function(k){var it=BYKEY[k];if(!it)return;var c=CART[k];var u=unitPrice(k,c.decos,c.qty);
-    lines.push('• '+it.name+(fitSku(it,c)?' '+fitSku(it,c):'')+' ('+it.sku+') — '+(fitTag(it,c)?fitTag(it,c)+' · ':'')+c.colour+' · '+decoSummary(it,c)+' · qty '+c.qty+' @ '+money(u)+' ea = '+money(u*c.qty));
-    var ss=sizesSummary(c);if(ss)lines.push('    sizes: '+ss);});
+/* ---------- checkout: capture contact + send the kit for a free proof & quote ---------- */
+var JDP_EMAIL='steven@justdealspromotions.com';
+function contactVals(){return {
+  name:((document.getElementById('coName')||{}).value||'').trim(),
+  email:((document.getElementById('coEmail')||{}).value||'').trim(),
+  company:((document.getElementById('coCompany')||{}).value||'').trim(),
+  note:((document.getElementById('coNote')||{}).value||'').trim()};}
+function persistContact(c){try{localStorage.setItem('jdpkit_contact',JSON.stringify({name:c.name,email:c.email,company:c.company}));}catch(e){}}
+function orderText(c){c=c||{};
+  var lines=['KIT REQUEST — '+CFG.client,''];
+  if(c.name||c.email||c.company){lines.push('From:');
+    if(c.name)lines.push('  Name: '+c.name);
+    if(c.company)lines.push('  Company/team: '+c.company);
+    if(c.email)lines.push('  Email: '+c.email);
+    lines.push('');}
+  Object.keys(CART).forEach(function(k){var it=BYKEY[k];if(!it)return;var cc=CART[k];var u=unitPrice(k,cc.decos,cc.qty);
+    lines.push('• '+it.name+(fitSku(it,cc)?' '+fitSku(it,cc):'')+' ('+it.sku+') — '+(fitTag(it,cc)?fitTag(it,cc)+' · ':'')+cc.colour+' · '+decoSummary(it,cc)+' · qty '+cc.qty+' @ '+money(u)+' ea = '+money(u*cc.qty));
+    var ss=sizesSummary(cc);if(ss)lines.push('    sizes: '+ss);});
   lines.push('','Estimated subtotal: '+money(cartSubtotal()));
   var sb=setupBreakdown();
   if(sb.length){lines.push('One-time setup: '+money(cartSetup())+'  (once per design, shared across the kit)');
     sb.forEach(function(x){lines.push('   - '+x.label+': '+money(x.amount));});}
   lines.push('(Decoration priced in; exact quote to be confirmed.)');
-  if(note)lines.push('','Notes: '+note);
+  if(c.note)lines.push('','Notes: '+c.note);
   lines.push('','Kit link: '+location.href.split('#')[0].split('?')[0]);
   return lines.join('\n');
 }
 function openCheckout(){
-  var review=Object.keys(CART).map(function(k){var it=BYKEY[k];if(!it)return '';var c=CART[k];var ss=sizesSummary(c);
-    return '<div class="r"><span>'+esc(it.name)+' · '+(fitTag(it,c)?esc(fitTag(it,c))+' · ':'')+esc(c.colour)+' · '+esc(decoSummary(it,c))+' × '+c.qty+(ss?'<br><small style="color:var(--mut)">Sizes: '+esc(ss)+'</small>':'')+'</span><span>'+money(unitPrice(k,c.decos,c.qty)*c.qty)+'</span></div>';}).join('');
+  var n=cartCount(),sub=cartSubtotal(),setup=cartSetup();var saved={};
+  try{saved=JSON.parse(localStorage.getItem('jdpkit_contact')||'{}');}catch(e){}
   document.getElementById('cart').innerHTML=
-    '<div class="carth"><button class="cartback" id="cartback" aria-label="Back">‹</button><h2>Send us your kit</h2><button class="cartx" id="cartx" aria-label="Close">✕</button></div>'+
+    '<div class="carth"><button class="cartback" id="cartback" aria-label="Back">‹</button><h2>Free proof &amp; quote</h2><button class="cartx" id="cartx" aria-label="Close">✕</button></div>'+
     '<div class="citems"><div class="co">'+
-      '<p class="cointro">Copy your kit and <b>paste it into your reply to our email</b> — we’ll send back a free proof and an exact, itemised quote (usually same day).</p>'+
-      '<div class="coreview">'+review+
-        '<div class="r tot"><span><b>Estimated subtotal</b></span><span><b>'+money(cartSubtotal())+'</b></span></div>'+
-        '<div class="r"><span>One-time setup</span><span>'+money(cartSetup())+'</span></div></div>'+
-      '<label>Anything to add? (optional)</label><textarea id="coNote" placeholder="Deadlines, extra notes, other items…"></textarea>'+
+      '<div class="cohow"><div class="costep"><b>1</b><span>Pick your gear</span></div><div class="costep"><b>2</b><span>Free proof + exact quote</span></div><div class="costep"><b>3</b><span>Approve &amp; we produce</span></div></div>'+
+      '<div class="cosum"><span>'+n+' item'+(n===1?'':'s')+' · est. <b>'+money(sub)+'</b>'+(setup>0?' + '+money(setup)+' setup':'')+'</span><button class="cosumedit" id="cosumedit">Edit ‹</button></div>'+
+      '<div class="coform">'+
+        '<input id="coName" placeholder="Your name" autocomplete="name" value="'+esc(saved.name||'')+'">'+
+        '<input id="coEmail" type="email" inputmode="email" placeholder="Email — where we send your proof" autocomplete="email" value="'+esc(saved.email||'')+'">'+
+        '<input id="coCompany" placeholder="Company / team" autocomplete="organization" value="'+esc(saved.company||CFG.client||'')+'">'+
+        '<textarea id="coNote" placeholder="Anything to add? Deadlines, sizes, other items…"></textarea>'+
+      '</div>'+
     '</div></div>'+
-    '<div class="cartf"><button class="checkout" id="emailKit">Email my kit to Just Deals →</button>'+
-      '<button id="copyKit" style="background:none;border:0;color:var(--a);font:inherit;font-weight:700;padding:11px;margin-top:4px;cursor:pointer;width:100%">or copy &amp; paste into your reply</button>'+
-      '<div class="csetup" id="copyHint" style="text-align:center;margin-top:8px">We’ll reply with a free proof + exact quote — usually same day. No obligation.</div></div>';
+    '<div class="cartf">'+
+      '<button class="checkout" id="emailKit">Send my kit — get a free proof <span class="ar">→</span></button>'+
+      '<button class="copyalt" id="copyKit">or copy my kit to paste into a reply</button>'+
+      '<div class="cktrust" id="copyHint"><span>No payment now</span><span>You approve the proof first</span><span>No obligation</span></div></div>';
   document.getElementById('cartx').addEventListener('click',closeAll);
   document.getElementById('cartback').addEventListener('click',openCart);
+  document.getElementById('cosumedit').addEventListener('click',openCart);
   document.getElementById('emailKit').addEventListener('click',emailKit);
   document.getElementById('copyKit').addEventListener('click',copyKit);
 }
+function clipCopy(s){if(navigator.clipboard&&navigator.clipboard.writeText){try{navigator.clipboard.writeText(s);return;}catch(e){}}
+  var ta=document.createElement('textarea');ta.value=s;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.focus();ta.select();try{document.execCommand('copy');}catch(e){}document.body.removeChild(ta);}
 function emailKit(){
-  var note=(document.getElementById('coNote')&&document.getElementById('coNote').value||'').trim();
-  var body=orderText(note);
-  var url='mailto:steven@justdealspromotions.com?subject='+encodeURIComponent('My kit — '+CFG.client+' — proof & quote request')+'&body='+encodeURIComponent(body);
-  var hint=document.getElementById('copyHint');if(hint)hint.textContent='Opening your email with the kit pre-filled — just hit send. (If it doesn’t open, use copy & paste below.)';
-  window.location.href=url;
+  var c=contactVals();
+  if(!c.email||c.email.indexOf('@')<1){var e=document.getElementById('coEmail');if(e){e.classList.add('err');e.focus();}
+    toast('Add your email so we can send your free proof');return;}
+  persistContact(c);var body=orderText(c);
+  var subj='Kit request — '+(c.company||CFG.client)+(c.name?' — '+c.name:'');
+  clipCopy(body);   // bulletproof backup: kit is on the clipboard even if the mail app doesn't open
+  var hint=document.getElementById('copyHint');if(hint)hint.innerHTML='<span>Opening your email — just hit send ✓</span><span>Didn’t open? Your kit is copied — email '+JDP_EMAIL+'</span>';
+  window.location.href='mailto:'+JDP_EMAIL+'?subject='+encodeURIComponent(subj)+'&body='+encodeURIComponent(body);
 }
 function copyKit(){
-  var note=(document.getElementById('coNote')&&document.getElementById('coNote').value||'').trim();
-  var txt=orderText(note);
+  var c=contactVals();persistContact(c);var txt=orderText(c);clipCopy(txt);
   var btn=document.getElementById('copyKit'),hint=document.getElementById('copyHint');
-  function done(){if(btn){btn.textContent='✓ Copied — now paste into your reply';}if(hint){hint.innerHTML='Copied to your clipboard. Switch to our email thread and paste (Ctrl/⌘+V) into your reply.';}}
-  if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(txt).then(done,function(){fallback(txt);done();});}
-  else{fallback(txt);done();}
-  function fallback(s){var ta=document.createElement('textarea');ta.value=s;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.focus();ta.select();try{document.execCommand('copy');}catch(e){}document.body.removeChild(ta);}
+  if(btn)btn.textContent='✓ Copied — paste it into your reply to us';
+  if(hint)hint.innerHTML='<span>Copied to your clipboard.</span><span>Paste (Ctrl/⌘+V) into your reply, or email '+JDP_EMAIL+'</span>';
 }
 
 /* ---------- boot ---------- */
