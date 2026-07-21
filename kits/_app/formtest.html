@@ -1,8 +1,0 @@
-<!doctype html><html><head><meta charset=utf-8><meta name=robots content=noindex><title>form test</title></head>
-<body style="font-family:monospace;padding:20px"><pre id=o>testing submit.php…</pre><script>
-fetch('submit.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
- name:'Setup Test',email:'steven@justdealspromotions.com',company:'JDP',client:'Form-to-inbox test',
- kit:'• TEST ITEM (setup) — qty 12 @ $28.50 ea = $342.00\nEstimated subtotal: $342.00\n(This is a one-time form-to-inbox setup test — no action needed.)'})})
-.then(function(r){return r.text().then(function(t){document.getElementById('o').textContent='HTTP '+r.status+'\n'+t;});})
-.catch(function(e){document.getElementById('o').textContent='FETCH ERROR: '+e;});
-</script></body></html>

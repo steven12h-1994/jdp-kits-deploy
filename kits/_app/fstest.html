@@ -1,0 +1,8 @@
+<!doctype html><html><head><meta charset=utf-8><meta name=robots content=noindex><title>fs test</title></head>
+<body style="font-family:monospace;padding:20px"><pre id=o>testing FormSubmit…</pre><script>
+fetch('https://formsubmit.co/ajax/steven@justdealspromotions.com',{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify({
+ _subject:'JDP Team Store — form-to-inbox setup',name:'JDP Kit Store (setup)',email:'steven@justdealspromotions.com',
+ message:'Form-to-inbox setup test. If this is the activation email, click the FormSubmit link once to switch on automatic kit delivery.',_template:'table',_captcha:'false'})})
+.then(function(r){return r.text().then(function(t){document.getElementById('o').textContent='HTTP '+r.status+'\n'+t.slice(0,600);});})
+.catch(function(e){document.getElementById('o').textContent='FETCH ERROR: '+e;});
+</script></body></html>
