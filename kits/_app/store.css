@@ -415,3 +415,10 @@ main{padding:0 0 22px}
 .coform textarea{min-height:70px;resize:vertical}
 /* checkout: secondary copy action */
 .copyalt{display:block;width:100%;background:none;border:0;color:var(--a);font:inherit;font-weight:800;font-size:13.5px;padding:12px 6px 2px;cursor:pointer}
+
+/* checkout success (form-to-inbox) */
+.cosent{text-align:center;padding:40px 22px;display:flex;flex-direction:column;align-items:center;gap:11px}
+.csent-ic{width:56px;height:56px;border-radius:50%;background:#16a34a;color:#fff;font-size:30px;font-weight:900;display:flex;align-items:center;justify-content:center;box-shadow:0 12px 28px -8px rgba(22,163,74,.55)}
+.cosent h3{font-size:20px;font-weight:850}
+.cosent p{font-size:14px;color:var(--mut);line-height:1.55;max-width:36ch}
+.cosent .checkout{margin-top:10px;max-width:240px}

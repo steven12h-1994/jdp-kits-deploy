@@ -276,7 +276,7 @@ function buildStore(){
    '<section class="hero"><div class="w heroin">'+
      '<div class="eyb">'+(demo?'Sample store · your logo goes here':'Branded apparel · ready to order')+'</div>'+
      '<h1>'+esc(CFG.client)+"'s team store</h1>"+
-     '<p class="herosub">'+(demo?'This is a live sample. Every item shows exactly where your logo goes — swap in your brand and it becomes your team’s store. Free digital proofs, no obligation.':'Your logo, already on it. Pick your pieces, choose a finish, and send it over for a free proof &amp; exact quote — no obligation.')+'</p>'+
+     '<p class="herosub">'+(demo?'This is a live sample. Every item shows exactly where your logo goes — swap in your brand and it becomes your team’s store. Live pricing, exact quote, no obligation.':'Your logo, already on it. Pick your pieces, choose a finish, and send it over for your exact quote — no obligation, no payment now.')+'</p>'+
      heroCta+
      '<div class="herotrust"><span>Family-owned in Toronto since 1994</span><span>12,846+ teams outfitted</span><span>Ships across Canada &amp; the U.S.</span></div>'+
    '</div></section>'+
@@ -296,7 +296,7 @@ function buildStore(){
    (C.feed?('<section class="social"><div class="w"><h2 class="seclbl">Recent work — from our shop floor</h2>'+
      '<p class="socsub">'+esc(C.work_lead||'Real kits we’ve decorated for crews across the country.')+'</p>'+
      '<behold-widget feed-id="'+esc(C.feed)+'"></behold-widget></div></section>'):'')+
-   '<footer><div class="w">Just Deals Promotions · Branded Workwear &amp; Safety Apparel<br>Prepared for '+esc(CFG.client)+' · Concept mockups on representative product photography · Pricing confirmed by exact quote.</div></footer>'+
+   '<footer><div class="w">Just Deals Promotions · Branded Workwear &amp; Safety Apparel<br>Prepared for '+esc(CFG.client)+' · Concept visuals on representative product photography · Pricing confirmed by exact quote.</div></footer>'+
    '<div class="ov" id="ov"></div>'+
    '<div class="vmodal" id="vmodal"></div>'+
    '<div class="sheet" id="sheet"></div>'+
@@ -340,8 +340,8 @@ function openLead(){
     el.classList.remove('embed');
     inner='<button class="shx" id="leadX" aria-label="Close">✕</button><div class="leadb">'+
       '<div class="eyb">Free · no obligation</div><h2>Get your own branded store</h2>'+
-      '<p class="leadsub">Tell us about your team and we’ll build a store like this — your logo, your colours, your gear — and send <b>free digital proofs</b>, usually same day.</p>'+
-      '<ul class="leadben"><li>Your logo on real gear — free mockups</li><li>Your team’s colours &amp; sizes</li><li>Live pricing · no minimum beyond 12 pcs</li></ul>'+
+      '<p class="leadsub">Tell us about your team and we’ll build a store like this — your logo, your colours, your gear — and with <b>live pricing</b> and an exact quote — no obligation.</p>'+
+      '<ul class="leadben"><li>Your logo on real gear</li><li>Your team’s colours &amp; sizes</li><li>Live pricing · no minimum beyond 12 pcs</li></ul>'+
       '<a class="leadbtn" href="'+esc(cta.href||'#')+'">Email us to start →</a>'+(cta.phone?'<div class="leadphone">or call <b>'+esc(cta.phone)+'</b></div>':'')+'</div>';
   }
   el.innerHTML=inner;
@@ -456,13 +456,13 @@ function renderSheet(){
   var fitTog=item.womens?('<div class="fittog"><span class="fitl">Fit</span>'+
     '<button class="fitb'+(SH.fit==='mens'?' on':'')+'" data-fit="mens">Men’s</button>'+
     '<button class="fitb'+(SH.fit==='womens'?' on':'')+'" data-fit="womens">Women’s</button>'+
-    (SH.fit==='womens'&&!(item.wcols&&item.wcols.length)?'<span class="fitnote">Ladies’ cut confirmed on your free proof</span>':'')+
+    (SH.fit==='womens'&&!(item.wcols&&item.wcols.length)?'<span class="fitnote">Ladies’ cut confirmed with your quote</span>':'')+
     '</div>'):(item.unisex?'<div class="fittog"><span class="fitl">Fit</span><span class="unitag">Unisex</span><span class="fitnote">One unisex cut — fits everyone</span></div>':'');
   var faceTog=hasBack?'<div class="ftog"><button class="pchip'+(SH.face==='front'?' on':'')+'" data-face="front">Front</button><button class="pchip'+(SH.face==='back'?' on':'')+'" data-face="back">Back</button></div>':'';
   var logoPlaces=(item.places||[]).filter(function(p){return p.logo;});
   var primary=logoPlaces[0],extras=logoPlaces.slice(1);
   var primaryHtml=primary?('<section class="step"><div class="steph"><span class="stepn">3</span><span class="stept">Logo finish</span><i>'+esc(primary.label)+'</i></div>'+
-      '<div class="ghelp">Not sure? Go with the ★ Recommended finish — we’ll confirm it on your free proof.</div>'+
+      '<div class="ghelp">Not sure? Go with the ★ Recommended finish — we’ll confirm it with your quote.</div>'+
       '<div class="frows">'+finishGroup(primary.id,true)+'</div></section>'):'';
   var extraHtml='';
   if(extras.length){
@@ -514,7 +514,7 @@ function renderSheet(){
     '</div></div>'+
     '<div class="shfoot">'+priceClar+
       '<button class="shaddbtn" id="shAdd"'+(canAdd?'':' disabled')+'><span>'+(canAdd?(CART[SH.key]?'Update kit':'Add to kit'):('Add '+moq()+'+ pieces'))+'</span><span class="p">'+money(line)+'</span></button>'+
-      '<div class="shtrust">✓ Free digital proof before you commit · no obligation</div></div>';
+      '<div class="shtrust">✓ Live pricing · exact quote · no obligation · no payment now</div></div>';
   var sh=document.getElementById('sheet');
   document.getElementById('shx').addEventListener('click',closeAll);
   var vw=document.getElementById('vwatch');if(vw)vw.addEventListener('click',function(){openVideo(item.video,item.name);});
@@ -611,7 +611,7 @@ function renderCart(){
       (nud?'<div class="cinudge">＋'+nud.need+' to reach '+nud.tier+'+ · save '+nud.pct+'%</div>':'')+
       '<div class="row">'+ctrl+'<div class="lp">'+money(unit*c.qty)+'</div></div></div>'+
       '<button class="rm" data-rm="'+k+'" aria-label="Remove">✕</button></div>';}).join('');
-  var body=keys.length?items:('<div class="cempty"><div class="ce-ic">🛒</div><b>Your kit is empty</b><span>Add a few pieces to get free proofs &amp; an exact quote.</span>'+(recKeysAll().length?'<button class="ceadd" id="emptyAddRec">★ Add our top picks</button>':'')+'</div>');
+  var body=keys.length?items:('<div class="cempty"><div class="ce-ic">🛒</div><b>Your kit is empty</b><span>Add a few pieces to get your exact quote.</span>'+(recKeysAll().length?'<button class="ceadd" id="emptyAddRec">★ Add our top picks</button>':'')+'</div>');
   var setupRows=setupBreakdown(),setup=setupRows.reduce(function(t,x){return t+x.amount;},0);
   var brk=setupRows.length?('<details class="setupbrk"><summary>One-time setup '+money(setup)+' <i>· once per design, shared across the kit</i></summary>'+setupRows.map(function(x){return '<div class="sbk"><span>'+esc(x.label)+'</span><span>'+money(x.amount)+'</span></div>';}).join('')+'</details>'):'';
   document.getElementById('cart').innerHTML=
@@ -621,8 +621,8 @@ function renderCart(){
       '<div class="crow"><span>Estimated subtotal</span><b>'+money(sub)+'</b></div>'+
       (setup>0?brk:'')+
       '<div class="csetup">Decorated, per piece — embroidery, screen &amp; heat-transfer priced in. Setup is once per logo &amp; location, reused across the kit. Exact itemised quote confirmed before anything runs.</div>'+
-      '<button class="checkout" id="checkout">Get my free proof &amp; quote <span class="ar">→</span></button>'+
-      '<div class="cktrust"><span>Free digital proof</span><span>No payment now</span><span>Reply usually same day</span></div></div>'):'')+
+      '<button class="checkout" id="checkout">Get my exact quote <span class="ar">→</span></button>'+
+      '<div class="cktrust"><span>No payment now</span><span>No obligation</span><span>No minimum beyond 12 pcs</span></div></div>'):'')+
     '';
   document.getElementById('cartx').addEventListener('click',closeAll);
   var ck=document.getElementById('checkout');if(ck)ck.addEventListener('click',openCheckout);
@@ -666,7 +666,7 @@ function openVideo(src,title){var m=document.getElementById('vmodal');if(!m||!sr
   var w=m.querySelector('.vwrap');if(w)w.addEventListener('click',function(e){e.stopPropagation();});}
 function closeAll(){['ov','sheet','cart','lead','vmodal'].forEach(function(id){var e=document.getElementById(id);if(e)e.classList.remove('on');});var mv=document.getElementById('vmodal');if(mv)mv.innerHTML='';document.body.style.overflow='';}
 
-/* ---------- checkout: capture contact + send the kit for a free proof & quote ---------- */
+/* ---------- checkout: capture contact + send the kit for an exact quote ---------- */
 var JDP_EMAIL='steven@justdealspromotions.com';
 function contactVals(){return {
   name:((document.getElementById('coName')||{}).value||'').trim(),
@@ -697,38 +697,66 @@ function openCheckout(){
   var n=cartCount(),sub=cartSubtotal(),setup=cartSetup();var saved={};
   try{saved=JSON.parse(localStorage.getItem('jdpkit_contact')||'{}');}catch(e){}
   document.getElementById('cart').innerHTML=
-    '<div class="carth"><button class="cartback" id="cartback" aria-label="Back">‹</button><h2>Free proof &amp; quote</h2><button class="cartx" id="cartx" aria-label="Close">✕</button></div>'+
+    '<div class="carth"><button class="cartback" id="cartback" aria-label="Back">‹</button><h2>Your exact quote</h2><button class="cartx" id="cartx" aria-label="Close">✕</button></div>'+
     '<div class="citems"><div class="co">'+
-      '<div class="cohow"><div class="costep"><b>1</b><span>Pick your gear</span></div><div class="costep"><b>2</b><span>Free proof + exact quote</span></div><div class="costep"><b>3</b><span>Approve &amp; we produce</span></div></div>'+
+      '<div class="cohow"><div class="costep"><b>1</b><span>Pick your gear</span></div><div class="costep"><b>2</b><span>Get your exact quote</span></div><div class="costep"><b>3</b><span>Approve &amp; we produce</span></div></div>'+
       '<div class="cosum"><span>'+n+' item'+(n===1?'':'s')+' · est. <b>'+money(sub)+'</b>'+(setup>0?' + '+money(setup)+' setup':'')+'</span><button class="cosumedit" id="cosumedit">Edit ‹</button></div>'+
       '<div class="coform">'+
         '<input id="coName" placeholder="Your name" autocomplete="name" value="'+esc(saved.name||'')+'">'+
-        '<input id="coEmail" type="email" inputmode="email" placeholder="Email — where we send your proof" autocomplete="email" value="'+esc(saved.email||'')+'">'+
+        '<input id="coEmail" type="email" inputmode="email" placeholder="Email — where we send your quote" autocomplete="email" value="'+esc(saved.email||'')+'">'+
         '<input id="coCompany" placeholder="Company / team" autocomplete="organization" value="'+esc(saved.company||CFG.client||'')+'">'+
         '<textarea id="coNote" placeholder="Anything to add? Deadlines, sizes, other items…"></textarea>'+
       '</div>'+
     '</div></div>'+
     '<div class="cartf">'+
-      '<button class="checkout" id="emailKit">Send my kit — get a free proof <span class="ar">→</span></button>'+
+      '<button class="checkout" id="emailKit">Send my kit — get my quote <span class="ar">→</span></button>'+
       '<button class="copyalt" id="copyKit">or copy my kit to paste into a reply</button>'+
-      '<div class="cktrust" id="copyHint"><span>No payment now</span><span>You approve the proof first</span><span>No obligation</span></div></div>';
+      '<div class="cktrust" id="copyHint"><span>No payment now</span><span>No obligation</span><span>No minimum beyond 12 pcs</span></div></div>';
   document.getElementById('cartx').addEventListener('click',closeAll);
   document.getElementById('cartback').addEventListener('click',openCart);
   document.getElementById('cosumedit').addEventListener('click',openCart);
-  document.getElementById('emailKit').addEventListener('click',emailKit);
+  document.getElementById('emailKit').addEventListener('click',submitKit);
   document.getElementById('copyKit').addEventListener('click',copyKit);
 }
 function clipCopy(s){if(navigator.clipboard&&navigator.clipboard.writeText){try{navigator.clipboard.writeText(s);return;}catch(e){}}
   var ta=document.createElement('textarea');ta.value=s;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.focus();ta.select();try{document.execCommand('copy');}catch(e){}document.body.removeChild(ta);}
-function emailKit(){
+// PROPER form-to-inbox: POST the kit + contact straight to JDP's inbox (FormSubmit) — no reliance on the
+// visitor's email app. If the request fails for any reason, fall back to a prefilled email + clipboard copy
+// so a lead is never lost.
+function submitKit(){
   var c=contactVals();
   if(!c.email||c.email.indexOf('@')<1){var e=document.getElementById('coEmail');if(e){e.classList.add('err');e.focus();}
-    toast('Add your email so we can send your free proof');return;}
+    toast('Add your email so we can send your quote');return;}
   persistContact(c);var body=orderText(c);
+  var btn=document.getElementById('emailKit');if(btn){btn.disabled=true;btn.dataset.lbl=btn.innerHTML;btn.innerHTML='Sending…';}
   var subj='Kit request — '+(c.company||CFG.client)+(c.name?' — '+c.name:'');
-  clipCopy(body);   // bulletproof backup: kit is on the clipboard even if the mail app doesn't open
+  var payload={name:c.name||'(not given)',email:c.email,company:c.company||CFG.client||'',
+    _subject:subj,_template:'table',_captcha:'false',kit:body,kit_link:location.href.split('#')[0].split('?')[0]};
+  var done=false,fell=false;
+  function fail(){if(done||fell)return;fell=true;mailtoFallback(c,body,subj);}
+  var to=setTimeout(fail,9000);   // network stalls -> fallback, never leave them stuck
+  fetch('https://formsubmit.co/ajax/'+JDP_EMAIL,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(payload)})
+    .then(function(r){return r.json().catch(function(){return {};});})
+    .then(function(j){clearTimeout(to);if(fell)return;done=true;
+      if(j&&String(j.success)==='true'){checkoutSuccess(c);}else{fail();}})
+    .catch(function(){clearTimeout(to);fail();});
+}
+function mailtoFallback(c,body,subj){
+  clipCopy(body);
+  var btn=document.getElementById('emailKit');if(btn){btn.disabled=false;btn.innerHTML=btn.dataset.lbl||'Send my kit — get my quote <span class="ar">→</span>';}
   var hint=document.getElementById('copyHint');if(hint)hint.innerHTML='<span>Opening your email — just hit send ✓</span><span>Didn’t open? Your kit is copied — email '+JDP_EMAIL+'</span>';
   window.location.href='mailto:'+JDP_EMAIL+'?subject='+encodeURIComponent(subj)+'&body='+encodeURIComponent(body);
+}
+function checkoutSuccess(c){
+  var first=c.name?esc(c.name.split(' ')[0]):'';
+  document.getElementById('cart').innerHTML=
+    '<div class="carth"><h2>Request sent</h2><button class="cartx" id="cartx" aria-label="Close">✕</button></div>'+
+    '<div class="citems"><div class="cosent"><div class="csent-ic">✓</div>'+
+      '<h3>Your kit is on its way'+(first?', '+first:'')+'!</h3>'+
+      '<p>We’ve got your picks and will reply to <b>'+esc(c.email)+'</b> with your exact quote. No payment now — no obligation.</p>'+
+      '<button class="checkout" id="sentdone">Keep browsing</button></div></div>';
+  document.getElementById('cartx').addEventListener('click',closeAll);
+  document.getElementById('sentdone').addEventListener('click',closeAll);
 }
 function copyKit(){
   var c=contactVals();persistContact(c);var txt=orderText(c);clipCopy(txt);
