@@ -341,3 +341,41 @@ body:has(.demobar){padding-bottom:76px}
 .mstage:after{content:"Customize";position:absolute;left:50%;bottom:11px;transform:translate(-50%,8px);background:rgba(16,18,29,.86);color:#fff;font-size:11.5px;font-weight:800;letter-spacing:.02em;padding:6px 13px;border-radius:999px;opacity:0;transition:opacity .16s,transform .16s;pointer-events:none;z-index:2}
 .mcard:hover .mstage:after{opacity:1;transform:translate(-50%,0)}
 @media(hover:none){.mstage:after{display:none}}
+
+/* ================= v26 — focused filtered browse (mobile-first #1 catalog) ================= */
+.navwrap{position:sticky;top:60px;z-index:45;background:rgba(255,255,255,.98);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);border-bottom:1px solid var(--line);box-shadow:0 6px 18px -15px rgba(16,18,29,.5)}
+.filterbar{position:relative}
+.ctabsrow{display:flex;align-items:center;gap:8px;padding:9px 12px}
+.ctabs{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;flex:1;scroll-behavior:smooth}
+.ctabs::-webkit-scrollbar{display:none}
+.ctab{white-space:nowrap;font-size:14px;font-weight:800;color:var(--ink);background:var(--bg);border:1.5px solid var(--line);border-radius:999px;padding:9px 16px;transition:background .14s,color .14s,border-color .14s;display:inline-flex;align-items:center;gap:7px;cursor:pointer}
+.ctab .ctn{font-size:11px;font-weight:800;opacity:.5}
+.ctab.on{color:#fff;background:var(--a);border-color:var(--a)}
+.ctab.on .ctn{opacity:.85}
+.fsbtn{flex:none;width:40px;height:40px;border-radius:50%;background:var(--bg);border:1.5px solid var(--line);color:var(--ink);display:flex;align-items:center;justify-content:center}
+.fsbtn:hover{border-color:var(--a);color:var(--a)}
+.fsrow{display:none;align-items:center;gap:9px;padding:11px 14px;background:#fff}
+.fsrow svg{flex:none}
+.fsrow input{flex:1;border:0;outline:0;font:inherit;font-size:16px;font-weight:600;background:transparent;color:var(--ink);min-width:0}
+.fsx{flex:none;font-size:14px;font-weight:800;color:var(--a);padding:6px 4px}
+.navwrap.searching .ctabsrow{display:none}
+.navwrap.searching .fsrow{display:flex}
+.navwrap.searching .subbar{display:none}
+.subbar{border-top:1px solid #f1f2f5}
+.subchips{display:flex;gap:7px;overflow-x:auto;scrollbar-width:none;padding:9px 12px}
+.subchips::-webkit-scrollbar{display:none}
+.schip{white-space:nowrap;font-size:12.5px;font-weight:700;color:var(--mut);background:#fff;border:1.5px solid var(--line);border-radius:999px;padding:7px 13px;transition:.12s;display:inline-flex;align-items:center;gap:6px;cursor:pointer}
+.schip .scn{font-size:10.5px;font-weight:800;opacity:.55}
+.schip.on{color:var(--ink);background:color-mix(in srgb,var(--a) 10%,#fff);border-color:color-mix(in srgb,var(--a) 45%,#fff)}
+.schip.on .scn{color:var(--a);opacity:.95}
+.gridhd{display:flex;align-items:baseline;gap:11px;margin:22px 0 15px;flex-wrap:wrap}
+.glbl{font-size:22px;font-weight:850;letter-spacing:-.02em;margin:0;display:inline-flex;align-items:center;gap:10px}
+.gsub{font-size:13px;font-weight:700;color:var(--mut)}
+main{padding:0 0 22px}
+.grid .subgrp:first-child .subhd{margin-top:4px}
+@media(max-width:600px){
+  .benefits{display:none}                 /* bring category tabs up on mobile */
+  .heroin{padding:22px 20px 20px}
+  .ctab{font-size:13px;padding:8px 14px}
+  .gridhd{margin:16px 0 12px}.glbl{font-size:19px}
+}
