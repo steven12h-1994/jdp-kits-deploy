@@ -646,11 +646,18 @@ function openScenic(src,title){var m=document.getElementById('vmodal');if(!m||!s
   var vx=document.getElementById('vx');if(vx)vx.addEventListener('click',closeMedia);
   m.onclick=function(e){if(e.target===m)closeMedia();};
   var w=m.querySelector('.vwrap');if(w)w.addEventListener('click',function(e){e.stopPropagation();});}
+// Cloudinary on-the-fly transforms: cap to 720p, auto quality, force H.264 (hardware-decoded = smooth on
+// phones). Cuts the file ~60% vs the original and adds an instant first-frame poster. muted = autoplay is
+// actually allowed on mobile (unmuted autoplay is blocked, which made the player look broken).
+function vTransform(src,t){var i=src.indexOf('/video/upload/');return i<0?src:src.slice(0,i+14)+t+'/'+src.slice(i+14);}
 function openVideo(src,title){var m=document.getElementById('vmodal');if(!m||!src)return;
+  var opt=vTransform(src,'q_auto,w_720,c_limit,vc_h264');
+  var poster=/\.mp4($|\?)/i.test(src)?vTransform(src,'so_0,q_auto,w_720,c_limit').replace(/\.mp4/i,'.jpg'):'';
   m.innerHTML='<div class="vwrap"><button class="vx" id="vx" aria-label="Close video">✕ Close</button>'+
-    '<video src="'+esc(src)+'" controls autoplay playsinline preload="auto"></video>'+
+    '<video src="'+esc(opt)+'"'+(poster?' poster="'+esc(poster)+'"':'')+' controls autoplay muted playsinline preload="auto" webkit-playsinline></video>'+
     (title?'<div class="vcap">'+esc(title)+'</div>':'')+'</div>';
   m.classList.add('on');document.body.style.overflow='hidden';
+  var v=m.querySelector('video');if(v){var p=v.play();if(p&&p.catch)p.catch(function(){});}
   var vx=document.getElementById('vx');if(vx)vx.addEventListener('click',closeMedia);
   // Click the dark backdrop (anywhere outside the player) to close; clicks on the player itself don't.
   m.onclick=function(e){if(e.target===m)closeMedia();};
