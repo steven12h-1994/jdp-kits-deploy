@@ -1,15 +1,12 @@
 {
   "generator": "client-app",
-  "version": "1783715472",
+  "version": "1784745056",
   "slug": "eij",
   "client": "EIJ",
   "files": [
     "index.html",
     "client.json",
     "img/favicon.png",
-    "img/hero1.png",
-    "img/hero2.png",
-    "img/hero3.png",
     "img/lg_full_brand.png",
     "img/lg_full_dark.png",
     "img/lg_full_fadc0c.png",
