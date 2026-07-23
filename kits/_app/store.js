@@ -66,6 +66,7 @@ function overlayHtml(item,vm,colName,faces,colsOverride,placesOverride){
   if(face==='back'&&!hasBack)face='front';
   var photo=(face==='back'&&col.back)?col.back:col.front;
   var lg='';
+  if(item&&item.noov)return {g:gurl(photo),lg:'',hasBack:hasBack};   // decoration priced/selectable, but no logo drawn on photo (Carhartt)
   (vm.decos||[]).forEach(function(d){if(!d.on)return;var p=placeInList(places,d.pl);if(!p||(p.face||'front')!==face)return;
     if(face==='back'&&!hasBack)return;
     var L=logoOf(d.lg),src=inkUrl(L,d.ink,col,d.method);
