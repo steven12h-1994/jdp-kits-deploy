@@ -190,6 +190,7 @@ function wireCards(){
   g.querySelectorAll('.madd').forEach(function(b){b.addEventListener('click',function(e){e.stopPropagation();var k=b.dataset.key;if(CART[k]){openSheet(k);}else{quickAdd(k);}});});
   g.querySelectorAll('.mvid').forEach(function(b){b.addEventListener('click',function(e){e.stopPropagation();openVideo(b.dataset.vid,b.dataset.vname);});});
   g.querySelectorAll('.mstage .g').forEach(function(im){if(im.complete)im.classList.add('ld');else im.addEventListener('load',function(){im.classList.add('ld');});});
+  g.querySelectorAll('.mcbtn').forEach(function(b){b.addEventListener('click',function(){setCat(b.dataset.cat,true);});});
   refreshCartUI();}
 function renderGrid(){
   var grid=document.getElementById('grid'),hd=document.getElementById('gridhd'),nr=document.getElementById('noResults');
@@ -207,8 +208,13 @@ function renderGrid(){
   else if(subs.length>1&&TOTALS[VIEW.cat]>6){
     inner=subs.map(function(s){return '<div class="subgrp"><h3 class="subhd">'+esc(s)+' <span class="subn">'+BUCKETS[VIEW.cat][s].length+'</span></h3><div class="menu">'+BUCKETS[VIEW.cat][s].map(menuCard).join('')+'</div></div>';}).join('');}
   else{var flat=[];subs.forEach(function(s){flat=flat.concat(BUCKETS[VIEW.cat][s]);});inner='<div class="menu">'+flat.map(menuCard).join('')+'</div>';}
-  grid.innerHTML=inner;wireCards();}
-function setSub(sub){VIEW.sub=sub;document.querySelectorAll('.schip').forEach(function(b){b.classList.toggle('on',b.dataset.sub===sub);});renderGrid();}
+  grid.innerHTML=inner+moreCatsHtml();wireCards();}
+// Always bring the filtered results to the top (nav pinned under the header). Without this, re-rendering a
+// shorter grid left the viewport parked over the footer / Instagram feed — the "takes me to the bottom" bug.
+function scrollToResults(){var w=document.getElementById('navwrap');if(!w)return;
+  var hh=(document.querySelector('.hdr')||{offsetHeight:60}).offsetHeight;
+  window.scrollTo({top:Math.max(0,w.offsetTop-hh),behavior:'smooth'});}
+function setSub(sub){VIEW.sub=sub;document.querySelectorAll('.schip').forEach(function(b){b.classList.toggle('on',b.dataset.sub===sub);});renderGrid();scrollToResults();}
 function setCat(cat,doScroll){
   VIEW.cat=cat;VIEW.sub='all';VIEW.q='';
   var nw=document.getElementById('navwrap');if(nw)nw.classList.remove('searching');
@@ -216,8 +222,15 @@ function setCat(cat,doScroll){
   document.querySelectorAll('.ctab').forEach(function(t){var on=t.dataset.cat===cat;t.classList.toggle('on',on);
     if(on){var tr=t.closest('.ctabs');if(tr)tr.scrollTo({left:t.offsetLeft-tr.clientWidth/2+t.clientWidth/2,behavior:'smooth'});}});
   renderSubchips();renderGrid();
-  if(doScroll){var w=document.getElementById('navwrap'),hh=(document.querySelector('.hdr')||{offsetHeight:56}).offsetHeight;
-    if(w&&w.getBoundingClientRect().top<hh)window.scrollTo({top:w.offsetTop-hh+1,behavior:'smooth'});}}
+  if(doScroll)scrollToResults();}
+// "Keep exploring" — after a category's grid, surface the OTHER major categories so shoppers don't stop
+// after the first one (e.g. Polos). Big reason customers weren't discovering jackets/fleece/etc.
+function moreCatsHtml(){
+  var others=CATS.filter(function(c){return c!==VIEW.cat;});
+  if(!others.length)return '';
+  return '<div class="morecats"><div class="mchd">Keep exploring the collection</div><div class="mcrow">'+
+    others.map(function(c){return '<button class="mcbtn" data-cat="'+c+'">'+esc(shortCat(c))+'<span>'+TOTALS[c]+'</span></button>';}).join('')+
+    '</div></div>';}
 function openSearch(){var nw=document.getElementById('navwrap');if(nw)nw.classList.add('searching');var si=document.getElementById('kitSearch');if(si){si.focus();}}
 function closeSearch(){var nw=document.getElementById('navwrap');if(nw)nw.classList.remove('searching');VIEW.q='';var si=document.getElementById('kitSearch');if(si)si.value='';renderGrid();}
 /* ---------- build page ---------- */
