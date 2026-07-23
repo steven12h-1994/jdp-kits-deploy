@@ -109,6 +109,7 @@ var MEGA=[
   {id:'layers',name:'Sweaters & Fleece'},
   {id:'outerwear',name:'Jackets & Vests'},
   {id:'workwear',name:'Pants & Bibs'},
+  {id:'fr',name:'Flame-Resistant'},
   {id:'hivis',name:'Hi-Vis & Safety'},
   {id:'headwear',name:'Headwear'},
   {id:'bags',name:'Bags & Gear'}
@@ -118,6 +119,7 @@ var MEGASUB={
   layers:['Quarter & Half-Zips','Crewnecks & Sweatshirts','Hoodies','Fleece'],
   outerwear:['Softshell Jackets','Shackets & Overshirts','Insulated & Thermal','Puffer & Quilted','3-in-1 Systems','Shells & Rainwear','Vests','Jackets'],
   workwear:['Work Pants','Bibs & Overalls'],
+  fr:['FR Shirts','FR Tees','FR Hoodies','FR Jackets','FR Pants','FR Accessories'],
   hivis:['Hi-Vis T-Shirts','Safety Vests','Hi-Vis Hoodies','Hi-Vis Gear'],
   headwear:['Caps','Beanies & Toques','Balaclavas'],
   bags:['Backpacks','Duffels','Coolers','Tool Bags','Accessories','Bags']
@@ -137,6 +139,15 @@ function classify(it){
     return {mega:'hivis',sub:h};}
   // apparel (office + premium + Stormtech). Order matters: shackets/vests before shirt/fleece;
   // layers (zip/sweatshirt/hood) before "shirt" so "…Sweatshirt" doesn't read as a shirt.
+  // Flame-Resistant gets its own tab — route FR items here first (before bottoms/headwear/garment rules).
+  if(/\bfr\b|flame[- ]resistant/.test(n)){
+    if(/hood/.test(n))return {mega:'fr',sub:'FR Hoodies'};
+    if(/\bpant\b|cargo|dungaree/.test(n))return {mega:'fr',sub:'FR Pants'};
+    if(/balaclava|beanie|hood scarf|gaiter/.test(n))return {mega:'fr',sub:'FR Accessories'};
+    if(/jacket|coat|parka|vest/.test(n))return {mega:'fr',sub:'FR Jackets'};
+    if(/tee|t-shirt|henley/.test(n))return {mega:'fr',sub:'FR Tees'};
+    return {mega:'fr',sub:'FR Shirts'};
+  }
   // Carhartt bottoms & headwear (premium layer, routed by name to their own category tabs):
   if(/bib overall|coverall|\bbib\b/.test(n))return {mega:'workwear',sub:'Bibs & Overalls'};
   if(/\bpant\b|\bpants\b|cargo|dungaree|trouser/.test(n))return {mega:'workwear',sub:'Work Pants'};
@@ -164,7 +175,7 @@ function classify(it){
 /* ---------- FILTERED BROWSE MODEL (one category at a time; no endless scroll) ---------- */
 var VIEW={cat:null,sub:'all',q:''};
 var BUCKETS={},TOTALS={},CATS=[];
-var SHORTCAT={tops:'Polos & Shirts',layers:'Fleece & Sweaters',outerwear:'Jackets & Vests',workwear:'Pants & Bibs',hivis:'Hi-Vis',headwear:'Headwear',bags:'Bags'};
+var SHORTCAT={tops:'Polos & Shirts',layers:'Fleece & Sweaters',outerwear:'Jackets & Vests',workwear:'Pants & Bibs',fr:'Flame-Resistant',hivis:'Hi-Vis',headwear:'Headwear',bags:'Bags'};
 function shortCat(id){return SHORTCAT[id]||megaName(id);}
 function buildBuckets(){
   var order=CFG.order||{},all=[];
