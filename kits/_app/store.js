@@ -209,11 +209,15 @@ function renderGrid(){
     inner=subs.map(function(s){return '<div class="subgrp"><h3 class="subhd">'+esc(s)+' <span class="subn">'+BUCKETS[VIEW.cat][s].length+'</span></h3><div class="menu">'+BUCKETS[VIEW.cat][s].map(menuCard).join('')+'</div></div>';}).join('');}
   else{var flat=[];subs.forEach(function(s){flat=flat.concat(BUCKETS[VIEW.cat][s]);});inner='<div class="menu">'+flat.map(menuCard).join('')+'</div>';}
   grid.innerHTML=inner+moreCatsHtml();wireCards();}
-// Always bring the filtered results to the top (nav pinned under the header). Without this, re-rendering a
-// shorter grid left the viewport parked over the footer / Instagram feed — the "takes me to the bottom" bug.
-function scrollToResults(){var w=document.getElementById('navwrap');if(!w)return;
-  var hh=(document.querySelector('.hdr')||{offsetHeight:60}).offsetHeight;
-  window.scrollTo({top:Math.max(0,w.offsetTop-hh),behavior:'smooth'});}
+// Bring the START of the filtered results (the grid heading) to just below the sticky header+nav. Measured
+// live via getBoundingClientRect so it's accurate for any category length — fixes clicks landing at the
+// footer/Instagram feed when a category re-rendered shorter.
+function scrollToResults(){
+  var hd=document.getElementById('gridhd');if(!hd)return;
+  var hdr=document.querySelector('.hdr'),nav=document.getElementById('navwrap');
+  var sticky=(hdr?hdr.offsetHeight:60)+(nav?nav.offsetHeight:0)+8;
+  var y=window.pageYOffset+hd.getBoundingClientRect().top-sticky;
+  window.scrollTo({top:Math.max(0,y),behavior:'smooth'});}
 function setSub(sub){VIEW.sub=sub;document.querySelectorAll('.schip').forEach(function(b){b.classList.toggle('on',b.dataset.sub===sub);});renderGrid();scrollToResults();}
 function setCat(cat,doScroll){
   VIEW.cat=cat;VIEW.sub='all';VIEW.q='';
