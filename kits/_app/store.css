@@ -424,10 +424,33 @@ main{padding:0 0 22px}
 .cosent .checkout{margin-top:10px;max-width:240px}
 
 /* "Keep exploring" — next-category discovery strip at the end of a category grid */
-.morecats{margin:30px 0 6px;border-top:1px solid var(--line);padding-top:22px}
-.mchd{font-size:16px;font-weight:850;letter-spacing:-.01em;margin:0 0 13px}
-.mcrow{display:flex;flex-wrap:wrap;gap:10px}
-.mcbtn{display:inline-flex;align-items:center;gap:8px;background:var(--card);border:1.5px solid var(--line);border-radius:12px;padding:12px 16px;font:inherit;font-size:14.5px;font-weight:800;color:var(--ink);cursor:pointer;transition:border-color .12s,transform .12s,box-shadow .12s}
-.mcbtn:hover{border-color:var(--a);transform:translateY(-2px);box-shadow:var(--sh)}
-.mcbtn span{font-size:12px;font-weight:800;color:#fff;background:var(--a);border-radius:999px;padding:2px 8px}
-@media(max-width:600px){.mcbtn{flex:1 1 calc(50% - 5px);justify-content:space-between;padding:12px 14px}}
+.morecats{margin:34px 0 6px;border-top:1px solid var(--line);padding-top:24px}
+.mchd{font-size:19px;font-weight:850;letter-spacing:-.02em;margin:0 0 4px}
+.mcsub{font-size:13.5px;color:var(--mut);margin:0 0 16px;max-width:560px}
+/* Up-next advance banner — momentum to the next major category */
+.nextup{display:flex;align-items:center;gap:16px;background:linear-gradient(100deg,color-mix(in srgb,var(--a) 9%,#fff),var(--card) 62%);border:1.5px solid color-mix(in srgb,var(--a) 30%,var(--line));border-radius:16px;padding:12px 16px 12px 12px;cursor:pointer;transition:transform .14s,box-shadow .14s,border-color .14s;margin-bottom:16px}
+.nextup:hover{transform:translateY(-2px);box-shadow:0 16px 32px -18px var(--a);border-color:var(--a)}
+.nextup:focus-visible{outline:2px solid var(--a);outline-offset:2px}
+.nupic{width:88px;flex:none}
+.nupic .mstage{width:100%;border-radius:12px}
+.nutx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.nulab{font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--a)}
+.nutx b{font-size:20px;font-weight:850;letter-spacing:-.02em;line-height:1.08}
+.nutx i{font-style:normal;font-size:13px;color:var(--mut)}
+.nugo{flex:none;width:44px;height:44px;border-radius:999px;background:var(--a);color:#fff;font-size:22px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 10px 22px -10px var(--a);transition:transform .14s}
+.nextup:hover .nugo{transform:translateX(3px)}
+/* Image-led category gallery */
+.mcgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(158px,1fr));gap:12px}
+.mccard{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;cursor:pointer;box-shadow:var(--sh);transition:transform .14s,box-shadow .14s,border-color .14s}
+.mccard:hover{transform:translateY(-3px);box-shadow:var(--shx);border-color:color-mix(in srgb,var(--a) 40%,var(--line))}
+.mccard:focus-visible{outline:2px solid var(--a);outline-offset:2px}
+.mcpic .mstage{width:100%}
+.mctx{padding:11px 13px 13px;display:flex;flex-direction:column;gap:2px}
+.mctx b{font-size:15px;font-weight:850;letter-spacing:-.01em}
+.mctx i{font-style:normal;font-size:12.5px;font-weight:800;color:var(--a)}
+@media(max-width:600px){
+  .mchd{font-size:18px}
+  .mcgrid{grid-template-columns:1fr 1fr;gap:10px}
+  .nutx b{font-size:17px}
+  .nupic{width:78px}
+}

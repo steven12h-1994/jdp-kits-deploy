@@ -190,7 +190,8 @@ function wireCards(){
   g.querySelectorAll('.madd').forEach(function(b){b.addEventListener('click',function(e){e.stopPropagation();var k=b.dataset.key;if(CART[k]){openSheet(k);}else{quickAdd(k);}});});
   g.querySelectorAll('.mvid').forEach(function(b){b.addEventListener('click',function(e){e.stopPropagation();openVideo(b.dataset.vid,b.dataset.vname);});});
   g.querySelectorAll('.mstage .g').forEach(function(im){if(im.complete)im.classList.add('ld');else im.addEventListener('load',function(){im.classList.add('ld');});});
-  g.querySelectorAll('.mcbtn').forEach(function(b){b.addEventListener('click',function(){setCat(b.dataset.cat,true);});});
+  g.querySelectorAll('.mccard,.nextup').forEach(function(b){b.addEventListener('click',function(){setCat(b.dataset.cat,true);});
+    b.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();setCat(b.dataset.cat,true);}});});
   refreshCartUI();}
 function renderGrid(){
   var grid=document.getElementById('grid'),hd=document.getElementById('gridhd'),nr=document.getElementById('noResults');
@@ -229,12 +230,31 @@ function setCat(cat,doScroll){
   if(doScroll)scrollToResults();}
 // "Keep exploring" — after a category's grid, surface the OTHER major categories so shoppers don't stop
 // after the first one (e.g. Polos). Big reason customers weren't discovering jackets/fleece/etc.
+// Top item of a category (first subcategory, top-sorted) — its branded mockup becomes the category's hero thumbnail.
+function catHeroKey(cat){var subs=subNames(cat);for(var i=0;i<subs.length;i++){var arr=BUCKETS[cat]&&BUCKETS[cat][subs[i]];if(arr&&arr.length)return arr[0];}return null;}
+// A compact branded mockup thumbnail for a category (real product photo + the customer's logo at its placement).
+function catPic(cat){var k=catHeroKey(cat);if(!k)return '';var it=BYKEY[k],vm=vmOf(k),o=overlayHtml(it,vm,vm.colour,'front');
+  return '<div class="mstage"><img class="g" src="'+o.g+'" alt="'+esc(shortCat(cat))+'" loading="lazy" decoding="async">'+o.lg+'</div>';}
 function moreCatsHtml(){
   var others=CATS.filter(function(c){return c!==VIEW.cat;});
   if(!others.length)return '';
-  return '<div class="morecats"><div class="mchd">Keep exploring the collection</div><div class="mcrow">'+
-    others.map(function(c){return '<button class="mcbtn" data-cat="'+c+'">'+esc(shortCat(c))+'<span>'+TOTALS[c]+'</span></button>';}).join('')+
-    '</div></div>';}
+  var i=CATS.indexOf(VIEW.cat),nextCat=CATS[(i+1)%CATS.length];
+  if(nextCat===VIEW.cat)nextCat=others[0];
+  // (1) "Up next" advance banner — one obvious tap to keep the shopper moving to the next major category.
+  var banner='<div class="nextup" role="button" tabindex="0" data-cat="'+nextCat+'" aria-label="Browse '+esc(shortCat(nextCat))+' next">'+
+      '<div class="nupic">'+catPic(nextCat)+'</div>'+
+      '<div class="nutx"><span class="nulab">Up next</span><b>'+esc(shortCat(nextCat))+'</b>'+
+        '<i>'+TOTALS[nextCat]+' styles ready with your logo</i></div>'+
+      '<span class="nugo" aria-hidden="true">→</span></div>';
+  // (2) Visual gallery of the remaining categories — image-led tiles beat a wall of text buttons for discovery.
+  var rest=others.filter(function(c){return c!==nextCat;});
+  var tiles=rest.map(function(c){return '<div class="mccard" role="button" tabindex="0" data-cat="'+c+'" aria-label="Browse '+esc(shortCat(c))+'">'+
+      '<div class="mcpic">'+catPic(c)+'</div>'+
+      '<div class="mctx"><b>'+esc(shortCat(c))+'</b><i>'+TOTALS[c]+' styles →</i></div></div>';}).join('');
+  var gallery=tiles?'<div class="mcgrid">'+tiles+'</div>':'';
+  return '<div class="morecats"><div class="mchd">Keep exploring the collection</div>'+
+    '<div class="mcsub">Your logo, ready across every layer — tap a category to keep browsing.</div>'+
+    banner+gallery+'</div>';}
 function openSearch(){var nw=document.getElementById('navwrap');if(nw)nw.classList.add('searching');var si=document.getElementById('kitSearch');if(si){si.focus();}}
 function closeSearch(){var nw=document.getElementById('navwrap');if(nw)nw.classList.remove('searching');VIEW.q='';var si=document.getElementById('kitSearch');if(si)si.value='';renderGrid();}
 /* ---------- build page ---------- */
