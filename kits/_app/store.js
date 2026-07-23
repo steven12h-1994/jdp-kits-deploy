@@ -108,26 +108,40 @@ var MEGA=[
   {id:'tops',name:'Polos, Shirts & Tees'},
   {id:'layers',name:'Sweaters & Fleece'},
   {id:'outerwear',name:'Jackets & Vests'},
-  {id:'workwear',name:'Pants & Bibs'},
-  {id:'fr',name:'Flame-Resistant'},
   {id:'hivis',name:'Hi-Vis & Safety'},
-  {id:'headwear',name:'Headwear'},
+  {id:'carhartt',name:'Carhartt Workwear'},
   {id:'bags',name:'Bags & Gear'}
 ];
 var MEGASUB={
   tops:['Polos','Shirts','Tees'],
   layers:['Quarter & Half-Zips','Crewnecks & Sweatshirts','Hoodies','Fleece'],
   outerwear:['Softshell Jackets','Shackets & Overshirts','Insulated & Thermal','Puffer & Quilted','3-in-1 Systems','Shells & Rainwear','Vests','Jackets'],
-  workwear:['Work Pants','Bibs & Overalls'],
-  fr:['FR Shirts','FR Tees','FR Hoodies','FR Jackets','FR Pants','FR Accessories'],
   hivis:['Hi-Vis T-Shirts','Safety Vests','Hi-Vis Hoodies','Hi-Vis Gear'],
-  headwear:['Caps','Beanies & Toques','Balaclavas'],
+  // Carhartt is its OWN brand category (declutters the shared tabs). Best Sellers first, then by garment.
+  carhartt:['Best Sellers','Sweatshirts & Hoodies','T-Shirts','Shirts','Jackets & Coats','Vests','Pants & Bibs','Flame-Resistant','Headwear','Bags & Accessories'],
   bags:['Backpacks','Duffels','Coolers','Tool Bags','Accessories','Bags']
 };
+// Carhartt icons surfaced under "Best Sellers" (pulled out of their garment sub so they lead the category).
+var CARHBEST={ch_k121:1,ch_k87:1,ch_a18:1,ch_104050:1,ch_102208:1,ch_k122:1,ch_b11:1,ch_104277:1};
+function classifyCarhartt(it,n,layer){
+  if(CARHBEST[it.key])return {mega:'carhartt',sub:'Best Sellers'};
+  if(/\bfr\b|flame[- ]resistant/.test(n))return {mega:'carhartt',sub:'Flame-Resistant'};
+  if(layer==='bags'||/duffel|backpack|cooler|lunch|dog|leash|collar|throw|blanket|\bbag\b|tote/.test(n))return {mega:'carhartt',sub:'Bags & Accessories'};
+  if(/balaclava|beanie|toque|watch hat|\bcap\b|mesh back|knit .*hat|cuffed/.test(n))return {mega:'carhartt',sub:'Headwear'};
+  if(/bib overall|coverall|\bbib\b|\bpant\b|\bpants\b|cargo|dungaree|trouser/.test(n))return {mega:'carhartt',sub:'Pants & Bibs'};
+  if(/vest/.test(n))return {mega:'carhartt',sub:'Vests'};
+  if(/jacket|coat|parka|softshell|active jac/.test(n))return {mega:'carhartt',sub:'Jackets & Coats'};
+  if(/hood|sweatshirt|quarter|1\/4|mock/.test(n))return {mega:'carhartt',sub:'Sweatshirts & Hoodies'};
+  if(/tee|t-shirt|henley/.test(n))return {mega:'carhartt',sub:'T-Shirts'};
+  if(/shirt|button|plaid|twill/.test(n))return {mega:'carhartt',sub:'Shirts'};
+  return {mega:'carhartt',sub:'Sweatshirts & Hoodies'};
+}
 function megaName(id){for(var i=0;i<MEGA.length;i++)if(MEGA[i].id===id)return MEGA[i].name;return id;}
 // classify an item into {mega, sub} purely by garment type (names carry raw "&"; escaped at render).
 function classify(it){
   var layer=it.layer,n=((it.name||'')+' '+(it.key||'')).toLowerCase();
+  // Carhartt is a dedicated brand category — route ALL Carhartt items there (keeps the shared tabs uncluttered).
+  if(((it.sku||'')+' '+(it.brand||'')).toLowerCase().indexOf('carhartt')>=0)return classifyCarhartt(it,n,layer);
   if(layer==='bags'){var b='Bags';
     if(/collar|leash|dog|throw|blanket/.test(n))b='Accessories';
     else if(n.indexOf('cooler')>=0)b='Coolers';else if(n.indexOf('duffel')>=0)b='Duffels';
@@ -175,7 +189,7 @@ function classify(it){
 /* ---------- FILTERED BROWSE MODEL (one category at a time; no endless scroll) ---------- */
 var VIEW={cat:null,sub:'all',q:''};
 var BUCKETS={},TOTALS={},CATS=[];
-var SHORTCAT={tops:'Polos & Shirts',layers:'Fleece & Sweaters',outerwear:'Jackets & Vests',workwear:'Pants & Bibs',fr:'Flame-Resistant',hivis:'Hi-Vis',headwear:'Headwear',bags:'Bags'};
+var SHORTCAT={tops:'Polos & Shirts',layers:'Fleece & Sweaters',outerwear:'Jackets & Vests',hivis:'Hi-Vis',carhartt:'Carhartt',bags:'Bags'};
 function shortCat(id){return SHORTCAT[id]||megaName(id);}
 function buildBuckets(){
   var order=CFG.order||{},all=[];
