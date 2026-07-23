@@ -121,10 +121,9 @@ var MEGASUB={
   carhartt:['Best Sellers','Sweatshirts & Hoodies','T-Shirts','Shirts','Jackets & Coats','Vests','Pants & Bibs','Flame-Resistant','Headwear','Bags & Accessories'],
   bags:['Backpacks','Duffels','Coolers','Tool Bags','Accessories','Bags']
 };
-// Carhartt icons surfaced under "Best Sellers" (pulled out of their garment sub so they lead the category).
-var CARHBEST={ch_k121:1,ch_k87:1,ch_a18:1,ch_104050:1,ch_102208:1,ch_k122:1,ch_b11:1,ch_104277:1};
+// Best Sellers = top-ranked styles from the corporateworkapparel Carhartt collection (rec flag, set in catalog).
 function classifyCarhartt(it,n,layer){
-  if(CARHBEST[it.key])return {mega:'carhartt',sub:'Best Sellers'};
+  if(it.rec)return {mega:'carhartt',sub:'Best Sellers'};
   if(/\bfr\b|flame[- ]resistant/.test(n))return {mega:'carhartt',sub:'Flame-Resistant'};
   if(layer==='bags'||/duffel|backpack|cooler|lunch|dog|leash|collar|throw|blanket|\bbag\b|tote/.test(n))return {mega:'carhartt',sub:'Bags & Accessories'};
   if(/balaclava|beanie|toque|watch hat|\bcap\b|mesh back|knit .*hat|cuffed/.test(n))return {mega:'carhartt',sub:'Headwear'};
@@ -200,7 +199,10 @@ function buildBuckets(){
     TOTALS[c.mega]=(TOTALS[c.mega]||0)+1;});
   // Order within each subcategory for optimal browsing: top picks first, then price low → high.
   var pc=(CFG.pricing&&CFG.pricing.cols)?CFG.pricing.cols:[12,48,144],top=pc[pc.length-1];
-  function pkey(k){var it=BYKEY[k],rec=(it.rec||k===CFG.feature)?0:1,p;try{p=unitPrice(k,vmOf(k).decos,top);}catch(e){p=it.blank||0;}return [rec,p];}
+  // Sort: top-picks first, then by best-seller rank (srt, e.g. Carhartt collection order) when present, else price low→high.
+  function pkey(k){var it=BYKEY[k],rec=(it.rec||k===CFG.feature)?0:1,p;
+    if(it.srt!=null)return [rec,it.srt];
+    try{p=unitPrice(k,vmOf(k).decos,top);}catch(e){p=it.blank||0;}return [rec,p];}
   Object.keys(BUCKETS).forEach(function(m){Object.keys(BUCKETS[m]).forEach(function(s){
     BUCKETS[m][s].sort(function(a,b){var pa=pkey(a),pb=pkey(b);return (pa[0]-pb[0])||(pa[1]-pb[1]);});});});
   CATS=MEGA.filter(function(m){return BUCKETS[m.id];}).map(function(m){return m.id;});
@@ -449,7 +451,7 @@ function openSheet(key){
   // Size breakdown is the ONLY quantity control. baseQty preserves the count of an item that was
   // quick-started without a size split (e.g. the recommended kit) so reopening it doesn't lose it.
   var exfit=(ex&&ex.fit)||'mens';
-  SH={key:key,colour:(ex&&ex.colour)||vm.colour,face:'front',D:{},showExtra:false,sizes:{},fit:exfit,baseQty:ex?(ex.sizes?0:(ex.qty||moq())):moq()};
+  SH={key:key,colour:(ex&&ex.colour)||vm.colour,face:'front',gimg:null,D:{},showExtra:false,sizes:{},fit:exfit,baseQty:ex?(ex.sizes?0:(ex.qty||moq())):moq()};
   // if the saved colour isn't in the active fit's colour set, fall back to that set's first colour
   var _cc=curColsOf(item,SH.fit);if(!colInList(_cc,SH.colour)||colInList(_cc,SH.colour).name!==SH.colour)SH.colour=_cc[0].name;
   sheetSizes().forEach(function(s){SH.sizes[s]=(ex&&ex.sizes&&ex.sizes[s])||0;});
@@ -497,6 +499,14 @@ function finishGroup(pl,primary){
       '<span class="fr"></span><span class="ft"><b>'+opt.lab+(rec?' <span class="frec">★ Recommended</span>':'')+'</b><span>'+opt.sub+'</span></span>'+
       tag(u)+'</button>';});
   return rows;
+}
+// Photo gallery for the detail sheet — every product photo (angles/model). First thumb = current colour.
+function galleryStrip(item){
+  var gal=item.gallery||[];if(!gal.length)return '';
+  var cur=colInList(curColsOf(item,SH.fit),SH.colour);
+  var t=['<button class="shgthumb'+(SH.gimg?'':' on')+'" data-img="" style="background-image:url('+gurl(cur.front)+')" aria-label="Main colour view"></button>'];
+  gal.forEach(function(g){t.push('<button class="shgthumb'+(SH.gimg===g?' on':'')+'" data-img="'+esc(g)+'" style="background-image:url('+gurl(g)+')" aria-label="Product photo"></button>');});
+  return '<div class="shgal">'+t.join('')+'</div>';
 }
 function renderSheet(){
   var item=BYKEY[SH.key];
@@ -574,7 +584,8 @@ function renderSheet(){
   document.getElementById('sheet').innerHTML=
     '<button class="shx" id="shx" aria-label="Close">✕</button>'+
     '<div class="shscroll">'+
-      '<div class="shimg" id="shimg"><div class="shstage"><img class="g" src="'+o.g+'" alt="">'+o.lg+'</div>'+faceTog+'</div>'+
+      '<div class="shimg" id="shimg"><div class="shstage"><img class="g" src="'+(SH.gimg?gurl(SH.gimg):o.g)+'" alt="">'+(SH.gimg?'':o.lg)+'</div>'+faceTog+'</div>'+
+      galleryStrip(item)+
       ((item.scenic||item.video)?('<div class="shmedia">'+
         (item.scenic?'<button class="shworn" id="shworn" aria-label="See it worn"><img src="'+gurl(item.scenic)+'" alt="" loading="lazy"><span class="swt"><b>See it worn</b><i>real in-the-field photo</i></span><span class="swgo">→</span></button>':'')+
         (item.video?'<button class="vwatch" id="vwatch"><svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>Watch video</button>':'')+
@@ -592,7 +603,9 @@ function renderSheet(){
   document.getElementById('shx').addEventListener('click',closeAll);
   var vw=document.getElementById('vwatch');if(vw)vw.addEventListener('click',function(){openVideo(item.video,item.name);});
   var sw=document.getElementById('shworn');if(sw)sw.addEventListener('click',function(){openScenic(gurl(item.scenic),item.name);});
-  sh.querySelectorAll('.cchip').forEach(function(b){b.addEventListener('click',function(){SH.colour=b.dataset.col;swapPreview();renderSheet();});});
+  sh.querySelectorAll('.cchip').forEach(function(b){b.addEventListener('click',function(){SH.colour=b.dataset.col;SH.gimg=null;swapPreview();renderSheet();});});
+  sh.querySelectorAll('.shgthumb').forEach(function(b){b.addEventListener('click',function(){SH.gimg=b.dataset.img||null;renderSheet();
+    var st=document.querySelector('#sheet .shscroll');if(st)st.scrollTop=0;});});
   sh.querySelectorAll('[data-face]').forEach(function(b){b.addEventListener('click',function(){SH.face=b.dataset.face;renderSheet();});});
   sh.querySelectorAll('[data-fit]').forEach(function(b){b.addEventListener('click',function(){
     if(SH.fit===b.dataset.fit)return;SH.fit=b.dataset.fit;
