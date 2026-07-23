@@ -108,22 +108,27 @@ var MEGA=[
   {id:'tops',name:'Polos, Shirts & Tees'},
   {id:'layers',name:'Sweaters & Fleece'},
   {id:'outerwear',name:'Jackets & Vests'},
+  {id:'workwear',name:'Pants & Bibs'},
   {id:'hivis',name:'Hi-Vis & Safety'},
+  {id:'headwear',name:'Headwear'},
   {id:'bags',name:'Bags & Gear'}
 ];
 var MEGASUB={
   tops:['Polos','Shirts','Tees'],
   layers:['Quarter & Half-Zips','Crewnecks & Sweatshirts','Hoodies','Fleece'],
   outerwear:['Softshell Jackets','Shackets & Overshirts','Insulated & Thermal','Puffer & Quilted','3-in-1 Systems','Shells & Rainwear','Vests','Jackets'],
+  workwear:['Work Pants','Bibs & Overalls'],
   hivis:['Hi-Vis T-Shirts','Safety Vests','Hi-Vis Hoodies','Hi-Vis Gear'],
-  bags:['Backpacks','Duffels','Coolers','Tool Bags','Bags']
+  headwear:['Caps','Beanies & Toques','Balaclavas'],
+  bags:['Backpacks','Duffels','Coolers','Tool Bags','Accessories','Bags']
 };
 function megaName(id){for(var i=0;i<MEGA.length;i++)if(MEGA[i].id===id)return MEGA[i].name;return id;}
 // classify an item into {mega, sub} purely by garment type (names carry raw "&"; escaped at render).
 function classify(it){
   var layer=it.layer,n=((it.name||'')+' '+(it.key||'')).toLowerCase();
   if(layer==='bags'){var b='Bags';
-    if(n.indexOf('cooler')>=0)b='Coolers';else if(n.indexOf('duffel')>=0)b='Duffels';
+    if(/collar|leash|dog|throw|blanket/.test(n))b='Accessories';
+    else if(n.indexOf('cooler')>=0)b='Coolers';else if(n.indexOf('duffel')>=0)b='Duffels';
     else if(n.indexOf('tool')>=0)b='Tool Bags';else if(n.indexOf('backpack')>=0||n.indexOf('pack')>=0)b='Backpacks';
     return {mega:'bags',sub:b};}
   if(layer==='field'){var h='Hi-Vis Gear';
@@ -132,6 +137,12 @@ function classify(it){
     return {mega:'hivis',sub:h};}
   // apparel (office + premium + Stormtech). Order matters: shackets/vests before shirt/fleece;
   // layers (zip/sweatshirt/hood) before "shirt" so "…Sweatshirt" doesn't read as a shirt.
+  // Carhartt bottoms & headwear (premium layer, routed by name to their own category tabs):
+  if(/bib overall|coverall|\bbib\b/.test(n))return {mega:'workwear',sub:'Bibs & Overalls'};
+  if(/\bpant\b|\bpants\b|cargo|dungaree|trouser/.test(n))return {mega:'workwear',sub:'Work Pants'};
+  if(/balaclava/.test(n))return {mega:'headwear',sub:'Balaclavas'};
+  if(/beanie|toque|watch hat|knit .*hat|cuffed/.test(n))return {mega:'headwear',sub:'Beanies & Toques'};
+  if(/\bcap\b|mesh back/.test(n))return {mega:'headwear',sub:'Caps'};
   if(/shacket|overshirt/.test(n))return {mega:'outerwear',sub:'Shackets & Overshirts'};
   if(/quarter-?zip|half-?zip|1\/4/.test(n))return {mega:'layers',sub:'Quarter & Half-Zips'};
   if(/crewneck|sweatshirt/.test(n)&&!/hood/.test(n))return {mega:'layers',sub:'Crewnecks & Sweatshirts'};
@@ -139,10 +150,10 @@ function classify(it){
   if(n.indexOf('vest')>=0)return {mega:'outerwear',sub:'Vests'};      // fleece/quilted vests -> Vests, not Fleece
   if(/fleece/.test(n))return {mega:'layers',sub:'Fleece'};
   if(n.indexOf('polo')>=0)return {mega:'tops',sub:'Polos'};
-  if(/tee|t-shirt/.test(n))return {mega:'tops',sub:'Tees'};
+  if(/tee|t-shirt|henley/.test(n))return {mega:'tops',sub:'Tees'};
   if(n.indexOf('shirt')>=0)return {mega:'tops',sub:'Shirts'};
   if(/3-?in-?1|5-?in-?1|system jacket/.test(n))return {mega:'outerwear',sub:'3-in-1 Systems'};
-  if(/rain|dryvent|raincoat/.test(n))return {mega:'outerwear',sub:'Shells & Rainwear'};
+  if(/\brain\b(?! ?defender)|dryvent|raincoat/.test(n))return {mega:'outerwear',sub:'Shells & Rainwear'};
   if(/softshell|soft shell/.test(n))return {mega:'outerwear',sub:'Softshell Jackets'};
   if(/puffer|quilted|down|thermoball|puffy/.test(n))return {mega:'outerwear',sub:'Puffer & Quilted'};
   if(/thermal|insulated|sherpa|hybrid/.test(n))return {mega:'outerwear',sub:'Insulated & Thermal'};
@@ -153,7 +164,7 @@ function classify(it){
 /* ---------- FILTERED BROWSE MODEL (one category at a time; no endless scroll) ---------- */
 var VIEW={cat:null,sub:'all',q:''};
 var BUCKETS={},TOTALS={},CATS=[];
-var SHORTCAT={tops:'Polos & Shirts',layers:'Fleece & Sweaters',outerwear:'Jackets & Vests',hivis:'Hi-Vis',bags:'Bags'};
+var SHORTCAT={tops:'Polos & Shirts',layers:'Fleece & Sweaters',outerwear:'Jackets & Vests',workwear:'Pants & Bibs',hivis:'Hi-Vis',headwear:'Headwear',bags:'Bags'};
 function shortCat(id){return SHORTCAT[id]||megaName(id);}
 function buildBuckets(){
   var order=CFG.order||{},all=[];
