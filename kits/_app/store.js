@@ -45,8 +45,11 @@ function decoCost(d,item){var r=CFG.rates||{};
 function costMult(c){if(c<=1)return 3.50;if(c<=3)return 2.80;if(c<=7)return 2.30;if(c<=15)return 2.00;if(c<=25)return 1.80;if(c<=40)return 1.65;if(c<=75)return 1.49;if(c<=150)return 1.40;if(c<=350)return 1.34;if(c<=700)return 1.28;return 1.22;}
 function volFactor(q){if(q<24)return 1.075;if(q<48)return 1.035;if(q<100)return 1.00;if(q<250)return 0.89;return 0.86;}
 function activeDecos(decos){return (decos||[]).filter(function(d){return d.on;});}
+function hasDecoPlace(item){return !!((item.places||[]).some(function(p){return p.logo;}));}
 function unitPrice(key,decos,q){var r=CFG.rates;if(!r||r.blank==null){return unitAt(BYKEY[key],q);}
-  var item=BYKEY[key],c=blankOf(key),dec=0;activeDecos(decos).forEach(function(d){dec+=decoCost(d,item);});
+  var item=BYKEY[key],c=blankOf(key),dec=0;
+  var vpl={};(item.places||[]).forEach(function(p){if(p.logo)vpl[p.id]=1;});   // only decorate on real logo places (pants have none -> no deco charge)
+  activeDecos(decos).forEach(function(d){if(!vpl[d.pl])return;dec+=decoCost(d,item);});
   var price=c*costMult(c)*volFactor(q)+dec,floor=(c+dec)/0.85;   // hard 15% total-margin clamp
   if(price<floor)price=floor; if(price<2.50)price=2.50;          // min piece price
   return Math.ceil(price/0.5)*0.5;}                              // round UP to nearest $0.50
@@ -92,7 +95,7 @@ function menuCard(key){
     '<div class="mb"><h3>'+esc(item.name)+'</h3>'+
       '<div class="mmeta">'+esc(item.sku)+(item.womens?' · Men’s &amp; Women’s':(item.unisex?' · Unisex':''))+'</div>'+
       colourDots(item)+
-      '<div class="mprice">from <b>'+money(fromP)+'</b> <small>/pc · decorated</small></div></div></article>';
+      '<div class="mprice">from <b>'+money(fromP)+'</b> <small>/pc'+(hasDecoPlace(item)?' · decorated':'')+'</small></div></div></article>';
 }
 // A row of real colour swatches on each card — shows selection depth at a glance (conversion signal).
 function colourDots(item){
@@ -118,13 +121,12 @@ var MEGASUB={
   layers:['Quarter & Half-Zips','Crewnecks & Sweatshirts','Hoodies','Fleece'],
   outerwear:['Softshell Jackets','Shackets & Overshirts','Insulated & Thermal','Puffer & Quilted','3-in-1 Systems','Shells & Rainwear','Vests','Jackets'],
   hivis:['Hi-Vis T-Shirts','Safety Vests','Hi-Vis Hoodies','Hi-Vis Gear'],
-  // Carhartt is its OWN brand category (declutters the shared tabs). Best Sellers first, then by garment.
-  carhartt:['Best Sellers','Sweatshirts & Hoodies','T-Shirts','Shirts','Jackets & Coats','Vests','Pants & Bibs','Flame-Resistant','Headwear','Bags & Accessories'],
+  // Carhartt is its OWN brand category (declutters the shared tabs). By garment; best-sellers keep the ★ Top pick badge and sort first.
+  carhartt:['Sweatshirts & Hoodies','T-Shirts','Shirts','Jackets & Coats','Vests','Pants & Bibs','Flame-Resistant','Headwear','Bags & Accessories'],
   bags:['Backpacks','Duffels','Coolers','Tool Bags','Accessories','Bags']
 };
-// Best Sellers = top-ranked styles from the corporateworkapparel Carhartt collection (rec flag, set in catalog).
+// Best-sellers (rec flag) are NOT a separate section — they live in their garment sub with the ★ Top pick badge, sorted first.
 function classifyCarhartt(it,n,layer){
-  if(it.rec)return {mega:'carhartt',sub:'Best Sellers'};
   if(/\bfr\b|flame[- ]resistant/.test(n))return {mega:'carhartt',sub:'Flame-Resistant'};
   if(layer==='bags'||/duffel|backpack|cooler|lunch|dog|leash|collar|throw|blanket|\bbag\b|tote/.test(n))return {mega:'carhartt',sub:'Bags & Accessories'};
   if(/balaclava|beanie|toque|watch hat|\bcap\b|mesh back|knit .*hat|cuffed/.test(n))return {mega:'carhartt',sub:'Headwear'};
@@ -592,7 +594,7 @@ function renderSheet(){
         (item.video?'<button class="vwatch" id="vwatch"><svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>Watch video</button>':'')+
       '</div>'):'')+
       '<div class="shb"><h2>'+esc(item.name)+'</h2><div class="shsku">'+esc(item.sku)+(item.womens?(SH.fit==='womens'?' · Ladies’':' · Men’s'):(item.unisex?' · Unisex':''))+(item.layer==='field'?' · CSA hi-vis':'')+'</div>'+
-      '<div class="shfrom">from <b>'+money(fromP)+'</b> <small>/pc</small> · decorated</div>'+
+      '<div class="shfrom">from <b>'+money(fromP)+'</b> <small>/pc</small>'+(hasDecoPlace(item)?' · decorated':'')+'</div>'+
       (item.blurb?'<p class="shblurb">'+esc(item.blurb)+'</p>':'')+
       fitTog+step1+qtyGrp+primaryHtml+extraHtml+
       '<div class="shnote">Prices are per piece, decorated — your logo (embroidery / print) is included. One-time setup shows once in your kit summary. Exact quote confirmed before anything runs.</div>'+
