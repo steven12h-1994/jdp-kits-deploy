@@ -1,6 +1,6 @@
 {
-  "generator": "catalog+carhartt-v3.1",
-  "version": "1784850041",
+  "generator": "catalog+carhartt-v3.2",
+  "version": "1784890093",
   "files": [
     "catalog.json",
     "catalog.js",
