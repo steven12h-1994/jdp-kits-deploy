@@ -46,8 +46,8 @@ function costMult(c){if(c<=1)return 3.50;if(c<=3)return 2.80;if(c<=7)return 2.30
 function volFactor(q){if(q<24)return 1.075;if(q<48)return 1.035;if(q<100)return 1.00;if(q<250)return 0.89;return 0.86;}
 // Carhartt — transparent premium brand: leaner market-benchmarked markup (competitive with marks.com / carhartt.com).
 function isCarhartt(item){return String((item&&(item.brand||item.sku))||'').toLowerCase().indexOf('carhartt')===0;}
-function costMultCarh(c){if(c<=15)return 1.60;if(c<=30)return 1.50;if(c<=60)return 1.40;if(c<=100)return 1.32;if(c<=180)return 1.28;return 1.24;}
-function volFactorCarh(q){if(q<24)return 1.04;if(q<100)return 1.00;if(q<250)return 0.94;return 0.91;}
+function costMultCarh(c){if(c<=15)return 1.72;if(c<=30)return 1.60;if(c<=60)return 1.50;if(c<=100)return 1.42;if(c<=180)return 1.36;return 1.31;}
+function volFactorCarh(q){if(q<24)return 1.03;if(q<100)return 1.00;if(q<250)return 0.96;return 0.93;}
 function activeDecos(decos){return (decos||[]).filter(function(d){return d.on;});}
 function hasDecoPlace(item){return !!((item.places||[]).some(function(p){return p.logo;}));}
 function unitPrice(key,decos,q){var r=CFG.rates;if(!r||r.blank==null){return unitAt(BYKEY[key],q);}
