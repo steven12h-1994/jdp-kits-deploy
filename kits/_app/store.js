@@ -597,7 +597,7 @@ function renderSheet(){
       '<div class="shfrom">from <b>'+money(fromP)+'</b> <small>/pc</small>'+(hasDecoPlace(item)?' · decorated':'')+'</div>'+
       (item.blurb?'<p class="shblurb">'+esc(item.blurb)+'</p>':'')+
       fitTog+step1+qtyGrp+primaryHtml+extraHtml+
-      '<div class="shnote">Prices are per piece, decorated — your logo (embroidery / print) is included. One-time setup shows once in your kit summary. Exact quote confirmed before anything runs.</div>'+
+      '<div class="shnote">'+(hasDecoPlace(item)?'Prices are per piece, decorated — your logo (embroidery / print) is included. One-time setup shows once in your kit summary. ':'Prices are per piece (blank garment — no decoration on this item). ')+'Exact quote confirmed before anything runs.</div>'+
     '</div></div>'+
     '<div class="shfoot">'+priceClar+
       '<button class="shaddbtn" id="shAdd"'+(canAdd?'':' disabled')+'><span>'+(canAdd?(CART[SH.key]?'Update kit':'Add to kit'):('Add '+moq()+'+ pieces'))+'</span><span class="p">'+money(line)+'</span></button>'+
