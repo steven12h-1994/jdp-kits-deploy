@@ -44,13 +44,18 @@ function decoCost(d,item){var r=CFG.rates||{};
 /* JDP Pricing Model v2.1 — markup declines along a cost curve on the BLANK; decoration passed at cost. */
 function costMult(c){if(c<=1)return 3.50;if(c<=3)return 2.80;if(c<=7)return 2.30;if(c<=15)return 2.00;if(c<=25)return 1.80;if(c<=40)return 1.65;if(c<=75)return 1.49;if(c<=150)return 1.40;if(c<=350)return 1.34;if(c<=700)return 1.28;return 1.22;}
 function volFactor(q){if(q<24)return 1.075;if(q<48)return 1.035;if(q<100)return 1.00;if(q<250)return 0.89;return 0.86;}
+// Carhartt — transparent premium brand: leaner market-benchmarked markup (competitive with marks.com / carhartt.com).
+function isCarhartt(item){return String((item&&(item.brand||item.sku))||'').toLowerCase().indexOf('carhartt')===0;}
+function costMultCarh(c){if(c<=15)return 1.60;if(c<=30)return 1.50;if(c<=60)return 1.40;if(c<=100)return 1.32;if(c<=180)return 1.28;return 1.24;}
+function volFactorCarh(q){if(q<24)return 1.04;if(q<100)return 1.00;if(q<250)return 0.94;return 0.91;}
 function activeDecos(decos){return (decos||[]).filter(function(d){return d.on;});}
 function hasDecoPlace(item){return !!((item.places||[]).some(function(p){return p.logo;}));}
 function unitPrice(key,decos,q){var r=CFG.rates;if(!r||r.blank==null){return unitAt(BYKEY[key],q);}
   var item=BYKEY[key],c=blankOf(key),dec=0;
   var vpl={};(item.places||[]).forEach(function(p){if(p.logo)vpl[p.id]=1;});   // only decorate on real logo places (pants have none -> no deco charge)
   activeDecos(decos).forEach(function(d){if(!vpl[d.pl])return;dec+=decoCost(d,item);});
-  var price=c*costMult(c)*volFactor(q)+dec,floor=(c+dec)/0.85;   // hard 15% total-margin clamp
+  var cm=isCarhartt(item)?costMultCarh(c):costMult(c),vf=isCarhartt(item)?volFactorCarh(q):volFactor(q);
+  var price=c*cm*vf+dec,floor=(c+dec)/0.85;   // hard 15% total-margin clamp
   if(price<floor)price=floor; if(price<2.50)price=2.50;          // min piece price
   return Math.ceil(price/0.5)*0.5;}                              // round UP to nearest $0.50
 // A setup is charged ONCE per unique DESIGN+LOCATION+METHOD across the whole kit (a stitch file / set of
