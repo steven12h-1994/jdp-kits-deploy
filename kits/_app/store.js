@@ -127,7 +127,7 @@ var MEGASUB={
   layers:['Quarter & Half-Zips','Crewnecks & Sweatshirts','Hoodies','Fleece'],
   outerwear:['Softshell Jackets','Shackets & Overshirts','Insulated & Thermal','Puffer & Quilted','3-in-1 Systems','Shells & Rainwear','Vests','Jackets'],
   // Rugged Wear = Canada Sportswear's heavy-duty line, its own brand category.
-  ruggedwear:['Jackets & Bombers','Parkas','3-in-1 Systems','Vests','Hoodies & Tops'],
+  ruggedwear:['Jackets & Bombers','Parkas','3-in-1 Systems','Vests','Hoodies & Tops','Pants & Bibs'],
   hivis:['Hi-Vis T-Shirts','Safety Vests','Hi-Vis Hoodies','Hi-Vis Jackets','Hi-Vis Parkas','Hi-Vis Gear'],
   // Carhartt is its OWN brand category (declutters the shared tabs). By garment; best-sellers keep the ★ Top pick badge and sort first.
   carhartt:['Sweatshirts & Hoodies','T-Shirts','Shirts','Jackets & Coats','Vests','Pants & Bibs','Flame-Resistant','Headwear','Bags & Accessories'],
@@ -150,6 +150,20 @@ function classifyRugged(n){
   if(/vest/.test(n))return {mega:'ruggedwear',sub:'Vests'};
   if(/hood(ie|ed)|sweatshirt|t-shirt|tee/.test(n))return {mega:'ruggedwear',sub:'Hoodies & Tops'};
   return {mega:'ruggedwear',sub:'Jackets & Bombers'};
+}
+// CROSS-LIST: any genuinely rugged / heavy-duty piece from ANY brand ALSO appears in Rugged Wear (in
+// addition to its home category) — building the definitive rugged catalog. Returns a Rugged Wear sub or null.
+function ruggedAlso(it,c){
+  if(c.mega==='ruggedwear'||c.mega==='hivis'||c.mega==='bags')return null;   // native rugged / hi-vis / bags stay put
+  var n=((it.name||'')+' '+(it.key||'')).toLowerCase();
+  if(/\bcap\b|beanie|toque|balaclava|\bhat\b|mesh back|collar|leash|throw|blanket|lunch|duffel|backpack/.test(n))return null; // no headwear/accessories
+  if(!/duck|canvas|sherpa|insulated|thermal|thermoball|quilted|puffer|puffy|parka|bomber|3-?in-?1|5-?in-?1|heavy-?duty|freezer|flannel|fleece-lined|\brugged\b|active jac|rain defender|firm duck|washed duck|coverall|bib overall|utility|cargo|down hybrid/.test(n))return null; // NB: not \bdown\b — it matches "button down"
+  if(/bib overall|coverall|\bpant\b|\bpants\b|cargo|dungaree/.test(n))return 'Pants & Bibs';
+  if(/3-?in-?1|5-?in-?1/.test(n))return '3-in-1 Systems';
+  if(/parka/.test(n))return 'Parkas';
+  if(/vest/.test(n))return 'Vests';
+  if(/jacket|coat|bomber|shacket/.test(n))return 'Jackets & Bombers';   // outerwear
+  return 'Hoodies & Tops';   // rugged tops: thermal/plaid shirts, heavy hoodies, quarter-zips
 }
 // Best-sellers (rec flag) are NOT a separate section — they live in their garment sub with the ★ Top pick badge, sorted first.
 function classifyCarhartt(it,n,layer){
@@ -228,7 +242,9 @@ function buildBuckets(){
   BUCKETS={};TOTALS={};ALLKEYS=all;
   all.forEach(function(k){var it=BYKEY[k];if(!it)return;var c=classify(it);
     (BUCKETS[c.mega]=BUCKETS[c.mega]||{});(BUCKETS[c.mega][c.sub]=BUCKETS[c.mega][c.sub]||[]).push(k);
-    TOTALS[c.mega]=(TOTALS[c.mega]||0)+1;});
+    TOTALS[c.mega]=(TOTALS[c.mega]||0)+1;
+    var rr=ruggedAlso(it,c);   // ALSO surface rugged pieces in Rugged Wear (item stays in its home category too)
+    if(rr){(BUCKETS.ruggedwear=BUCKETS.ruggedwear||{});(BUCKETS.ruggedwear[rr]=BUCKETS.ruggedwear[rr]||[]).push(k);TOTALS.ruggedwear=(TOTALS.ruggedwear||0)+1;}});
   // Order within each subcategory for optimal browsing: top picks first, then price low → high.
   var pc=(CFG.pricing&&CFG.pricing.cols)?CFG.pricing.cols:[12,48,144],top=pc[pc.length-1];
   // Sort: top-picks first, then by best-seller rank (srt, e.g. Carhartt collection order) when present, else price low→high.
