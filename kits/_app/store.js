@@ -117,6 +117,7 @@ var MEGA=[
   {id:'tops',name:'Polos, Shirts & Tees'},
   {id:'layers',name:'Sweaters & Fleece'},
   {id:'outerwear',name:'Jackets & Vests'},
+  {id:'ruggedwear',name:'Rugged Wear'},
   {id:'hivis',name:'Hi-Vis & Safety'},
   {id:'carhartt',name:'Carhartt Workwear'},
   {id:'bags',name:'Bags & Gear'}
@@ -125,11 +126,31 @@ var MEGASUB={
   tops:['Polos','Shirts','Tees'],
   layers:['Quarter & Half-Zips','Crewnecks & Sweatshirts','Hoodies','Fleece'],
   outerwear:['Softshell Jackets','Shackets & Overshirts','Insulated & Thermal','Puffer & Quilted','3-in-1 Systems','Shells & Rainwear','Vests','Jackets'],
-  hivis:['Hi-Vis T-Shirts','Safety Vests','Hi-Vis Hoodies','Hi-Vis Gear'],
+  // Rugged Wear = Canada Sportswear's heavy-duty line, its own brand category.
+  ruggedwear:['Jackets & Bombers','Parkas','3-in-1 Systems','Vests','Hoodies & Tops'],
+  hivis:['Hi-Vis T-Shirts','Safety Vests','Hi-Vis Hoodies','Hi-Vis Jackets','Hi-Vis Parkas','Hi-Vis Gear'],
   // Carhartt is its OWN brand category (declutters the shared tabs). By garment; best-sellers keep the ★ Top pick badge and sort first.
   carhartt:['Sweatshirts & Hoodies','T-Shirts','Shirts','Jackets & Coats','Vests','Pants & Bibs','Flame-Resistant','Headwear','Bags & Accessories'],
   bags:['Backpacks','Duffels','Coolers','Tool Bags','Accessories','Bags']
 };
+// Hi-vis by NAME (any layer) — CS hi-vis items are premium-layer but belong in Hi-Vis & Safety.
+function classifyHivis(n){
+  if(/vest/.test(n))return {mega:'hivis',sub:'Safety Vests'};
+  if(/(tee|t-shirt)/.test(n)&&/hood/.test(n))return {mega:'hivis',sub:'Hi-Vis Hoodies'};
+  if(/tee|t-shirt/.test(n))return {mega:'hivis',sub:'Hi-Vis T-Shirts'};
+  if(/parka/.test(n))return {mega:'hivis',sub:'Hi-Vis Parkas'};
+  if(/overall|bib|coverall/.test(n))return {mega:'hivis',sub:'Hi-Vis Gear'};
+  if(/jacket|bomber|softshell|coat|hoodie|sweatshirt/.test(n))return {mega:'hivis',sub:'Hi-Vis Jackets'};
+  return {mega:'hivis',sub:'Hi-Vis Gear'};
+}
+// Rugged Wear (Canada Sportswear heavy-duty line) — its own brand category, by garment.
+function classifyRugged(n){
+  if(/3-?in-?1|5-?in-?1/.test(n))return {mega:'ruggedwear',sub:'3-in-1 Systems'};
+  if(/parka/.test(n))return {mega:'ruggedwear',sub:'Parkas'};
+  if(/vest/.test(n))return {mega:'ruggedwear',sub:'Vests'};
+  if(/hood(ie|ed)|sweatshirt|t-shirt|tee/.test(n))return {mega:'ruggedwear',sub:'Hoodies & Tops'};
+  return {mega:'ruggedwear',sub:'Jackets & Bombers'};
+}
 // Best-sellers (rec flag) are NOT a separate section — they live in their garment sub with the ★ Top pick badge, sorted first.
 function classifyCarhartt(it,n,layer){
   if(/\bfr\b|flame[- ]resistant/.test(n))return {mega:'carhartt',sub:'Flame-Resistant'};
@@ -148,7 +169,10 @@ function megaName(id){for(var i=0;i<MEGA.length;i++)if(MEGA[i].id===id)return ME
 function classify(it){
   var layer=it.layer,n=((it.name||'')+' '+(it.key||'')).toLowerCase();
   // Carhartt is a dedicated brand category — route ALL Carhartt items there (keeps the shared tabs uncluttered).
-  if(((it.sku||'')+' '+(it.brand||'')).toLowerCase().indexOf('carhartt')>=0)return classifyCarhartt(it,n,layer);
+  var _brand=((it.sku||'')+' '+(it.brand||'')).toLowerCase();
+  if(_brand.indexOf('carhartt')>=0)return classifyCarhartt(it,n,layer);
+  if(/hi-?vis|safety/.test(n))return classifyHivis(n);           // hi-vis items (any brand/layer) -> Hi-Vis & Safety
+  if(_brand.indexOf('rugged wear')>=0)return classifyRugged(n);  // Canada Sportswear Rugged Wear line -> its own tab
   if(layer==='bags'){var b='Bags';
     if(/collar|leash|dog|throw|blanket/.test(n))b='Accessories';
     else if(n.indexOf('cooler')>=0)b='Coolers';else if(n.indexOf('duffel')>=0)b='Duffels';
@@ -196,7 +220,7 @@ function classify(it){
 /* ---------- FILTERED BROWSE MODEL (one category at a time; no endless scroll) ---------- */
 var VIEW={cat:null,sub:'all',q:''};
 var BUCKETS={},TOTALS={},CATS=[];
-var SHORTCAT={tops:'Polos & Shirts',layers:'Fleece & Sweaters',outerwear:'Jackets & Vests',hivis:'Hi-Vis',carhartt:'Carhartt',bags:'Bags'};
+var SHORTCAT={tops:'Polos & Shirts',layers:'Fleece & Sweaters',outerwear:'Jackets & Vests',ruggedwear:'Rugged Wear',hivis:'Hi-Vis',carhartt:'Carhartt',bags:'Bags'};
 function shortCat(id){return SHORTCAT[id]||megaName(id);}
 function buildBuckets(){
   var order=CFG.order||{},all=[];
