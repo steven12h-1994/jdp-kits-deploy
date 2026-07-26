@@ -127,7 +127,7 @@ var MEGASUB={
   layers:['Quarter & Half-Zips','Crewnecks & Sweatshirts','Hoodies','Fleece'],
   outerwear:['Softshell Jackets','Shackets & Overshirts','Insulated & Thermal','Puffer & Quilted','3-in-1 Systems','Shells & Rainwear','Vests','Jackets'],
   // Rugged Wear = Canada Sportswear's heavy-duty line, its own brand category.
-  ruggedwear:['Jackets & Bombers','Parkas','3-in-1 Systems','Vests','Hoodies & Tops','Pants & Bibs'],
+  ruggedwear:['Jackets & Bombers','Parkas','3-in-1 Systems','Vests','Hoodies & Tops'],
   hivis:['Hi-Vis T-Shirts','Safety Vests','Hi-Vis Hoodies','Hi-Vis Jackets','Hi-Vis Parkas','Hi-Vis Gear'],
   // Carhartt is its OWN brand category (declutters the shared tabs). By garment; best-sellers keep the ★ Top pick badge and sort first.
   carhartt:['Sweatshirts & Hoodies','T-Shirts','Shirts','Jackets & Coats','Vests','Pants & Bibs','Flame-Resistant','Headwear','Bags & Accessories'],
@@ -151,19 +151,19 @@ function classifyRugged(n){
   if(/hood(ie|ed)|sweatshirt|t-shirt|tee/.test(n))return {mega:'ruggedwear',sub:'Hoodies & Tops'};
   return {mega:'ruggedwear',sub:'Jackets & Bombers'};
 }
-// CROSS-LIST: any genuinely rugged / heavy-duty piece from ANY brand ALSO appears in Rugged Wear (in
-// addition to its home category) — building the definitive rugged catalog. Returns a Rugged Wear sub or null.
+// CROSS-LIST: a CURATED set of the best cross-brand rugged pieces ALSO appears in Rugged Wear (they stay
+// in their home category too). Chosen for the rugged buyer — heavy insulated/canvas/thermal work jackets,
+// premium insulated (TNF), and versatile 3-in-1/5-in-1 systems. NO Carhartt (it has its own category).
+// Native Canada Sportswear "Rugged Wear" line (13) + these 11 = exactly 24 in the section.
+var RUGGED_CROSS={
+  st_oxide:'Jackets & Bombers', st_nostromo:'Jackets & Bombers', st_orbiter:'Jackets & Bombers',
+  st_highlandplaid:'Jackets & Bombers', st_cascadia:'Jackets & Bombers',
+  tnf_ins:'Jackets & Bombers', tnf_thermo:'Jackets & Bombers',
+  st_fairbanks:'3-in-1 Systems', st_vortex:'3-in-1 Systems', st_magellan:'3-in-1 Systems',
+  st_basecampvest:'Vests'
+};
 function ruggedAlso(it,c){
-  if(c.mega==='ruggedwear'||c.mega==='hivis'||c.mega==='bags')return null;   // native rugged / hi-vis / bags stay put
-  var n=((it.name||'')+' '+(it.key||'')).toLowerCase();
-  if(/\bcap\b|beanie|toque|balaclava|\bhat\b|mesh back|collar|leash|throw|blanket|lunch|duffel|backpack/.test(n))return null; // no headwear/accessories
-  if(!/duck|canvas|sherpa|insulated|thermal|thermoball|quilted|puffer|puffy|parka|bomber|3-?in-?1|5-?in-?1|heavy-?duty|freezer|flannel|fleece-lined|\brugged\b|active jac|rain defender|firm duck|washed duck|coverall|bib overall|utility|cargo|down hybrid/.test(n))return null; // NB: not \bdown\b — it matches "button down"
-  if(/bib overall|coverall|\bpant\b|\bpants\b|cargo|dungaree/.test(n))return 'Pants & Bibs';
-  if(/3-?in-?1|5-?in-?1/.test(n))return '3-in-1 Systems';
-  if(/parka/.test(n))return 'Parkas';
-  if(/vest/.test(n))return 'Vests';
-  if(/jacket|coat|bomber|shacket/.test(n))return 'Jackets & Bombers';   // outerwear
-  return 'Hoodies & Tops';   // rugged tops: thermal/plaid shirts, heavy hoodies, quarter-zips
+  return (c.mega!=='ruggedwear' && RUGGED_CROSS[it.key]) ? RUGGED_CROSS[it.key] : null;
 }
 // Best-sellers (rec flag) are NOT a separate section — they live in their garment sub with the ★ Top pick badge, sorted first.
 function classifyCarhartt(it,n,layer){
