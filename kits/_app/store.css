@@ -469,3 +469,19 @@ main{padding:0 0 22px}
 .pchipd.on{border-color:var(--a);background:color-mix(in srgb,var(--a) 8%,#fff);color:var(--a)}
 .pdim{color:var(--mut);font-size:12.5px}
 .pqty{margin:4px 0 2px}
+/* "Shop the collection" — storefront hero: visual category tiles (Uber-Eats home) */
+.shopcats{background:#fff;border-bottom:1px solid var(--line)}
+.shopcats .w{padding-top:28px;padding-bottom:28px}
+.schd h2{font-size:23px;font-weight:900;letter-spacing:-.025em}
+.schd p{color:var(--mut);font-size:14px;line-height:1.5;margin:8px 0 20px;max-width:62ch}
+.scgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(184px,1fr));gap:14px}
+.sccard{background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden;cursor:pointer;box-shadow:var(--sh);transition:transform .15s,box-shadow .15s,border-color .15s;text-align:left;padding:0}
+.sccard:hover{transform:translateY(-4px);box-shadow:var(--shx);border-color:color-mix(in srgb,var(--a) 45%,var(--line))}
+.sccard:focus-visible{outline:2px solid var(--a);outline-offset:2px}
+.scpic .mstage{width:100%}
+.scpic .g{opacity:1}
+.sctx{padding:12px 15px 14px}
+.sctx b{display:block;font-size:16px;font-weight:850;letter-spacing:-.01em;line-height:1.15}
+.sctx span{display:flex;align-items:center;justify-content:space-between;font-size:12.5px;font-weight:800;color:var(--a);margin-top:4px}
+.sctx span i{font-style:normal;font-size:17px;line-height:1}
+@media(max-width:600px){.scgrid{grid-template-columns:1fr 1fr;gap:10px}.schd h2{font-size:19px}.shopcats .w{padding-top:22px;padding-bottom:22px}}

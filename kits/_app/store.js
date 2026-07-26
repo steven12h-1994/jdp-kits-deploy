@@ -330,6 +330,19 @@ function catHeroKey(cat){var subs=subNames(cat);for(var i=0;i<subs.length;i++){v
 // A compact branded mockup thumbnail for a category (real product photo + the customer's logo at its placement).
 function catPic(cat){var k=catHeroKey(cat);if(!k)return '';var it=BYKEY[k],vm=vmOf(k),o=overlayHtml(it,vm,vm.colour,'front');
   return '<div class="mstage"><img class="g" src="'+o.g+'" alt="'+esc(shortCat(cat))+'" loading="lazy" decoding="async">'+o.lg+'</div>';}
+// "Shop the collection" — the storefront hero: big branded image tiles for EVERY category so a buyer sees
+// the whole range at a glance and jumps straight in (Uber-Eats home). Rendered once, above the browse tabs.
+function shopCatsHtml(){
+  if(!CATS||CATS.length<2)return '';
+  var tiles=CATS.map(function(c){
+    return '<button class="sccard" data-cat="'+c+'" aria-label="Shop '+esc(shortCat(c))+'">'+
+      '<div class="scpic">'+catPic(c)+'</div>'+
+      '<div class="sctx"><b>'+esc(shortCat(c))+'</b><span>'+(TOTALS[c]||0)+' styles<i>→</i></span></div></button>';
+  }).join('');
+  return '<section class="shopcats"><div class="w">'+
+    '<div class="schd"><h2>Shop the collection</h2><p>Apparel, workwear, hi-vis, Carhartt &amp; branded gifts — all ready with your logo. Tap a category to start.</p></div>'+
+    '<div class="scgrid">'+tiles+'</div></div></section>';
+}
 function moreCatsHtml(){
   var others=CATS.filter(function(c){return c!==VIEW.cat;});
   if(!others.length)return '';
@@ -406,13 +419,14 @@ function buildStore(){
      '<button class="cartbtn" id="openCart"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2 3h3l2.4 12.2a1.5 1.5 0 0 0 1.5 1.2h8.2a1.5 1.5 0 0 0 1.5-1.2L22 7H6"/></svg>'+
        '<span class="lbl">Your kit</span><span class="n" id="cartN">0</span></button></div></header>'+
    '<section class="hero"><div class="w heroin">'+
-     '<div class="eyb">'+(demo?'Sample store · your logo goes here':'Branded apparel · ready to order')+'</div>'+
+     '<div class="eyb">'+(demo?'Sample store · your logo goes here':'Apparel · workwear · safety · gifts — ready to order')+'</div>'+
      '<h1>'+esc(CFG.client)+"'s team store</h1>"+
      '<p class="herosub">'+(demo?'This is a live sample. Every item shows exactly where your logo goes — swap in your brand and it becomes your team’s store. Live pricing, exact quote, no obligation.':'Your logo, already on it. Pick your pieces, choose a finish, and send it over for your exact quote — no obligation, no payment now.')+'</p>'+
      heroCta+
      '<div class="herotrust"><span>Family-owned in Toronto since 1994</span><span>12,846+ teams outfitted</span><span>Ships across Canada &amp; the U.S.</span></div>'+
    '</div></section>'+
    benBand+
+   shopCatsHtml()+
    '<div class="navwrap" id="navwrap">'+
      '<div class="filterbar"><div class="ctabsrow">'+
        '<div class="ctabs" id="ctabs"></div>'+
@@ -443,6 +457,9 @@ function buildStore(){
   document.getElementById('openCart2').addEventListener('click',openCart);
   document.getElementById('ov').addEventListener('click',closeAll);
   var ar=document.getElementById('addRec');if(ar)ar.addEventListener('click',addRecommended);
+  // "Shop the collection" hero tiles -> jump into a category (and reveal their images, which sit outside #grid).
+  document.querySelectorAll('.sccard').forEach(function(b){b.addEventListener('click',function(){setCat(b.dataset.cat,true);});});
+  document.querySelectorAll('.scpic .g').forEach(function(im){if(im.complete)im.classList.add('ld');else im.addEventListener('load',function(){im.classList.add('ld');});});
   // FILTERED BROWSE: category tabs + subcategory chips + search (one category at a time).
   renderCtabs();
   var st=document.getElementById('searchToggle');if(st)st.addEventListener('click',openSearch);
