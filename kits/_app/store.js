@@ -50,7 +50,9 @@ function costMultCarh(c){if(c<=15)return 1.72;if(c<=30)return 1.60;if(c<=60)retu
 function volFactorCarh(q){if(q<24)return 1.03;if(q<100)return 1.00;if(q<250)return 0.96;return 0.93;}
 function activeDecos(decos){return (decos||[]).filter(function(d){return d.on;});}
 function hasDecoPlace(item){return !!((item.places||[]).some(function(p){return p.logo;}));}
-function unitPrice(key,decos,q){var r=CFG.rates;if(!r||r.blank==null){return unitAt(BYKEY[key],q);}
+function unitPrice(key,decos,q){var r=CFG.rates;
+  var _it=BYKEY[key]; if(_it&&_it.layer==='promo')return _it.price_cad||0;   // promo: flat Debco CAD price (customer price)
+  if(!r||r.blank==null){return unitAt(BYKEY[key],q);}
   var item=BYKEY[key],c=blankOf(key),dec=0;
   var vpl={};(item.places||[]).forEach(function(p){if(p.logo)vpl[p.id]=1;});   // only decorate on real logo places (pants have none -> no deco charge)
   activeDecos(decos).forEach(function(d){if(!vpl[d.pl])return;dec+=decoCost(d,item);});
@@ -98,9 +100,12 @@ function menuCard(key){
     '<div class="mstage">'+rec+(item.video?'<button class="mvid" data-vid="'+esc(item.video)+'" data-vname="'+esc(item.name)+'" aria-label="Play product video">▶ Video</button>':'')+'<img class="g" src="'+o.g+'" alt="'+esc(item.name)+'" loading="lazy" decoding="async">'+o.lg+
       '<button class="madd'+(q?' has':'')+'" data-key="'+key+'" aria-label="'+(q?'Edit ':'Add ')+esc(item.name)+'">'+addlbl+'</button></div>'+
     '<div class="mb"><h3>'+esc(item.name)+'</h3>'+
-      '<div class="mmeta">'+esc(item.sku)+(item.womens?' · Men’s &amp; Women’s':(item.unisex?' · Unisex':''))+'</div>'+
+      '<div class="mmeta">'+esc(item.sku)+(item.layer==='promo'?'':(item.womens?' · Men’s &amp; Women’s':(item.unisex?' · Unisex':'')))+'</div>'+
       colourDots(item)+
-      '<div class="mprice">from <b>'+money(fromP)+'</b> <small>/pc'+(hasDecoPlace(item)?' · decorated':'')+'</small></div></div></article>';
+      (item.layer==='promo'
+        ? '<div class="mprice"><b>'+money(item.price_cad)+'</b> <small>/unit · min '+item.moq+'</small></div>'
+        : '<div class="mprice">from <b>'+money(fromP)+'</b> <small>/pc'+(hasDecoPlace(item)?' · decorated':'')+'</small></div>')+
+      '</div></article>';
 }
 // A row of real colour swatches on each card — shows selection depth at a glance (conversion signal).
 function colourDots(item){
@@ -120,7 +125,8 @@ var MEGA=[
   {id:'ruggedwear',name:'Rugged Wear'},
   {id:'hivis',name:'Hi-Vis & Safety'},
   {id:'carhartt',name:'Carhartt Workwear'},
-  {id:'bags',name:'Bags & Gear'}
+  {id:'bags',name:'Bags & Gear'},
+  {id:'promo',name:'Promo & Gifts'}
 ];
 var MEGASUB={
   tops:['Polos','Shirts','Tees'],
@@ -131,7 +137,9 @@ var MEGASUB={
   hivis:['Hi-Vis T-Shirts','Safety Vests','Hi-Vis Hoodies','Hi-Vis Jackets','Hi-Vis Parkas','Hi-Vis Gear'],
   // Carhartt is its OWN brand category (declutters the shared tabs). By garment; best-sellers keep the ★ Top pick badge and sort first.
   carhartt:['Sweatshirts & Hoodies','T-Shirts','Shirts','Jackets & Coats','Vests','Pants & Bibs','Flame-Resistant','Headwear','Bags & Accessories'],
-  bags:['Backpacks','Duffels','Coolers','Tool Bags','Accessories','Bags']
+  bags:['Backpacks','Duffels','Coolers','Tool Bags','Accessories','Bags'],
+  // Debco/HPG promotional products — branded merch & gifts (bulk MOQ, print/engrave).
+  promo:['Drinkware','Bags & Coolers','Tech & Audio','Notebooks & Office','Pens & Writing','Outdoor & Lifestyle']
 };
 // Hi-vis by NAME (any layer) — CS hi-vis items are premium-layer but belong in Hi-Vis & Safety.
 function classifyHivis(n){
@@ -182,6 +190,7 @@ function megaName(id){for(var i=0;i<MEGA.length;i++)if(MEGA[i].id===id)return ME
 // classify an item into {mega, sub} purely by garment type (names carry raw "&"; escaped at render).
 function classify(it){
   var layer=it.layer,n=((it.name||'')+' '+(it.key||'')).toLowerCase();
+  if(layer==='promo')return {mega:'promo',sub:it.psub||'Drinkware'};   // Debco/HPG promo products (own destination)
   // Carhartt is a dedicated brand category — route ALL Carhartt items there (keeps the shared tabs uncluttered).
   var _brand=((it.sku||'')+' '+(it.brand||'')).toLowerCase();
   if(_brand.indexOf('carhartt')>=0)return classifyCarhartt(it,n,layer);
@@ -234,11 +243,11 @@ function classify(it){
 /* ---------- FILTERED BROWSE MODEL (one category at a time; no endless scroll) ---------- */
 var VIEW={cat:null,sub:'all',q:''};
 var BUCKETS={},TOTALS={},CATS=[];
-var SHORTCAT={tops:'Polos & Shirts',layers:'Fleece & Sweaters',outerwear:'Jackets & Vests',ruggedwear:'Rugged Wear',hivis:'Hi-Vis',carhartt:'Carhartt',bags:'Bags'};
+var SHORTCAT={tops:'Polos & Shirts',layers:'Fleece & Sweaters',outerwear:'Jackets & Vests',ruggedwear:'Rugged Wear',hivis:'Hi-Vis',carhartt:'Carhartt',bags:'Bags',promo:'Promo & Gifts'};
 function shortCat(id){return SHORTCAT[id]||megaName(id);}
 function buildBuckets(){
   var order=CFG.order||{},all=[];
-  ['office','premium','bags','field'].forEach(function(L){(order[L]||[]).forEach(function(k){if(all.indexOf(k)<0)all.push(k);});});
+  ['office','premium','bags','field','promo'].forEach(function(L){(order[L]||[]).forEach(function(k){if(all.indexOf(k)<0)all.push(k);});});
   BUCKETS={};TOTALS={};ALLKEYS=all;
   all.forEach(function(k){var it=BYKEY[k];if(!it)return;var c=classify(it);
     (BUCKETS[c.mega]=BUCKETS[c.mega]||{});(BUCKETS[c.mega][c.sub]=BUCKETS[c.mega][c.sub]||[]).push(k);
@@ -495,6 +504,13 @@ function savingsNudge(key,decos,q){var nt=nextTier(q);if(!nt)return null;var a=u
 function sizesSummary(c){if(!c||!c.sizes)return '';return ALLSIZES.filter(function(s){return c.sizes[s];}).map(function(s){return s+' '+c.sizes[s];}).join(' · ');}
 function openSheet(key){
   var item=BYKEY[key],vm=vmOf(key),ex=CART[key],exmap={};
+  if(item&&item.layer==='promo'){   // promotional products: qty + decoration flow (no sizes / embroidery)
+    SH={key:key,promo:true,colour:(ex&&ex.colour)||(item.cols[0]||{}).name,
+        qty:(ex&&ex.qty)||item.moq||1,deco:(ex&&ex.deco)||((item.deco||[])[0]||'')};
+    renderSheet();
+    document.getElementById('ov').classList.add('on');document.getElementById('sheet').classList.add('on');
+    document.body.style.overflow='hidden';return;
+  }
   if(ex&&ex.decos){ex.decos.forEach(function(d){exmap[d.pl]=d;});}
   // Size breakdown is the ONLY quantity control. baseQty preserves the count of an item that was
   // quick-started without a size split (e.g. the recommended kit) so reopening it doesn't lose it.
@@ -556,8 +572,40 @@ function galleryStrip(item){
   gal.forEach(function(g){t.push('<button class="shgthumb'+(SH.gimg===g?' on':'')+'" data-img="'+esc(g)+'" style="background-image:url('+gurl(g)+')" aria-label="Product photo"></button>');});
   return '<div class="shgal">'+t.join('')+'</div>';
 }
+function renderPromoSheet(){
+  var item=BYKEY[SH.key],hero=(item.cols[0]||{}).front;
+  var qty=Math.max(SH.qty||item.moq||1,item.moq||1),unit=item.price_cad||0,line=unit*qty;
+  var step=item.moq>=50?25:12;
+  var cols=(item.cols||[]).map(function(c){return '<button class="pcol'+(c.name===SH.colour?' on':'')+'" data-col="'+esc(c.name)+'" title="'+esc(c.name)+'"><span style="background:'+(c.rgb||'#ccc')+'"></span></button>';}).join('');
+  var decos=(item.deco||[]).map(function(m){return '<button class="pchipd'+(m===SH.deco?' on':'')+'" data-deco="'+esc(m)+'">'+esc(m)+'</button>';}).join('')||'<span class="pdim">Decoration confirmed on your quote</span>';
+  document.getElementById('sheet').innerHTML=
+    '<button class="shx" id="shx" aria-label="Close">✕</button>'+
+    '<div class="shscroll">'+
+      '<div class="shimg"><div class="shstage"><img class="g" src="'+gurl(hero)+'" alt="'+esc(item.name)+'"></div></div>'+
+      '<div class="shb"><h2>'+esc(item.name)+'</h2><div class="shsku">'+esc(item.sku)+' · Promotional</div>'+
+      '<div class="shfrom"><b>'+money(unit)+'</b> <small>/unit</small></div>'+
+      (item.desc?'<p class="shblurb">'+esc(item.desc)+'</p>':'')+
+      '<section class="step"><div class="steph"><span class="stepn">1</span><span class="stept">Colour</span><i>'+esc(SH.colour||'')+'</i></div><div class="pcols">'+cols+'</div></section>'+
+      '<section class="step"><div class="steph"><span class="stepn">2</span><span class="stept">Decoration</span></div><div class="pdecos">'+decos+'</div></section>'+
+      '<section class="step"><div class="steph"><span class="stepn">3</span><span class="stept">How many?</span><i>min '+item.moq+'</i></div>'+
+        '<div class="qty pqty"><button data-d="-'+step+'" aria-label="Less">–</button><input id="pqin" class="szin" type="number" inputmode="numeric" value="'+qty+'" min="'+item.moq+'"><button data-d="'+step+'" aria-label="More">+</button></div>'+
+        '<div class="sztot">Total <b>'+qty+' units</b> × '+money(unit)+'/unit</div></section>'+
+      '<div class="shnote">Branded promotional product — minimum order '+item.moq+' units. Your logo, decorated (print / engrave) — exact quote confirmed before anything runs.</div>'+
+    '</div></div>'+
+    '<div class="shfoot"><div class="shprice"><span>'+qty+' units × '+money(unit)+'</span><b>'+money(line)+' total</b></div>'+
+      '<button class="shaddbtn" id="shAdd"><span>'+(CART[SH.key]?'Update kit':'Add to kit')+'</span><span class="p">'+money(line)+'</span></button>'+
+      '<div class="shtrust">✓ '+item.moq+'+ min · exact quote · no obligation · no payment now</div></div>';
+  var sh=document.getElementById('sheet');
+  document.getElementById('shx').addEventListener('click',closeAll);
+  sh.querySelectorAll('.pcol').forEach(function(b){b.addEventListener('click',function(){SH.colour=b.dataset.col;renderPromoSheet();});});
+  sh.querySelectorAll('.pchipd').forEach(function(b){b.addEventListener('click',function(){SH.deco=b.dataset.deco;renderPromoSheet();});});
+  sh.querySelectorAll('.pqty button').forEach(function(b){b.addEventListener('click',function(){var cur=parseInt(document.getElementById('pqin').value,10)||item.moq;SH.qty=Math.max(item.moq||1,cur+parseInt(b.dataset.d,10));renderPromoSheet();});});
+  var qin=document.getElementById('pqin');if(qin)qin.addEventListener('change',function(){SH.qty=Math.max(item.moq||1,parseInt(qin.value,10)||item.moq);renderPromoSheet();});
+  document.getElementById('shAdd').addEventListener('click',function(){var was=!!CART[SH.key];CART[SH.key]={qty:Math.max(SH.qty||item.moq,item.moq||1),colour:SH.colour,deco:SH.deco,promo:true};saveCart();closeAll();refreshCartUI();toast((was?'Updated · ':'Added · ')+item.name);});
+}
 function renderSheet(){
   var item=BYKEY[SH.key];
+  if(item&&item.layer==='promo')return renderPromoSheet();
   if(!document.getElementById('jdpStepCss')){var _st=document.createElement('style');_st.id='jdpStepCss';_st.textContent=
     ".step{margin-top:22px;padding-top:20px;border-top:1px solid #eee}"+
     ".shb .step:first-of-type{border-top:0;margin-top:4px;padding-top:0}"+
@@ -690,7 +738,8 @@ function recCartDecos(key){
   return decos;
 }
 function quickAdd(key){
-  if(!BYKEY[key])return;var vm=vmOf(key),ex=CART[key];
+  if(!BYKEY[key])return;var it=BYKEY[key],vm=vmOf(key),ex=CART[key];
+  if(it.layer==='promo'){CART[key]={qty:(ex&&ex.qty)||it.moq||1,colour:(ex&&ex.colour)||(it.cols[0]||{}).name,deco:(it.deco||[])[0]||'',promo:true};saveCart();refreshCartUI();toast('Added · '+it.name);return;}
   CART[key]={qty:(ex&&ex.qty)||moq(),colour:(ex&&ex.colour)||vm.colour,decos:recCartDecos(key)};
   saveCart();refreshCartUI();toast('Added · '+BYKEY[key].name);
 }
