@@ -169,7 +169,7 @@ var MEGASUB={
   carhartt:['Sweatshirts & Hoodies','T-Shirts','Shirts','Jackets & Coats','Vests','Pants & Bibs','Flame-Resistant','Headwear','Bags & Accessories'],
   bags:['Backpacks','Duffels','Coolers','Totes','Tool Bags','Accessories','Bags'],
   // Debco promotional products — branded merch & gifts (bulk MOQ). Bags route into the Bags category above.
-  promo:['Gift Sets','Drinkware','Tech & Power','Outdoor & Lifestyle','Notebooks & Desk','Pens & Writing'],
+  promo:['Gift Sets','Drinkware','Notebooks & Desk','Pens & Writing'],
   // NexGen Golf — premium branded corporate golf gifts (balls, bags, headwear, towels, umbrellas, tech).
   golf:['Golf Balls','Golf Bags','Travel & Duffels','Headwear','Towels','Umbrellas','Accessories','Rangefinders & Tech']
 };
