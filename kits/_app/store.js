@@ -139,7 +139,7 @@ var MEGASUB={
   carhartt:['Sweatshirts & Hoodies','T-Shirts','Shirts','Jackets & Coats','Vests','Pants & Bibs','Flame-Resistant','Headwear','Bags & Accessories'],
   bags:['Backpacks','Duffels','Coolers','Tool Bags','Accessories','Bags'],
   // Debco/HPG promotional products — branded merch & gifts (bulk MOQ, print/engrave).
-  promo:['Drinkware','Bags & Coolers','Tech & Audio','Notebooks & Office','Pens & Writing','Outdoor & Lifestyle']
+  promo:['Bags & Travel','Drinkware','Tech & Power','Outdoor & Lifestyle','Notebooks & Desk','Pens & Writing']
 };
 // Hi-vis by NAME (any layer) — CS hi-vis items are premium-layer but belong in Hi-Vis & Safety.
 function classifyHivis(n){
