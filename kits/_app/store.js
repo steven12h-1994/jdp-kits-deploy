@@ -387,26 +387,18 @@ function catPic(cat){var k=catHeroKey(cat);if(!k)return '';var it=BYKEY[k],vm=vm
 // the whole range at a glance and jumps straight in (Uber-Eats home). Rendered once, above the browse tabs.
 function shopCatsHtml(){
   if(!CATS||CATS.length<2)return '';
-  function tile(c){return '<button class="sccard" data-cat="'+c+'" aria-label="Shop '+esc(shortCat(c))+'">'+
-    '<div class="scpic">'+catPic(c)+'</div>'+
-    '<div class="sctx"><b>'+esc(shortCat(c))+'</b><span>'+(TOTALS[c]||0)+' styles<i>→</i></span></div></button>';}
-  var used={},worlds='';
-  AUD.forEach(function(a){
+  // Just the two brand worlds — a clean choose-your-world entry. Category picking happens in the sticky tabs.
+  var worlds=AUD.map(function(a){
     var cs=a.cats.filter(function(c){return CATS.indexOf(c)>=0;});
-    if(!cs.length)return;
-    cs.forEach(function(c){used[c]=1;});
+    if(!cs.length)return '';
     var n=cs.reduce(function(s,c){return s+(TOTALS[c]||0);},0);
-    worlds+='<div class="aud aud-'+a.id+'" id="world-'+a.id+'">'+
-      '<button class="audbanner" data-world="'+a.id+'" style="background-image:linear-gradient(0deg,rgba(18,13,7,.92),rgba(18,13,7,.30) 55%,rgba(18,13,7,.06)),url('+worldImg(a.id)+')">'+
-        '<span class="audk">'+esc(a.name)+'</span><p>'+esc(a.blurb)+'</p>'+
-        '<span class="audgo">Shop '+n+' styles →</span></button>'+
-      '<div class="scgrid">'+cs.map(tile).join('')+'</div></div>';
-  });
-  var rest=CATS.filter(function(c){return !used[c];});
-  if(rest.length)worlds+='<div class="aud"><div class="scgrid">'+rest.map(tile).join('')+'</div></div>';
+    return '<button class="audbanner aud-'+a.id+'" data-world="'+a.id+'" style="background-image:linear-gradient(0deg,rgba(18,13,7,.92),rgba(18,13,7,.34) 52%,rgba(18,13,7,.06)),url('+worldImg(a.id)+')">'+
+      '<span class="audk">'+esc(a.name)+'</span><p>'+esc(a.blurb)+'</p>'+
+      '<span class="audgo">Shop '+n+' styles →</span></button>';
+  }).join('');
   return '<section class="shopcats"><div class="w">'+
-    '<div class="schd"><h2>Built for the crew &amp; the client</h2><p>Two worlds, one store — outfit your field crews and your office, sales &amp; client-facing teams, every piece ready with your logo.</p></div>'+
-    worlds+'</div></section>';
+    '<div class="schd"><h2>Built for the crew &amp; the client</h2><p>Two worlds, one premium store — pick your side, then browse by category.</p></div>'+
+    '<div class="worldgrid">'+worlds+'</div></div></section>';
 }
 // Ready-made kits, curated by ROLE — a premium B2B move: outfit a whole role in one tap.
 function kitsHtml(){
@@ -460,10 +452,7 @@ function moreCatsHtml(){
   var tiles=rest.map(function(c){return '<div class="mccard" role="button" tabindex="0" data-cat="'+c+'" aria-label="Browse '+esc(shortCat(c))+'">'+
       '<div class="mcpic">'+catPic(c)+'</div>'+
       '<div class="mctx"><b>'+esc(shortCat(c))+'</b><i>'+TOTALS[c]+' styles →</i></div></div>';}).join('');
-  var gallery=tiles?'<div class="mcgrid">'+tiles+'</div>':'';
-  return '<div class="morecats"><div class="mchd">Keep exploring the collection</div>'+
-    '<div class="mcsub">Ready with your logo across every layer — tap a category to keep browsing.</div>'+
-    banner+gallery+'</div>';}
+  return '<div class="morecats">'+banner+'</div>';}   // slim: one "Up next" nudge; the sticky tabs carry navigation
 function openSearch(){var nw=document.getElementById('navwrap');if(nw)nw.classList.add('searching');var si=document.getElementById('kitSearch');if(si){si.focus();}}
 function closeSearch(){var nw=document.getElementById('navwrap');if(nw)nw.classList.remove('searching');VIEW.q='';var si=document.getElementById('kitSearch');if(si)si.value='';renderGrid();}
 /* ---------- build page ---------- */
@@ -526,10 +515,8 @@ function buildStore(){
      heroCta+
      '<div class="herotrust"><span>Family-owned in Toronto since 1994</span><span>12,846+ teams outfitted</span><span>Ships across Canada &amp; the U.S.</span></div>'+
    '</div></section>'+
-   benBand+
    shopCatsHtml()+
    '<div class="navwrap" id="navwrap">'+
-     '<div class="worldbar" id="worldbar"></div>'+
      '<div class="filterbar"><div class="ctabsrow">'+
        '<div class="ctabs" id="ctabs"></div>'+
        '<button class="fsbtn" id="searchToggle" aria-label="Search products"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></button></div>'+
@@ -562,10 +549,8 @@ function buildStore(){
   // "Shop the collection" hero tiles -> jump into a category (and reveal their images, which sit outside #grid).
   document.querySelectorAll('.sccard').forEach(function(b){b.addEventListener('click',function(){setCat(b.dataset.cat,true);});});
   document.querySelectorAll('.scpic .g,.kpic .g').forEach(function(im){if(im.complete)im.classList.add('ld');else im.addEventListener('load',function(){im.classList.add('ld');});});
-  // world lifestyle banners -> filter the store to that world; role-kit cards -> open the kit sheet
-  document.querySelectorAll('.audbanner').forEach(function(b){b.addEventListener('click',function(){worldSelect(b.dataset.world,true);});});
-  document.querySelectorAll('.kitcard').forEach(function(b){b.addEventListener('click',function(){openKitSheet(b.dataset.kit);});});
-  renderWorldToggle();
+  // world lifestyle banners -> jump straight to that world's first category (no extra toggle layer)
+  document.querySelectorAll('.audbanner').forEach(function(b){b.addEventListener('click',function(){var a=audOf(b.dataset.world);var cs=a?a.cats.filter(function(c){return CATS.indexOf(c)>=0;}):[];if(cs.length)setCat(cs[0],true);});});
   // FILTERED BROWSE: category tabs + subcategory chips + search (one category at a time).
   renderCtabs();
   var st=document.getElementById('searchToggle');if(st)st.addEventListener('click',openSearch);
