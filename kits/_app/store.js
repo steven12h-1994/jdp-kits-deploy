@@ -265,12 +265,27 @@ function classify(it){
   return {mega:'tops',sub:'Shirts'};
 }
 /* ---------- FILTERED BROWSE MODEL (one category at a time; no endless scroll) ---------- */
-var VIEW={cat:null,sub:'all',q:''};
+var VIEW={cat:null,sub:'all',q:'',world:'all'};
 var BUCKETS={},TOTALS={},CATS=[];
 var SHORTCAT={tops:'Polos & Shirts',layers:'Fleece & Sweaters',outerwear:'Jackets & Vests',ruggedwear:'Rugged Wear',hivis:'Hi-Vis & Safety',carhartt:'Carhartt',accessories:'Accessories'};
 // Two brand worlds — how JDP sells: the jobsite crew and the front office / client-facing team.
-var AUD=[{id:'field',name:'Field & Crews',blurb:'CSA hi-vis, rugged workwear & hard-hat-ready layers built for the jobsite.',cats:['hivis','ruggedwear','carhartt']},
-         {id:'office',name:'Office, Sales & Client-Facing',blurb:'Sharp branded polos, softshells, premium brands & client gifts for the front office and sales floor.',cats:['tops','layers','outerwear','accessories']}];
+var AUD=[{id:'field',name:'Field & Crews',short:'Field & Crews',blurb:'CSA hi-vis, rugged workwear & hard-hat-ready layers built for the jobsite.',cats:['hivis','ruggedwear','carhartt']},
+         {id:'office',name:'Office, Sales & Client-Facing',short:'Office & Sales',blurb:'Sharp branded polos, softshells, premium brands & client gifts for the front office and sales floor.',cats:['tops','layers','outerwear','accessories']}];
+function audOf(w){for(var i=0;i<AUD.length;i++)if(AUD[i].id===w)return AUD[i];return null;}
+function worldOfCat(c){for(var i=0;i<AUD.length;i++)if(AUD[i].cats.indexOf(c)>=0)return AUD[i].id;return null;}
+function worldCats(){if(VIEW.world==='all')return CATS;var a=audOf(VIEW.world);return a?a.cats.filter(function(c){return CATS.indexOf(c)>=0;}):CATS;}
+// shared /kits/_app asset base (lifestyle imagery lives beside store.js/css)
+function appBase(){return String(CFG.catalog_base||CATALOG_BASE).replace('_catalog','_app');}
+function worldImg(w){return appBase()+'/hero-'+w+'.jpg';}
+// Ready-made kits — curated by ROLE. Each slot resolves to the top item in a [mega,sub] at render time,
+// so it works in any store regardless of exact SKUs. Speaks directly to each buyer; one-tap to add all.
+var KITS=[
+  {id:'crew',name:'The Crew Kit',world:'field',tag:'Field & Crews',blurb:'Jobsite-ready — hi-vis tee, hi-vis hoodie & a warm beanie.',slots:[['hivis','Hi-Vis T-Shirts'],['hivis','Hi-Vis Hoodies'],['carhartt','Headwear']]},
+  {id:'super',name:'The Field Supervisor Kit',world:'field',tag:'Field & Crews',blurb:'Lead the site — softshell jacket, branded polo & a cap.',slots:[['outerwear','Softshell Jackets'],['tops','Polos'],['carhartt','Headwear']]},
+  {id:'client',name:'The Client-Facing Kit',world:'office',tag:'Office & Sales',blurb:'Sharp & polished — quarter-zip, premium polo & a notebook.',slots:[['layers','Quarter & Half-Zips'],['tops','Polos'],['accessories','Notebooks & Pens']]},
+  {id:'newhire',name:'The New-Hire Welcome Kit',world:'office',tag:'Onboarding',blurb:'Day-one welcome — polo, backpack, bottle & a notebook.',slots:[['tops','Polos'],['accessories','Bags'],['accessories','Drinkware'],['accessories','Notebooks & Pens']]}
+];
+function kitItems(kit){var out=[];kit.slots.forEach(function(s){var arr=BUCKETS[s[0]]&&BUCKETS[s[0]][s[1]];if(arr)for(var i=0;i<arr.length;i++){if(out.indexOf(arr[i])<0){out.push(arr[i]);break;}}});return out;}
 function shortCat(id){return SHORTCAT[id]||megaName(id);}
 function buildBuckets(){
   var order=CFG.order||{},all=[];
@@ -295,8 +310,19 @@ var ALLKEYS=[];
 function subNames(cat){var subs=BUCKETS[cat]||{},ord=MEGASUB[cat]||[];
   return Object.keys(subs).sort(function(a,b){var ia=ord.indexOf(a),ib=ord.indexOf(b);return (ia<0?99:ia)-(ib<0?99:ib);});}
 function renderCtabs(){var el=document.getElementById('ctabs');if(!el)return;
-  el.innerHTML=CATS.map(function(c){return '<button class="ctab'+(c===VIEW.cat?' on':'')+'" data-cat="'+c+'">'+esc(shortCat(c))+'<span class="ctn">'+TOTALS[c]+'</span></button>';}).join('');
+  el.innerHTML=worldCats().map(function(c){return '<button class="ctab'+(c===VIEW.cat?' on':'')+'" data-cat="'+c+'">'+esc(shortCat(c))+'<span class="ctn">'+TOTALS[c]+'</span></button>';}).join('');
   el.querySelectorAll('.ctab').forEach(function(b){b.addEventListener('click',function(){setCat(b.dataset.cat,true);});});}
+// FIELD ↔ OFFICE world toggle — filters the whole store to one audience (or All).
+function renderWorldToggle(){var el=document.getElementById('worldbar');if(!el)return;
+  var opts=[{id:'all',short:'All'}].concat(AUD);
+  el.innerHTML=opts.map(function(o){return '<button class="wtog'+(VIEW.world===o.id?' on':'')+' wtog-'+o.id+'" data-world="'+o.id+'">'+esc(o.short)+'</button>';}).join('');
+  el.querySelectorAll('.wtog').forEach(function(b){b.addEventListener('click',function(){worldSelect(b.dataset.world,true);});});}
+function worldSelect(w,scroll){
+  VIEW.world=w;renderWorldToggle();renderCtabs();
+  var cats=worldCats();if(cats.indexOf(VIEW.cat)<0)VIEW.cat=cats[0];
+  renderSubchips();renderGrid();
+  document.querySelectorAll('.ctab').forEach(function(t){t.classList.toggle('on',t.dataset.cat===VIEW.cat);});
+  if(scroll)scrollToResults();}
 function renderSubchips(){var el=document.getElementById('subchips');if(!el)return;
   var subs=subNames(VIEW.cat);
   var h='<button class="schip'+(VIEW.sub==='all'?' on':'')+'" data-sub="all">All<span class="scn">'+TOTALS[VIEW.cat]+'</span></button>';
@@ -369,14 +395,54 @@ function shopCatsHtml(){
     var cs=a.cats.filter(function(c){return CATS.indexOf(c)>=0;});
     if(!cs.length)return;
     cs.forEach(function(c){used[c]=1;});
-    worlds+='<div class="aud aud-'+a.id+'"><div class="audhd"><span class="audk">'+esc(a.name)+'</span><p>'+esc(a.blurb)+'</p></div>'+
-            '<div class="scgrid">'+cs.map(tile).join('')+'</div></div>';
+    var n=cs.reduce(function(s,c){return s+(TOTALS[c]||0);},0);
+    worlds+='<div class="aud aud-'+a.id+'" id="world-'+a.id+'">'+
+      '<button class="audbanner" data-world="'+a.id+'" style="background-image:linear-gradient(0deg,rgba(18,13,7,.92),rgba(18,13,7,.30) 55%,rgba(18,13,7,.06)),url('+worldImg(a.id)+')">'+
+        '<span class="audk">'+esc(a.name)+'</span><p>'+esc(a.blurb)+'</p>'+
+        '<span class="audgo">Shop '+n+' styles →</span></button>'+
+      '<div class="scgrid">'+cs.map(tile).join('')+'</div></div>';
   });
   var rest=CATS.filter(function(c){return !used[c];});
   if(rest.length)worlds+='<div class="aud"><div class="scgrid">'+rest.map(tile).join('')+'</div></div>';
   return '<section class="shopcats"><div class="w">'+
     '<div class="schd"><h2>Built for the crew &amp; the client</h2><p>One store, two worlds — kit out your field crews and your office, sales &amp; client-facing teams, all ready with your logo.</p></div>'+
     worlds+'</div></section>';
+}
+// Ready-made kits, curated by ROLE — a premium B2B move: outfit a whole role in one tap.
+function kitsHtml(){
+  var cards=KITS.map(function(k){var items=kitItems(k);if(items.length<2)return '';
+    var pics=items.slice(0,4).map(function(key){var it=BYKEY[key],vm=vmOf(key),o=overlayHtml(it,vm,vm.colour,'front');
+      return '<div class="kpic"><img class="g" src="'+o.g+'" alt="'+esc(it.name)+'" loading="lazy" decoding="async">'+o.lg+'</div>';}).join('');
+    return '<button class="kitcard" data-kit="'+k.id+'" aria-label="'+esc(k.name)+'">'+
+      '<div class="kpics kn'+items.length+'">'+pics+'</div>'+
+      '<div class="kittx"><span class="kittag">'+esc(k.tag)+'</span><b>'+esc(k.name)+'</b>'+
+      '<span class="kitmeta">'+items.length+' pieces · ready with your logo <i>→</i></span></div></button>';
+  }).filter(Boolean).join('');
+  if(!cards)return '';
+  return '<section class="kits"><div class="w"><div class="schd"><h2>Ready-made kits</h2>'+
+    '<p>Curated by role — outfit a crew, a supervisor, a client-facing rep or a new hire in one move.</p></div>'+
+    '<div class="kitgrid">'+cards+'</div></div></section>';
+}
+function openKitSheet(kid){
+  var kit=null;for(var i=0;i<KITS.length;i++)if(KITS[i].id===kid)kit=KITS[i];if(!kit)return;
+  var items=kitItems(kit);if(!items.length)return;
+  var rows=items.map(function(key){var it=BYKEY[key],vm=vmOf(key),o=overlayHtml(it,vm,vm.colour,'front');
+    var price=(it.layer==='promo')?(money(it.price_cad)+' <small>/'+(it.unit==='dozen'?'dozen':'pc')+'</small>')
+      :('from '+money(unitPrice(key,vm.decos,CFG.pricing.cols[CFG.pricing.cols.length-1])));
+    return '<div class="krow"><div class="krpic"><img class="g" src="'+o.g+'" alt="'+esc(it.name)+'">'+o.lg+'</div>'+
+      '<div class="krtx"><b>'+esc(it.name)+'</b><span class="krsku">'+esc(it.sku)+'</span><span class="krpr">'+price+'</span></div></div>';}).join('');
+  document.getElementById('sheet').innerHTML=
+    '<button class="shx" id="shx" aria-label="Close">✕</button>'+
+    '<div class="shscroll"><div class="kithd"><span class="kittag">'+esc(kit.tag)+'</span><h2>'+esc(kit.name)+'</h2><p>'+esc(kit.blurb)+'</p></div>'+
+    '<div class="krows">'+rows+'</div>'+
+    '<div class="pinc"><span class="pinci">✓</span> Add the set, then tweak sizes &amp; colours in your kit and send for your exact quote — free proof, no obligation.</div></div>'+
+    '<div class="shfoot"><button class="shaddbtn" id="kitAdd"><span>Add all '+items.length+' pieces to my kit</span></button>'+
+    '<div class="shtrust">Adjust any piece after adding · no payment now</div></div>';
+  var sh=document.getElementById('sheet');
+  document.getElementById('shx').addEventListener('click',closeAll);
+  sh.querySelectorAll('.krpic .g').forEach(function(im){if(im.complete)im.classList.add('ld');else im.addEventListener('load',function(){im.classList.add('ld');});});
+  document.getElementById('kitAdd').addEventListener('click',function(){items.forEach(function(k){quickAdd(k);});closeAll();refreshCartUI();openCart();});
+  document.getElementById('ov').classList.add('on');sh.classList.add('on');document.body.style.overflow='hidden';
 }
 function moreCatsHtml(){
   var others=CATS.filter(function(c){return c!==VIEW.cat;});
@@ -462,7 +528,9 @@ function buildStore(){
    '</div></section>'+
    benBand+
    shopCatsHtml()+
+   kitsHtml()+
    '<div class="navwrap" id="navwrap">'+
+     '<div class="worldbar" id="worldbar"></div>'+
      '<div class="filterbar"><div class="ctabsrow">'+
        '<div class="ctabs" id="ctabs"></div>'+
        '<button class="fsbtn" id="searchToggle" aria-label="Search products"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></button></div>'+
@@ -494,7 +562,11 @@ function buildStore(){
   var ar=document.getElementById('addRec');if(ar)ar.addEventListener('click',addRecommended);
   // "Shop the collection" hero tiles -> jump into a category (and reveal their images, which sit outside #grid).
   document.querySelectorAll('.sccard').forEach(function(b){b.addEventListener('click',function(){setCat(b.dataset.cat,true);});});
-  document.querySelectorAll('.scpic .g').forEach(function(im){if(im.complete)im.classList.add('ld');else im.addEventListener('load',function(){im.classList.add('ld');});});
+  document.querySelectorAll('.scpic .g,.kpic .g').forEach(function(im){if(im.complete)im.classList.add('ld');else im.addEventListener('load',function(){im.classList.add('ld');});});
+  // world lifestyle banners -> filter the store to that world; role-kit cards -> open the kit sheet
+  document.querySelectorAll('.audbanner').forEach(function(b){b.addEventListener('click',function(){worldSelect(b.dataset.world,true);});});
+  document.querySelectorAll('.kitcard').forEach(function(b){b.addEventListener('click',function(){openKitSheet(b.dataset.kit);});});
+  renderWorldToggle();
   // FILTERED BROWSE: category tabs + subcategory chips + search (one category at a time).
   renderCtabs();
   var st=document.getElementById('searchToggle');if(st)st.addEventListener('click',openSearch);
