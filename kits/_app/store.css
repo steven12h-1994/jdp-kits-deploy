@@ -502,6 +502,18 @@ main{padding:0 0 22px}
 .pbktot{border-top:1.5px solid var(--line);margin-top:4px;padding-top:10px;font-size:15px;color:var(--ink)}
 .pbktot span{font-weight:800!important}
 .pbktot span:last-child{font-size:17px}
+/* Promo sheet v4 — simple & honest: one per-piece price, quick-pick qty, plain cost summary */
+.pprice-sub{margin:2px 0 2px;font-size:12.5px;font-weight:600;color:var(--mut)}
+.ppicks{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.ppick{min-width:52px;border:1.5px solid var(--line);background:#fff;border-radius:11px;padding:10px 12px;font:inherit;font-weight:800;font-size:15px;color:var(--ink);cursor:pointer;transition:.12s}
+.ppick.on{border-color:var(--a);background:var(--a);color:#fff}
+.psum{margin-top:18px;padding:14px 15px;background:var(--wash,#f7f8fa);border:1px solid var(--line);border-radius:14px}
+.psrow{display:flex;align-items:baseline;justify-content:space-between;gap:12px;font-size:13.5px;color:var(--mut);padding:4px 0}
+.psrow span:last-child{font-weight:700;color:var(--ink);white-space:nowrap}
+.pstot{border-top:1.5px solid var(--line);margin-top:5px;padding-top:11px;font-size:15.5px;color:var(--ink)}
+.pstot span{font-weight:800}
+.pstot span:last-child{font-size:17px}
+.pstot em{font-style:normal;font-size:12.5px;font-weight:700;color:var(--mut);margin-left:5px}
 /* "Shop the collection" — storefront hero: visual category tiles (Uber-Eats home) */
 .shopcats{background:#fff;border-bottom:1px solid var(--line)}
 .shopcats .w{padding-top:28px;padding-bottom:28px}

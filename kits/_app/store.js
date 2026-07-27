@@ -71,9 +71,10 @@ function promoQuote(it,c){
   var unitBase=it.price_cad||0;
   var run=(m.r||0)+((locs>1)?((it.addl_loc||0.75)*(locs-1)):0);   // per-unit decoration (method + extra locations)
   var setup=Math.round((it.setup||65)*locs*100)/100;             // one-time, one setup per location
+  var perPiece=Math.round((unitBase+run)*100)/100;                // decorated price per piece (flat at any qty)
   var goods=unitBase*qty, decoRun=run*qty, total=goods+decoRun+setup;
   return {qty:qty,min:min,methods:methods,mi:mi,method:m,locs:locs,unitBase:unitBase,run:Math.round(run*100)/100,
-          setup:setup,goods:Math.round(goods*100)/100,decoRun:Math.round(decoRun*100)/100,
+          perPiece:perPiece,setup:setup,goods:Math.round(goods*100)/100,decoRun:Math.round(decoRun*100)/100,
           total:Math.round(total*100)/100,allIn:total/qty};
 }
 // Quantity presets a B2B buyer actually orders (always starting at the item's minimum).
@@ -121,7 +122,7 @@ function menuCard(key){
       '<div class="mmeta">'+esc(item.sku)+(item.layer==='promo'?'':(item.womens?' · Men’s &amp; Women’s':(item.unisex?' · Unisex':'')))+'</div>'+
       colourDots(item)+
       (item.layer==='promo'
-        ? '<div class="mprice"><b>'+money(item.price_cad)+'</b> <small>/unit · min '+item.moq+'</small></div>'
+        ? '<div class="mprice"><b>'+money(item.price_cad)+'</b> <small>/pc · min '+item.moq+'</small></div>'
         : '<div class="mprice">from <b>'+money(fromP)+'</b> <small>/pc'+(hasDecoPlace(item)?' · decorated':'')+'</small></div>')+
       '</div></article>';
 }
@@ -607,30 +608,25 @@ function galleryStrip(item){
   gal.forEach(function(g){t.push('<button class="shgthumb'+(SH.gimg===g?' on':'')+'" data-img="'+esc(g)+'" style="background-image:url('+gurl(g)+')" aria-label="Product photo"></button>');});
   return '<div class="shgal">'+t.join('')+'</div>';
 }
-// PROMO sheet — Uber-Eats clean, B2B-correct: photo gallery, colour, decoration (method + location),
-// quantity tiers, and a LIVE price breakdown (product + decoration + one-time setup → all-in per unit).
+// PROMO sheet — simple & honest. Debco is flat End-Quantity Pricing, so we anchor on ONE per-piece price
+// (same at any qty), show the logo setup as a clear one-time line, and give a plain cost summary. No
+// gamified "savings tiers" (the only qty effect is setup spreading) — just an easy, trustworthy decision.
 function renderPromoSheet(){
   var item=BYKEY[SH.key];
   var gal=(item.gallery&&item.gallery.length)?item.gallery:[(item.cols[0]||{}).front];
   var gi=Math.min(SH.gi||0,gal.length-1);
   var q=promoQuote(item,SH);
-  var min=q.min, methods=q.methods;
+  var min=q.min, methods=q.methods, hasUpg=(methods.length>1)||true;
   var thumbs=gal.length>1?('<div class="pthumbs">'+gal.map(function(g,i){return '<button class="pthumb'+(i===gi?' on':'')+'" data-i="'+i+'" style="background-image:url('+gurl(g)+')" aria-label="Photo '+(i+1)+'"></button>';}).join('')+'</div>'):'';
   var cols=(item.cols||[]).map(function(c){return '<button class="pcol'+(c.name===SH.colour?' on':'')+'" data-col="'+esc(c.name)+'" title="'+esc(c.name)+'"><span style="background:'+(c.rgb||'#ccc')+'"></span></button>';}).join('');
-  // decoration method chips (only the methods this product actually supports)
-  var meth=methods.map(function(m,i){var up=m.r>0?(' <small>+'+money(m.r)+'/u</small>'):' <small>included</small>';
-    return '<button class="pmeth'+(i===q.mi?' on':'')+'" data-mi="'+i+'">'+esc(m.n)+up+'</button>';}).join('');
-  // second-location toggle (adds a setup + per-unit run)
-  var locBtns='<button class="ploc'+(q.locs===1?' on':'')+'" data-loc="1">1 location <small>included</small></button>'+
-    '<button class="ploc'+(q.locs===2?' on':'')+'" data-loc="2">Add 2nd location <small>+'+money(item.addl_loc||0.75)+'/u</small></button>';
-  // quantity tier presets — each shows its ALL-IN per-unit at the current decoration (drops with volume)
-  var tiers=promoTiers(min).map(function(t){var tq=promoQuote(item,{qty:t,mi:q.mi,locs:q.locs});
-    return '<button class="ptier'+(t===q.qty?' on':'')+'" data-q="'+t+'"><b>'+t+'</b><span>'+money(tq.allIn)+'/u</span></button>';}).join('');
-  // live breakdown rows
-  var brk='<div class="pbk"><span>Product · '+q.qty+' × '+money(q.unitBase)+'</span><span>'+money(q.goods)+'</span></div>'+
-    (q.run>0?('<div class="pbk"><span>'+esc(q.method.n)+(q.locs>1?' · '+q.locs+' locations':'')+' · '+q.qty+' × '+money(q.run)+'</span><span>'+money(q.decoRun)+'</span></div>'):
-             ('<div class="pbk"><span>'+esc(q.method.n)+' decoration</span><span>included</span></div>'))+
-    '<div class="pbk"><span>One-time setup'+(q.locs>1?' ('+q.locs+' locations)':'')+'</span><span>'+money(q.setup)+'</span></div>';
+  // decoration method chips (only the methods this product supports); 1-colour is included, others +$/pc
+  var meth=methods.map(function(m,i){var up=m.r>0?('<small>+'+money(m.r)+'/pc</small>'):'<small>included</small>';
+    return '<button class="pmeth'+(i===q.mi?' on':'')+'" data-mi="'+i+'">'+esc(m.n)+' '+up+'</button>';}).join('');
+  var locBtns='<button class="ploc'+(q.locs===1?' on':'')+'" data-loc="1">1 spot <small>included</small></button>'+
+    '<button class="ploc'+(q.locs===2?' on':'')+'" data-loc="2">2 spots <small>+'+money(item.addl_loc||0.75)+'/pc</small></button>';
+  // quantity quick-picks — just set the amount (unit price is the SAME at any qty; no fake discounts)
+  var picks=promoTiers(min).map(function(t){return '<button class="ppick'+(t===q.qty?' on':'')+'" data-q="'+t+'">'+t+'</button>';}).join('');
+  var decoLine=(q.run>0? (esc(q.method.n)+(q.locs>1?' · 2 spots':'')) : (esc(q.method.n)+(q.locs>1?' · 2 spots':'')+' · included'));
   document.getElementById('sheet').innerHTML=
     '<button class="shx" id="shx" aria-label="Close">✕</button>'+
     '<div class="shscroll">'+
@@ -638,22 +634,26 @@ function renderPromoSheet(){
       '<div class="shb">'+
         '<h2>'+esc(item.name)+'</h2>'+
         '<div class="shsku">'+esc(item.brand||'Debco')+' · item '+esc(item.msku||item.sku)+'</div>'+
-        '<div class="pprice"><b>'+money(q.allIn)+'</b><span>per unit, all-in</span><em>at '+q.qty+' units</em></div>'+
+        '<div class="pprice"><b>'+money(q.perPiece)+'</b><span>per piece</span></div>'+
+        '<div class="pprice-sub">'+decoLine+' · same price at any quantity</div>'+
         (item.desc?'<p class="shblurb">'+esc(item.desc)+'</p>':'')+
         (cols?'<div class="pgrp"><div class="pgl">Colour<i>'+esc(SH.colour||'')+'</i></div><div class="pcols">'+cols+'</div></div>':'')+
-        '<div class="pgrp"><div class="pgl">Your logo</div><div class="pmeths">'+meth+'</div>'+
+        '<div class="pgrp"><div class="pgl">Your logo <i>1-colour included</i></div><div class="pmeths">'+meth+'</div>'+
           '<div class="plocs">'+locBtns+'</div></div>'+
         '<div class="pgrp"><div class="pgl">How many?<i>minimum '+min+'</i></div>'+
-          '<div class="ptiers">'+tiers+'</div>'+
+          '<div class="ppicks">'+picks+'</div>'+
           '<div class="qty pqty"><button data-d="-'+(min>=25?25:12)+'" aria-label="Fewer">–</button><input id="pqin" class="szin" type="number" inputmode="numeric" value="'+q.qty+'" min="'+min+'"><button data-d="'+(min>=25?25:12)+'" aria-label="More">+</button></div></div>'+
-        '<div class="pgrp"><div class="pgl">Price breakdown</div>'+brk+
-          '<div class="pbk pbktot"><span>Order total</span><span>'+money(q.total)+'</span></div></div>'+
-        '<div class="pinc"><span class="pinci">✓</span> Free digital proof before anything is made · order more, per-unit drops as setup spreads · exact quote confirmed — no payment now.</div>'+
+        '<div class="psum">'+
+          '<div class="psrow"><span>'+q.qty+' pcs × '+money(q.perPiece)+'</span><span>'+money(q.goods+q.decoRun)+'</span></div>'+
+          '<div class="psrow"><span>One-time logo setup'+(q.locs>1?' · 2 spots':'')+'</span><span>'+money(q.setup)+'</span></div>'+
+          '<div class="psrow pstot"><span>Estimated total</span><span>'+money(q.total)+' <em>≈'+money(q.allIn)+'/pc</em></span></div>'+
+        '</div>'+
+        '<div class="pinc"><span class="pinci">✓</span> Free digital proof before anything is made · exact quote confirmed · no payment now.</div>'+
       '</div></div>'+
     '<div class="shfoot">'+
-      '<div class="pfrow"><span>'+q.qty+' units · '+money(q.allIn)+'/unit all-in</span><b>'+money(q.total)+'</b></div>'+
+      '<div class="pfrow"><span>'+q.qty+' pcs · '+money(q.perPiece)+'/pc + '+money(q.setup)+' setup</span><b>'+money(q.total)+'</b></div>'+
       '<button class="shaddbtn" id="shAdd"><span>'+(CART[SH.key]?'Update kit':'Add to kit')+'</span><span class="p">'+money(q.total)+'</span></button>'+
-      '<div class="shtrust">Minimum '+min+' units · setup once per design · free proof · no payment now</div>'+
+      '<div class="shtrust">Minimum '+min+' pcs · free proof · no payment now</div>'+
     '</div>';
   var sh=document.getElementById('sheet');
   document.getElementById('shx').addEventListener('click',closeAll);
@@ -661,7 +661,7 @@ function renderPromoSheet(){
   sh.querySelectorAll('.pcol').forEach(function(b){b.addEventListener('click',function(){SH.colour=b.dataset.col;renderPromoSheet();});});
   sh.querySelectorAll('.pmeth').forEach(function(b){b.addEventListener('click',function(){SH.mi=+b.dataset.mi;renderPromoSheet();});});
   sh.querySelectorAll('.ploc').forEach(function(b){b.addEventListener('click',function(){SH.locs=+b.dataset.loc;renderPromoSheet();});});
-  sh.querySelectorAll('.ptier').forEach(function(b){b.addEventListener('click',function(){SH.qty=+b.dataset.q;renderPromoSheet();});});
+  sh.querySelectorAll('.ppick').forEach(function(b){b.addEventListener('click',function(){SH.qty=+b.dataset.q;renderPromoSheet();});});
   sh.querySelectorAll('.pqty button').forEach(function(b){b.addEventListener('click',function(){var cur=parseInt(document.getElementById('pqin').value,10)||min;SH.qty=Math.max(min,cur+parseInt(b.dataset.d,10));renderPromoSheet();});});
   var qin=document.getElementById('pqin');if(qin)qin.addEventListener('change',function(){SH.qty=Math.max(min,parseInt(qin.value,10)||min);renderPromoSheet();});
   document.getElementById('shAdd').addEventListener('click',function(){var was=!!CART[SH.key];CART[SH.key]={qty:q.qty,colour:SH.colour,mi:SH.mi,locs:SH.locs,promo:true};saveCart();closeAll();refreshCartUI();toast((was?'Updated · ':'Added · ')+item.name);});
@@ -854,11 +854,10 @@ function renderCart(){
   var keys=Object.keys(CART),sub=cartSubtotal();
   var items=keys.map(function(k){var it=BYKEY[k];if(!it)return '';var c=CART[k];
     if(it.layer==='promo'){var pq=promoQuote(it,c);var pcol=colInList(it.cols,c.colour)||it.cols[0]||{};
-      var pline=pq.goods+pq.decoRun;var tiers=promoTiers(pq.min);var nx=tiers.filter(function(t){return t>pq.qty;})[0];
-      var pnud='';if(nx){var nq=promoQuote(it,{qty:nx,mi:c.mi,locs:c.locs});var pct=Math.round((1-nq.allIn/pq.allIn)*100);if(pct>0)pnud='<div class="cinudge">＋'+(nx-pq.qty)+' to '+nx+' units · '+money(nq.allIn)+'/u all-in (save '+pct+'%)</div>';}
+      var pline=pq.goods+pq.decoRun;
       return '<div class="ci" data-key="'+k+'"><div class="t" style="background-image:url('+gurl(pcol.front)+')"></div>'+
-        '<div class="d"><h4>'+esc(it.name)+'</h4><div class="sub">'+esc(c.colour||'')+' · '+esc(pq.method.n)+(pq.locs>1?' · '+pq.locs+' locations':'')+'</div>'+
-        pnud+'<div class="row"><button class="editln" data-edit="'+k+'">'+pq.qty+' units · '+money(pq.unitBase+pq.run)+'/u ✎</button><div class="lp">'+money(pline)+'</div></div></div>'+
+        '<div class="d"><h4>'+esc(it.name)+'</h4><div class="sub">'+esc(c.colour||'')+' · '+esc(pq.method.n)+(pq.locs>1?' · 2 spots':'')+' · +'+money(pq.setup)+' setup</div>'+
+        '<div class="row"><button class="editln" data-edit="'+k+'">'+pq.qty+' pcs · '+money(pq.perPiece)+'/pc ✎</button><div class="lp">'+money(pline)+'</div></div></div>'+
         '<button class="rm" data-rm="'+k+'" aria-label="Remove">✕</button></div>';}
     var col=colInList(curColsOf(it,c.fit),c.colour);
     var unit=unitPrice(k,c.decos,c.qty);var szsum=sizesSummary(c);var nud=savingsNudge(k,c.decos,c.qty);
@@ -878,7 +877,7 @@ function renderCart(){
     (keys.length?('<div class="cartf">'+
       '<div class="crow"><span>Estimated subtotal</span><b>'+money(sub)+'</b></div>'+
       (setup>0?brk:'')+
-      '<div class="csetup">Decorated, per piece — embroidery, screen &amp; heat-transfer priced in. Setup is once per logo &amp; location, reused across the kit. Exact itemised quote confirmed before anything runs.</div>'+
+      '<div class="csetup">Prices include your logo, decorated. Setup is a one-time charge per logo &amp; location, reused across the kit. Exact itemised quote confirmed free before anything runs.</div>'+
       '<button class="checkout" id="checkout">Get my exact quote <span class="ar">→</span></button>'+
       '<div class="cktrust"><span>No payment now</span><span>No obligation</span><span>No minimum beyond 12 pcs</span></div></div>'):'')+
     '';
