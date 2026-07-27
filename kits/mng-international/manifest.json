@@ -1,0 +1,29 @@
+{
+  "generator": "client-app",
+  "version": "1785167957",
+  "slug": "mng-international",
+  "client": "MNG International Inc.",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/hero1.png",
+    "img/hero2.png",
+    "img/lg_full_015724.png",
+    "img/lg_full_52b548.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_white.png",
+    "img/lg_icon_015724.png",
+    "img/lg_icon_52b548.png",
+    "img/lg_icon_brand.png",
+    "img/lg_icon_dark.png",
+    "img/lg_icon_white.png",
+    "img/lg_word_015724.png",
+    "img/lg_word_52b548.png",
+    "img/lg_word_brand.png",
+    "img/lg_word_dark.png",
+    "img/lg_word_white.png",
+    "img/logo-white.png"
+  ]
+}
