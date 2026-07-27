@@ -514,6 +514,7 @@ main{padding:0 0 22px}
 .pstot span{font-weight:800}
 .pstot span:last-child{font-size:17px}
 .pstot em{font-style:normal;font-size:12.5px;font-weight:700;color:var(--mut);margin-left:5px}
+.qlogo{display:flex;gap:9px;align-items:flex-start;padding:12px 13px;background:color-mix(in srgb,var(--a) 6%,#fff);border:1px solid color-mix(in srgb,var(--a) 22%,#fff);border-radius:12px;font-size:13px;line-height:1.5;color:var(--ink)}
 /* "Shop the collection" — storefront hero: visual category tiles (Uber-Eats home) */
 .shopcats{background:#fff;border-bottom:1px solid var(--line)}
 .shopcats .w{padding-top:28px;padding-bottom:28px}

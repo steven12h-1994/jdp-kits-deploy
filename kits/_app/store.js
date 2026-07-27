@@ -64,8 +64,18 @@ function unitPrice(key,decos,q){var r=CFG.rates;
    Order total = product (EQP × qty) + decoration run (per-unit, by method + extra locations) + one-time setup.
    The all-in per-unit therefore DROPS as quantity rises (setup spreads) — the real quantity mechanic. */
 function promoMethods(it){return (it.methods&&it.methods.length)?it.methods:[{n:'1-colour print',r:0}];}
+// Quantity-break unit price (NexGen/St Regis/Spector). Debco items have no tiers -> flat price_cad.
+function tierPrice(it,qty){var t=it.tiers;if(!t||!t.length)return it.price_cad||0;var p=t[0].p;for(var i=0;i<t.length;i++){if(qty>=t[i].q)p=t[i].p;}return p;}
 function promoQuote(it,c){
-  c=c||{}; var min=it.moq||1, qty=Math.max(parseInt(c.qty,10)||min,min);
+  c=c||{}; var min=it.moq||((it.tiers&&it.tiers[0])?it.tiers[0].q:1);
+  // QUOTE-MODE (new suppliers): tiered blank product price; logo/decoration confirmed on the free proof.
+  if(it.decoquote){
+    var q2=Math.max(parseInt(c.qty,10)||min,min);
+    var pp=tierPrice(it,q2), gd=Math.round(pp*q2*100)/100;
+    return {qty:q2,min:min,decoquote:true,unit:it.unit||'pc',tiers:it.tiers||[],unitBase:pp,perPiece:pp,
+            run:0,setup:0,locs:1,methods:[],mi:0,method:{n:''},goods:gd,decoRun:0,total:gd,allIn:pp};
+  }
+  var qty=Math.max(parseInt(c.qty,10)||min,min);
   var methods=promoMethods(it), mi=Math.min(Math.max(c.mi||0,0),methods.length-1), m=methods[mi]||{n:'',r:0};
   var locs=Math.max(c.locs||1,1);
   var unitBase=it.price_cad||0;
@@ -122,7 +132,7 @@ function menuCard(key){
       '<div class="mmeta">'+esc(item.sku)+(item.layer==='promo'?'':(item.womens?' · Men’s &amp; Women’s':(item.unisex?' · Unisex':'')))+'</div>'+
       colourDots(item)+
       (item.layer==='promo'
-        ? '<div class="mprice"><b>'+money(item.price_cad)+'</b> <small>/pc · min '+item.moq+'</small></div>'
+        ? '<div class="mprice"><b>'+money(item.price_cad)+'</b> <small>/'+(item.unit==='dozen'?'dozen':'pc')+' · min '+item.moq+'</small></div>'
         : '<div class="mprice">from <b>'+money(fromP)+'</b> <small>/pc'+(hasDecoPlace(item)?' · decorated':'')+'</small></div>')+
       '</div></article>';
 }
@@ -145,6 +155,7 @@ var MEGA=[
   {id:'hivis',name:'Hi-Vis & Safety'},
   {id:'carhartt',name:'Carhartt Workwear'},
   {id:'bags',name:'Bags & Gear'},
+  {id:'golf',name:'Golf'},
   {id:'promo',name:'Promo & Gifts'}
 ];
 var MEGASUB={
@@ -158,7 +169,9 @@ var MEGASUB={
   carhartt:['Sweatshirts & Hoodies','T-Shirts','Shirts','Jackets & Coats','Vests','Pants & Bibs','Flame-Resistant','Headwear','Bags & Accessories'],
   bags:['Backpacks','Duffels','Coolers','Totes','Tool Bags','Accessories','Bags'],
   // Debco promotional products — branded merch & gifts (bulk MOQ). Bags route into the Bags category above.
-  promo:['Gift Sets','Drinkware','Tech & Power','Outdoor & Lifestyle','Notebooks & Desk','Pens & Writing']
+  promo:['Gift Sets','Drinkware','Tech & Power','Outdoor & Lifestyle','Notebooks & Desk','Pens & Writing'],
+  // NexGen Golf — premium branded corporate golf gifts (balls, bags, headwear, towels, umbrellas, tech).
+  golf:['Golf Balls','Golf Bags','Travel & Duffels','Headwear','Towels','Umbrellas','Accessories','Rangefinders & Tech']
 };
 // Hi-vis by NAME (any layer) — CS hi-vis items are premium-layer but belong in Hi-Vis & Safety.
 function classifyHivis(n){
@@ -262,7 +275,7 @@ function classify(it){
 /* ---------- FILTERED BROWSE MODEL (one category at a time; no endless scroll) ---------- */
 var VIEW={cat:null,sub:'all',q:''};
 var BUCKETS={},TOTALS={},CATS=[];
-var SHORTCAT={tops:'Polos & Shirts',layers:'Fleece & Sweaters',outerwear:'Jackets & Vests',ruggedwear:'Rugged Wear',hivis:'Hi-Vis',carhartt:'Carhartt',bags:'Bags',promo:'Promo & Gifts'};
+var SHORTCAT={tops:'Polos & Shirts',layers:'Fleece & Sweaters',outerwear:'Jackets & Vests',ruggedwear:'Rugged Wear',hivis:'Hi-Vis',carhartt:'Carhartt',bags:'Bags',golf:'Golf',promo:'Promo & Gifts'};
 function shortCat(id){return SHORTCAT[id]||megaName(id);}
 function buildBuckets(){
   var order=CFG.order||{},all=[];
@@ -616,17 +629,37 @@ function renderPromoSheet(){
   var gal=(item.gallery&&item.gallery.length)?item.gallery:[(item.cols[0]||{}).front];
   var gi=Math.min(SH.gi||0,gal.length-1);
   var q=promoQuote(item,SH);
-  var min=q.min, methods=q.methods, hasUpg=(methods.length>1)||true;
+  var min=q.min, methods=q.methods, isDQ=q.decoquote, unitP=(q.unit==='dozen'?'dozen':'pc');
   var thumbs=gal.length>1?('<div class="pthumbs">'+gal.map(function(g,i){return '<button class="pthumb'+(i===gi?' on':'')+'" data-i="'+i+'" style="background-image:url('+gurl(g)+')" aria-label="Photo '+(i+1)+'"></button>';}).join('')+'</div>'):'';
   var cols=(item.cols||[]).map(function(c){return '<button class="pcol'+(c.name===SH.colour?' on':'')+'" data-col="'+esc(c.name)+'" title="'+esc(c.name)+'"><span style="background:'+(c.rgb||'#ccc')+'"></span></button>';}).join('');
-  // decoration method chips (only the methods this product supports); 1-colour is included, others +$/pc
-  var meth=methods.map(function(m,i){var up=m.r>0?('<small>+'+money(m.r)+'/pc</small>'):'<small>included</small>';
-    return '<button class="pmeth'+(i===q.mi?' on':'')+'" data-mi="'+i+'">'+esc(m.n)+' '+up+'</button>';}).join('');
-  var locBtns='<button class="ploc'+(q.locs===1?' on':'')+'" data-loc="1">1 spot <small>included</small></button>'+
-    '<button class="ploc'+(q.locs===2?' on':'')+'" data-loc="2">2 spots <small>+'+money(item.addl_loc||0.75)+'/pc</small></button>';
-  // quantity quick-picks — just set the amount (unit price is the SAME at any qty; no fake discounts)
-  var picks=promoTiers(min).map(function(t){return '<button class="ppick'+(t===q.qty?' on':'')+'" data-q="'+t+'">'+t+'</button>';}).join('');
-  var decoLine=(q.run>0? (esc(q.method.n)+(q.locs>1?' · 2 spots':'')) : (esc(q.method.n)+(q.locs>1?' · 2 spots':'')+' · included'));
+  var priceSub,logoGrp,picksHtml,sumHtml,footHtml,step=(min>=48?48:(min>=24?24:12));
+  if(isDQ){
+    var multi=(q.tiers&&q.tiers.length>1);
+    priceSub='<div class="pprice-sub">'+(multi?'Order more, pay less per '+unitP:'Your price per '+unitP)+' · your logo added at proof</div>';
+    logoGrp='<div class="pgrp"><div class="pgl">Your logo</div><div class="qlogo"><span class="pinci">✓</span> Add your logo — we’ll email a <b>free proof</b> and confirm decoration &amp; setup on your quote.</div></div>';
+    var tq=(q.tiers&&q.tiers.length)?q.tiers.map(function(t){return t.q;}):promoTiers(min);
+    picksHtml='<div class="ptiers">'+tq.map(function(t){return '<button class="ptier'+(t===q.qty?' on':'')+'" data-q="'+t+'"><b>'+t+'</b><span>'+money(tierPrice(item,t))+'/'+unitP+'</span></button>';}).join('')+'</div>';
+    sumHtml='<div class="psum"><div class="psrow"><span>'+q.qty+' '+unitP+' × '+money(q.perPiece)+'</span><span>'+money(q.goods)+'</span></div>'+
+      '<div class="psrow"><span>Your logo</span><span>added at proof</span></div>'+
+      '<div class="psrow pstot"><span>Product subtotal</span><span>'+money(q.goods)+'</span></div></div>';
+    footHtml='<div class="pfrow"><span>'+q.qty+' '+unitP+' · '+money(q.perPiece)+'/'+unitP+'</span><b>'+money(q.goods)+'</b></div>'+
+      '<button class="shaddbtn" id="shAdd"><span>'+(CART[SH.key]?'Update kit':'Add to kit')+'</span><span class="p">'+money(q.goods)+'</span></button>'+
+      '<div class="shtrust">Minimum '+min+' '+unitP+' · free proof · logo &amp; final price confirmed on your quote</div>';
+  }else{
+    var meth=methods.map(function(m,i){var up=m.r>0?('<small>+'+money(m.r)+'/pc</small>'):'<small>included</small>';
+      return '<button class="pmeth'+(i===q.mi?' on':'')+'" data-mi="'+i+'">'+esc(m.n)+' '+up+'</button>';}).join('');
+    var locBtns='<button class="ploc'+(q.locs===1?' on':'')+'" data-loc="1">1 spot <small>included</small></button>'+
+      '<button class="ploc'+(q.locs===2?' on':'')+'" data-loc="2">2 spots <small>+'+money(item.addl_loc||0.75)+'/pc</small></button>';
+    priceSub='<div class="pprice-sub">'+(q.run>0?esc(q.method.n):esc(q.method.n)+' · included')+(q.locs>1?' · 2 spots':'')+' · same price at any quantity</div>';
+    logoGrp='<div class="pgrp"><div class="pgl">Your logo <i>1-colour included</i></div><div class="pmeths">'+meth+'</div><div class="plocs">'+locBtns+'</div></div>';
+    picksHtml='<div class="ppicks">'+promoTiers(min).map(function(t){return '<button class="ppick'+(t===q.qty?' on':'')+'" data-q="'+t+'">'+t+'</button>';}).join('')+'</div>';
+    sumHtml='<div class="psum"><div class="psrow"><span>'+q.qty+' pcs × '+money(q.perPiece)+'</span><span>'+money(q.goods+q.decoRun)+'</span></div>'+
+      '<div class="psrow"><span>One-time logo setup'+(q.locs>1?' · 2 spots':'')+'</span><span>'+money(q.setup)+'</span></div>'+
+      '<div class="psrow pstot"><span>Estimated total</span><span>'+money(q.total)+' <em>≈'+money(q.allIn)+'/pc</em></span></div></div>';
+    footHtml='<div class="pfrow"><span>'+q.qty+' pcs · '+money(q.perPiece)+'/pc + '+money(q.setup)+' setup</span><b>'+money(q.total)+'</b></div>'+
+      '<button class="shaddbtn" id="shAdd"><span>'+(CART[SH.key]?'Update kit':'Add to kit')+'</span><span class="p">'+money(q.total)+'</span></button>'+
+      '<div class="shtrust">Minimum '+min+' pcs · free proof · no payment now</div>';
+  }
   document.getElementById('sheet').innerHTML=
     '<button class="shx" id="shx" aria-label="Close">✕</button>'+
     '<div class="shscroll">'+
@@ -634,27 +667,17 @@ function renderPromoSheet(){
       '<div class="shb">'+
         '<h2>'+esc(item.name)+'</h2>'+
         '<div class="shsku">'+esc(item.brand||'Debco')+' · item '+esc(item.msku||item.sku)+'</div>'+
-        '<div class="pprice"><b>'+money(q.perPiece)+'</b><span>per piece</span></div>'+
-        '<div class="pprice-sub">'+decoLine+' · same price at any quantity</div>'+
+        '<div class="pprice"><b>'+money(q.perPiece)+'</b><span>per '+unitP+'</span></div>'+
+        priceSub+
         (item.desc?'<p class="shblurb">'+esc(item.desc)+'</p>':'')+
         (cols?'<div class="pgrp"><div class="pgl">Colour<i>'+esc(SH.colour||'')+'</i></div><div class="pcols">'+cols+'</div></div>':'')+
-        '<div class="pgrp"><div class="pgl">Your logo <i>1-colour included</i></div><div class="pmeths">'+meth+'</div>'+
-          '<div class="plocs">'+locBtns+'</div></div>'+
-        '<div class="pgrp"><div class="pgl">How many?<i>minimum '+min+'</i></div>'+
-          '<div class="ppicks">'+picks+'</div>'+
-          '<div class="qty pqty"><button data-d="-'+(min>=25?25:12)+'" aria-label="Fewer">–</button><input id="pqin" class="szin" type="number" inputmode="numeric" value="'+q.qty+'" min="'+min+'"><button data-d="'+(min>=25?25:12)+'" aria-label="More">+</button></div></div>'+
-        '<div class="psum">'+
-          '<div class="psrow"><span>'+q.qty+' pcs × '+money(q.perPiece)+'</span><span>'+money(q.goods+q.decoRun)+'</span></div>'+
-          '<div class="psrow"><span>One-time logo setup'+(q.locs>1?' · 2 spots':'')+'</span><span>'+money(q.setup)+'</span></div>'+
-          '<div class="psrow pstot"><span>Estimated total</span><span>'+money(q.total)+' <em>≈'+money(q.allIn)+'/pc</em></span></div>'+
-        '</div>'+
+        logoGrp+
+        '<div class="pgrp"><div class="pgl">How many?<i>minimum '+min+' '+unitP+'</i></div>'+picksHtml+
+          '<div class="qty pqty"><button data-d="-'+step+'" aria-label="Fewer">–</button><input id="pqin" class="szin" type="number" inputmode="numeric" value="'+q.qty+'" min="'+min+'"><button data-d="'+step+'" aria-label="More">+</button></div></div>'+
+        sumHtml+
         '<div class="pinc"><span class="pinci">✓</span> Free digital proof before anything is made · exact quote confirmed · no payment now.</div>'+
       '</div></div>'+
-    '<div class="shfoot">'+
-      '<div class="pfrow"><span>'+q.qty+' pcs · '+money(q.perPiece)+'/pc + '+money(q.setup)+' setup</span><b>'+money(q.total)+'</b></div>'+
-      '<button class="shaddbtn" id="shAdd"><span>'+(CART[SH.key]?'Update kit':'Add to kit')+'</span><span class="p">'+money(q.total)+'</span></button>'+
-      '<div class="shtrust">Minimum '+min+' pcs · free proof · no payment now</div>'+
-    '</div>';
+    '<div class="shfoot">'+footHtml+'</div>';
   var sh=document.getElementById('sheet');
   document.getElementById('shx').addEventListener('click',closeAll);
   sh.querySelectorAll('.pthumb').forEach(function(b){b.addEventListener('click',function(){SH.gi=+b.dataset.i;var mi=document.getElementById('pmain');if(mi)mi.src=gurl(gal[SH.gi]);sh.querySelectorAll('.pthumb').forEach(function(x){x.classList.toggle('on',x===b);});});});
@@ -834,7 +857,7 @@ function setupBreakdown(){var r=CFG.rates||{},s=r.setup||{},seen={},out=[];
     else{amt=s.embroidery||0;lab=lname+' · '+plab+' · embroidery digitizing';}
     out.push({label:lab,amount:Math.round(amt*100)/100});});});
   Object.keys(CART).forEach(function(k){var it=BYKEY[k];if(!it||it.layer!=='promo')return;var q=promoQuote(it,CART[k]);
-    out.push({label:it.name+' · '+q.method.n+(q.locs>1?' · '+q.locs+' locations':'')+' setup',amount:q.setup});});
+    if(q.setup>0)out.push({label:it.name+' · '+q.method.n+(q.locs>1?' · '+q.locs+' locations':'')+' setup',amount:q.setup});});
   return out;}
 function cartSetup(){return Math.round(setupBreakdown().reduce(function(t,x){return t+x.amount;},0)*100)/100;}
 function fitLabel(c){return (c&&c.fit==='womens')?'Women’s':'';}
@@ -854,10 +877,11 @@ function renderCart(){
   var keys=Object.keys(CART),sub=cartSubtotal();
   var items=keys.map(function(k){var it=BYKEY[k];if(!it)return '';var c=CART[k];
     if(it.layer==='promo'){var pq=promoQuote(it,c);var pcol=colInList(it.cols,c.colour)||it.cols[0]||{};
-      var pline=pq.goods+pq.decoRun;
+      var pline=pq.goods+pq.decoRun;var uP=(pq.unit==='dozen'?'dozen':'pc');
+      var psub2=pq.decoquote?(esc(c.colour||'')+' · logo added at proof'):(esc(c.colour||'')+' · '+esc(pq.method.n)+(pq.locs>1?' · 2 spots':'')+' · +'+money(pq.setup)+' setup');
       return '<div class="ci" data-key="'+k+'"><div class="t" style="background-image:url('+gurl(pcol.front)+')"></div>'+
-        '<div class="d"><h4>'+esc(it.name)+'</h4><div class="sub">'+esc(c.colour||'')+' · '+esc(pq.method.n)+(pq.locs>1?' · 2 spots':'')+' · +'+money(pq.setup)+' setup</div>'+
-        '<div class="row"><button class="editln" data-edit="'+k+'">'+pq.qty+' pcs · '+money(pq.perPiece)+'/pc ✎</button><div class="lp">'+money(pline)+'</div></div></div>'+
+        '<div class="d"><h4>'+esc(it.name)+'</h4><div class="sub">'+psub2+'</div>'+
+        '<div class="row"><button class="editln" data-edit="'+k+'">'+pq.qty+' '+uP+' · '+money(pq.perPiece)+'/'+uP+' ✎</button><div class="lp">'+money(pline)+'</div></div></div>'+
         '<button class="rm" data-rm="'+k+'" aria-label="Remove">✕</button></div>';}
     var col=colInList(curColsOf(it,c.fit),c.colour);
     var unit=unitPrice(k,c.decos,c.qty);var szsum=sizesSummary(c);var nud=savingsNudge(k,c.decos,c.qty);
