@@ -1,0 +1,30 @@
+{
+  "generator": "client-app",
+  "version": "1785165991",
+  "slug": "global-fruit",
+  "client": "Global Fruit",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_535d26.png",
+    "img/lg_full_862122.png",
+    "img/lg_full_9d5653.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_white.png",
+    "img/lg_icon_535d26.png",
+    "img/lg_icon_862122.png",
+    "img/lg_icon_9d5653.png",
+    "img/lg_icon_brand.png",
+    "img/lg_icon_dark.png",
+    "img/lg_icon_white.png",
+    "img/lg_word_535d26.png",
+    "img/lg_word_862122.png",
+    "img/lg_word_9d5653.png",
+    "img/lg_word_brand.png",
+    "img/lg_word_dark.png",
+    "img/lg_word_white.png",
+    "img/logo-white.png"
+  ]
+}
