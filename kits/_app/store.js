@@ -405,7 +405,7 @@ function shopCatsHtml(){
   var rest=CATS.filter(function(c){return !used[c];});
   if(rest.length)worlds+='<div class="aud"><div class="scgrid">'+rest.map(tile).join('')+'</div></div>';
   return '<section class="shopcats"><div class="w">'+
-    '<div class="schd"><h2>Built for the crew &amp; the client</h2><p>One store, two worlds — kit out your field crews and your office, sales &amp; client-facing teams, all ready with your logo.</p></div>'+
+    '<div class="schd"><h2>Built for the crew &amp; the client</h2><p>Two worlds, one store — outfit your field crews and your office, sales &amp; client-facing teams, every piece ready with your logo.</p></div>'+
     worlds+'</div></section>';
 }
 // Ready-made kits, curated by ROLE — a premium B2B move: outfit a whole role in one tap.
@@ -462,7 +462,7 @@ function moreCatsHtml(){
       '<div class="mctx"><b>'+esc(shortCat(c))+'</b><i>'+TOTALS[c]+' styles →</i></div></div>';}).join('');
   var gallery=tiles?'<div class="mcgrid">'+tiles+'</div>':'';
   return '<div class="morecats"><div class="mchd">Keep exploring the collection</div>'+
-    '<div class="mcsub">Your logo, ready across every layer — tap a category to keep browsing.</div>'+
+    '<div class="mcsub">Ready with your logo across every layer — tap a category to keep browsing.</div>'+
     banner+gallery+'</div>';}
 function openSearch(){var nw=document.getElementById('navwrap');if(nw)nw.classList.add('searching');var si=document.getElementById('kitSearch');if(si){si.focus();}}
 function closeSearch(){var nw=document.getElementById('navwrap');if(nw)nw.classList.remove('searching');VIEW.q='';var si=document.getElementById('kitSearch');if(si)si.value='';renderGrid();}
@@ -522,13 +522,12 @@ function buildStore(){
    '<section class="hero"><div class="w heroin">'+
      '<div class="eyb">'+(demo?'Sample store · your logo goes here':'Premium branded workwear &amp; apparel')+'</div>'+
      '<h1>'+esc(CFG.client)+"'s team store</h1>"+
-     '<p class="herosub">'+(demo?'This is a live sample. Every item shows exactly where your logo goes — swap in your brand and it becomes your team’s store. Live pricing, exact quote, no obligation.':'One store for your field &amp; crews and your office, sales &amp; client-facing teams — CSA hi-vis, rugged workwear, sharp branded polos, premium layers &amp; client gifts, all ready with your logo.')+'</p>'+
+     '<p class="herosub">'+(demo?'This is a live sample. Every item shows exactly where your logo goes — swap in your brand and it becomes your team’s store. Live pricing, exact quote, no obligation.':'One premium store for the jobsite and the front office — CSA hi-vis and rugged workwear to sharp branded polos and client gifts, every piece ready with your logo.')+'</p>'+
      heroCta+
      '<div class="herotrust"><span>Family-owned in Toronto since 1994</span><span>12,846+ teams outfitted</span><span>Ships across Canada &amp; the U.S.</span></div>'+
    '</div></section>'+
    benBand+
    shopCatsHtml()+
-   kitsHtml()+
    '<div class="navwrap" id="navwrap">'+
      '<div class="worldbar" id="worldbar"></div>'+
      '<div class="filterbar"><div class="ctabsrow">'+
