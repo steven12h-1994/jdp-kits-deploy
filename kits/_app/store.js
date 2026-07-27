@@ -855,10 +855,10 @@ function renderCart(){
   var items=keys.map(function(k){var it=BYKEY[k];if(!it)return '';var c=CART[k];
     if(it.layer==='promo'){var pq=promoQuote(it,c);var pcol=colInList(it.cols,c.colour)||it.cols[0]||{};
       var pline=pq.goods+pq.decoRun;var tiers=promoTiers(pq.min);var nx=tiers.filter(function(t){return t>pq.qty;})[0];
-      var pnud='';if(nx){var nq=promoQuote(it,{qty:nx,mi:c.mi,locs:c.locs});var pct=Math.round((1-nq.allIn/pq.allIn)*100);if(pct>0)pnud='<div class="cinudge">＋'+(nx-pq.qty)+' to '+nx+' units · '+money(nq.allIn)+'/u (save '+pct+'%)</div>';}
+      var pnud='';if(nx){var nq=promoQuote(it,{qty:nx,mi:c.mi,locs:c.locs});var pct=Math.round((1-nq.allIn/pq.allIn)*100);if(pct>0)pnud='<div class="cinudge">＋'+(nx-pq.qty)+' to '+nx+' units · '+money(nq.allIn)+'/u all-in (save '+pct+'%)</div>';}
       return '<div class="ci" data-key="'+k+'"><div class="t" style="background-image:url('+gurl(pcol.front)+')"></div>'+
         '<div class="d"><h4>'+esc(it.name)+'</h4><div class="sub">'+esc(c.colour||'')+' · '+esc(pq.method.n)+(pq.locs>1?' · '+pq.locs+' locations':'')+'</div>'+
-        pnud+'<div class="row"><button class="editln" data-edit="'+k+'">'+pq.qty+' units · '+money(pq.allIn)+'/u ✎</button><div class="lp">'+money(pline)+'</div></div></div>'+
+        pnud+'<div class="row"><button class="editln" data-edit="'+k+'">'+pq.qty+' units · '+money(pq.unitBase+pq.run)+'/u ✎</button><div class="lp">'+money(pline)+'</div></div></div>'+
         '<button class="rm" data-rm="'+k+'" aria-label="Remove">✕</button></div>';}
     var col=colInList(curColsOf(it,c.fit),c.colour);
     var unit=unitPrice(k,c.decos,c.qty);var szsum=sizesSummary(c);var nud=savingsNudge(k,c.decos,c.qty);
