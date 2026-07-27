@@ -60,6 +60,24 @@ function unitPrice(key,decos,q){var r=CFG.rates;
   var price=c*cm*vf+dec,floor=(c+dec)/0.85;   // hard 15% total-margin clamp
   if(price<floor)price=floor; if(price<2.50)price=2.50;          // min piece price
   return Math.ceil(price/0.5)*0.5;}                              // round UP to nearest $0.50
+/* ---- PROMO pricing engine (Debco) — the correct all-in model ----
+   Order total = product (EQP × qty) + decoration run (per-unit, by method + extra locations) + one-time setup.
+   The all-in per-unit therefore DROPS as quantity rises (setup spreads) — the real quantity mechanic. */
+function promoMethods(it){return (it.methods&&it.methods.length)?it.methods:[{n:'1-colour print',r:0}];}
+function promoQuote(it,c){
+  c=c||{}; var min=it.moq||1, qty=Math.max(parseInt(c.qty,10)||min,min);
+  var methods=promoMethods(it), mi=Math.min(Math.max(c.mi||0,0),methods.length-1), m=methods[mi]||{n:'',r:0};
+  var locs=Math.max(c.locs||1,1);
+  var unitBase=it.price_cad||0;
+  var run=(m.r||0)+((locs>1)?((it.addl_loc||0.75)*(locs-1)):0);   // per-unit decoration (method + extra locations)
+  var setup=Math.round((it.setup||65)*locs*100)/100;             // one-time, one setup per location
+  var goods=unitBase*qty, decoRun=run*qty, total=goods+decoRun+setup;
+  return {qty:qty,min:min,methods:methods,mi:mi,method:m,locs:locs,unitBase:unitBase,run:Math.round(run*100)/100,
+          setup:setup,goods:Math.round(goods*100)/100,decoRun:Math.round(decoRun*100)/100,
+          total:Math.round(total*100)/100,allIn:total/qty};
+}
+// Quantity presets a B2B buyer actually orders (always starting at the item's minimum).
+function promoTiers(min){var out=[];[min,25,50,100,250,500].forEach(function(q){if(q>=min&&out.indexOf(q)<0)out.push(q);});return out.slice(0,5);}
 // A setup is charged ONCE per unique DESIGN+LOCATION+METHOD across the whole kit (a stitch file / set of
 // screens is reused on every garment & quantity). Screens also depend on ink colour, so screen keys include ink.
 function setupKey(d){return d.method==='screen' ? ('scr|'+d.lg+'|'+d.pl+'|'+(d.ink||'auto')) : (d.method+'|'+d.lg+'|'+d.pl);}
@@ -521,9 +539,9 @@ function savingsNudge(key,decos,q){var nt=nextTier(q);if(!nt)return null;var a=u
 function sizesSummary(c){if(!c||!c.sizes)return '';return ALLSIZES.filter(function(s){return c.sizes[s];}).map(function(s){return s+' '+c.sizes[s];}).join(' · ');}
 function openSheet(key){
   var item=BYKEY[key],vm=vmOf(key),ex=CART[key],exmap={};
-  if(item&&item.layer==='promo'){   // promotional products: clean photo + colour + quantity (no jargon)
+  if(item&&item.layer==='promo'){   // promotional products: clean photo + colour + quantity + decoration
     SH={key:key,promo:true,gi:0,colour:(ex&&ex.colour)||(item.cols[0]||{}).name,
-        qty:(ex&&ex.qty)||item.moq||1};
+        qty:(ex&&ex.qty)||item.moq||1,mi:(ex&&ex.mi)||0,locs:(ex&&ex.locs)||1};
     renderSheet();
     document.getElementById('ov').classList.add('on');document.getElementById('sheet').classList.add('on');
     document.body.style.overflow='hidden';return;
@@ -589,17 +607,30 @@ function galleryStrip(item){
   gal.forEach(function(g){t.push('<button class="shgthumb'+(SH.gimg===g?' on':'')+'" data-img="'+esc(g)+'" style="background-image:url('+gurl(g)+')" aria-label="Product photo"></button>');});
   return '<div class="shgal">'+t.join('')+'</div>';
 }
-// PROMO sheet — Uber-Eats clean: swipe-through photo gallery, price, colour, quantity, one "included" line.
-// No decoration-method jargon and no set-up-fee lines on the storefront — the exact quote confirms everything.
+// PROMO sheet — Uber-Eats clean, B2B-correct: photo gallery, colour, decoration (method + location),
+// quantity tiers, and a LIVE price breakdown (product + decoration + one-time setup → all-in per unit).
 function renderPromoSheet(){
   var item=BYKEY[SH.key];
   var gal=(item.gallery&&item.gallery.length)?item.gallery:[(item.cols[0]||{}).front];
   var gi=Math.min(SH.gi||0,gal.length-1);
-  var unit=item.price_cad||0, min=item.moq||1;
-  var qty=Math.max(SH.qty||min,min), line=unit*qty;
-  var step=min>=25?25:12;
+  var q=promoQuote(item,SH);
+  var min=q.min, methods=q.methods;
   var thumbs=gal.length>1?('<div class="pthumbs">'+gal.map(function(g,i){return '<button class="pthumb'+(i===gi?' on':'')+'" data-i="'+i+'" style="background-image:url('+gurl(g)+')" aria-label="Photo '+(i+1)+'"></button>';}).join('')+'</div>'):'';
   var cols=(item.cols||[]).map(function(c){return '<button class="pcol'+(c.name===SH.colour?' on':'')+'" data-col="'+esc(c.name)+'" title="'+esc(c.name)+'"><span style="background:'+(c.rgb||'#ccc')+'"></span></button>';}).join('');
+  // decoration method chips (only the methods this product actually supports)
+  var meth=methods.map(function(m,i){var up=m.r>0?(' <small>+'+money(m.r)+'/u</small>'):' <small>included</small>';
+    return '<button class="pmeth'+(i===q.mi?' on':'')+'" data-mi="'+i+'">'+esc(m.n)+up+'</button>';}).join('');
+  // second-location toggle (adds a setup + per-unit run)
+  var locBtns='<button class="ploc'+(q.locs===1?' on':'')+'" data-loc="1">1 location <small>included</small></button>'+
+    '<button class="ploc'+(q.locs===2?' on':'')+'" data-loc="2">Add 2nd location <small>+'+money(item.addl_loc||0.75)+'/u</small></button>';
+  // quantity tier presets — each shows its ALL-IN per-unit at the current decoration (drops with volume)
+  var tiers=promoTiers(min).map(function(t){var tq=promoQuote(item,{qty:t,mi:q.mi,locs:q.locs});
+    return '<button class="ptier'+(t===q.qty?' on':'')+'" data-q="'+t+'"><b>'+t+'</b><span>'+money(tq.allIn)+'/u</span></button>';}).join('');
+  // live breakdown rows
+  var brk='<div class="pbk"><span>Product · '+q.qty+' × '+money(q.unitBase)+'</span><span>'+money(q.goods)+'</span></div>'+
+    (q.run>0?('<div class="pbk"><span>'+esc(q.method.n)+(q.locs>1?' · '+q.locs+' locations':'')+' · '+q.qty+' × '+money(q.run)+'</span><span>'+money(q.decoRun)+'</span></div>'):
+             ('<div class="pbk"><span>'+esc(q.method.n)+' decoration</span><span>included</span></div>'))+
+    '<div class="pbk"><span>One-time setup'+(q.locs>1?' ('+q.locs+' locations)':'')+'</span><span>'+money(q.setup)+'</span></div>';
   document.getElementById('sheet').innerHTML=
     '<button class="shx" id="shx" aria-label="Close">✕</button>'+
     '<div class="shscroll">'+
@@ -607,25 +638,33 @@ function renderPromoSheet(){
       '<div class="shb">'+
         '<h2>'+esc(item.name)+'</h2>'+
         '<div class="shsku">'+esc(item.brand||'Debco')+' · item '+esc(item.msku||item.sku)+'</div>'+
-        '<div class="pprice"><b>'+money(unit)+'</b><span>per unit</span></div>'+
+        '<div class="pprice"><b>'+money(q.allIn)+'</b><span>per unit, all-in</span><em>at '+q.qty+' units</em></div>'+
         (item.desc?'<p class="shblurb">'+esc(item.desc)+'</p>':'')+
         (cols?'<div class="pgrp"><div class="pgl">Colour<i>'+esc(SH.colour||'')+'</i></div><div class="pcols">'+cols+'</div></div>':'')+
+        '<div class="pgrp"><div class="pgl">Your logo</div><div class="pmeths">'+meth+'</div>'+
+          '<div class="plocs">'+locBtns+'</div></div>'+
         '<div class="pgrp"><div class="pgl">How many?<i>minimum '+min+'</i></div>'+
-          '<div class="qty pqty"><button data-d="-'+step+'" aria-label="Fewer">–</button><input id="pqin" class="szin" type="number" inputmode="numeric" value="'+qty+'" min="'+min+'"><button data-d="'+step+'" aria-label="More">+</button></div></div>'+
-        '<div class="pinc"><span class="pinci">✓</span> Your logo included — printed in full colour. We’ll email a free digital proof before anything is made.</div>'+
+          '<div class="ptiers">'+tiers+'</div>'+
+          '<div class="qty pqty"><button data-d="-'+(min>=25?25:12)+'" aria-label="Fewer">–</button><input id="pqin" class="szin" type="number" inputmode="numeric" value="'+q.qty+'" min="'+min+'"><button data-d="'+(min>=25?25:12)+'" aria-label="More">+</button></div></div>'+
+        '<div class="pgrp"><div class="pgl">Price breakdown</div>'+brk+
+          '<div class="pbk pbktot"><span>Order total</span><span>'+money(q.total)+'</span></div></div>'+
+        '<div class="pinc"><span class="pinci">✓</span> Free digital proof before anything is made · order more, per-unit drops as setup spreads · exact quote confirmed — no payment now.</div>'+
       '</div></div>'+
     '<div class="shfoot">'+
-      '<div class="pfrow"><span>'+qty+' units × '+money(unit)+'</span><b>'+money(line)+'</b></div>'+
-      '<button class="shaddbtn" id="shAdd"><span>'+(CART[SH.key]?'Update kit':'Add to kit')+'</span><span class="p">'+money(line)+'</span></button>'+
-      '<div class="shtrust">Minimum '+min+' units · exact quote &amp; free proof before anything runs · no payment now</div>'+
+      '<div class="pfrow"><span>'+q.qty+' units · '+money(q.allIn)+'/unit all-in</span><b>'+money(q.total)+'</b></div>'+
+      '<button class="shaddbtn" id="shAdd"><span>'+(CART[SH.key]?'Update kit':'Add to kit')+'</span><span class="p">'+money(q.total)+'</span></button>'+
+      '<div class="shtrust">Minimum '+min+' units · setup once per design · free proof · no payment now</div>'+
     '</div>';
   var sh=document.getElementById('sheet');
   document.getElementById('shx').addEventListener('click',closeAll);
   sh.querySelectorAll('.pthumb').forEach(function(b){b.addEventListener('click',function(){SH.gi=+b.dataset.i;var mi=document.getElementById('pmain');if(mi)mi.src=gurl(gal[SH.gi]);sh.querySelectorAll('.pthumb').forEach(function(x){x.classList.toggle('on',x===b);});});});
   sh.querySelectorAll('.pcol').forEach(function(b){b.addEventListener('click',function(){SH.colour=b.dataset.col;renderPromoSheet();});});
+  sh.querySelectorAll('.pmeth').forEach(function(b){b.addEventListener('click',function(){SH.mi=+b.dataset.mi;renderPromoSheet();});});
+  sh.querySelectorAll('.ploc').forEach(function(b){b.addEventListener('click',function(){SH.locs=+b.dataset.loc;renderPromoSheet();});});
+  sh.querySelectorAll('.ptier').forEach(function(b){b.addEventListener('click',function(){SH.qty=+b.dataset.q;renderPromoSheet();});});
   sh.querySelectorAll('.pqty button').forEach(function(b){b.addEventListener('click',function(){var cur=parseInt(document.getElementById('pqin').value,10)||min;SH.qty=Math.max(min,cur+parseInt(b.dataset.d,10));renderPromoSheet();});});
   var qin=document.getElementById('pqin');if(qin)qin.addEventListener('change',function(){SH.qty=Math.max(min,parseInt(qin.value,10)||min);renderPromoSheet();});
-  document.getElementById('shAdd').addEventListener('click',function(){var was=!!CART[SH.key];CART[SH.key]={qty:Math.max(SH.qty||min,min),colour:SH.colour,deco:'Full colour',promo:true};saveCart();closeAll();refreshCartUI();toast((was?'Updated · ':'Added · ')+item.name);});
+  document.getElementById('shAdd').addEventListener('click',function(){var was=!!CART[SH.key];CART[SH.key]={qty:q.qty,colour:SH.colour,mi:SH.mi,locs:SH.locs,promo:true};saveCart();closeAll();refreshCartUI();toast((was?'Updated · ':'Added · ')+item.name);});
 }
 function renderSheet(){
   var item=BYKEY[SH.key];
@@ -763,7 +802,7 @@ function recCartDecos(key){
 }
 function quickAdd(key){
   if(!BYKEY[key])return;var it=BYKEY[key],vm=vmOf(key),ex=CART[key];
-  if(it.layer==='promo'){CART[key]={qty:(ex&&ex.qty)||it.moq||1,colour:(ex&&ex.colour)||(it.cols[0]||{}).name,deco:(it.deco||[])[0]||'',promo:true};saveCart();refreshCartUI();toast('Added · '+it.name);return;}
+  if(it.layer==='promo'){CART[key]={qty:(ex&&ex.qty)||it.moq||1,colour:(ex&&ex.colour)||(it.cols[0]||{}).name,mi:(ex&&ex.mi)||0,locs:(ex&&ex.locs)||1,promo:true};saveCart();refreshCartUI();toast('Added · '+it.name);return;}
   CART[key]={qty:(ex&&ex.qty)||moq(),colour:(ex&&ex.colour)||vm.colour,decos:recCartDecos(key)};
   saveCart();refreshCartUI();toast('Added · '+BYKEY[key].name);
 }
@@ -783,7 +822,9 @@ function addRecommended(){
 
 /* ---------- cart ---------- */
 function cartCount(){return Object.keys(CART).length;}
-function cartSubtotal(){var t=0;Object.keys(CART).forEach(function(k){var it=BYKEY[k];if(!it)return;var c=CART[k];t+=unitPrice(k,c.decos,c.qty)*c.qty;});return t;}
+function cartSubtotal(){var t=0;Object.keys(CART).forEach(function(k){var it=BYKEY[k];if(!it)return;var c=CART[k];
+  if(it.layer==='promo'){var q=promoQuote(it,c);t+=q.goods+q.decoRun;}   // product + decoration (setup shown separately)
+  else t+=unitPrice(k,c.decos,c.qty)*c.qty;});return t;}
 function setupBreakdown(){var r=CFG.rates||{},s=r.setup||{},seen={},out=[];
   Object.keys(CART).forEach(function(k){var it=BYKEY[k];if(!it)return;(CART[k].decos||[]).forEach(function(d){if(!d.on)return;
     var key=setupKey(d);if(seen[key])return;seen[key]=1;
@@ -792,6 +833,8 @@ function setupBreakdown(){var r=CFG.rates||{},s=r.setup||{},seen={},out=[];
     else if(d.method==='heat_transfer'){amt=s.heat_transfer||0;lab=lname+' · '+plab+' · heat-transfer artwork';}
     else{amt=s.embroidery||0;lab=lname+' · '+plab+' · embroidery digitizing';}
     out.push({label:lab,amount:Math.round(amt*100)/100});});});
+  Object.keys(CART).forEach(function(k){var it=BYKEY[k];if(!it||it.layer!=='promo')return;var q=promoQuote(it,CART[k]);
+    out.push({label:it.name+' · '+q.method.n+(q.locs>1?' · '+q.locs+' locations':'')+' setup',amount:q.setup});});
   return out;}
 function cartSetup(){return Math.round(setupBreakdown().reduce(function(t,x){return t+x.amount;},0)*100)/100;}
 function fitLabel(c){return (c&&c.fit==='womens')?'Women’s':'';}
@@ -809,7 +852,15 @@ function refreshCartUI(){
 function openCart(){renderCart();document.getElementById('ov').classList.add('on');document.getElementById('cart').classList.add('on');document.body.style.overflow='hidden';}
 function renderCart(){
   var keys=Object.keys(CART),sub=cartSubtotal();
-  var items=keys.map(function(k){var it=BYKEY[k];if(!it)return '';var c=CART[k];var col=colInList(curColsOf(it,c.fit),c.colour);
+  var items=keys.map(function(k){var it=BYKEY[k];if(!it)return '';var c=CART[k];
+    if(it.layer==='promo'){var pq=promoQuote(it,c);var pcol=colInList(it.cols,c.colour)||it.cols[0]||{};
+      var pline=pq.goods+pq.decoRun;var tiers=promoTiers(pq.min);var nx=tiers.filter(function(t){return t>pq.qty;})[0];
+      var pnud='';if(nx){var nq=promoQuote(it,{qty:nx,mi:c.mi,locs:c.locs});var pct=Math.round((1-nq.allIn/pq.allIn)*100);if(pct>0)pnud='<div class="cinudge">＋'+(nx-pq.qty)+' to '+nx+' units · '+money(nq.allIn)+'/u (save '+pct+'%)</div>';}
+      return '<div class="ci" data-key="'+k+'"><div class="t" style="background-image:url('+gurl(pcol.front)+')"></div>'+
+        '<div class="d"><h4>'+esc(it.name)+'</h4><div class="sub">'+esc(c.colour||'')+' · '+esc(pq.method.n)+(pq.locs>1?' · '+pq.locs+' locations':'')+'</div>'+
+        pnud+'<div class="row"><button class="editln" data-edit="'+k+'">'+pq.qty+' units · '+money(pq.allIn)+'/u ✎</button><div class="lp">'+money(pline)+'</div></div></div>'+
+        '<button class="rm" data-rm="'+k+'" aria-label="Remove">✕</button></div>';}
+    var col=colInList(curColsOf(it,c.fit),c.colour);
     var unit=unitPrice(k,c.decos,c.qty);var szsum=sizesSummary(c);var nud=savingsNudge(k,c.decos,c.qty);
     var fitb=fitTag(it,c)?'<span class="fitbadge">'+fitTag(it,c)+'</span> ':'';
     var ctrl='<button class="editln" data-edit="'+k+'">'+c.qty+' pcs · '+(c.sizes?'by size':'add sizes')+' ✎</button>';

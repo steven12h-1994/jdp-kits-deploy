@@ -483,6 +483,25 @@ main{padding:0 0 22px}
 .pinci{flex:none;width:19px;height:19px;border-radius:50%;background:var(--a);color:#fff;font-size:12px;font-weight:900;display:flex;align-items:center;justify-content:center;margin-top:1px}
 .pfrow{display:flex;align-items:center;justify-content:space-between;padding:2px 2px 10px;font-size:13.5px;color:var(--mut)}
 .pfrow b{color:var(--ink);font-size:18px;font-weight:800}
+/* Promo sheet v3 — B2B correct pricing: all-in price, decoration options, quantity tiers, breakdown */
+.pprice em{font-style:normal;font-size:12px;font-weight:600;color:var(--mut);margin-left:2px}
+.pmeths,.plocs{display:flex;gap:8px;flex-wrap:wrap}
+.plocs{margin-top:9px}
+.pmeth,.ploc{border:1.5px solid var(--line);background:#fff;border-radius:12px;padding:10px 13px;font:inherit;font-weight:700;font-size:13.5px;color:var(--ink);cursor:pointer;transition:.12s;line-height:1.2}
+.pmeth small,.ploc small{display:block;font-weight:600;font-size:11px;color:var(--mut);margin-top:2px}
+.pmeth.on,.ploc.on{border-color:var(--a);background:color-mix(in srgb,var(--a) 8%,#fff)}
+.pmeth.on small,.ploc.on small{color:var(--a)}
+.ptiers{display:flex;gap:8px;overflow-x:auto;-webkit-overflow-scrolling:touch;margin-bottom:12px;padding-bottom:2px}
+.ptier{flex:0 0 auto;min-width:64px;border:1.5px solid var(--line);background:#fff;border-radius:13px;padding:9px 6px;cursor:pointer;text-align:center;transition:.12s}
+.ptier b{display:block;font-size:16px;font-weight:800;color:var(--ink);line-height:1}
+.ptier span{display:block;font-size:11px;font-weight:700;color:var(--mut);margin-top:3px}
+.ptier.on{border-color:var(--a);background:var(--a);box-shadow:0 4px 12px -4px color-mix(in srgb,var(--a) 60%,transparent)}
+.ptier.on b,.ptier.on span{color:#fff}
+.pbk{display:flex;align-items:baseline;justify-content:space-between;gap:12px;font-size:13px;color:var(--mut);padding:5px 0}
+.pbk span:last-child{font-weight:700;color:var(--ink);white-space:nowrap}
+.pbktot{border-top:1.5px solid var(--line);margin-top:4px;padding-top:10px;font-size:15px;color:var(--ink)}
+.pbktot span{font-weight:800!important}
+.pbktot span:last-child{font-size:17px}
 /* "Shop the collection" — storefront hero: visual category tiles (Uber-Eats home) */
 .shopcats{background:#fff;border-bottom:1px solid var(--line)}
 .shopcats .w{padding-top:28px;padding-bottom:28px}
