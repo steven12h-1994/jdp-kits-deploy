@@ -1,12 +1,16 @@
-/* JDP Storefront — "Uber Eats for branded apparel". Clean, photo-forward, thumb-first.
-   Accent comes from each client stub via :root{--a}. Deployed once at /kits/_app/store.css. */
+/* JDP Storefront — PREMIUM branded workwear & apparel for Field & Crews + Office/Sales/Client-Facing.
+   Rugged, industrial, Carhartt-grade design — deliberately NOT a generic promo catalogue.
+   Client accent comes from each stub via :root{--a}; the rugged neutral palette is the JDP house style. */
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap');
 *{margin:0;padding:0;box-sizing:border-box}
-:root{--a:#1d6fe0;--ink:#16181d;--mut:#6a7078;--line:#ececef;--bg:#f6f7f8;--card:#fff;--rad:18px;
-  --sh:0 1px 2px rgba(16,18,29,.04),0 10px 30px -20px rgba(16,18,29,.35);--shx:0 6px 24px -8px rgba(16,18,29,.28)}
+:root{--a:#1d6fe0;--ink:#1b160e;--mut:#6f6557;--line:#e7e0d3;--bg:#f4efe6;--card:#fff;--rad:15px;
+  --amber:#c1782b;--amber-d:#a4631f;--steel:#211d16;--canvas:#eee7d9;--disp:'Barlow Condensed',ui-sans-serif,system-ui,sans-serif;
+  --sh:0 1px 2px rgba(28,22,12,.05),0 12px 30px -20px rgba(28,22,12,.4);--shx:0 8px 26px -10px rgba(28,22,12,.32)}
 html{-webkit-text-size-adjust:100%}
 body{font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--ink);background:var(--bg);-webkit-font-smoothing:antialiased;overflow-x:hidden;padding-bottom:88px}
 button{font:inherit;cursor:pointer;border:0;background:none;color:inherit}
-h1,h2,h3,h4{line-height:1.12;letter-spacing:-.02em}
+h1,h2,h3,h4{line-height:1.06;letter-spacing:-.01em}
+h1,h2{font-family:var(--disp);font-weight:700;letter-spacing:.01em}
 img{max-width:100%;display:block}
 .w{width:100%;max-width:1120px;margin:0 auto;padding:0 20px}
 .noscript,.spin{display:none}
@@ -531,3 +535,53 @@ main{padding:0 0 22px}
 .sctx span{display:flex;align-items:center;justify-content:space-between;font-size:12.5px;font-weight:800;color:var(--a);margin-top:4px}
 .sctx span i{font-style:normal;font-size:17px;line-height:1}
 @media(max-width:600px){.scgrid{grid-template-columns:1fr 1fr;gap:10px}.schd h2{font-size:19px}.shopcats .w{padding-top:22px;padding-bottom:22px}}
+
+/* ============================================================================
+   JDP PREMIUM — Carhartt-grade rugged identity (Field & Crews + Office/Sales).
+   Industrial condensed display type, warm canvas, amber accents. Differentiates
+   hard from generic promo sites. Client accent (--a) still drives CTAs.
+   ============================================================================ */
+/* header + brand — industrial wordmark */
+.brand b{font-family:var(--disp);font-weight:800;text-transform:uppercase;letter-spacing:.04em;font-size:16.5px}
+.brand i{font-family:var(--disp);text-transform:uppercase;letter-spacing:.06em;font-size:12px}
+.hdr{border-bottom:1px solid var(--line);box-shadow:0 1px 0 rgba(193,120,43,.25)}
+
+/* hero — rugged statement */
+.hero{background:linear-gradient(180deg,#fffdf9,var(--card));border-top:3px solid var(--amber)}
+.eyb{color:var(--amber);font-family:var(--disp);font-weight:700;letter-spacing:.2em;font-size:12px}
+.hero h1{font-family:var(--disp);font-weight:800;text-transform:uppercase;letter-spacing:.01em;font-size:40px;line-height:.98}
+.herosub{max-width:64ch}
+.herotrust{margin-top:18px}
+.herotrust span{font-family:var(--disp);text-transform:uppercase;letter-spacing:.06em;font-weight:600;font-size:12px;color:var(--mut)}
+
+/* category tabs (main nav) + subchips — stamped industrial labels */
+.ctab{font-family:var(--disp)!important;text-transform:uppercase;letter-spacing:.05em;font-weight:600}
+.ctab.on{color:#fff}
+.cpill,.schip{font-family:var(--disp);text-transform:uppercase;letter-spacing:.05em;font-weight:600}
+
+/* "Built for the crew & the client" — the two-world storefront */
+.shopcats{background:var(--bg)}
+.schd h2{font-family:var(--disp);text-transform:uppercase;font-weight:800;letter-spacing:.02em;font-size:30px}
+.schd p{max-width:64ch}
+.aud{margin-top:30px}
+.audhd{position:relative;padding:0 0 14px 16px;margin-bottom:16px;border-left:4px solid var(--amber);border-bottom:1px solid var(--line)}
+.audhd .audk{display:block;font-family:var(--disp);text-transform:uppercase;font-weight:800;letter-spacing:.03em;font-size:23px;color:var(--ink);line-height:1}
+.audhd p{margin:6px 0 0;color:var(--mut);font-size:14px;max-width:62ch}
+.aud-field .audhd{border-left-color:var(--steel)}
+.aud-office .audhd{border-left-color:var(--amber)}
+
+/* category tiles — sturdier, premium */
+.sccard{border:1px solid var(--line);border-radius:14px;background:var(--card);overflow:hidden;box-shadow:var(--sh);transition:transform .14s,box-shadow .14s,border-color .14s}
+.sccard:hover{transform:translateY(-3px);box-shadow:var(--shx);border-color:var(--amber)}
+.sctx b{font-family:var(--disp);text-transform:uppercase;letter-spacing:.03em;font-weight:700;font-size:16px}
+.sctx span{font-family:var(--disp);text-transform:uppercase;letter-spacing:.04em;font-weight:600;font-size:12px}
+
+/* product cards — Top pick badge in workwear amber; industrial titles */
+.mrec{background:var(--amber)!important;color:#fff!important;font-family:var(--disp);text-transform:uppercase;letter-spacing:.04em;font-weight:700}
+.mcard h3{font-weight:700}
+.mmeta{font-family:var(--disp);text-transform:uppercase;letter-spacing:.04em;font-weight:600;font-size:12px;color:var(--mut)}
+.gridhd h2,.gridhd .gh{font-family:var(--disp);text-transform:uppercase;letter-spacing:.02em}
+
+/* "Up next" + more-categories tiles pick up the same stamped labels */
+.nutx b,.mctx b{font-family:var(--disp);text-transform:uppercase;letter-spacing:.03em;font-weight:700}
+.nulab{font-family:var(--disp);text-transform:uppercase;letter-spacing:.08em;color:var(--amber)}
