@@ -122,6 +122,7 @@ function menuCard(key){
   var topcol=CFG.pricing.cols[CFG.pricing.cols.length-1];
   var fromP=unitPrice(key,vm.decos,topcol);
   var rec=(key===CFG.feature||item.rec)?'<span class="mrec">★ Top pick</span>':'';
+  var csa=item.csa?'<span class="mcsa" title="Certified high-visibility rating">🛡 '+esc(item.csa)+'</span>':'';
   var q=CART[key]?CART[key].qty:0;
   var inkit=q?' inkit':'';
   var addlbl=q?('<b>'+q+'</b>'):'+';
@@ -130,6 +131,7 @@ function menuCard(key){
       '<button class="madd'+(q?' has':'')+'" data-key="'+key+'" aria-label="'+(q?'Edit ':'Add ')+esc(item.name)+'">'+addlbl+'</button></div>'+
     '<div class="mb"><h3>'+esc(item.name)+'</h3>'+
       '<div class="mmeta">'+esc(item.sku)+(item.layer==='promo'?'':(item.womens?' · Men’s &amp; Women’s':(item.unisex?' · Unisex':'')))+'</div>'+
+      csa+
       colourDots(item)+
       (item.layer==='promo'
         ? '<div class="mprice"><b>'+money(item.price_cad)+'</b> <small>/'+(item.unit==='dozen'?'dozen':'pc')+' · min '+item.moq+'</small></div>'
@@ -163,22 +165,23 @@ var MEGASUB={
   // Rugged Wear = Canada Sportswear's heavy-duty line, its own brand category.
   // Rugged Wear — organized how trades/industrial buyers shop: by warmth & garment type. The #1 rugged selection.
   ruggedwear:['Insulated & Quilted','Canvas & Shackets','Parkas','Shells & 3-in-1','Vests','Hoodies & Thermals'],
-  hivis:['Hi-Vis T-Shirts','Safety Vests','Hi-Vis Hoodies','Hi-Vis Jackets','Hi-Vis Parkas','Hi-Vis Gear'],
+  hivis:['Safety Vests','Hi-Vis T-Shirts','Sweatshirts & Hoodies','Hi-Vis Jackets','Winter Parkas','Rain & Gear'],
   // Carhartt is its OWN brand category (declutters the shared tabs). By garment; best-sellers keep the ★ Top pick badge and sort first.
   carhartt:['Sweatshirts & Hoodies','T-Shirts','Shirts','Jackets & Coats','Vests','Pants & Bibs','Flame-Resistant','Headwear','Bags & Accessories'],
   // ONE consolidated Accessories category — bags, drinkware, desk, gifts & golf — so the apparel categories
   // keep their value. Curated to premium items that fit Field & Crews + Office/Sales/Client-Facing teams.
   accessories:['Bags','Drinkware','Notebooks & Pens','Gift Sets','Golf','Headwear']
 };
-// Hi-vis by NAME (any layer) — CS hi-vis items are premium-layer but belong in Hi-Vis & Safety.
+// Hi-vis by NAME (any layer). Organized how safety buyers actually shop — vests lead (the #1 entry
+// hi-vis item), then shirts, warm mid-layers, insulated jackets, winter parkas, and rain/gear last.
 function classifyHivis(n){
+  if(/rain|poncho|\bpants?\b|overall|bib|coverall|gaiter/.test(n))return {mega:'hivis',sub:'Rain & Gear'};
+  if(/parka/.test(n))return {mega:'hivis',sub:'Winter Parkas'};
   if(/vest/.test(n))return {mega:'hivis',sub:'Safety Vests'};
-  if(/(tee|t-shirt)/.test(n)&&/hood/.test(n))return {mega:'hivis',sub:'Hi-Vis Hoodies'};
-  if(/tee|t-shirt/.test(n))return {mega:'hivis',sub:'Hi-Vis T-Shirts'};
-  if(/parka/.test(n))return {mega:'hivis',sub:'Hi-Vis Parkas'};
-  if(/overall|bib|coverall/.test(n))return {mega:'hivis',sub:'Hi-Vis Gear'};
-  if(/jacket|bomber|softshell|coat|hoodie|sweatshirt/.test(n))return {mega:'hivis',sub:'Hi-Vis Jackets'};
-  return {mega:'hivis',sub:'Hi-Vis Gear'};
+  if(/hood|sweatshirt|sweater|crewneck|fleece|pullover/.test(n))return {mega:'hivis',sub:'Sweatshirts & Hoodies'};
+  if(/tee|t-shirt|shirt|polo/.test(n))return {mega:'hivis',sub:'Hi-Vis T-Shirts'};
+  if(/jacket|bomber|soft ?shell|coat|shell|3-?in-?1|6-?in-?1/.test(n))return {mega:'hivis',sub:'Hi-Vis Jackets'};
+  return {mega:'hivis',sub:'Hi-Vis Jackets'};
 }
 // Rugged Wear (Canada Sportswear heavy-duty line) — its own brand category, by garment.
 function classifyRugged(n){
@@ -236,10 +239,7 @@ function classify(it){
   if(/hi-?vis|safety/.test(n))return classifyHivis(n);           // hi-vis items (any brand/layer) -> Hi-Vis & Safety
   if(_brand.indexOf('rugged wear')>=0)return classifyRugged(n);  // Canada Sportswear Rugged Wear line -> its own tab
   if(layer==='bags')return {mega:'accessories',sub:'Bags'};   // all apparel bags -> Accessories › Bags
-  if(layer==='field'){var h='Hi-Vis Gear';
-    if(n.indexOf('vest')>=0)h='Safety Vests';else if(/hood/.test(n))h='Hi-Vis Hoodies';
-    else if(/tee|t-shirt|shirt/.test(n))h='Hi-Vis T-Shirts';
-    return {mega:'hivis',sub:h};}
+  if(layer==='field')return classifyHivis(n);   // all Ground Force traffic gear routes by garment type
   // apparel (office + premium + Stormtech). Order matters: shackets/vests before shirt/fleece;
   // layers (zip/sweatshirt/hood) before "shirt" so "…Sweatshirt" doesn't read as a shirt.
   // Flame-Resistant gets its own tab — route FR items here first (before bottoms/headwear/garment rules).
@@ -291,7 +291,7 @@ function worldImg(w){return appBase()+'/hero-'+w+'.jpg';}
 // Ready-made kits — curated by ROLE. Each slot resolves to the top item in a [mega,sub] at render time,
 // so it works in any store regardless of exact SKUs. Speaks directly to each buyer; one-tap to add all.
 var KITS=[
-  {id:'crew',name:'The Crew Kit',world:'field',tag:'Field & Crews',blurb:'Jobsite-ready — hi-vis tee, hi-vis hoodie & a warm beanie.',slots:[['hivis','Hi-Vis T-Shirts'],['hivis','Hi-Vis Hoodies'],['carhartt','Headwear']]},
+  {id:'crew',name:'The Crew Kit',world:'field',tag:'Field & Crews',blurb:'Jobsite-ready — hi-vis tee, hi-vis hoodie & a warm beanie.',slots:[['hivis','Hi-Vis T-Shirts'],['hivis','Sweatshirts & Hoodies'],['carhartt','Headwear']]},
   {id:'super',name:'The Field Supervisor Kit',world:'field',tag:'Field & Crews',blurb:'Lead the site — softshell jacket, branded polo & a cap.',slots:[['outerwear','Softshell Jackets'],['tops','Polos'],['carhartt','Headwear']]},
   {id:'client',name:'The Client-Facing Kit',world:'office',tag:'Office & Sales',blurb:'Sharp & polished — quarter-zip, premium polo & a notebook.',slots:[['layers','Quarter & Half-Zips'],['tops','Polos'],['accessories','Notebooks & Pens']]},
   {id:'newhire',name:'The New-Hire Welcome Kit',world:'office',tag:'Onboarding',blurb:'Day-one welcome — polo, backpack, bottle & a notebook.',slots:[['tops','Polos'],['accessories','Bags'],['accessories','Drinkware'],['accessories','Notebooks & Pens']]}
@@ -361,14 +361,25 @@ function renderGrid(){
     grid.innerHTML='<div class="menu">'+matches.map(menuCard).join('')+'</div>';
     nr.style.display=matches.length?'none':'';wireCards();return;}
   nr.style.display='none';
-  var subs=subNames(VIEW.cat),csa=VIEW.cat==='hivis'?' <span class="csa">CSA-rated</span>':'';
+  var subs=subNames(VIEW.cat),csa=VIEW.cat==='hivis'?' <span class="csa">CSA Z96 · ANSI 107</span>':'';
   hd.innerHTML='<h2 class="glbl">'+esc(megaName(VIEW.cat))+csa+'</h2><span class="gsub">'+((VIEW.sub==='all'?TOTALS[VIEW.cat]:(BUCKETS[VIEW.cat][VIEW.sub]||[]).length))+' styles</span>';
   var inner;
   if(VIEW.sub!=='all'){inner='<div class="menu">'+(BUCKETS[VIEW.cat][VIEW.sub]||[]).map(menuCard).join('')+'</div>';}
   else if(subs.length>1&&TOTALS[VIEW.cat]>6){
     inner=subs.map(function(s){return '<div class="subgrp"><h3 class="subhd">'+esc(s)+' <span class="subn">'+BUCKETS[VIEW.cat][s].length+'</span></h3><div class="menu">'+BUCKETS[VIEW.cat][s].map(menuCard).join('')+'</div></div>';}).join('');}
   else{var flat=[];subs.forEach(function(s){flat=flat.concat(BUCKETS[VIEW.cat][s]);});inner='<div class="menu">'+flat.map(menuCard).join('')+'</div>';}
-  grid.innerHTML=inner+moreCatsHtml();wireCards();}
+  grid.innerHTML=(VIEW.cat==='hivis'?hivisIntroHtml():'')+inner+moreCatsHtml();wireCards();}
+// Compliance-forward intro for the Hi-Vis category — safety buyers shop by STANDARD & CLASS first.
+// Certified for BOTH Canada (CSA Z96-22) and the U.S. (ANSI/ISEA 107-2020), with a plain-English class guide.
+function hivisIntroHtml(){
+  return '<div class="hvintro">'+
+    '<div class="hvhead"><span class="hvbadge">🛡 CSA Z96-22 + ANSI/ISEA 107-2020</span>'+
+      '<p>Every hi-vis piece here is <b>certified for both Canada and the U.S.</b> — spec your crew once and stay compliant on either side of the border. Each style is labelled with its exact class so you can match the garment to the hazard.</p></div>'+
+    '<div class="hvclass">'+
+      '<div class="hvc"><b>Class 1</b><span>Low-risk / off-road — parking lots, warehouse yards, sites set back from traffic.</span></div>'+
+      '<div class="hvc"><b>Class 2</b><span>Roadside &amp; active traffic — the workhorse class for road crews, survey, utility &amp; municipal.</span></div>'+
+      '<div class="hvc"><b>Class 3</b><span>High-speed / low-light — highway, night work &amp; poor visibility; full sleeve coverage.</span></div>'+
+    '</div></div>';}
 // Bring the START of the filtered results (the grid heading) to just below the sticky header+nav. Measured
 // live via getBoundingClientRect so it's accurate for any category length — fixes clicks landing at the
 // footer/Instagram feed when a category re-rendered shorter.
