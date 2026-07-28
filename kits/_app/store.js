@@ -161,7 +161,8 @@ var MEGASUB={
   layers:['Quarter & Half-Zips','Crewnecks & Sweatshirts','Hoodies','Fleece'],
   outerwear:['Softshell Jackets','Shackets & Overshirts','Insulated & Thermal','Puffer & Quilted','3-in-1 Systems','Shells & Rainwear','Vests','Jackets'],
   // Rugged Wear = Canada Sportswear's heavy-duty line, its own brand category.
-  ruggedwear:['Jackets & Bombers','Parkas','3-in-1 Systems','Vests','Hoodies & Tops'],
+  // Rugged Wear — organized how trades/industrial buyers shop: by warmth & garment type. The #1 rugged selection.
+  ruggedwear:['Insulated & Quilted','Canvas & Shackets','Parkas','Shells & 3-in-1','Vests','Hoodies & Thermals'],
   hivis:['Hi-Vis T-Shirts','Safety Vests','Hi-Vis Hoodies','Hi-Vis Jackets','Hi-Vis Parkas','Hi-Vis Gear'],
   // Carhartt is its OWN brand category (declutters the shared tabs). By garment; best-sellers keep the ★ Top pick badge and sort first.
   carhartt:['Sweatshirts & Hoodies','T-Shirts','Shirts','Jackets & Coats','Vests','Pants & Bibs','Flame-Resistant','Headwear','Bags & Accessories'],
@@ -181,22 +182,32 @@ function classifyHivis(n){
 }
 // Rugged Wear (Canada Sportswear heavy-duty line) — its own brand category, by garment.
 function classifyRugged(n){
-  if(/3-?in-?1|5-?in-?1/.test(n))return {mega:'ruggedwear',sub:'3-in-1 Systems'};
+  if(/3-?in-?1|5-?in-?1/.test(n))return {mega:'ruggedwear',sub:'Shells & 3-in-1'};
   if(/parka/.test(n))return {mega:'ruggedwear',sub:'Parkas'};
   if(/vest/.test(n))return {mega:'ruggedwear',sub:'Vests'};
-  if(/hood(ie|ed)|sweatshirt|t-shirt|tee/.test(n))return {mega:'ruggedwear',sub:'Hoodies & Tops'};
-  return {mega:'ruggedwear',sub:'Jackets & Bombers'};
+  if(/hood(ie|ed)|sweatshirt|thermal|t-shirt|tee|pullover|henley/.test(n))return {mega:'ruggedwear',sub:'Hoodies & Thermals'};
+  if(/canvas|shacket|overshirt|plaid|sherpa/.test(n))return {mega:'ruggedwear',sub:'Canvas & Shackets'};
+  if(/\bshell\b/.test(n))return {mega:'ruggedwear',sub:'Shells & 3-in-1'};
+  return {mega:'ruggedwear',sub:'Insulated & Quilted'};
 }
 // CROSS-LIST: a CURATED set of the best cross-brand rugged pieces ALSO appears in Rugged Wear (they stay
 // in their home category too). Chosen for the rugged buyer — heavy insulated/canvas/thermal work jackets,
 // premium insulated (TNF), and versatile 3-in-1/5-in-1 systems. NO Carhartt (it has its own category).
 // Native Canada Sportswear "Rugged Wear" line (13) + these 11 = exactly 24 in the section.
+// Stormtech pieces that ALSO belong in Rugged Wear (kept in their home category too). Curated to genuinely
+// rugged: insulated, quilted, canvas, sherpa-lined, thermal, shackets, 3-in-1 — NO North Face / Cutter & Buck
+// (those are premium office/outdoor, not workwear) and NO lightweight office softshells/fleece.
 var RUGGED_CROSS={
-  st_oxide:'Jackets & Bombers', st_nostromo:'Jackets & Bombers', st_orbiter:'Jackets & Bombers',
-  st_highlandplaid:'Jackets & Bombers', st_cascadia:'Jackets & Bombers',
-  tnf_ins:'Jackets & Bombers', tnf_thermo:'Jackets & Bombers',
-  st_fairbanks:'3-in-1 Systems', st_vortex:'3-in-1 Systems', st_magellan:'3-in-1 Systems',
-  st_basecampvest:'Vests'
+  st_nostromo:'Insulated & Quilted', st_orbiter:'Insulated & Quilted', st_narvik:'Insulated & Quilted',
+  st_bushwick:'Insulated & Quilted', st_gravity:'Insulated & Quilted', st_cascadia:'Insulated & Quilted',
+  st_tundrajkt:'Insulated & Quilted', st_nautilusjkt:'Insulated & Quilted', st_stavanger:'Insulated & Quilted',
+  st_sierrajkt:'Insulated & Quilted', st_pacifica:'Insulated & Quilted',
+  st_oxide:'Canvas & Shackets', st_highlandplaid:'Canvas & Shackets', st_tundrashacket:'Canvas & Shackets',
+  st_highlandshacket:'Canvas & Shackets', st_northbeach:'Canvas & Shackets',
+  st_fairbanks:'Shells & 3-in-1', st_magellan:'Shells & 3-in-1', st_vortex:'Shells & 3-in-1',
+  st_olympia:'Shells & 3-in-1', st_avalante3in1:'Shells & 3-in-1',
+  st_basecampvest:'Vests', st_sierravest:'Vests',
+  st_logan:'Hoodies & Thermals', st_nautilushoody:'Hoodies & Thermals'
 };
 function ruggedAlso(it,c){
   return (c.mega!=='ruggedwear' && RUGGED_CROSS[it.key]) ? RUGGED_CROSS[it.key] : null;
