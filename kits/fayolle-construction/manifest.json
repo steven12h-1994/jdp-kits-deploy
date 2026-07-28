@@ -1,0 +1,27 @@
+{
+  "generator": "client-app",
+  "version": "1785260955",
+  "slug": "fayolle-construction",
+  "client": "Fayolle Construction",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_353f49.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_ca333e.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_white.png",
+    "img/lg_icon_353f49.png",
+    "img/lg_icon_brand.png",
+    "img/lg_icon_ca333e.png",
+    "img/lg_icon_dark.png",
+    "img/lg_icon_white.png",
+    "img/lg_word_353f49.png",
+    "img/lg_word_brand.png",
+    "img/lg_word_ca333e.png",
+    "img/lg_word_dark.png",
+    "img/lg_word_white.png",
+    "img/logo-white.png"
+  ]
+}
