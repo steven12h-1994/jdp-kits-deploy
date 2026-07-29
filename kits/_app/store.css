@@ -683,3 +683,7 @@ main{padding:0 0 22px}
 .hvc b{display:block;font-family:var(--disp);font-size:15px;font-weight:800;letter-spacing:.02em;color:var(--steel);text-transform:uppercase;margin-bottom:3px}
 .hvc span{font-size:12.5px;line-height:1.45;color:var(--mut)}
 @media(max-width:640px){.hvclass{grid-template-columns:1fr}.hvintro{padding:15px 15px}}
+/* generic (no published class number) badge — muted so a specific class always reads stronger */
+.mcsa.gen{color:var(--mut);background:#f3f0e8;border-color:var(--line)}
+.hvnote{margin-top:13px;padding-top:12px;border-top:1px solid var(--line);font-size:12.5px;line-height:1.5;color:var(--mut)}
+.hvnote b{color:var(--steel)}

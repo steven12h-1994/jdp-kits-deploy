@@ -122,7 +122,9 @@ function menuCard(key){
   var topcol=CFG.pricing.cols[CFG.pricing.cols.length-1];
   var fromP=unitPrice(key,vm.decos,topcol);
   var rec=(key===CFG.feature||item.rec)?'<span class="mrec">★ Top pick</span>':'';
-  var csa=item.csa?'<span class="mcsa" title="Certified high-visibility rating">🛡 '+esc(item.csa)+'</span>':'';
+  // Class badge: a specific published class reads bold; styles whose maker publishes only the generic
+  // "meets CSA" claim (no class number) render muted — we never invent a class.
+  var csa=item.csa?'<span class="mcsa'+(/^Meets/.test(item.csa)?' gen':'')+'" title="'+(/^Meets/.test(item.csa)?'Certified high-visibility apparel — ask us to confirm the exact class for your job':'Certified high-visibility rating')+'">🛡 '+esc(item.csa)+'</span>':'';
   var q=CART[key]?CART[key].qty:0;
   var inkit=q?' inkit':'';
   var addlbl=q?('<b>'+q+'</b>'):'+';
@@ -379,7 +381,9 @@ function hivisIntroHtml(){
       '<div class="hvc"><b>Class 1</b><span>Low-risk / off-road — parking lots, warehouse yards, sites set back from traffic.</span></div>'+
       '<div class="hvc"><b>Class 2</b><span>Roadside &amp; active traffic — the workhorse class for road crews, survey, utility &amp; municipal.</span></div>'+
       '<div class="hvc"><b>Class 3</b><span>High-speed / low-light — highway, night work &amp; poor visibility; full sleeve coverage.</span></div>'+
-    '</div></div>';}
+    '</div>'+
+    '<p class="hvnote">Classes shown are the rating for the <b>hi-vis colourways</b> — black &amp; navy versions of some styles certify one class lower. Where a maker publishes only “meets CSA” without a class number, we show that as-is rather than guess. <b>Tell us the job and we’ll confirm the exact class in writing on your quote.</b></p>'+
+    '</div>';}
 // Bring the START of the filtered results (the grid heading) to just below the sticky header+nav. Measured
 // live via getBoundingClientRect so it's accurate for any category length — fixes clicks landing at the
 // footer/Instagram feed when a category re-rendered shorter.
