@@ -9,6 +9,9 @@ var CFG,CAT,CATVER='',BYKEY={},CART={},SLUG=(location.pathname.split('/').filter
 var LSKEY='jdpkit_'+SLUG;
 
 function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+// Possessive of a company name: names ending in s take a bare apostrophe ("Toronto Airways' team
+// store", not "Toronto Airways's"). Common across the fleet — Airways, Solutions, Services, Brothers.
+function poss(s){var n=String(s==null?'':s).replace(/\s+$/,'');if(!n)return n;return n+(/[sS]$/.test(n)?"'":"'s");}
 function hexLum(h){h=(h||'').replace('#','');if(h.length<6)return 128;return 0.299*parseInt(h.slice(0,2),16)+0.587*parseInt(h.slice(2,4),16)+0.114*parseInt(h.slice(4,6),16);}
 function hexSat(h){h=(h||'').replace('#','');if(h.length<6)return 0;var r=parseInt(h.slice(0,2),16),g=parseInt(h.slice(2,4),16),b=parseInt(h.slice(4,6),16);return Math.max(r,g,b)-Math.min(r,g,b);}
 // A single spot print must READ on the garment: crisp WHITE on dark garments AND on saturated hi-vis
@@ -536,7 +539,7 @@ function buildStore(){
        '<span class="lbl">Your kit</span><span class="n" id="cartN">0</span></button></div></header>'+
    '<section class="hero"><div class="w heroin">'+
      '<div class="eyb">'+(demo?'Sample store · your logo goes here':'Premium branded workwear &amp; apparel')+'</div>'+
-     '<h1>'+esc(CFG.client)+"'s team store</h1>"+
+     '<h1>'+esc(poss(CFG.client))+" team store</h1>"+
      '<p class="herosub">'+(demo?'This is a live sample. Every item shows exactly where your logo goes — swap in your brand and it becomes your team’s store. Live pricing, exact quote, no obligation.':'One premium store for the jobsite and the front office — CSA hi-vis and rugged workwear to sharp branded polos and client gifts, every piece ready with your logo.')+'</p>'+
      heroCta+
      '<div class="herotrust"><span>Family-owned in Toronto since 1994</span><span>12,846+ teams outfitted</span><span>Ships across Canada &amp; the U.S.</span></div>'+
@@ -1137,7 +1140,7 @@ function renderSkeleton(cfg){
   document.getElementById('app').innerHTML=
     '<header class="hdr"><div class="w hdrin"><span class="brand"><b>'+esc((cfg&&cfg.client)||'')+'</b><i>× Just Deals</i></span></div></header>'+
     '<section class="hero"><div class="w heroin"><div class="eyb">Branded apparel · ready to order</div>'+
-      '<h1>'+esc((cfg&&cfg.client)||'Your')+"'s team store</h1>"+
+      '<h1>'+esc(poss((cfg&&cfg.client)||'Your'))+" team store</h1>"+
       '<p class="herosub">Loading your kit…</p></div></section>'+
     '<main class="w"><div class="menu">'+cards+'</div></main>';
 }
