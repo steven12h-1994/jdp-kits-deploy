@@ -1,0 +1,17 @@
+{
+  "generator": "client-app",
+  "version": "1785434216",
+  "slug": "grand-river-stone",
+  "client": "Grand River Natural Stone",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_2a3f86.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_da3633.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}
