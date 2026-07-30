@@ -1,0 +1,17 @@
+{
+  "generator": "client-app",
+  "version": "1785419918",
+  "slug": "toronto-airways",
+  "client": "Toronto Airways",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_2d99cd.png",
+    "img/lg_full_353895.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}
