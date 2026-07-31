@@ -687,3 +687,47 @@ main{padding:0 0 22px}
 .mcsa.gen{color:var(--mut);background:#f3f0e8;border-color:var(--line)}
 .hvnote{margin-top:13px;padding-top:12px;border-top:1px solid var(--line);font-size:12.5px;line-height:1.5;color:var(--mut)}
 .hvnote b{color:var(--steel)}
+
+/* ================= PERSUASION BLOCKS ==================================================
+   1) .pp  — everyday-competitive-pricing band, directly under the hero. Dark steel so it reads as a
+      confident promise (Walmart EDLP positioning) and visually separates hero from the catalogue.
+   2) .why — ROI stats after the grid: big condensed numerals, warm canvas, editorial.
+   3) .whyjdp — the reasons to buy from us, led by the price-match guarantee. */
+.pp{background:var(--steel);color:#fff}
+.ppin{display:flex;align-items:center;gap:26px 40px;padding:20px 0;flex-wrap:wrap}
+.ppL{flex:0 0 auto}
+.ppbadge{display:inline-block;font-family:var(--disp);font-size:12px;font-weight:800;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--steel);background:var(--amber);border-radius:999px;padding:4px 12px}
+.ppL h2{margin:8px 0 0;font-family:var(--disp);font-size:31px;font-weight:800;letter-spacing:.005em;line-height:1.05;color:#fff}
+.ppL h2 em{font-style:normal;color:var(--amber)}
+.ppR{flex:1 1 340px;min-width:280px;font-size:14.5px;line-height:1.55;color:#d9d2c4;max-width:62ch}
+.ppR b{color:#fff}
+@media(max-width:720px){.ppin{gap:12px;padding:18px 0}.ppL h2{font-size:26px}.ppR{font-size:13.5px}}
+
+.why{background:var(--canvas);border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:44px 0 46px;margin-top:16px}
+.whyhd{max-width:64ch;margin-bottom:28px}
+.whyhd h2{margin:9px 0 9px;font-family:var(--disp);font-size:40px;font-weight:800;letter-spacing:-.005em;line-height:1.03;color:var(--steel)}
+.whyhd p{font-size:15.5px;line-height:1.55;color:var(--mut)}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:var(--rad);padding:20px 18px 18px;box-shadow:var(--sh);
+  display:flex;flex-direction:column;border-top:3px solid var(--amber)}
+.stat b{font-family:var(--disp);font-size:46px;font-weight:800;line-height:1;color:var(--steel);letter-spacing:-.01em}
+.statk{margin-top:7px;font-family:var(--disp);font-size:15px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--amber-d)}
+.statd{margin-top:9px;font-size:13.2px;line-height:1.5;color:var(--mut)}
+@media(max-width:900px){.stats{grid-template-columns:repeat(2,1fr)}.whyhd h2{font-size:33px}}
+@media(max-width:520px){.stats{grid-template-columns:1fr}.stat b{font-size:40px}.whyhd h2{font-size:29px}}
+
+.whyjdp{background:var(--card);border-bottom:1px solid var(--line);padding:44px 0 48px}
+.rsns{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.rsn{display:flex;gap:13px;align-items:flex-start;background:var(--bg);border:1px solid var(--line);border-radius:var(--rad);padding:17px 18px}
+.rsn.rsnhero{grid-column:1/-1;background:color-mix(in srgb,var(--amber) 9%,#fff);
+  border-color:color-mix(in srgb,var(--amber) 34%,#fff);align-items:center;padding:19px 20px}
+.rsn.rsnhero b{font-size:21px}
+.rsn.rsnhero span{font-size:14px}
+.rsnk{flex:0 0 auto;width:26px;height:26px;line-height:26px;text-align:center;border-radius:50%;font-size:13px;font-weight:900;
+  background:var(--steel);color:#fff}
+.rsn.rsnhero .rsnk{background:var(--amber);color:#fff;width:30px;height:30px;line-height:30px;font-size:14px}
+.rsn b{display:block;font-family:var(--disp);font-size:18px;font-weight:700;letter-spacing:.01em;color:var(--steel);margin-bottom:4px}
+.rsn span{font-size:13.4px;line-height:1.55;color:var(--mut)}
+@media(max-width:1000px){.rsns{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:680px){.rsns{grid-template-columns:1fr}.rsn.rsnhero{align-items:flex-start}.rsn.rsnhero b{font-size:19px}}

@@ -414,6 +414,50 @@ function catPic(cat){var k=catHeroKey(cat);if(!k)return '';var it=BYKEY[k],vm=vm
   return '<div class="mstage"><img class="g" src="'+o.g+'" alt="'+esc(shortCat(cat))+'" loading="lazy" decoding="async">'+o.lg+'</div>';}
 // "Shop the collection" — the storefront hero: big branded image tiles for EVERY category so a buyer sees
 // the whole range at a glance and jumps straight in (Uber-Eats home). Rendered once, above the browse tabs.
+/* ---------- PERSUASION: why buy branded gear, and why buy it from Just Deals ----------
+   Two objections kill a team-store order: "is this worth the spend?" and "am I being overcharged?".
+   The price promise answers the second the moment they start browsing (Walmart-style everyday-low-price
+   positioning); the ROI stats and the reasons block answer both once they've seen the product. */
+function pricePromiseHtml(){
+  return '<section class="pp"><div class="w ppin">'+
+    '<div class="ppL"><span class="ppbadge">Price promise</span>'+
+      '<h2>Competitive pricing, <em>guaranteed</em>.</h2></div>'+
+    '<p class="ppR">We price every order competitively from the start — no inflated list price, no haggling. '+
+      'Find a lower <b>written quote</b> for the same product, decoration and quantity and <b>we\u2019ll match it</b>.</p>'+
+  '</div></section>';}
+
+var GEARSTATS=[
+  {n:'3,400+',k:'Impressions per shirt',d:'Brand impressions a single branded shirt earns over its life — apparel is the most-kept promo item.'},
+  {n:'65%',k:'Better perception',d:'Say employees in uniform give them a more positive perception of a company.'},
+  {n:'58%',k:'Higher perceived quality',d:'Expect product, service and quality to be higher when it\u2019s delivered by uniformed staff.'},
+  {n:'77%',k:'Team pride',d:'Of workers say a uniform gives them a sense of pride in wearing the company brand.'}
+];
+function whyGearHtml(){
+  return '<section class="why"><div class="w">'+
+    '<div class="whyhd"><span class="eyb">Why branded gear works</span>'+
+      '<h2>Gear that pays for itself.</h2>'+
+      '<p>Branded apparel isn\u2019t a cost — it\u2019s marketing, trust and team pride your people wear every day.</p></div>'+
+    '<div class="stats">'+GEARSTATS.map(function(s){
+      return '<div class="stat"><b>'+esc(s.n)+'</b><span class="statk">'+esc(s.k)+'</span><span class="statd">'+esc(s.d)+'</span></div>';
+    }).join('')+'</div>'+
+  '</div></section>';}
+
+function whyJdpHtml(){
+  var reasons=[
+    {t:'We match any lower written quote',d:'Same product, same decoration, same quantity — send us the quote and we\u2019ll match it. You never have to shop around to know you got a fair price.'},
+    {t:'Free digital proofs before you commit',d:'See your logo on the exact garment, at the exact size and placement, before anything is produced. No cost, no obligation.'},
+    {t:'Family-owned in Toronto since 1994',d:'Three decades outfitting Canadian and U.S. crews — 12,846+ teams and counting. You deal with our team directly, not a call centre.'},
+    {t:'Built for the jobsite and the front office',d:'CSA-rated hi-vis and rugged workwear through to sharp polos and client gifts — one supplier, one invoice, one point of contact.'}
+  ];
+  return '<section class="whyjdp"><div class="w">'+
+    '<div class="whyhd"><span class="eyb">Why Just Deals</span>'+
+      '<h2>Fair price, proven before you buy.</h2>'+
+      '<p>You should never wonder whether you overpaid — or whether the gear will look right. We remove both risks up front.</p></div>'+
+    '<div class="rsns">'+reasons.map(function(r,i){
+      return '<div class="rsn'+(i===0?' rsnhero':'')+'"><span class="rsnk">'+(i===0?'\u2605':'\u2713')+'</span>'+
+        '<div><b>'+esc(r.t)+'</b><span>'+esc(r.d)+'</span></div></div>';
+    }).join('')+'</div>'+
+  '</div></section>';}
 function shopCatsHtml(){
   if(!CATS||CATS.length<2)return '';
   // Just the two brand worlds — a clean choose-your-world entry. Category picking happens in the sticky tabs.
@@ -544,6 +588,7 @@ function buildStore(){
      heroCta+
      '<div class="herotrust"><span>Family-owned in Toronto since 1994</span><span>12,846+ teams outfitted</span><span>Ships across Canada &amp; the U.S.</span></div>'+
    '</div></section>'+
+   pricePromiseHtml()+
    shopCatsHtml()+
    '<div class="navwrap" id="navwrap">'+
      '<div class="filterbar"><div class="ctabsrow">'+
@@ -557,6 +602,8 @@ function buildStore(){
    '</div>'+
    '<main class="w"><div class="gridhd" id="gridhd"></div><div class="grid" id="grid"></div>'+
      '<div class="noresults" id="noResults" style="display:none">No products match your search. Try another term.</div></main>'+
+   whyGearHtml()+
+   whyJdpHtml()+
    (C.feed?('<section class="social"><div class="w"><h2 class="seclbl">Recent work — from our shop floor</h2>'+
      '<p class="socsub">'+esc(C.work_lead||'Real kits we’ve decorated for crews across the country.')+'</p>'+
      '<behold-widget feed-id="'+esc(C.feed)+'"></behold-widget></div></section>'):'')+
