@@ -1,0 +1,27 @@
+{
+  "generator": "client-app",
+  "version": "1785457995",
+  "slug": "tetranex",
+  "client": "Tetranex",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_3e75b6.png",
+    "img/lg_full_6f91b7.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_white.png",
+    "img/lg_icon_3e75b6.png",
+    "img/lg_icon_6f91b7.png",
+    "img/lg_icon_brand.png",
+    "img/lg_icon_dark.png",
+    "img/lg_icon_white.png",
+    "img/lg_word_3e75b6.png",
+    "img/lg_word_6f91b7.png",
+    "img/lg_word_brand.png",
+    "img/lg_word_dark.png",
+    "img/lg_word_white.png",
+    "img/logo-white.png"
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "generator": "client-app",
+  "version": "1785458006",
+  "slug": "skyfireenergy",
+  "client": "SkyFire Energy",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_236568.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_faab1a.png",
+    "img/lg_full_white.png",
+    "img/lg_icon_236568.png",
+    "img/lg_icon_brand.png",
+    "img/lg_icon_dark.png",
+    "img/lg_icon_faab1a.png",
+    "img/lg_icon_white.png",
+    "img/lg_word_236568.png",
+    "img/lg_word_brand.png",
+    "img/lg_word_dark.png",
+    "img/lg_word_faab1a.png",
+    "img/lg_word_white.png",
+    "img/logo-white.png"
+  ]
+}
