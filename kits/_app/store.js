@@ -418,19 +418,24 @@ function catPic(cat){var k=catHeroKey(cat);if(!k)return '';var it=BYKEY[k],vm=vm
    Two objections kill a team-store order: "is this worth the spend?" and "am I being overcharged?".
    The price promise answers the second the moment they start browsing (Walmart-style everyday-low-price
    positioning); the ROI stats and the reasons block answer both once they've seen the product. */
-function pricePromiseHtml(){
-  return '<section class="pp"><div class="w ppin">'+
-    '<div class="ppL"><span class="ppbadge">Price promise</span>'+
-      '<h2>Competitive pricing, <em>guaranteed</em>.</h2></div>'+
-    '<p class="ppR">We price every order competitively from the start — no inflated list price, no haggling. '+
-      'Find a lower <b>written quote</b> for the same product, decoration and quantity and <b>we\u2019ll match it</b>.</p>'+
-  '</div></section>';}
+function valueStripHtml(){
+  // Slim, scannable value bar — NOT a heavy band. The top of a store page has one job: get people
+  // into product. This answers "am I overpaying / what's the catch / is it worth it" in one line
+  // without pushing the catalogue below the fold.
+  var items=[
+    {i:'\u2605',b:'Competitive pricing, guaranteed',d:'We match any lower written quote'},
+    {i:'\u2713',b:'Free digital proofs',d:'See your logo before you commit'},
+    {i:'\u25C6',b:'3,400+ impressions per shirt',d:'Apparel is the most-kept promo item'}
+  ];
+  return '<section class="vbar"><div class="w vbarin">'+items.map(function(v){
+    return '<div class="vbi"><span class="vbk">'+v.i+'</span><span class="vbt"><b>'+esc(v.b)+'</b><i>'+esc(v.d)+'</i></span></div>';
+  }).join('')+'</div></section>';}
 
 var GEARSTATS=[
-  {n:'3,400+',k:'Impressions per shirt',d:'Brand impressions a single branded shirt earns over its life — apparel is the most-kept promo item.'},
-  {n:'65%',k:'Better perception',d:'Say employees in uniform give them a more positive perception of a company.'},
-  {n:'58%',k:'Higher perceived quality',d:'Expect product, service and quality to be higher when it\u2019s delivered by uniformed staff.'},
-  {n:'77%',k:'Team pride',d:'Of workers say a uniform gives them a sense of pride in wearing the company brand.'}
+  {n:'3,400+',k:'Impressions per shirt',d:'What one branded shirt earns over its life. Apparel is the most-kept promo item there is.'},
+  {n:'65%',k:'Better perception',d:'Say staff in uniform give them a more positive impression of the company.'},
+  {n:'58%',k:'Higher perceived quality',d:'Expect better product and service when it\u2019s delivered by uniformed staff.'},
+  {n:'77%',k:'Team pride',d:'Of workers say wearing the company brand gives them a sense of pride.'}
 ];
 function whyGearHtml(){
   return '<section class="why"><div class="w">'+
@@ -443,21 +448,26 @@ function whyGearHtml(){
   '</div></section>';}
 
 function whyJdpHtml(){
+  // Deliberately does NOT repeat the hero trust facts (since-1994 / 12,846+ teams / ships CA+US).
+  // Each card earns its place by removing a distinct risk.
   var reasons=[
-    {t:'We match any lower written quote',d:'Same product, same decoration, same quantity — send us the quote and we\u2019ll match it. You never have to shop around to know you got a fair price.'},
-    {t:'Free digital proofs before you commit',d:'See your logo on the exact garment, at the exact size and placement, before anything is produced. No cost, no obligation.'},
-    {t:'Family-owned in Toronto since 1994',d:'Three decades outfitting Canadian and U.S. crews — 12,846+ teams and counting. You deal with our team directly, not a call centre.'},
-    {t:'Built for the jobsite and the front office',d:'CSA-rated hi-vis and rugged workwear through to sharp polos and client gifts — one supplier, one invoice, one point of contact.'}
+    {t:'We match any lower written quote',d:'Same product, same decoration, same quantity — send it over and we match it. You never have to shop around to know the price is right.'},
+    {t:'See it before you commit',d:'Free digital proofs of your logo on the actual garment, at the exact size and placement. No cost, no obligation.'},
+    {t:'A real person, not a call centre',d:'You deal with our team directly — same people from first quote through to delivery.'},
+    {t:'One supplier for the whole crew',d:'CSA-rated hi-vis and rugged workwear through to polos and client gifts. One invoice, one contact.'}
   ];
   return '<section class="whyjdp"><div class="w">'+
     '<div class="whyhd"><span class="eyb">Why Just Deals</span>'+
-      '<h2>Fair price, proven before you buy.</h2>'+
-      '<p>You should never wonder whether you overpaid — or whether the gear will look right. We remove both risks up front.</p></div>'+
+      '<h2>The right price, and no surprises.</h2>'+
+      '<p>Two things make branded gear risky: overpaying, and it not looking the way you pictured. We take both off the table before you spend anything.</p></div>'+
     '<div class="rsns">'+reasons.map(function(r,i){
       return '<div class="rsn'+(i===0?' rsnhero':'')+'"><span class="rsnk">'+(i===0?'\u2605':'\u2713')+'</span>'+
         '<div><b>'+esc(r.t)+'</b><span>'+esc(r.d)+'</span></div></div>';
     }).join('')+'</div>'+
+    '<div class="whycta"><button class="reccta" id="whyCta">Build your kit — get an exact quote <span class="ar">\u2192</span></button>'+
+      '<span class="whyctan">Free proofs · no payment now · no obligation</span></div>'+
   '</div></section>';}
+
 function shopCatsHtml(){
   if(!CATS||CATS.length<2)return '';
   // Just the two brand worlds — a clean choose-your-world entry. Category picking happens in the sticky tabs.
@@ -588,7 +598,7 @@ function buildStore(){
      heroCta+
      '<div class="herotrust"><span>Family-owned in Toronto since 1994</span><span>12,846+ teams outfitted</span><span>Ships across Canada &amp; the U.S.</span></div>'+
    '</div></section>'+
-   pricePromiseHtml()+
+   valueStripHtml()+
    shopCatsHtml()+
    '<div class="navwrap" id="navwrap">'+
      '<div class="filterbar"><div class="ctabsrow">'+
@@ -622,6 +632,8 @@ function buildStore(){
   document.getElementById('openCart2').addEventListener('click',openCart);
   document.getElementById('ov').addEventListener('click',closeAll);
   var ar=document.getElementById('addRec');if(ar)ar.addEventListener('click',addRecommended);
+  var wc=document.getElementById('whyCta');if(wc)wc.addEventListener('click',function(){
+    if(cartCount()>0){openCart();}else{VIEW.sub='all';renderGrid();scrollToResults();}});
   // "Shop the collection" hero tiles -> jump into a category (and reveal their images, which sit outside #grid).
   document.querySelectorAll('.sccard').forEach(function(b){b.addEventListener('click',function(){setCat(b.dataset.cat,true);});});
   document.querySelectorAll('.scpic .g,.kpic .g').forEach(function(im){if(im.complete)im.classList.add('ld');else im.addEventListener('load',function(){im.classList.add('ld');});});
@@ -1127,6 +1139,7 @@ function openCheckout(){
     '<div class="cartf">'+
       '<button class="checkout" id="emailKit">Send my kit — get my quote <span class="ar">→</span></button>'+
       '<button class="copyalt" id="copyKit">or copy my kit to paste into a reply</button>'+
+      '<div class="ckpm">\u2605 <b>Price-match guarantee</b> — found a lower written quote for the same job? Send it with your kit and we\u2019ll match it.</div>'+
       '<div class="cktrust" id="copyHint"><span>No payment now</span><span>No obligation</span><span>No minimum beyond 12 pcs</span></div></div>';
   document.getElementById('cartx').addEventListener('click',closeAll);
   document.getElementById('cartback').addEventListener('click',openCart);

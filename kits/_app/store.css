@@ -688,21 +688,21 @@ main{padding:0 0 22px}
 .hvnote{margin-top:13px;padding-top:12px;border-top:1px solid var(--line);font-size:12.5px;line-height:1.5;color:var(--mut)}
 .hvnote b{color:var(--steel)}
 
-/* ================= PERSUASION BLOCKS ==================================================
-   1) .pp  — everyday-competitive-pricing band, directly under the hero. Dark steel so it reads as a
-      confident promise (Walmart EDLP positioning) and visually separates hero from the catalogue.
-   2) .why — ROI stats after the grid: big condensed numerals, warm canvas, editorial.
-   3) .whyjdp — the reasons to buy from us, led by the price-match guarantee. */
-.pp{background:var(--steel);color:#fff}
-.ppin{display:flex;align-items:center;gap:26px 40px;padding:20px 0;flex-wrap:wrap}
-.ppL{flex:0 0 auto}
-.ppbadge{display:inline-block;font-family:var(--disp);font-size:12px;font-weight:800;letter-spacing:.16em;
-  text-transform:uppercase;color:var(--steel);background:var(--amber);border-radius:999px;padding:4px 12px}
-.ppL h2{margin:8px 0 0;font-family:var(--disp);font-size:31px;font-weight:800;letter-spacing:.005em;line-height:1.05;color:#fff}
-.ppL h2 em{font-style:normal;color:var(--amber)}
-.ppR{flex:1 1 340px;min-width:280px;font-size:14.5px;line-height:1.55;color:#d9d2c4;max-width:62ch}
-.ppR b{color:#fff}
-@media(max-width:720px){.ppin{gap:12px;padding:18px 0}.ppL h2{font-size:26px}.ppR{font-size:13.5px}}
+/* ================= PERSUASION =========================================================
+   Positioning rationale: the top of a store page exists to get people INTO product, so the
+   value bar is a SLIM one-liner, not a band. The long-form ROI + reasons live after the grid
+   for scrollers, and the price-match promise is repeated at the actual decision point (checkout),
+   which is where "am I overpaying" really bites. */
+.vbar{background:var(--canvas);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.vbarin{display:grid;grid-template-columns:repeat(3,1fr);gap:10px 26px;padding:14px 0}
+.vbi{display:flex;align-items:center;gap:9px;min-width:0}
+.vbk{flex:0 0 auto;width:21px;height:21px;line-height:21px;text-align:center;border-radius:50%;
+  background:color-mix(in srgb,var(--amber) 15%,#fff);color:var(--amber-d);font-size:10.5px;font-weight:900}
+.vbt{display:flex;flex-direction:column;min-width:0}
+.vbt b{font-size:13.2px;font-weight:800;color:var(--steel);line-height:1.25}
+.vbt i{font-style:normal;font-size:12.1px;color:var(--mut);line-height:1.3}
+@media(max-width:860px){.vbarin{grid-template-columns:1fr;gap:7px;padding:10px 0}
+  .vbt{flex-direction:row;gap:6px;align-items:baseline;flex-wrap:wrap}.vbt i{font-size:11.8px}}
 
 .why{background:var(--canvas);border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:44px 0 46px;margin-top:16px}
 .whyhd{max-width:64ch;margin-bottom:28px}
@@ -731,3 +731,11 @@ main{padding:0 0 22px}
 .rsn span{font-size:13.4px;line-height:1.55;color:var(--mut)}
 @media(max-width:1000px){.rsns{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:680px){.rsns{grid-template-columns:1fr}.rsn.rsnhero{align-items:flex-start}.rsn.rsnhero b{font-size:19px}}
+
+.whycta{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-top:22px}
+.whycta .reccta{margin-top:0}
+.whyctan{font-size:12.8px;font-weight:600;color:var(--mut)}
+/* price-match reassurance at the point of decision */
+.ckpm{margin:0 0 10px;padding:11px 13px;border-radius:11px;font-size:12.8px;line-height:1.5;color:var(--steel);
+  background:color-mix(in srgb,var(--amber) 10%,#fff);border:1px solid color-mix(in srgb,var(--amber) 32%,#fff)}
+.ckpm b{font-weight:800}
