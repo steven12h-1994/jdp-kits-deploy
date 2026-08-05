@@ -1,0 +1,17 @@
+{
+  "generator": "client-app",
+  "version": "1785934119",
+  "slug": "wm-dyck-sons",
+  "client": "Wm Dyck &amp; Sons",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_012f6b.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_ffd702.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}
