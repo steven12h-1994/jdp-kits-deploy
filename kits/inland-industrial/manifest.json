@@ -1,0 +1,24 @@
+{
+  "generator": "client-app",
+  "version": "1785899316",
+  "slug": "inland-industrial",
+  "client": "Inland Industrial Supply Ltd.",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_ef4b54.png",
+    "img/lg_full_white.png",
+    "img/lg_icon_brand.png",
+    "img/lg_icon_dark.png",
+    "img/lg_icon_ef4b54.png",
+    "img/lg_icon_white.png",
+    "img/lg_word_brand.png",
+    "img/lg_word_dark.png",
+    "img/lg_word_ef4b54.png",
+    "img/lg_word_white.png",
+    "img/logo-white.png"
+  ]
+}
