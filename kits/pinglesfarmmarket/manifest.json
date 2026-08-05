@@ -1,0 +1,18 @@
+{
+  "generator": "client-app",
+  "version": "1785945055",
+  "slug": "pinglesfarmmarket",
+  "client": "Pingle's Farm",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_ab7128.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_d48b69.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_e5c6aa.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}

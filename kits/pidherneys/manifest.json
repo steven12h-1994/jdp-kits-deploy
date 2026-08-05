@@ -1,0 +1,18 @@
+{
+  "generator": "client-app",
+  "version": "1785945462",
+  "slug": "pidherneys",
+  "client": "Pidherney's Trucking Ltd.",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_0292cd.png",
+    "img/lg_full_27352a.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_faed01.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}

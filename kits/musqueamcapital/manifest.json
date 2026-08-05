@@ -1,0 +1,17 @@
+{
+  "generator": "client-app",
+  "version": "1785945189",
+  "slug": "musqueamcapital",
+  "client": "Musqueam Capital Corporation",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_005a94.png",
+    "img/lg_full_009da1.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}

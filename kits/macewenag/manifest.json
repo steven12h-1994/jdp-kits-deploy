@@ -1,0 +1,18 @@
+{
+  "generator": "client-app",
+  "version": "1785944950",
+  "slug": "macewenag",
+  "client": "MacewenAg",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_044d8c.png",
+    "img/lg_full_4ec2b1.png",
+    "img/lg_full_a6cfd8.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}

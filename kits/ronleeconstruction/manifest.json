@@ -1,0 +1,17 @@
+{
+  "generator": "client-app",
+  "version": "1785944773",
+  "slug": "ronleeconstruction",
+  "client": "Ron Lee Construction Inc",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_334a9d.png",
+    "img/lg_full_5c6dae.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}

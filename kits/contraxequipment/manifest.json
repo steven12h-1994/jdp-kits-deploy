@@ -1,0 +1,16 @@
+{
+  "generator": "client-app",
+  "version": "1785945590",
+  "slug": "contraxequipment",
+  "client": "Rubber tracks supplier Contrax Equipment",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_f18a06.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}

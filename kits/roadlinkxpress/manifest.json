@@ -1,0 +1,30 @@
+{
+  "generator": "client-app",
+  "version": "1785945518",
+  "slug": "roadlinkxpress",
+  "client": "Road Link Xpress \u2013 Your Carrier of Choice For All Your Transportation Needs",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_25146e.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_dc2119.png",
+    "img/lg_full_e04942.png",
+    "img/lg_full_white.png",
+    "img/lg_icon_25146e.png",
+    "img/lg_icon_brand.png",
+    "img/lg_icon_dark.png",
+    "img/lg_icon_dc2119.png",
+    "img/lg_icon_e04942.png",
+    "img/lg_icon_white.png",
+    "img/lg_word_25146e.png",
+    "img/lg_word_brand.png",
+    "img/lg_word_dark.png",
+    "img/lg_word_dc2119.png",
+    "img/lg_word_e04942.png",
+    "img/lg_word_white.png",
+    "img/logo-white.png"
+  ]
+}

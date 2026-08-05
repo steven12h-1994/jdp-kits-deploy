@@ -1,0 +1,17 @@
+{
+  "generator": "client-app",
+  "version": "1785945077",
+  "slug": "patriotforge",
+  "client": "Patriot Forge Corporation",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_242a68.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_e32626.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}
