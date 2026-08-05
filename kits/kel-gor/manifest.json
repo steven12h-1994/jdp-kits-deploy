@@ -1,0 +1,17 @@
+{
+  "generator": "client-app",
+  "version": "1785932734",
+  "slug": "kel-gor",
+  "client": "Kel-Gor Limited",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_008445.png",
+    "img/lg_full_102c52.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}
