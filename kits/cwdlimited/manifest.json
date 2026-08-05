@@ -1,0 +1,18 @@
+{
+  "generator": "client-app",
+  "version": "1785945635",
+  "slug": "cwdlimited",
+  "client": "Cwdlimited",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_222d26.png",
+    "img/lg_full_4f614c.png",
+    "img/lg_full_79926e.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}

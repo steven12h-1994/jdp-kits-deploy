@@ -1,8 +1,8 @@
 {
   "generator": "client-app",
-  "version": "1785945062",
+  "version": "1785945797",
   "slug": "greencollar",
-  "client": "Green Collar",
+  "client": "Greencollar",
   "files": [
     "index.html",
     "client.json",

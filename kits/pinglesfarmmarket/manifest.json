@@ -1,8 +1,8 @@
 {
   "generator": "client-app",
-  "version": "1785945055",
+  "version": "1785945792",
   "slug": "pinglesfarmmarket",
-  "client": "Pingle's Farm",
+  "client": "Pinglesfarmmarket",
   "files": [
     "index.html",
     "client.json",

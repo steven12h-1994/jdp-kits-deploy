@@ -1,8 +1,8 @@
 {
   "generator": "client-app",
-  "version": "1785944801",
+  "version": "1785945523",
   "slug": "cima",
-  "client": "CIMA+",
+  "client": "Cima",
   "files": [
     "index.html",
     "client.json",

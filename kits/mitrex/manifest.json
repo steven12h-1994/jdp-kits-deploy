@@ -1,0 +1,17 @@
+{
+  "generator": "client-app",
+  "version": "1785945937",
+  "slug": "mitrex",
+  "client": "Mitrex",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_feb792.png",
+    "img/lg_full_ff6d23.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}

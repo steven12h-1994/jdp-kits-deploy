@@ -1,8 +1,8 @@
 {
   "generator": "client-app",
-  "version": "1785945113",
+  "version": "1785945859",
   "slug": "bluecity",
-  "client": "BlueCity Construction",
+  "client": "Bluecity",
   "files": [
     "index.html",
     "client.json",

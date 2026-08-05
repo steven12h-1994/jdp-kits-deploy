@@ -1,8 +1,8 @@
 {
   "generator": "client-app",
-  "version": "1785945599",
+  "version": "1785946376",
   "slug": "masconrestorations",
-  "client": "Mascon Restorations",
+  "client": "Masconrestorations",
   "files": [
     "index.html",
     "client.json",

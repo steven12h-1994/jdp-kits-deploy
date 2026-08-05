@@ -1,8 +1,8 @@
 {
   "generator": "client-app",
-  "version": "1785945077",
+  "version": "1785945815",
   "slug": "patriotforge",
-  "client": "Patriot Forge Corporation",
+  "client": "Patriotforge",
   "files": [
     "index.html",
     "client.json",

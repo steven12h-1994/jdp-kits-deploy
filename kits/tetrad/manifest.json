@@ -1,8 +1,8 @@
 {
   "generator": "client-app",
-  "version": "1785945585",
+  "version": "1785946361",
   "slug": "tetrad",
-  "client": "Tetrad Insulation",
+  "client": "Tetrad",
   "files": [
     "index.html",
     "client.json",

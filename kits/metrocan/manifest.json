@@ -1,8 +1,8 @@
 {
   "generator": "client-app",
-  "version": "1785945395",
+  "version": "1785946148",
   "slug": "metrocan",
-  "client": "Metro",
+  "client": "Metrocan",
   "files": [
     "index.html",
     "client.json",

@@ -1,8 +1,8 @@
 {
   "generator": "client-app",
-  "version": "1785945529",
+  "version": "1785946307",
   "slug": "macquarries",
-  "client": "MacQuarries Pharmasave",
+  "client": "Macquarries",
   "files": [
     "index.html",
     "client.json",

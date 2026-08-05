@@ -1,8 +1,8 @@
 {
   "generator": "client-app",
-  "version": "1785945510",
+  "version": "1785946288",
   "slug": "401electric",
-  "client": "401 Electric",
+  "client": "401Electric",
   "files": [
     "index.html",
     "client.json",

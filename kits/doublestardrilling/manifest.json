@@ -1,8 +1,8 @@
 {
   "generator": "client-app",
-  "version": "1785945134",
+  "version": "1785945878",
   "slug": "doublestardrilling",
-  "client": "Doublestar Drilling",
+  "client": "Doublestardrilling",
   "files": [
     "index.html",
     "client.json",

@@ -1,8 +1,8 @@
 {
   "generator": "client-app",
-  "version": "1785945277",
+  "version": "1785946037",
   "slug": "houstonpizza",
-  "client": "Houston Pizza",
+  "client": "Houstonpizza",
   "files": [
     "index.html",
     "client.json",

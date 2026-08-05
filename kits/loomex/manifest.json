@@ -1,8 +1,8 @@
 {
   "generator": "client-app",
-  "version": "1785945385",
+  "version": "1785946143",
   "slug": "loomex",
-  "client": "The Loomex Group",
+  "client": "Loomex",
   "files": [
     "index.html",
     "client.json",

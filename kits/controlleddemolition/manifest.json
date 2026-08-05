@@ -1,8 +1,8 @@
 {
   "generator": "client-app",
-  "version": "1785944985",
+  "version": "1785945716",
   "slug": "controlleddemolition",
-  "client": "Controlled Demolition",
+  "client": "Controlleddemolition",
   "files": [
     "index.html",
     "client.json",

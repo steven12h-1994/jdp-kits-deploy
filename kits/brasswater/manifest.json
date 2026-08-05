@@ -1,8 +1,8 @@
 {
   "generator": "client-app",
-  "version": "1785944898",
+  "version": "1785945624",
   "slug": "brasswater",
-  "client": "Brasswater Inc.",
+  "client": "Brasswater",
   "files": [
     "index.html",
     "client.json",

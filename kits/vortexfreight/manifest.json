@@ -1,8 +1,8 @@
 {
   "generator": "client-app",
-  "version": "1785945287",
+  "version": "1785946046",
   "slug": "vortexfreight",
-  "client": "Vortex Freight Systems",
+  "client": "Vortexfreight",
   "files": [
     "index.html",
     "client.json",

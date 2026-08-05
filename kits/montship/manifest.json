@@ -1,8 +1,8 @@
 {
   "generator": "client-app",
-  "version": "1785945065",
+  "version": "1785945802",
   "slug": "montship",
-  "client": "MONTSHIP",
+  "client": "Montship",
   "files": [
     "index.html",
     "client.json",

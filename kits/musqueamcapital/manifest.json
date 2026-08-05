@@ -1,8 +1,8 @@
 {
   "generator": "client-app",
-  "version": "1785945189",
+  "version": "1785945931",
   "slug": "musqueamcapital",
-  "client": "Musqueam Capital Corporation",
+  "client": "Musqueamcapital",
   "files": [
     "index.html",
     "client.json",

@@ -1,8 +1,8 @@
 {
   "generator": "client-app",
-  "version": "1785944748",
+  "version": "1785945483",
   "slug": "century21",
-  "client": "CENTURY 21 CANADA",
+  "client": "Century21",
   "files": [
     "index.html",
     "client.json",

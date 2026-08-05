@@ -1,8 +1,8 @@
 {
   "generator": "client-app",
-  "version": "1785945000",
+  "version": "1785945727",
   "slug": "tesc",
-  "client": "TESC",
+  "client": "Tesc",
   "files": [
     "index.html",
     "client.json",

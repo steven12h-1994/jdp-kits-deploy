@@ -1,8 +1,8 @@
 {
   "generator": "client-app",
-  "version": "1785945536",
+  "version": "1785946312",
   "slug": "grimefighters",
-  "client": "Grime Fighters",
+  "client": "Grimefighters",
   "files": [
     "index.html",
     "client.json",
