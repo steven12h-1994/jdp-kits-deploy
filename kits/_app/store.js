@@ -24,7 +24,15 @@ function autoInkFor(method,rgb){return method==='embroidery' ? 'brand' : autoInk
 function money(x){return '$'+Number(x||0).toLocaleString('en-CA',{minimumFractionDigits:2,maximumFractionDigits:2});}
 function money0(x){return '$'+Math.round(Number(x||0)).toLocaleString('en-CA');}
 function logoOf(id){for(var i=0;i<CFG.logos.length;i++)if(CFG.logos[i].id===id)return CFG.logos[i];return CFG.logos[0]||{inks:{}};}
-function inkUrl(logo,ink,col,method){var t=(ink&&ink!=='auto')?ink:autoInkFor(method,col&&col.rgb);return logo.inks[t]||logo.inks.brand;}
+// KIT-LOCAL asset cache-buster. Kit logos live at stable filenames (img/lg_full_brand.png), so when a
+// kit is rebuilt with a CORRECTED logo the bytes change but the URL does not — and a returning visitor
+// keeps being served the OLD logo from cache. That is why the Facca kit still showed a stale mark to a
+// warm-cache browser on three separate reviews while every server-side check passed (each fetched with
+// its own cache-buster). We key off the ?v= token on our own <script> tag, which jdp_ship.py bumps
+// fleet-wide on EVERY ship, so any deploy reaches returning visitors too.
+var KV=(function(){try{var s=document.querySelector('script[src*="/_app/store.js"]');var m=s&&s.src.match(/[?&]v=([^&]+)/);if(m)return m[1];}catch(e){}return '';})();
+function kurl(u){if(!u)return u;if(/^(https?:)?\/\//.test(u)||u.charAt(0)==='/')return u;var v=KV||(CFG&&CFG.ver)||'';return v?u+(u.indexOf('?')<0?'?':'&')+'v='+v:u;}
+function inkUrl(logo,ink,col,method){var t=(ink&&ink!=='auto')?ink:autoInkFor(method,col&&col.rgb);return kurl(logo.inks[t]||logo.inks.brand);}
 // Every image URL carries the catalogue's build version so a changed-content/same-filename asset
 // (e.g. a product re-shot on a model) is re-fetched instead of served stale from cache.
 function gurl(f){return CFG.catalog_base+'/img/'+f+(CATVER?((f.indexOf('?')<0?'?':'&')+'v='+CATVER):'');}
@@ -588,7 +596,7 @@ function buildStore(){
     : (recN?'<button class="reccta" id="addRec">★ Add our top picks <span>'+recN+' item'+(recN===1?'':'s')+'</span></button>':'');
   var html=''+
    '<header class="hdr"><div class="w hdrin">'+
-     '<span class="brand"><img src="'+(((CFG.logos&&CFG.logos[0]&&CFG.logos[0].inks&&CFG.logos[0].inks.dark))||CFG.cover_logo||'img/logo-white.png')+'" onerror="this.style.display=\'none\'" alt=""><b>'+esc(CFG.client)+'</b><i>× Just Deals</i></span>'+
+     '<span class="brand"><img src="'+kurl(((CFG.logos&&CFG.logos[0]&&CFG.logos[0].inks&&CFG.logos[0].inks.dark))||CFG.cover_logo||'img/logo-white.png')+'" onerror="this.style.display=\'none\'" alt=""><b>'+esc(CFG.client)+'</b><i>× Just Deals</i></span>'+
      '<button class="cartbtn" id="openCart"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2 3h3l2.4 12.2a1.5 1.5 0 0 0 1.5 1.2h8.2a1.5 1.5 0 0 0 1.5-1.2L22 7H6"/></svg>'+
        '<span class="lbl">Your kit</span><span class="n" id="cartN">0</span></button></div></header>'+
    '<section class="hero"><div class="w heroin">'+
@@ -1214,6 +1222,18 @@ function safeAccent(hex){hex=(hex||'').replace('#','');if(hex.length<6)return '#
   return '#'+h(r)+h(g)+h(b);}
 function go(cfg){
   CFG=cfg;
+  // SUPPRESS BLIND AUTO-SPLIT LOGO VARIANTS. The builder derives 'icon' and 'word' options by cutting
+  // the master at its widest horizontal/vertical gutter. That is a guess about brand structure, and it
+  // fails badly: on Facca Inc the cut put the company name in the piece labelled "Icon" and offered a
+  // "Wordmark" that is ONLY the tagline arc — a selectable mark with no company name on it. Across the
+  // fleet the same split produced 30.7:1 and 17.8:1 "wordmarks" (tagline strips and underlines).
+  // A customer must never be able to pick a meaningless fragment of their own brand, so we show only
+  // the verified full lockup. Set "allow_split_logos": true on a kit to opt back in, or supply real
+  // icon/wordmark files (any id other than 'icon'/'word' is always kept).
+  if(cfg.logos&&cfg.logos.length>1&&!cfg.allow_split_logos){
+    var keep=cfg.logos.filter(function(l){return l.id!=='icon'&&l.id!=='word';});
+    cfg.logos=keep.length?keep:[cfg.logos[0]];
+  }
   if(cfg.accent)document.documentElement.style.setProperty('--a',safeAccent(cfg.accent));
   document.title=(cfg.client||'Branded Apparel')+' — Team Store · Just Deals Promotions';
   renderSkeleton(cfg);
