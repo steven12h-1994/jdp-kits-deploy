@@ -1,18 +1,27 @@
 {
   "generator": "client-app",
-  "version": "1785946058",
+  "version": "1786021701",
   "slug": "gotrinet",
-  "client": "Gotrinet",
+  "client": "Trinet Global Logistics",
   "files": [
     "index.html",
     "client.json",
     "img/favicon.png",
-    "img/lg_full_2d6e9a.png",
-    "img/lg_full_9ebfd2.png",
+    "img/lg_full_2171aa.png",
+    "img/lg_full_53b5da.png",
     "img/lg_full_brand.png",
-    "img/lg_full_d44a38.png",
     "img/lg_full_dark.png",
     "img/lg_full_white.png",
+    "img/lg_icon_2171aa.png",
+    "img/lg_icon_53b5da.png",
+    "img/lg_icon_brand.png",
+    "img/lg_icon_dark.png",
+    "img/lg_icon_white.png",
+    "img/lg_word_2171aa.png",
+    "img/lg_word_53b5da.png",
+    "img/lg_word_brand.png",
+    "img/lg_word_dark.png",
+    "img/lg_word_white.png",
     "img/logo-white.png"
   ]
 }

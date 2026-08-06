@@ -1,6 +1,6 @@
 {
   "generator": "client-app",
-  "version": "1785946322",
+  "version": "1786021740",
   "slug": "oclgroup",
   "client": "OCL Group",
   "files": [
@@ -9,7 +9,16 @@
     "img/favicon.png",
     "img/lg_full_brand.png",
     "img/lg_full_dark.png",
+    "img/lg_full_e82b30.png",
     "img/lg_full_white.png",
+    "img/lg_icon_brand.png",
+    "img/lg_icon_dark.png",
+    "img/lg_icon_e82b30.png",
+    "img/lg_icon_white.png",
+    "img/lg_word_brand.png",
+    "img/lg_word_dark.png",
+    "img/lg_word_e82b30.png",
+    "img/lg_word_white.png",
     "img/logo-white.png"
   ]
 }

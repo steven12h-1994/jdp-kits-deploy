@@ -1,12 +1,13 @@
 {
   "generator": "client-app",
-  "version": "1785945597",
+  "version": "1786021733",
   "slug": "jandb-inc",
-  "client": "Jandb Inc",
+  "client": "J+B Engineering Inc.",
   "files": [
     "index.html",
     "client.json",
     "img/favicon.png",
+    "img/lg_full_00b140.png",
     "img/lg_full_brand.png",
     "img/lg_full_dark.png",
     "img/lg_full_white.png",

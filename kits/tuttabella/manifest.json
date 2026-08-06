@@ -1,13 +1,13 @@
 {
   "generator": "client-app",
-  "version": "1785946051",
+  "version": "1786021770",
   "slug": "tuttabella",
-  "client": "Tuttabella",
+  "client": "Tutta Bella",
   "files": [
     "index.html",
     "client.json",
     "img/favicon.png",
-    "img/lg_full_097942.png",
+    "img/lg_full_097a42.png",
     "img/lg_full_brand.png",
     "img/lg_full_dark.png",
     "img/lg_full_ee2e24.png",

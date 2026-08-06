@@ -1,14 +1,13 @@
 {
   "generator": "client-app",
-  "version": "1785946087",
+  "version": "1786021749",
   "slug": "rjcengineers",
-  "client": "Rjcengineers",
+  "client": "RJC Engineers",
   "files": [
     "index.html",
     "client.json",
     "img/favicon.png",
-    "img/lg_full_1c87c5.png",
-    "img/lg_full_49342e.png",
+    "img/lg_full_00bfff.png",
     "img/lg_full_brand.png",
     "img/lg_full_dark.png",
     "img/lg_full_white.png",

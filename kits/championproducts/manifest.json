@@ -1,14 +1,16 @@
 {
   "generator": "client-app",
-  "version": "1785945575",
+  "version": "1786021663",
   "slug": "championproducts",
-  "client": "Championproducts",
+  "client": "Champion Products",
   "files": [
     "index.html",
     "client.json",
     "img/favicon.png",
-    "img/lg_full_17baec.png",
+    "img/lg_full_0b239b.png",
+    "img/lg_full_b32324.png",
     "img/lg_full_brand.png",
+    "img/lg_full_ca9f06.png",
     "img/lg_full_dark.png",
     "img/lg_full_white.png",
     "img/logo-white.png"

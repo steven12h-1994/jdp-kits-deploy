@@ -1,12 +1,13 @@
 {
   "generator": "client-app",
-  "version": "1785945720",
+  "version": "1786021763",
   "slug": "shurway",
-  "client": "Shurway",
+  "client": "Shurway Contracting Ltd.",
   "files": [
     "index.html",
     "client.json",
     "img/favicon.png",
+    "img/lg_full_0c2d83.png",
     "img/lg_full_brand.png",
     "img/lg_full_dark.png",
     "img/lg_full_white.png",

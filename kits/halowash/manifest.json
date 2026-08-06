@@ -1,13 +1,14 @@
 {
   "generator": "client-app",
-  "version": "1785946535",
+  "version": "1786021724",
   "slug": "halowash",
-  "client": "Halowash",
+  "client": "Halo Wash",
   "files": [
     "index.html",
     "client.json",
     "img/favicon.png",
-    "img/lg_full_464d5e.png",
+    "img/lg_full_00487a.png",
+    "img/lg_full_1682c5.png",
     "img/lg_full_brand.png",
     "img/lg_full_dark.png",
     "img/lg_full_white.png",

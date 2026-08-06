@@ -1,6 +1,6 @@
 {
   "generator": "client-app",
-  "version": "1785945937",
+  "version": "1786021737",
   "slug": "mitrex",
   "client": "Mitrex",
   "files": [
@@ -9,9 +9,13 @@
     "img/favicon.png",
     "img/lg_full_brand.png",
     "img/lg_full_dark.png",
-    "img/lg_full_feb792.png",
-    "img/lg_full_ff6d23.png",
     "img/lg_full_white.png",
+    "img/lg_icon_brand.png",
+    "img/lg_icon_dark.png",
+    "img/lg_icon_white.png",
+    "img/lg_word_brand.png",
+    "img/lg_word_dark.png",
+    "img/lg_word_white.png",
     "img/logo-white.png"
   ]
 }
