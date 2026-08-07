@@ -1,0 +1,17 @@
+{
+  "generator": "client-app",
+  "version": "1786108033",
+  "slug": "sardo-foods",
+  "client": "Sardo Foods",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_004d86.png",
+    "img/lg_full_7ec042.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}

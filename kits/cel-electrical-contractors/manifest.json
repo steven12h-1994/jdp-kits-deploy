@@ -1,0 +1,17 @@
+{
+  "generator": "client-app",
+  "version": "1786107940",
+  "slug": "cel-electrical-contractors",
+  "client": "CEL Electrical Contractors",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_335770.png",
+    "img/lg_full_778a97.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}

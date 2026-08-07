@@ -1,0 +1,17 @@
+{
+  "generator": "client-app",
+  "version": "1786108021",
+  "slug": "direct-construction",
+  "client": "Direct Construction",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_93435a.png",
+    "img/lg_full_b57c8d.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}

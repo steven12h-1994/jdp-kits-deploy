@@ -1,0 +1,30 @@
+{
+  "generator": "client-app",
+  "version": "1786107963",
+  "slug": "archadeck-outdoor-living",
+  "client": "Archadeck Outdoor Living",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_0b639c.png",
+    "img/lg_full_78a7c6.png",
+    "img/lg_full_b2d3e7.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_white.png",
+    "img/lg_icon_0b639c.png",
+    "img/lg_icon_78a7c6.png",
+    "img/lg_icon_b2d3e7.png",
+    "img/lg_icon_brand.png",
+    "img/lg_icon_dark.png",
+    "img/lg_icon_white.png",
+    "img/lg_word_0b639c.png",
+    "img/lg_word_78a7c6.png",
+    "img/lg_word_b2d3e7.png",
+    "img/lg_word_brand.png",
+    "img/lg_word_dark.png",
+    "img/lg_word_white.png",
+    "img/logo-white.png"
+  ]
+}
