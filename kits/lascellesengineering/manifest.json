@@ -1,0 +1,16 @@
+{
+  "generator": "client-app",
+  "version": "1786108512",
+  "slug": "lascellesengineering",
+  "client": "Lascelles Engineering and Associates Ltd.",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_720303.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}
