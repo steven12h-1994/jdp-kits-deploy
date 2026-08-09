@@ -1,13 +1,12 @@
 {
   "generator": "client-app",
-  "version": "1786293795",
-  "slug": "bestbaylogistics",
-  "client": "Best Bay Logistics",
+  "version": "1786293788",
+  "slug": "lindsayconstruction",
+  "client": "Lindsay Construction",
   "files": [
     "index.html",
     "client.json",
     "img/favicon.png",
-    "img/lg_full_06abad.png",
     "img/lg_full_brand.png",
     "img/lg_full_dark.png",
     "img/lg_full_white.png",
