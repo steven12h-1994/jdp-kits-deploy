@@ -1,6 +1,6 @@
 {
   "generator": "client-app",
-  "version": "1786108012",
+  "version": "1786284390",
   "slug": "core-mechanical",
   "client": "Core Mechanical",
   "files": [
@@ -8,7 +8,6 @@
     "client.json",
     "img/favicon.png",
     "img/lg_full_brand.png",
-    "img/lg_full_c73430.png",
     "img/lg_full_dark.png",
     "img/lg_full_white.png",
     "img/logo-white.png"

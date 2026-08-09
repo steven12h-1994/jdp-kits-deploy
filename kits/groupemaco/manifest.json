@@ -1,13 +1,14 @@
 {
   "generator": "client-app",
-  "version": "1785946033",
+  "version": "1786284440",
   "slug": "groupemaco",
-  "client": "Groupemaco",
+  "client": "Groupe Maco",
   "files": [
     "index.html",
     "client.json",
     "img/favicon.png",
-    "img/lg_full_017ab6.png",
+    "img/lg_full_0088c6.png",
+    "img/lg_full_09517e.png",
     "img/lg_full_brand.png",
     "img/lg_full_dark.png",
     "img/lg_full_white.png",

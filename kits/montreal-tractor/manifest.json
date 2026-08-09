@@ -1,16 +1,15 @@
 {
   "generator": "client-app",
-  "version": "1786108083",
+  "version": "1786284419",
   "slug": "montreal-tractor",
   "client": "Montreal Tractor",
   "files": [
     "index.html",
     "client.json",
     "img/favicon.png",
-    "img/lg_full_263559.png",
     "img/lg_full_brand.png",
     "img/lg_full_dark.png",
-    "img/lg_full_eeac2e.png",
+    "img/lg_full_fab219.png",
     "img/lg_full_white.png",
     "img/logo-white.png"
   ]

@@ -1,15 +1,14 @@
 {
   "generator": "client-app",
-  "version": "1785946148",
+  "version": "1786284425",
   "slug": "metrocan",
-  "client": "Metrocan",
+  "client": "Metro-Can Construction Ltd",
   "files": [
     "index.html",
     "client.json",
     "img/favicon.png",
     "img/lg_full_04a348.png",
     "img/lg_full_1978f7.png",
-    "img/lg_full_523eb6.png",
     "img/lg_full_brand.png",
     "img/lg_full_dark.png",
     "img/lg_full_white.png",
