@@ -1,0 +1,17 @@
+{
+  "generator": "client-app",
+  "version": "1786388498",
+  "slug": "fandp-mfg",
+  "client": "F&amp;P Mfg. Inc",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_26384c.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_e60019.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}
