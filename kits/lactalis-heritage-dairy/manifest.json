@@ -1,0 +1,17 @@
+{
+  "generator": "client-app",
+  "version": "1786468569",
+  "slug": "lactalis-heritage-dairy",
+  "client": "Lactalis Heritage Dairy",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_004b85.png",
+    "img/lg_full_5bc5f2.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}

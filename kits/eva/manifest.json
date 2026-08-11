@@ -1,0 +1,16 @@
+{
+  "generator": "client-app",
+  "version": "1786468504",
+  "slug": "eva",
+  "client": "Eva",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_ffc002.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}

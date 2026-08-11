@@ -1,0 +1,17 @@
+{
+  "generator": "client-app",
+  "version": "1786466909",
+  "slug": "parkers-kitchen",
+  "client": "Parker's Kitchen",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_055eaa.png",
+    "img/lg_full_72bd43.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}
