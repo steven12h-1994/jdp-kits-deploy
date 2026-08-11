@@ -1,0 +1,17 @@
+{
+  "generator": "client-app",
+  "version": "1786491190",
+  "slug": "ayoubs",
+  "client": "Ayoub's Dried Fruits &amp; Nuts",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_572701.png",
+    "img/lg_full_8cc63f.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}

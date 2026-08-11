@@ -1,0 +1,17 @@
+{
+  "generator": "client-app",
+  "version": "1786489481",
+  "slug": "lakeland-fire-safety",
+  "client": "Lakeland Fire + Safety",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_07923c.png",
+    "img/lg_full_7bc071.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}
