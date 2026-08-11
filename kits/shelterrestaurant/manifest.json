@@ -1,8 +1,8 @@
 {
   "generator": "client-app",
-  "version": "1785946213",
+  "version": "1786453467",
   "slug": "shelterrestaurant",
-  "client": "Shelterrestaurant",
+  "client": "Shelter Restaurant",
   "files": [
     "index.html",
     "client.json",
