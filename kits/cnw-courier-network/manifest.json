@@ -1,8 +1,8 @@
 {
   "generator": "client-app",
-  "version": "1786466977",
-  "slug": "cnw-courier-network",
-  "client": "CNW Courier NetWork",
+  "version": "1786469449",
+  "slug": "cnwglobal",
+  "client": "CNW Courier Network",
   "files": [
     "index.html",
     "client.json",
