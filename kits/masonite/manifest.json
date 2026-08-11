@@ -1,14 +1,16 @@
 {
   "generator": "client-app",
-  "version": "1786468507",
+  "version": "1786468923",
   "slug": "masonite",
   "client": "Masonite",
   "files": [
     "index.html",
     "client.json",
     "img/favicon.png",
-    "img/lg_full_99c220.png",
+    "img/lg_full_2a2c34.png",
+    "img/lg_full_99c221.png",
     "img/lg_full_brand.png",
+    "img/lg_full_ce1328.png",
     "img/lg_full_dark.png",
     "img/lg_full_white.png",
     "img/logo-white.png"

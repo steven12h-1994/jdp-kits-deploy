@@ -1,0 +1,17 @@
+{
+  "generator": "client-app",
+  "version": "1786469066",
+  "slug": "markdom",
+  "client": "Markdom International",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_0d3e66.png",
+    "img/lg_full_576673.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}

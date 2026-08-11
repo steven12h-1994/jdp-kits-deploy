@@ -1,0 +1,17 @@
+{
+  "generator": "client-app",
+  "version": "1786468927",
+  "slug": "produceteam",
+  "client": "Produce Team",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_4d2e1f.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_e57a22.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}

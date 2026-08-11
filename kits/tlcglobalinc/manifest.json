@@ -1,0 +1,16 @@
+{
+  "generator": "client-app",
+  "version": "1786468896",
+  "slug": "tlcglobalinc",
+  "client": "TLC Global Impression",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_145c95.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}
