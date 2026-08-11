@@ -1,12 +1,13 @@
 {
   "generator": "client-app",
-  "version": "1786467035",
+  "version": "1786470198",
   "slug": "pls-logistics",
   "client": "PLS Logistics Services",
   "files": [
     "index.html",
     "client.json",
     "img/favicon.png",
+    "img/lg_full_315b33.png",
     "img/lg_full_brand.png",
     "img/lg_full_ce5a21.png",
     "img/lg_full_dark.png",

@@ -1,13 +1,13 @@
 {
   "generator": "client-app",
-  "version": "1786468530",
+  "version": "1786469366",
   "slug": "pb-transport",
   "client": "P&amp;B Transport",
   "files": [
     "index.html",
     "client.json",
     "img/favicon.png",
-    "img/lg_full_900b1d.png",
+    "img/lg_full_950d1f.png",
     "img/lg_full_brand.png",
     "img/lg_full_dark.png",
     "img/lg_full_white.png",

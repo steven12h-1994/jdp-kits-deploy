@@ -1,8 +1,8 @@
 {
   "generator": "client-app",
-  "version": "1786466864",
+  "version": "1786468041",
   "slug": "produce-team",
-  "client": "Produce Team LLC",
+  "client": "Produce Team",
   "files": [
     "index.html",
     "client.json",

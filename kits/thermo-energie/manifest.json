@@ -1,8 +1,8 @@
 {
   "generator": "client-app",
-  "version": "1786468954",
+  "version": "1786468077",
   "slug": "thermo-energie",
-  "client": "Thermo-\u00c9nergie",
+  "client": "Thermo-Energie",
   "files": [
     "index.html",
     "client.json",
