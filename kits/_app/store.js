@@ -136,6 +136,9 @@ function menuCard(key){
   // Class badge: a specific published class reads bold; styles whose maker publishes only the generic
   // "meets CSA" claim (no class number) render muted — we never invent a class.
   var csa=item.csa?'<span class="mcsa'+(/^Meets/.test(item.csa)?' gen':'')+'" title="'+(/^Meets/.test(item.csa)?'Certified high-visibility apparel — ask us to confirm the exact class for your job':'Certified high-visibility rating')+'">🛡 '+esc(item.csa)+'</span>':'';
+  // Fabric chip: shoppers hunting for a *cotton* polo need to see it on the tile, not three clicks deep.
+  // Reuses the muted badge style so it reads as spec, not a safety rating.
+  var fab=item.fabric?'<span class="mcsa gen" title="Fabric content as published by the maker">\ud83e\uddf5 '+esc(item.fabric)+'</span>':'';
   var q=CART[key]?CART[key].qty:0;
   var inkit=q?' inkit':'';
   var addlbl=q?('<b>'+q+'</b>'):'+';
@@ -144,7 +147,7 @@ function menuCard(key){
       '<button class="madd'+(q?' has':'')+'" data-key="'+key+'" aria-label="'+(q?'Edit ':'Add ')+esc(item.name)+'">'+addlbl+'</button></div>'+
     '<div class="mb"><h3>'+esc(item.name)+'</h3>'+
       '<div class="mmeta">'+esc(item.sku)+(item.layer==='promo'?'':(item.womens?' · Men’s &amp; Women’s':(item.unisex?' · Unisex':'')))+'</div>'+
-      csa+
+      csa+fab+
       colourDots(item)+
       (item.layer==='promo'
         ? '<div class="mprice"><b>'+money(item.price_cad)+'</b> <small>/'+(item.unit==='dozen'?'dozen':'pc')+' · min '+item.moq+'</small></div>'
