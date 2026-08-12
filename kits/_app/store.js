@@ -256,6 +256,10 @@ function megaName(id){for(var i=0;i<MEGA.length;i++)if(MEGA[i].id===id)return ME
 // classify an item into {mega, sub} purely by garment type (names carry raw "&"; escaped at render).
 function classify(it){
   var layer=it.layer,n=((it.name||'')+' '+(it.key||'')).toLowerCase();
+  // PPE on the promo/quote-mode pricing path must NOT land in Accessories. Hard hats are CSA/ANSI
+  // rated head protection bought by a safety manager, so they belong beside hi-vis. Keys off pmega
+  // so any future quote-mode item can pick its own home category.
+  if(layer==='promo'&&it.pmega&&it.pmega!=='accessories')return {mega:it.pmega,sub:it.psub||'Bags'};
   if(layer==='promo')return {mega:'accessories',sub:it.psub||'Bags'};   // all promo/golf/bag items -> one Accessories category (psub remapped at build)
   // Carhartt is a dedicated brand category — route ALL Carhartt items there (keeps the shared tabs uncluttered).
   var _brand=((it.sku||'')+' '+(it.brand||'')).toLowerCase();
