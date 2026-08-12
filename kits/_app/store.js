@@ -169,21 +169,31 @@ var MEGA=[
   {id:'ruggedwear',name:'Rugged Wear'},
   {id:'hivis',name:'Hi-Vis & Safety'},
   {id:'carhartt',name:'Carhartt Workwear'},
+  {id:'headwear',name:'Headwear'},
+  {id:'bottoms',name:'Pants & Joggers'},
+  {id:'fr',name:'Flame-Resistant'},
   {id:'accessories',name:'Accessories'}
 ];
 var SHACKET_KEYS={st_bushwick:1,st_highlandplaid:1,st_oxide:1};
 var MEGASUB={
   tops:['Polos','Shirts','Tees'],
-  layers:['Quarter & Half-Zips','Crewnecks & Sweatshirts','Hoodies','Fleece'],
+  layers:['Quarter & Half-Zips','Crewnecks & Sweatshirts','Hoodies','Fleece'],   // bottoms live in the Pants & Joggers tab
   outerwear:['Softshell Jackets','Shackets & Overshirts','Insulated & Thermal','Puffer & Quilted','3-in-1 Systems','Shells & Rainwear','Vests','Jackets'],
   // Rugged Wear = Canada Sportswear's heavy-duty line, its own brand category.
   // Rugged Wear — organized how trades/industrial buyers shop: by warmth & garment type. The #1 rugged selection.
   ruggedwear:['Insulated & Quilted','Canvas & Shackets','Parkas','Shells & 3-in-1','Vests','Hoodies & Thermals'],
-  hivis:['Safety Vests','Hi-Vis T-Shirts','Sweatshirts & Hoodies','Hi-Vis Jackets','Winter Parkas','Rain & Gear'],
+  hivis:['Safety Vests','Hi-Vis T-Shirts','Sweatshirts & Hoodies','Hi-Vis Jackets','Winter Parkas','Rain & Gear','Hard Hats & Head Protection'],
   // Carhartt is its OWN brand category (declutters the shared tabs). By garment; best-sellers keep the ★ Top pick badge and sort first.
   carhartt:['Sweatshirts & Hoodies','T-Shirts','Shirts','Jackets & Coats','Vests','Pants & Bibs','Flame-Resistant','Headwear','Bags & Accessories'],
   // ONE consolidated Accessories category — bags, drinkware, desk, gifts & golf — so the apparel categories
   // keep their value. Curated to premium items that fit Field & Crews + Office/Sales/Client-Facing teams.
+  // Headwear is its own tab: 24 new caps/toques on top of the existing 8 would swamp a single
+  // Accessories sub, and embroidered caps are a core JDP line that buyers shop for by name.
+  headwear:['Caps','Trucker & Snapback','Fitted & Performance','Beanies & Toques','Bucket & Visors','Balaclavas'],
+  // All bottoms in one place. classify() already returned mega 'workwear' for these but it was
+  // never declared, so work pants and bibs were unreachable in the nav.
+  bottoms:['Joggers & Sweatpants','Work Pants','Bibs & Overalls'],
+  fr:['FR Hoodies','FR Shirts','FR Tees','FR Pants','FR Jackets','FR Accessories'],
   accessories:['Bags','Drinkware','Notebooks & Pens','Gift Sets','Golf','Headwear']
 };
 // Hi-vis by NAME (any layer). Organized how safety buyers actually shop — vests lead (the #1 entry
@@ -266,11 +276,16 @@ function classify(it){
     return {mega:'fr',sub:'FR Shirts'};
   }
   // Carhartt bottoms & headwear (premium layer, routed by name to their own category tabs):
-  if(/bib overall|coverall|\bbib\b/.test(n))return {mega:'workwear',sub:'Bibs & Overalls'};
-  if(/\bpant\b|\bpants\b|cargo|dungaree|trouser/.test(n))return {mega:'workwear',sub:'Work Pants'};
+  if(/bib overall|coverall|\bbib\b/.test(n))return {mega:'bottoms',sub:'Bibs & Overalls'};
+  if(/\bpant\b|\bpants\b|cargo|dungaree|trouser/.test(n))return {mega:'bottoms',sub:'Work Pants'};
+  if(/hard ?hat|\bhelmet\b/.test(n)||/^hp\d/.test((it.key||''))||/\btype [12]\b/.test(n))return {mega:'hivis',sub:'Hard Hats & Head Protection'};
+  if(/jogger|sweatpant|sweat pant/.test(n))return {mega:'bottoms',sub:'Joggers & Sweatpants'};
+  if(/bucket hat|visor/.test(n))return {mega:'headwear',sub:'Bucket & Visors'};
+  if(/flexfit|flex fit|fitted cap|wooly combed|performance cap/.test(n))return {mega:'headwear',sub:'Fitted & Performance'};
+  if(/trucker|snap ?back|5-?panel|five panel|dad hat/.test(n))return {mega:'headwear',sub:'Trucker & Snapback'};
   if(/balaclava/.test(n))return {mega:'headwear',sub:'Balaclavas'};
   if(/beanie|toque|watch hat|knit .*hat|cuffed/.test(n))return {mega:'headwear',sub:'Beanies & Toques'};
-  if(/\bcap\b|mesh back/.test(n))return {mega:'headwear',sub:'Caps'};
+  if(/\bcap\b|mesh back|\bhat\b/.test(n))return {mega:'headwear',sub:'Caps'};   // \bhat\b last: hard/bucket/watch hats already routed
   // SHACKET SILHOUETTE by KEY, judged from the product photos rather than the name. These three
   // are shirt-jackets (point collar, full button placket, patch chest pockets) but their names say
   // "Quilted"/"Sherpa-Lined", so the name regexes below file them under Puffer & Quilted and
@@ -279,7 +294,7 @@ function classify(it){
   if(SHACKET_KEYS[it.key])return {mega:'outerwear',sub:'Shackets & Overshirts'};
   if(/shacket|overshirt/.test(n))return {mega:'outerwear',sub:'Shackets & Overshirts'};
   if(/quarter-?zip|half-?zip|1\/4/.test(n))return {mega:'layers',sub:'Quarter & Half-Zips'};
-  if(/crewneck|sweatshirt/.test(n)&&!/hood/.test(n))return {mega:'layers',sub:'Crewnecks & Sweatshirts'};
+  if(/crewneck|sweatshirt/.test(n)&&!/hood/.test(n)&&!/t-shirt|\btee\b/.test(n))return {mega:'layers',sub:'Crewnecks & Sweatshirts'};  // a "Crewneck T-Shirt" is a TEE
   if(/hoodie|hooded/.test(n))return {mega:'layers',sub:'Hoodies'};
   if(n.indexOf('vest')>=0)return {mega:'outerwear',sub:'Vests'};      // fleece/quilted vests -> Vests, not Fleece
   if(/fleece/.test(n))return {mega:'layers',sub:'Fleece'};
@@ -298,10 +313,10 @@ function classify(it){
 /* ---------- FILTERED BROWSE MODEL (one category at a time; no endless scroll) ---------- */
 var VIEW={cat:null,sub:'all',q:'',world:'all'};
 var BUCKETS={},TOTALS={},CATS=[];
-var SHORTCAT={tops:'Polos & Shirts',layers:'Fleece & Sweaters',outerwear:'Jackets & Vests',ruggedwear:'Rugged Wear',hivis:'Hi-Vis & Safety',carhartt:'Carhartt',accessories:'Accessories'};
+var SHORTCAT={tops:'Polos & Shirts',layers:'Fleece & Sweaters',outerwear:'Jackets & Vests',ruggedwear:'Rugged Wear',hivis:'Hi-Vis & Safety',carhartt:'Carhartt',headwear:'Headwear',bottoms:'Pants & Joggers',fr:'Flame-Resistant',accessories:'Accessories'};
 // Two brand worlds — how JDP sells: the jobsite crew and the front office / client-facing team.
-var AUD=[{id:'field',name:'Field & Crews',short:'Field & Crews',blurb:'CSA hi-vis, rugged workwear & hard-hat-ready layers built for the jobsite.',cats:['hivis','ruggedwear','carhartt']},
-         {id:'office',name:'Office, Sales & Client-Facing',short:'Office & Sales',blurb:'Sharp branded polos, softshells, premium brands & client gifts for the front office and sales floor.',cats:['tops','layers','outerwear','accessories']}];
+var AUD=[{id:'field',name:'Field & Crews',short:'Field & Crews',blurb:'CSA hi-vis, rugged workwear & hard-hat-ready layers built for the jobsite.',cats:['hivis','ruggedwear','carhartt','fr','headwear','bottoms']},
+         {id:'office',name:'Office, Sales & Client-Facing',short:'Office & Sales',blurb:'Sharp branded polos, softshells, premium brands & client gifts for the front office and sales floor.',cats:['tops','layers','outerwear','headwear','bottoms','accessories']}];
 function audOf(w){for(var i=0;i<AUD.length;i++)if(AUD[i].id===w)return AUD[i];return null;}
 function worldOfCat(c){for(var i=0;i<AUD.length;i++)if(AUD[i].cats.indexOf(c)>=0)return AUD[i].id;return null;}
 function worldCats(){if(VIEW.world==='all')return CATS;var a=audOf(VIEW.world);return a?a.cats.filter(function(c){return CATS.indexOf(c)>=0;}):CATS;}
