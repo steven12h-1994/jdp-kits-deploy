@@ -171,6 +171,7 @@ var MEGA=[
   {id:'carhartt',name:'Carhartt Workwear'},
   {id:'accessories',name:'Accessories'}
 ];
+var SHACKET_KEYS={st_bushwick:1,st_highlandplaid:1,st_oxide:1};
 var MEGASUB={
   tops:['Polos','Shirts','Tees'],
   layers:['Quarter & Half-Zips','Crewnecks & Sweatshirts','Hoodies','Fleece'],
@@ -270,6 +271,12 @@ function classify(it){
   if(/balaclava/.test(n))return {mega:'headwear',sub:'Balaclavas'};
   if(/beanie|toque|watch hat|knit .*hat|cuffed/.test(n))return {mega:'headwear',sub:'Beanies & Toques'};
   if(/\bcap\b|mesh back/.test(n))return {mega:'headwear',sub:'Caps'};
+  // SHACKET SILHOUETTE by KEY, judged from the product photos rather than the name. These three
+  // are shirt-jackets (point collar, full button placket, patch chest pockets) but their names say
+  // "Quilted"/"Sherpa-Lined", so the name regexes below file them under Puffer & Quilted and
+  // Insulated & Thermal. Keyed explicitly because widening the regex would wrongly catch genuine
+  // zip-front puffers (Gravity, Tundra, Nautilus, Stavanger, Sierra) and sherpa hoodies.
+  if(SHACKET_KEYS[it.key])return {mega:'outerwear',sub:'Shackets & Overshirts'};
   if(/shacket|overshirt/.test(n))return {mega:'outerwear',sub:'Shackets & Overshirts'};
   if(/quarter-?zip|half-?zip|1\/4/.test(n))return {mega:'layers',sub:'Quarter & Half-Zips'};
   if(/crewneck|sweatshirt/.test(n)&&!/hood/.test(n))return {mega:'layers',sub:'Crewnecks & Sweatshirts'};
