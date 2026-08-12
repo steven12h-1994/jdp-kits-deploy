@@ -807,7 +807,12 @@ function galleryStrip(item){
 // gamified "savings tiers" (the only qty effect is setup spreading) — just an easy, trustworthy decision.
 function renderPromoSheet(){
   var item=BYKEY[SH.key];
-  var gal=(item.gallery&&item.gallery.length)?item.gallery:[(item.cols[0]||{}).front];
+  // The hero photo has to follow the SELECTED colour. Deriving it from `gallery` (or cols[0]) meant every
+  // colour showed the supplier's default shot, so clicking a swatch re-rendered the sheet but the picture
+  // never changed — it read as a broken store. Selected colour first, then any extra angles as thumbs.
+  var selc=colInList(item.cols||[],SH.colour)||(item.cols||[])[0]||{};
+  var gal=(selc.front?[selc.front]:[]).concat((item.gallery||[]).filter(function(g){return g&&g!==selc.front;}));
+  if(!gal.length)gal=(item.gallery&&item.gallery.length)?item.gallery.slice():[];
   var gi=Math.min(SH.gi||0,gal.length-1);
   var q=promoQuote(item,SH);
   var min=q.min, methods=q.methods, isDQ=q.decoquote, unitP=(q.unit==='dozen'?'dozen':'pc');
@@ -862,7 +867,7 @@ function renderPromoSheet(){
   var sh=document.getElementById('sheet');
   document.getElementById('shx').addEventListener('click',closeAll);
   sh.querySelectorAll('.pthumb').forEach(function(b){b.addEventListener('click',function(){SH.gi=+b.dataset.i;var mi=document.getElementById('pmain');if(mi)mi.src=gurl(gal[SH.gi]);sh.querySelectorAll('.pthumb').forEach(function(x){x.classList.toggle('on',x===b);});});});
-  sh.querySelectorAll('.pcol').forEach(function(b){b.addEventListener('click',function(){SH.colour=b.dataset.col;renderPromoSheet();});});
+  sh.querySelectorAll('.pcol').forEach(function(b){b.addEventListener('click',function(){SH.colour=b.dataset.col;SH.gi=0;renderPromoSheet();});});
   sh.querySelectorAll('.pmeth').forEach(function(b){b.addEventListener('click',function(){SH.mi=+b.dataset.mi;renderPromoSheet();});});
   sh.querySelectorAll('.ploc').forEach(function(b){b.addEventListener('click',function(){SH.locs=+b.dataset.loc;renderPromoSheet();});});
   sh.querySelectorAll('.ppick').forEach(function(b){b.addEventListener('click',function(){SH.qty=+b.dataset.q;renderPromoSheet();});});
