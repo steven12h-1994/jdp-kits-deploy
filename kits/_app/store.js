@@ -226,6 +226,7 @@ var MEGA=[
   {id:'ruggedwear',name:'Rugged Wear'},
   {id:'hivis',name:'Hi-Vis & Safety'},
   {id:'carhartt',name:'Carhartt Workwear'},
+  {id:'workshirts',name:'Work & Uniform Shirts'},
   {id:'headwear',name:'Headwear'},
   {id:'bottoms',name:'Pants & Joggers'},
   {id:'fr',name:'Flame-Resistant'},
@@ -239,6 +240,8 @@ var MEGASUB={
   // Rugged Wear = Canada Sportswear's heavy-duty line, its own brand category.
   // Rugged Wear — organized how trades/industrial buyers shop: by warmth & garment type. The #1 rugged selection.
   ruggedwear:['Insulated & Quilted','Canvas & Shackets','Parkas','Shells & 3-in-1','Vests','Hoodies & Thermals'],
+  // Uniform shirts split the way a fleet/service buyer specs them: sleeve length first.
+  workshirts:['Short Sleeve','Long Sleeve','Crew & Two-Tone'],
   hivis:['Safety Vests','Hi-Vis T-Shirts','Sweatshirts & Hoodies','Hi-Vis Jackets','Winter Parkas','Rain & Gear','Hard Hats & Head Protection'],
   // Carhartt is its OWN brand category (declutters the shared tabs). By garment; best-sellers keep the ★ Top pick badge and sort first.
   carhartt:['Sweatshirts & Hoodies','T-Shirts','Shirts','Jackets & Coats','Vests','Pants & Bibs','Flame-Resistant','Headwear','Bags & Accessories'],
@@ -311,6 +314,13 @@ function classifyCarhartt(it,n,layer){
 }
 function megaName(id){for(var i=0;i<MEGA.length;i++)if(MEGA[i].id===id)return MEGA[i].name;return id;}
 // classify an item into {mega, sub} purely by garment type (names carry raw "&"; escaped at render).
+// Uniform / work shirts (Red Kap, Dickies) are their own buying category — a mechanic's or service
+// tech's shirt programme. Not hi-vis, and not an office polo.
+function classifyWorkShirt(n){
+  if(/crew|two-?tone/.test(n))return {mega:'workshirts',sub:'Crew & Two-Tone'};
+  if(/long[- ]sleeve|\bl\/s\b/.test(n))return {mega:'workshirts',sub:'Long Sleeve'};
+  return {mega:'workshirts',sub:'Short Sleeve'};
+}
 function classify(it){
   var layer=it.layer,n=((it.name||'')+' '+(it.key||'')).toLowerCase();
   // PPE on the promo/quote-mode pricing path must NOT land in Accessories. Hard hats are CSA/ANSI
@@ -321,6 +331,10 @@ function classify(it){
   // Carhartt is a dedicated brand category — route ALL Carhartt items there (keeps the shared tabs uncluttered).
   var _brand=((it.sku||'')+' '+(it.brand||'')).toLowerCase();
   if(_brand.indexOf('carhartt')>=0)return classifyCarhartt(it,n,layer);
+  // Must come BEFORE the layer==='field' branch, which would otherwise file a work shirt under
+  // Hi-Vis T-Shirts, and it deliberately does NOT use 'tops': worlds filter by mega and 'tops' is
+  // office-only, so a uniform shirt routed there would never reach the crews who actually wear it.
+  if(_brand.indexOf('red kap')>=0||_brand.indexOf('dickies')>=0||/work shirt|uniform shirt/.test(n))return classifyWorkShirt(n);
   if(/hi-?vis|safety/.test(n))return classifyHivis(n);           // hi-vis items (any brand/layer) -> Hi-Vis & Safety
   if(_brand.indexOf('rugged wear')>=0)return classifyRugged(n);  // Canada Sportswear Rugged Wear line -> its own tab
   if(layer==='bags')return {mega:'accessories',sub:'Bags'};   // all apparel bags -> Accessories › Bags
@@ -374,10 +388,10 @@ function classify(it){
 /* ---------- FILTERED BROWSE MODEL (one category at a time; no endless scroll) ---------- */
 var VIEW={cat:null,sub:'all',q:'',world:'all'};
 var BUCKETS={},TOTALS={},CATS=[];
-var SHORTCAT={tops:'Polos & Shirts',layers:'Fleece & Sweaters',outerwear:'Jackets & Vests',ruggedwear:'Rugged Wear',hivis:'Hi-Vis & Safety',carhartt:'Carhartt',headwear:'Headwear',bottoms:'Pants & Joggers',fr:'Flame-Resistant',accessories:'Accessories'};
+var SHORTCAT={workshirts:'Work Shirts',tops:'Polos & Shirts',layers:'Fleece & Sweaters',outerwear:'Jackets & Vests',ruggedwear:'Rugged Wear',hivis:'Hi-Vis & Safety',carhartt:'Carhartt',headwear:'Headwear',bottoms:'Pants & Joggers',fr:'Flame-Resistant',accessories:'Accessories'};
 // Two brand worlds — how JDP sells: the jobsite crew and the front office / client-facing team.
-var AUD=[{id:'field',name:'Field & Crews',short:'Field & Crews',blurb:'CSA hi-vis, rugged workwear & hard-hat-ready layers built for the jobsite.',cats:['hivis','ruggedwear','carhartt','fr','headwear','bottoms']},
-         {id:'office',name:'Office, Sales & Client-Facing',short:'Office & Sales',blurb:'Sharp branded polos, softshells, premium brands & client gifts for the front office and sales floor.',cats:['tops','layers','outerwear','headwear','bottoms','accessories']}];
+var AUD=[{id:'field',name:'Field & Crews',short:'Field & Crews',blurb:'CSA hi-vis, rugged workwear & hard-hat-ready layers built for the jobsite.',cats:['hivis','workshirts','ruggedwear','carhartt','fr','headwear','bottoms']},
+         {id:'office',name:'Office, Sales & Client-Facing',short:'Office & Sales',blurb:'Sharp branded polos, softshells, premium brands & client gifts for the front office and sales floor.',cats:['tops','workshirts','layers','outerwear','headwear','bottoms','accessories']}];
 function audOf(w){for(var i=0;i<AUD.length;i++)if(AUD[i].id===w)return AUD[i];return null;}
 function worldOfCat(c){for(var i=0;i<AUD.length;i++)if(AUD[i].cats.indexOf(c)>=0)return AUD[i].id;return null;}
 function worldCats(){if(VIEW.world==='all')return CATS;var a=audOf(VIEW.world);return a?a.cats.filter(function(c){return CATS.indexOf(c)>=0;}):CATS;}
