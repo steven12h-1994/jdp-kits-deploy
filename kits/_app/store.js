@@ -18,9 +18,63 @@ function hexSat(h){h=(h||'').replace('#','');if(h.length<6)return 0;var r=parseI
 // (orange/lime — bright but vivid, where white pops); a very light garment would swallow white so use
 // a dark ink; otherwise the full-colour brand mark.
 function autoInk(rgb){var l=hexLum(rgb),s=hexSat(rgb);if(l<120||s>=70)return 'white';if(l>210)return 'dark';return 'brand';}
-// EMBROIDERY = full-colour thread -> always render the full-colour (brand) logo. Screen/heat-transfer
-// default to a contrast ink (white on dark/hi-vis, dark on very light, full colour otherwise).
-function autoInkFor(method,rgb){return method==='embroidery' ? 'brand' : autoInk(rgb);}
+// EMBROIDERY = full-colour thread -> render the full-colour (brand) logo. Screen/heat-transfer default
+// to a contrast ink (white on dark/hi-vis, dark on very light, full colour otherwise).
+// EXCEPTION, and the reason INK exists: "always brand" fails whenever a NEUTRAL mark sits on a garment
+// of the same value. shott-earthworks ships white-ink source art that the builder normalises to near-black
+// letterforms, so every navy and black garment rendered a logo you could not read; a white wordmark on a
+// white polo is the same bug mirrored. Real embroidery solves this with white thread on navy, so we pick
+// the reverse variant when the brand artwork fails a 3:1 contrast ratio against the garment.
+// A SATURATED brand colour is never touched — red thread on navy reads fine and it is the customer's
+// actual brand; only the neutrals get rescued.
+var INK={},INK_MINRATIO=3.0,INK_MAXSAT=45;
+function srgbLin(c){c=c/255;return c<=0.04045?c/12.92:Math.pow((c+0.055)/1.055,2.4);}
+function relLum(r,g,b){return 0.2126*srgbLin(r)+0.7152*srgbLin(g)+0.0722*srgbLin(b);}
+function contrast(a,b){var hi=Math.max(a,b),lo=Math.min(a,b);return (hi+0.05)/(lo+0.05);}
+function hexRelLum(hex){var h=String(hex||'').replace('#','');if(h.length!==6)return 1;
+  return relLum(parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16));}
+function autoInkFor(method,rgb,logo){
+  if(method!=='embroidery')return autoInk(rgb);
+  var k=logo&&INK[logo.id];
+  if(!k)return 'brand';
+  var gl=hexRelLum(rgb);
+  if(k.sat<=INK_MAXSAT&&contrast(k.lum,gl)<INK_MINRATIO)return gl<0.18?'white':'dark';
+  return 'brand';
+}
+/* Sample each logo's brand artwork once at boot to learn its true ink colour. Sampled at 256px with
+   alpha>200 because SOLID ink is the thread colour — a small canvas blurs black letterforms into mid
+   grey, which quietly defeated the whole test on the first attempt. Same-origin asset, so the canvas
+   stays readable; capped at 1.5s and failure-tolerant, because a logo probe must never stop the store
+   from painting. */
+function probeInk(logo){
+  return new Promise(function(res){
+    var u=logo&&logo.inks&&logo.inks.brand;
+    if(!u||typeof document==='undefined')return res();
+    var done=false,fin=function(){if(!done){done=true;res();}};
+    var im=new Image();
+    setTimeout(fin,1500);
+    im.onerror=fin;
+    im.onload=function(){
+      try{
+        var n=256,c=document.createElement('canvas');c.width=c.height=n;
+        var x=c.getContext('2d');x.drawImage(im,0,0,n,n);
+        var d=x.getImageData(0,0,n,n).data,R=[],G=[],B=[],cut=200;
+        for(var pass=0;pass<2&&R.length<40;pass++){
+          R=[];G=[];B=[];
+          for(var i=0;i<d.length;i+=4){if(d[i+3]>cut){R.push(d[i]);G.push(d[i+1]);B.push(d[i+2]);}}
+          cut=120;
+        }
+        if(R.length>=20){
+          var md=function(a){a.sort(function(p,q){return p-q;});return a[a.length>>1];};
+          var r=md(R),g=md(G),b=md(B);
+          INK[logo.id]={lum:relLum(r,g,b),sat:Math.max(r,g,b)-Math.min(r,g,b)};
+        }
+      }catch(e){}
+      fin();
+    };
+    im.src=kurl(u);
+  });
+}
 function money(x){return '$'+Number(x||0).toLocaleString('en-CA',{minimumFractionDigits:2,maximumFractionDigits:2});}
 function money0(x){return '$'+Math.round(Number(x||0)).toLocaleString('en-CA');}
 function logoOf(id){for(var i=0;i<CFG.logos.length;i++)if(CFG.logos[i].id===id)return CFG.logos[i];return CFG.logos[0]||{inks:{}};}
@@ -32,7 +86,7 @@ function logoOf(id){for(var i=0;i<CFG.logos.length;i++)if(CFG.logos[i].id===id)r
 // fleet-wide on EVERY ship, so any deploy reaches returning visitors too.
 var KV=(function(){try{var s=document.querySelector('script[src*="/_app/store.js"]');var m=s&&s.src.match(/[?&]v=([^&]+)/);if(m)return m[1];}catch(e){}return '';})();
 function kurl(u){if(!u)return u;if(/^(https?:)?\/\//.test(u)||u.charAt(0)==='/')return u;var v=KV||(CFG&&CFG.ver)||'';return v?u+(u.indexOf('?')<0?'?':'&')+'v='+v:u;}
-function inkUrl(logo,ink,col,method){var t=(ink&&ink!=='auto')?ink:autoInkFor(method,col&&col.rgb);return kurl(logo.inks[t]||logo.inks.brand);}
+function inkUrl(logo,ink,col,method){var t=(ink&&ink!=='auto')?ink:autoInkFor(method,col&&col.rgb,logo);return kurl(logo.inks[t]||logo.inks.brand);}
 // Every image URL carries the catalogue's build version so a changed-content/same-filename asset
 // (e.g. a product re-shot on a model) is re-fetched instead of served stale from cache.
 function gurl(f){return CFG.catalog_base+'/img/'+f+(CATVER?((f.indexOf('?')<0?'?':'&')+'v='+CATVER):'');}
@@ -1275,7 +1329,8 @@ function go(cfg){
   // (returns 304 when unchanged). Image URLs are versioned via CATVER below.
   fetch((cfg.catalog_base||CATALOG_BASE)+'/catalog.json?v='+(cfg.ver||'1'),{cache:'no-cache'}).then(function(r){return r.json();}).then(function(cat){
     CFG.catalog_base=cfg.catalog_base||CATALOG_BASE;CAT=cat;CATVER=cat.version||cat.v||'';(cat.items||[]).forEach(function(it){BYKEY[it.key]=it;});
-    loadCart();buildStore();refreshCartUI();
+    // Learn each logo's ink BEFORE first paint so garments render a thread colour that actually reads.
+    Promise.all((cfg.logos||[]).map(probeInk)).then(function(){loadCart();buildStore();refreshCartUI();});
     // Deep link: /kits/<slug>/?item=<key> (or #item=<key>) opens straight to that product — handy for
     // linking a prospect right to a specific piece's finishes + pricing.
     try{var m=(location.search.match(/[?&]item=([^&#]+)/)||location.hash.match(/item=([^&#]+)/));
