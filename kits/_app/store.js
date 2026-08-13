@@ -233,7 +233,7 @@ var MEGA=[
 ];
 var SHACKET_KEYS={st_bushwick:1,st_highlandplaid:1,st_oxide:1};
 var MEGASUB={
-  tops:['Polos','Shirts','Work & Uniform Shirts','Tees'],
+  tops:['Polos','Shirts','Tees'],
   layers:['Quarter & Half-Zips','Crewnecks & Sweatshirts','Hoodies','Fleece'],   // bottoms live in the Pants & Joggers tab
   outerwear:['Softshell Jackets','Shackets & Overshirts','Insulated & Thermal','Puffer & Quilted','3-in-1 Systems','Shells & Rainwear','Vests','Jackets'],
   // Rugged Wear = Canada Sportswear's heavy-duty line, its own brand category.
@@ -246,10 +246,10 @@ var MEGASUB={
   // keep their value. Curated to premium items that fit Field & Crews + Office/Sales/Client-Facing teams.
   // Headwear is its own tab: 24 new caps/toques on top of the existing 8 would swamp a single
   // Accessories sub, and embroidered caps are a core JDP line that buyers shop for by name.
-  headwear:['Caps','Trucker & Snapback','Fitted & Performance','Beanies & Toques','Bucket & Visors','Balaclavas'],
+  headwear:['Caps & Hats','Trucker & Snapback','Beanies & Toques'],
   // All bottoms in one place. classify() already returned mega 'workwear' for these but it was
   // never declared, so work pants and bibs were unreachable in the nav.
-  bottoms:['Joggers & Sweatpants','Work Pants','Bibs & Overalls'],
+  bottoms:['Joggers & Sweatpants','Work Pants & Bibs','Work Pants','Bibs & Overalls'],
   fr:['FR Hoodies','FR Shirts','FR Tees','FR Pants','FR Jackets','FR Accessories'],
   accessories:['Bags','Drinkware','Notebooks & Pens','Gift Sets','Golf','Headwear']
 };
@@ -293,10 +293,19 @@ var RUGGED_CROSS={
   st_basecampvest:'Vests', st_sierravest:'Vests',
   st_logan:'Hoodies & Thermals', st_nautilushoody:'Hoodies & Thermals',
   // Uniform shirts live in Polos, Shirts & Tees but a trades buyer shops Rugged Wear — surface them in both.
-  dk_2574:'Work Shirts', rk_sx20:'Work Shirts', rk_sy20:'Work Shirts', rk_sp24:'Work Shirts', rk_sp14:'Work Shirts'
+  dk_2574:'Work Shirts', rk_sx20:'Work Shirts', rk_sy20:'Work Shirts', rk_sp24:'Work Shirts', rk_sp14:'Work Shirts',
+  shirt:'Work Shirts', ashton:'Work Shirts'
 };
-function ruggedAlso(it,c){
-  return (c.mega!=='ruggedwear' && RUGGED_CROSS[it.key]) ? RUGGED_CROSS[it.key] : null;
+// CROSS-LISTING: one HOME category, plus any second place a buyer would reasonably look. The item is
+// never duplicated within a category. Headwear was scattered three ways — 24 promo caps here, 4 Carhartt
+// caps inside the Carhartt brand tab, 4 golf caps inside Accessories — so nobody shopping "Headwear" ever
+// saw all of it. Brand tabs keep their complete story; the buyer gets one aisle.
+function crossAlso(it,c){
+  var out=[],n=((it.name||'')+' '+(it.key||'')).toLowerCase();
+  if(c.mega!=='ruggedwear'&&RUGGED_CROSS[it.key])out.push({mega:'ruggedwear',sub:RUGGED_CROSS[it.key]});
+  if(c.mega!=='headwear'&&isHeadwear(n)&&!/\bfr\b|flame[- ]resistant/.test(n))out.push({mega:'headwear',sub:headwearSub(n)});
+  if(c.mega!=='bottoms'&&c.sub==='Pants & Bibs')out.push({mega:'bottoms',sub:'Work Pants & Bibs'});
+  return out;
 }
 // Best-sellers (rec flag) are NOT a separate section — they live in their garment sub with the ★ Top pick badge, sorted first.
 function classifyCarhartt(it,n,layer){
@@ -313,12 +322,22 @@ function classifyCarhartt(it,n,layer){
 }
 function megaName(id){for(var i=0;i<MEGA.length;i++)if(MEGA[i].id===id)return MEGA[i].name;return id;}
 // classify an item into {mega, sub} purely by garment type (names carry raw "&"; escaped at render).
-// Uniform / work shirts (Red Kap, Dickies) follow the BUYER, not the org chart. A shopper looking for a
-// shirt goes to Polos, Shirts & Tees — so that is home, and splitting shirts across a separate tab just
-// hid half of them. The trades buyer shops Rugged Wear, so they ALSO cross-list there (see RUGGED_CROSS),
-// which is how they still reach the Field & Crews world without a tab of their own.
+// Work shirts are just SHIRTS. A separate "Work & Uniform Shirts" sub forced the buyer to guess which
+// bucket a twill button-down fell into — the Camden and Ashton twills are the same garment class as the
+// Dickies twill, so the split drew a line no shopper would draw. One Shirts sub; the work-duty ones
+// cross-list into Rugged Wear (see RUGGED_CROSS) for the trades buyer.
 function classifyWorkShirt(n){
-  return {mega:'tops',sub:'Work & Uniform Shirts'};
+  return {mega:'tops',sub:'Shirts'};
+}
+// Headwear, by what a buyer actually picks between: a crown style. The old split had four sub-buckets
+// that were all baseball caps (Caps / Fitted & Performance / Trucker & Snapback / Bucket & Visors) —
+// subdividing a subcategory — and it filed the Sport Sandwich Cotton VISOR CAP under "Visors" because the
+// word appeared in its name. Panel counts and fitted-vs-adjustable are spec detail, not aisles.
+function isHeadwear(n){return /\bcap\b|\bhat\b|beanie|toque|balaclava|visor|snap ?back|trucker|bucket/.test(n)&&!/hard hat/.test(n);}
+function headwearSub(n){
+  if(/beanie|toque|watch hat|balaclava|knit cuff/.test(n))return 'Beanies & Toques';
+  if(/trucker|snap ?back|mesh back/.test(n))return 'Trucker & Snapback';
+  return 'Caps & Hats';
 }
 function classify(it){
   var layer=it.layer,n=((it.name||'')+' '+(it.key||'')).toLowerCase();
@@ -354,12 +373,7 @@ function classify(it){
   if(/\bpant\b|\bpants\b|cargo|dungaree|trouser/.test(n))return {mega:'bottoms',sub:'Work Pants'};
   if(/hard ?hat|\bhelmet\b/.test(n)||/^hp\d/.test((it.key||''))||/\btype [12]\b/.test(n))return {mega:'hivis',sub:'Hard Hats & Head Protection'};
   if(/jogger|sweatpant|sweat pant/.test(n))return {mega:'bottoms',sub:'Joggers & Sweatpants'};
-  if(/bucket hat|visor/.test(n))return {mega:'headwear',sub:'Bucket & Visors'};
-  if(/flexfit|flex fit|fitted cap|wooly combed|performance cap/.test(n))return {mega:'headwear',sub:'Fitted & Performance'};
-  if(/trucker|snap ?back|5-?panel|five panel|dad hat/.test(n))return {mega:'headwear',sub:'Trucker & Snapback'};
-  if(/balaclava/.test(n))return {mega:'headwear',sub:'Balaclavas'};
-  if(/beanie|toque|watch hat|knit .*hat|cuffed/.test(n))return {mega:'headwear',sub:'Beanies & Toques'};
-  if(/\bcap\b|mesh back|\bhat\b/.test(n))return {mega:'headwear',sub:'Caps'};   // \bhat\b last: hard/bucket/watch hats already routed
+  if(isHeadwear(n))return {mega:'headwear',sub:headwearSub(n)};
   // SHACKET SILHOUETTE by KEY, judged from the product photos rather than the name. These three
   // are shirt-jackets (point collar, full button placket, patch chest pockets) but their names say
   // "Quilted"/"Sherpa-Lined", so the name regexes below file them under Puffer & Quilted and
@@ -414,8 +428,9 @@ function buildBuckets(){
   all.forEach(function(k){var it=BYKEY[k];if(!it)return;var c=classify(it);
     (BUCKETS[c.mega]=BUCKETS[c.mega]||{});(BUCKETS[c.mega][c.sub]=BUCKETS[c.mega][c.sub]||[]).push(k);
     TOTALS[c.mega]=(TOTALS[c.mega]||0)+1;
-    var rr=ruggedAlso(it,c);   // ALSO surface rugged pieces in Rugged Wear (item stays in its home category too)
-    if(rr){(BUCKETS.ruggedwear=BUCKETS.ruggedwear||{});(BUCKETS.ruggedwear[rr]=BUCKETS.ruggedwear[rr]||[]).push(k);TOTALS.ruggedwear=(TOTALS.ruggedwear||0)+1;}});
+    crossAlso(it,c).forEach(function(x){   // item stays in its home category too
+      (BUCKETS[x.mega]=BUCKETS[x.mega]||{});(BUCKETS[x.mega][x.sub]=BUCKETS[x.mega][x.sub]||[]).push(k);
+      TOTALS[x.mega]=(TOTALS[x.mega]||0)+1;});});
   // Order within each subcategory for optimal browsing: top picks first, then price low → high.
   var pc=(CFG.pricing&&CFG.pricing.cols)?CFG.pricing.cols:[12,48,144],top=pc[pc.length-1];
   // Sort: top-picks first, then by best-seller rank (srt, e.g. Carhartt collection order) when present, else price low→high.
