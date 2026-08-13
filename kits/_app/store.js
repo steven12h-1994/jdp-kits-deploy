@@ -201,7 +201,7 @@ function menuCard(key){
       '<button class="madd'+(q?' has':'')+'" data-key="'+key+'" aria-label="'+(q?'Edit ':'Add ')+esc(item.name)+'">'+addlbl+'</button></div>'+
     '<div class="mb"><h3>'+esc(item.name)+'</h3>'+
       '<div class="mmeta">'+esc(item.sku)+(item.layer==='promo'?'':(item.unisex?' · Unisex':''))+'</div>'+
-      (item.womens?'<div class="mfit">Men’s &amp; Ladies’ cuts</div>':(item.unisex?'<div class="mfit alt">Unisex — one cut</div>':''))+
+      (hasLadies(item)?'<div class="mfit">Men’s &amp; Ladies’ cuts</div>':(item.unisex?'<div class="mfit alt">Unisex — one cut</div>':''))+
       csa+fab+
       colourDots(item,key)+
       (item.layer==='promo'
@@ -413,7 +413,11 @@ var VIEW={cat:null,sub:'all',q:'',world:'all',fit:'all'};
 // Colour chosen while BROWSING, per item+fit. A shopper who picks navy on the grid should still be on
 // navy when the product opens — otherwise the swatch feels fake.
 var BCOL={};
-function fitOf(item){return (VIEW.fit==='womens'&&item&&item.womens)?'womens':'mens';}
+// A ladies' cut only EXISTS as far as the store is concerned if we have its photos. Nine styles carried
+// womens:true with an empty wcols, so curColsOf() fell back to the men's photos — the card promised
+// "Men's & Ladies' cuts" and then showed a man. Never advertise a fit we cannot show.
+function hasLadies(item){return !!(item&&item.womens&&item.wcols&&item.wcols.length);}
+function fitOf(item){return (VIEW.fit==='womens'&&hasLadies(item))?'womens':'mens';}
 function browseCols(item){return curColsOf(item,fitOf(item));}
 function browsePlaces(item){var f=fitOf(item);return (f==='womens'&&item.wplaces&&item.wplaces.length)?item.wplaces:item.places;}
 function browseColour(key,item){
@@ -489,8 +493,8 @@ function worldSelect(w,scroll){
 function renderFitbar(){
   var el=document.getElementById('fitbar');if(!el)return;
   var keys=(VIEW.sub==='all'?ALLKEYS.filter(function(k){var c=classify(BYKEY[k]);return c.mega===VIEW.cat;}):(BUCKETS[VIEW.cat]||{})[VIEW.sub]||[]);
-  var nCut=keys.filter(function(k){return (BYKEY[k]||{}).womens;}).length;                       // distinct ladies' cut
-  var nHer=keys.filter(function(k){var i=BYKEY[k]||{};return i.womens||i.unisex;}).length;        // everything she can wear
+  var nCut=keys.filter(function(k){return hasLadies(BYKEY[k]);}).length;                       // distinct ladies' cut
+  var nHer=keys.filter(function(k){var i=BYKEY[k]||{};return hasLadies(i)||i.unisex;}).length;        // everything she can wear
   // Only offer the filter where there is a real choice to make: if nothing has its own ladies' cut,
   // Men's and Ladies' would return the same cards AND the same photos, which just trains people to
   // ignore filters.
@@ -557,7 +561,7 @@ function renderGrid(){
   // Ladies' includes UNISEX. A unisex hoodie is genuinely available to her — it simply isn't cut
   // separately — so excluding it hid 10 of the 21 Sweaters & Fleece styles from anyone shopping for
   // the women on their team. Items with neither flag are men's-only and stay hidden.
-  var fitOK=function(list){return (VIEW.fit==='womens')?list.filter(function(k){var i=BYKEY[k]||{};return i.womens||i.unisex;}):list;};
+  var fitOK=function(list){return (VIEW.fit==='womens')?list.filter(function(k){var i=BYKEY[k]||{};return hasLadies(i)||i.unisex;}):list;};
   var subs=subNames(VIEW.cat),csa=VIEW.cat==='hivis'?' <span class="csa">CSA Z96 · ANSI 107</span>':'';
   var _shown=(VIEW.sub==='all'?fitOK(ALLKEYS.filter(function(k){return (BUCKETS[VIEW.cat]||{})&&subs.some(function(s){return BUCKETS[VIEW.cat][s].indexOf(k)>=0;});})).length:fitOK(BUCKETS[VIEW.cat][VIEW.sub]||[]).length);
   hd.innerHTML='<h2 class="glbl">'+esc(megaName(VIEW.cat))+csa+'</h2><span class="gsub">'+_shown+' styles'+(VIEW.fit==='womens'?' in ladies’ &amp; unisex fits':'')+'</span>';
@@ -1069,7 +1073,7 @@ function renderSheet(){
   var curPlaces=(SH.fit==='womens'&&item.wplaces&&item.wplaces.length)?item.wplaces:item.places;
   var o=overlayHtml(item,{decos:sheetDecos()},SH.colour,SH.face,cols,curPlaces);var hasBack=o.hasBack;
   var chips=cols.map(function(c){return '<button class="cchip'+(c.name===SH.colour?' on':'')+'" data-col="'+esc(c.name)+'" style="background-image:url('+gurl(c.front)+')" title="'+esc(c.name)+'"></button>';}).join('');
-  var fitTog=item.womens?('<div class="fittog"><span class="fitl">Fit</span>'+
+  var fitTog=hasLadies(item)?('<div class="fittog"><span class="fitl">Fit</span>'+
     '<button class="fitb'+(SH.fit==='mens'?' on':'')+'" data-fit="mens">Men’s</button>'+
     '<button class="fitb'+(SH.fit==='womens'?' on':'')+'" data-fit="womens">Women’s</button>'+
     (SH.fit==='womens'&&!(item.wcols&&item.wcols.length)?'<span class="fitnote">Ladies’ cut confirmed with your quote</span>':'')+
@@ -1123,7 +1127,7 @@ function renderSheet(){
         (item.scenic?'<button class="shworn" id="shworn" aria-label="See it worn"><img src="'+gurl(item.scenic)+'" alt="" loading="lazy"><span class="swt"><b>See it worn</b><i>real in-the-field photo</i></span><span class="swgo">→</span></button>':'')+
         (item.video?'<button class="vwatch" id="vwatch"><svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>Watch video</button>':'')+
       '</div>'):'')+
-      '<div class="shb"><h2>'+esc(item.name)+'</h2><div class="shsku">'+esc(item.sku)+(item.womens?(SH.fit==='womens'?' · Ladies’':' · Men’s'):(item.unisex?' · Unisex':''))+(item.layer==='field'&&item.csa?' · CSA hi-vis':'')+'</div>'+
+      '<div class="shb"><h2>'+esc(item.name)+'</h2><div class="shsku">'+esc(item.sku)+(hasLadies(item)?(SH.fit==='womens'?' · Ladies’':' · Men’s'):(item.unisex?' · Unisex':''))+(item.layer==='field'&&item.csa?' · CSA hi-vis':'')+'</div>'+
       '<div class="shfrom">from <b>'+money(fromP)+'</b> <small>/pc</small>'+(hasDecoPlace(item)?' · decorated':'')+'</div>'+
       (item.blurb?'<p class="shblurb">'+esc(item.blurb)+'</p>':'')+
       fitTog+step1+qtyGrp+primaryHtml+extraHtml+
