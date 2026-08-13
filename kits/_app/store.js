@@ -182,7 +182,7 @@ function overlayHtml(item,vm,colName,faces,colsOverride,placesOverride){
 /* ---------- menu card (photo-forward, one + button) ---------- */
 function menuCard(key){
   var item=BYKEY[key],vm=vmOf(key);if(!item)return '';
-  var o=overlayHtml(item,vm,vm.colour,'front');
+  var o=overlayHtml(item,vm,browseColour(key,item),'front',browseCols(item),browsePlaces(item));
   var ncol=item.cols.length;
   var topcol=CFG.pricing.cols[CFG.pricing.cols.length-1];
   var fromP=unitPrice(key,vm.decos,topcol);
@@ -200,20 +200,26 @@ function menuCard(key){
     '<div class="mstage">'+rec+(item.video?'<button class="mvid" data-vid="'+esc(item.video)+'" data-vname="'+esc(item.name)+'" aria-label="Play product video">▶ Video</button>':'')+'<img class="g" src="'+o.g+'" alt="'+esc(item.name)+'" loading="lazy" decoding="async">'+o.lg+
       '<button class="madd'+(q?' has':'')+'" data-key="'+key+'" aria-label="'+(q?'Edit ':'Add ')+esc(item.name)+'">'+addlbl+'</button></div>'+
     '<div class="mb"><h3>'+esc(item.name)+'</h3>'+
-      '<div class="mmeta">'+esc(item.sku)+(item.layer==='promo'?'':(item.womens?' · Men’s &amp; Women’s':(item.unisex?' · Unisex':'')))+'</div>'+
+      '<div class="mmeta">'+esc(item.sku)+(item.layer==='promo'?'':(item.unisex?' · Unisex':''))+'</div>'+
+      (item.womens?'<div class="mfit">Men’s &amp; Ladies’ cuts</div>':'')+
       csa+fab+
-      colourDots(item)+
+      colourDots(item,key)+
       (item.layer==='promo'
         ? '<div class="mprice"><b>'+money(item.price_cad)+'</b> <small>/'+(item.unit==='dozen'?'dozen':'pc')+' · min '+item.moq+'</small></div>'
         : '<div class="mprice">from <b>'+money(fromP)+'</b> <small>/pc'+(hasDecoPlace(item)?' · decorated':'')+'</small></div>')+
       '</div></article>';
 }
 // A row of real colour swatches on each card — shows selection depth at a glance (conversion signal).
-function colourDots(item){
-  var cs=item.cols||[],max=7,dots='';
-  for(var i=0;i<cs.length&&i<max;i++){dots+='<span class="cdot" style="background:'+(cs[i].rgb||'#ccc')+'" title="'+esc(cs[i].name||'')+'"></span>';}
+// The swatches used to be inert <span>s — decoration that looked like information. They are now real
+// controls that swap the photo on the card, and the row names the CURRENT colour, because showing a
+// colour NAME is what tells a shopper this is a choice rather than a spec.
+function colourDots(item,key){
+  var cs=browseCols(item),cur=key?browseColour(key,item):(cs[0]||{}).name,max=7,dots='';
+  for(var i=0;i<cs.length&&i<max;i++){
+    dots+='<button type="button" class="cdot'+(cs[i].name===cur?' on':'')+'" data-col="'+esc(cs[i].name||'')+'"'+
+          ' style="background:'+(cs[i].rgb||'#ccc')+'" title="'+esc(cs[i].name||'')+'" aria-label="Show '+esc(cs[i].name||'')+'"></button>';}
   var extra=cs.length>max?('<span class="cmore">+'+(cs.length-max)+'</span>'):'';
-  return '<div class="cdots">'+dots+extra+'<span class="cdlbl">'+cs.length+' colour'+(cs.length===1?'':'s')+'</span></div>';
+  return '<div class="cdots">'+dots+extra+'<span class="cdlbl"><b class="cdnow">'+esc(cur||'')+'</b> · '+cs.length+' colour'+(cs.length===1?'':'s')+'</span></div>';
 }
 
 /* ---------- category / subcategory navigation (by GARMENT TYPE, brand-agnostic) ----------
@@ -403,7 +409,17 @@ function classify(it){
   return {mega:'tops',sub:'Shirts'};
 }
 /* ---------- FILTERED BROWSE MODEL (one category at a time; no endless scroll) ---------- */
-var VIEW={cat:null,sub:'all',q:'',world:'all'};
+var VIEW={cat:null,sub:'all',q:'',world:'all',fit:'all'};
+// Colour chosen while BROWSING, per item+fit. A shopper who picks navy on the grid should still be on
+// navy when the product opens — otherwise the swatch feels fake.
+var BCOL={};
+function fitOf(item){return (VIEW.fit==='womens'&&item&&item.womens)?'womens':'mens';}
+function browseCols(item){return curColsOf(item,fitOf(item));}
+function browsePlaces(item){var f=fitOf(item);return (f==='womens'&&item.wplaces&&item.wplaces.length)?item.wplaces:item.places;}
+function browseColour(key,item){
+  var cols=browseCols(item),k=key+'|'+fitOf(item),want=BCOL[k]||vmOf(key).colour,hit=colInList(cols,want);
+  return (hit&&hit.name===want)?want:(cols[0]||{}).name;
+}
 var BUCKETS={},TOTALS={},CATS=[];
 var SHORTCAT={tops:'Polos & Shirts',layers:'Fleece & Sweaters',outerwear:'Jackets & Vests',ruggedwear:'Rugged Wear',hivis:'Hi-Vis & Safety',carhartt:'Carhartt',headwear:'Headwear',bottoms:'Pants & Joggers',fr:'Flame-Resistant',accessories:'Accessories'};
 // Two brand worlds — how JDP sells: the jobsite crew and the front office / client-facing team.
@@ -467,11 +483,26 @@ function worldSelect(w,scroll){
   renderSubchips();renderGrid();
   document.querySelectorAll('.ctab').forEach(function(t){t.classList.toggle('on',t.dataset.cat===VIEW.cat);});
   if(scroll)scrollToResults();}
+// Men's / Ladies' was buried inside the product sheet, so nobody browsing knew the ladies' cuts existed.
+// It belongs where the shopper is deciding. Only rendered when this view actually HAS ladies' styles —
+// a filter that returns the same grid teaches the shopper to ignore filters.
+function renderFitbar(){
+  var el=document.getElementById('fitbar');if(!el)return;
+  var keys=(VIEW.sub==='all'?ALLKEYS.filter(function(k){var c=classify(BYKEY[k]);return c.mega===VIEW.cat;}):(BUCKETS[VIEW.cat]||{})[VIEW.sub]||[]);
+  var nW=keys.filter(function(k){return (BYKEY[k]||{}).womens;}).length;
+  if(!nW){el.innerHTML='';el.style.display='none';return;}
+  el.style.display='';
+  var opts=[{id:'all',lbl:'All fits'},{id:'mens',lbl:'Men’s'},{id:'womens',lbl:'Ladies’ ('+nW+')'}];
+  el.innerHTML='<span class="fitlbl">Fit</span>'+opts.map(function(o){
+    return '<button type="button" class="fchip'+(VIEW.fit===o.id?' on':'')+'" data-fit="'+o.id+'">'+o.lbl+'</button>';}).join('');
+  el.querySelectorAll('.fchip').forEach(function(b){b.addEventListener('click',function(){VIEW.fit=b.dataset.fit;renderFitbar();renderGrid();});});
+}
 function renderSubchips(){var el=document.getElementById('subchips');if(!el)return;
   var subs=subNames(VIEW.cat);
   var h='<button class="schip'+(VIEW.sub==='all'?' on':'')+'" data-sub="all">All<span class="scn">'+TOTALS[VIEW.cat]+'</span></button>';
   h+=subs.map(function(s){return '<button class="schip'+(VIEW.sub===s?' on':'')+'" data-sub="'+esc(s)+'">'+esc(s)+'<span class="scn">'+BUCKETS[VIEW.cat][s].length+'</span></button>';}).join('');
   el.innerHTML=h;
+  renderFitbar();
   el.querySelectorAll('.schip').forEach(function(b){b.addEventListener('click',function(){setSub(b.dataset.sub);
     var tr=b.closest('.subchips');if(tr)tr.scrollTo({left:b.offsetLeft-tr.clientWidth/2+b.clientWidth/2,behavior:'smooth'});});});}
 function wireCards(){
@@ -480,6 +511,21 @@ function wireCards(){
     card.addEventListener('click',function(){openSheet(card.dataset.key);});
     card.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();openSheet(card.dataset.key);}});});
   g.querySelectorAll('.madd').forEach(function(b){b.addEventListener('click',function(e){e.stopPropagation();var k=b.dataset.key;if(CART[k]){openSheet(k);}else{quickAdd(k);}});});
+  // Swatch on the CARD: swap the photo in place. No re-render of the whole grid, so the shopper keeps
+  // their scroll position while flicking through colours.
+  g.querySelectorAll('.cdot').forEach(function(d){d.addEventListener('click',function(e){
+    e.stopPropagation();
+    var card=d.closest('.mcard');if(!card)return;
+    var key=card.dataset.key,item=BYKEY[key];if(!item)return;
+    BCOL[key+'|'+fitOf(item)]=d.dataset.col;
+    var o=overlayHtml(item,vmOf(key),d.dataset.col,'front',browseCols(item),browsePlaces(item));
+    var st=card.querySelector('.mstage');
+    if(st){var im=st.querySelector('img.g');if(im){im.src=o.g;im.classList.add('ld');}
+      var old=st.querySelectorAll('img.l');for(var i=0;i<old.length;i++)old[i].remove();
+      if(o.lg)st.insertAdjacentHTML('beforeend',o.lg);}
+    card.querySelectorAll('.cdot').forEach(function(x){x.classList.toggle('on',x===d);});
+    var lbl=card.querySelector('.cdnow');if(lbl)lbl.textContent=d.dataset.col;
+  });});
   g.querySelectorAll('.mvid').forEach(function(b){b.addEventListener('click',function(e){e.stopPropagation();openVideo(b.dataset.vid,b.dataset.vname);});});
   g.querySelectorAll('.mstage .g').forEach(function(im){if(im.complete)im.classList.add('ld');else im.addEventListener('load',function(){im.classList.add('ld');});});
   g.querySelectorAll('.mccard,.nextup').forEach(function(b){b.addEventListener('click',function(){setCat(b.dataset.cat,true);});
@@ -502,13 +548,18 @@ function renderGrid(){
     grid.innerHTML='<div class="menu">'+matches.map(menuCard).join('')+'</div>';
     nr.style.display=matches.length?'none':'';wireCards();return;}
   nr.style.display='none';
+  // One place decides which keys the grid may show, so the Fit chip behaves identically in the flat,
+  // grouped and single-sub layouts.
+  var fitOK=function(list){return (VIEW.fit==='womens')?list.filter(function(k){return (BYKEY[k]||{}).womens;}):list;};
   var subs=subNames(VIEW.cat),csa=VIEW.cat==='hivis'?' <span class="csa">CSA Z96 · ANSI 107</span>':'';
-  hd.innerHTML='<h2 class="glbl">'+esc(megaName(VIEW.cat))+csa+'</h2><span class="gsub">'+((VIEW.sub==='all'?TOTALS[VIEW.cat]:(BUCKETS[VIEW.cat][VIEW.sub]||[]).length))+' styles</span>';
+  var _shown=(VIEW.sub==='all'?fitOK(ALLKEYS.filter(function(k){return (BUCKETS[VIEW.cat]||{})&&subs.some(function(s){return BUCKETS[VIEW.cat][s].indexOf(k)>=0;});})).length:fitOK(BUCKETS[VIEW.cat][VIEW.sub]||[]).length);
+  hd.innerHTML='<h2 class="glbl">'+esc(megaName(VIEW.cat))+csa+'</h2><span class="gsub">'+_shown+' styles'+(VIEW.fit==='womens'?' in ladies’ fit':'')+'</span>';
   var inner;
-  if(VIEW.sub!=='all'){inner='<div class="menu">'+(BUCKETS[VIEW.cat][VIEW.sub]||[]).map(menuCard).join('')+'</div>';}
+  if(VIEW.sub!=='all'){inner='<div class="menu">'+fitOK(BUCKETS[VIEW.cat][VIEW.sub]||[]).map(menuCard).join('')+'</div>';}
   else if(subs.length>1&&TOTALS[VIEW.cat]>6){
-    inner=subs.map(function(s){return '<div class="subgrp"><h3 class="subhd">'+esc(s)+' <span class="subn">'+BUCKETS[VIEW.cat][s].length+'</span></h3><div class="menu">'+BUCKETS[VIEW.cat][s].map(menuCard).join('')+'</div></div>';}).join('');}
-  else{var flat=[];subs.forEach(function(s){flat=flat.concat(BUCKETS[VIEW.cat][s]);});inner='<div class="menu">'+flat.map(menuCard).join('')+'</div>';}
+    inner=subs.map(function(s){var ks=fitOK(BUCKETS[VIEW.cat][s]);if(!ks.length)return '';
+      return '<div class="subgrp"><h3 class="subhd">'+esc(s)+' <span class="subn">'+ks.length+'</span></h3><div class="menu">'+ks.map(menuCard).join('')+'</div></div>';}).join('');}
+  else{var flat=[];subs.forEach(function(s){flat=flat.concat(BUCKETS[VIEW.cat][s]);});flat=fitOK(flat);inner='<div class="menu">'+flat.map(menuCard).join('')+'</div>';}
   grid.innerHTML=(VIEW.cat==='hivis'?hivisIntroHtml():'')+inner+moreCatsHtml();wireCards();}
 // Compliance-forward intro for the Hi-Vis category — safety buyers shop by STANDARD & CLASS first.
 // Certified for BOTH Canada (CSA Z96-22) and the U.S. (ANSI/ISEA 107-2020), with a plain-English class guide.
@@ -744,7 +795,7 @@ function buildStore(){
          '<input id="kitSearch" type="search" placeholder="Search all '+ALLKEYS.length+' products…" aria-label="Search products" autocomplete="off">'+
          '<button class="fsx" id="searchClose" aria-label="Close search">Cancel</button></div>'+
      '</div>'+
-     '<div class="subbar"><div class="subchips" id="subchips"></div></div>'+
+     '<div class="subbar"><div class="subchips" id="subchips"></div><div class="fitbar" id="fitbar"></div></div>'+
    '</div>'+
    '<main class="w"><div class="gridhd" id="gridhd"></div><div class="grid" id="grid"></div>'+
      '<div class="noresults" id="noResults" style="display:none">No products match your search. Try another term.</div></main>'+
@@ -846,8 +897,8 @@ function openSheet(key){
   if(ex&&ex.decos){ex.decos.forEach(function(d){exmap[d.pl]=d;});}
   // Size breakdown is the ONLY quantity control. baseQty preserves the count of an item that was
   // quick-started without a size split (e.g. the recommended kit) so reopening it doesn't lose it.
-  var exfit=(ex&&ex.fit)||'mens';
-  SH={key:key,colour:(ex&&ex.colour)||vm.colour,face:'front',gimg:null,D:{},showExtra:false,sizes:{},fit:exfit,baseQty:ex?(ex.sizes?0:(ex.qty||moq())):moq()};
+  var exfit=(ex&&ex.fit)||fitOf(item);
+  SH={key:key,colour:(ex&&ex.colour)||BCOL[key+'|'+exfit]||vm.colour,face:'front',gimg:null,D:{},showExtra:false,sizes:{},fit:exfit,baseQty:ex?(ex.sizes?0:(ex.qty||moq())):moq()};
   // if the saved colour isn't in the active fit's colour set, fall back to that set's first colour
   var _cc=curColsOf(item,SH.fit);if(!colInList(_cc,SH.colour)||colInList(_cc,SH.colour).name!==SH.colour)SH.colour=_cc[0].name;
   sheetSizes().forEach(function(s){SH.sizes[s]=(ex&&ex.sizes&&ex.sizes[s])||0;});
