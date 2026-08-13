@@ -246,7 +246,7 @@ var MEGASUB={
   // keep their value. Curated to premium items that fit Field & Crews + Office/Sales/Client-Facing teams.
   // Headwear is its own tab: 24 new caps/toques on top of the existing 8 would swamp a single
   // Accessories sub, and embroidered caps are a core JDP line that buyers shop for by name.
-  headwear:['Caps & Hats','Trucker & Snapback','Beanies & Toques'],
+  headwear:['Caps & Hats','Trucker & Snapback','Performance & Golf','Beanies & Toques'],
   // All bottoms in one place. classify() already returned mega 'workwear' for these but it was
   // never declared, so work pants and bibs were unreachable in the nav.
   bottoms:['Joggers & Sweatpants','Work Pants & Bibs','Work Pants','Bibs & Overalls'],
@@ -336,6 +336,10 @@ function classifyWorkShirt(n){
 function isHeadwear(n){return /\bcap\b|\bhat\b|beanie|toque|balaclava|visor|snap ?back|trucker|bucket/.test(n)&&!/hard hat/.test(n);}
 function headwearSub(n){
   if(/beanie|toque|watch hat|balaclava|knit cuff/.test(n))return 'Beanies & Toques';
+  // A premium performance lane. Golf-brand and Dri-FIT caps are a different purchase from a $20 cotton
+  // six-panel — a buyer speccing client-gift or tournament headwear is not cross-shopping them, and
+  // burying a $35 Callaway among promo caps sells neither well.
+  if(/dri-?fit|performance|golf|taylormade|callaway|titleist|srixon/.test(n))return 'Performance & Golf';
   if(/trucker|snap ?back|mesh back/.test(n))return 'Trucker & Snapback';
   return 'Caps & Hats';
 }
@@ -434,11 +438,16 @@ function buildBuckets(){
   // Order within each subcategory for optimal browsing: top picks first, then price low → high.
   var pc=(CFG.pricing&&CFG.pricing.cols)?CFG.pricing.cols:[12,48,144],top=pc[pc.length-1];
   // Sort: top-picks first, then by best-seller rank (srt, e.g. Carhartt collection order) when present, else price low→high.
-  function pkey(k){var it=BYKEY[k],rec=(it.rec||k===CFG.feature)?0:1,p;
-    if(it.srt!=null)return [rec,it.srt];
+  function pkey(k,useSrt){var it=BYKEY[k],rec=(it.rec||k===CFG.feature)?0:1,p;
+    if(useSrt&&it.srt!=null)return [rec,it.srt];
     try{p=unitPrice(k,vmOf(k).decos,top);}catch(e){p=it.blank||0;}return [rec,p];}
   Object.keys(BUCKETS).forEach(function(m){Object.keys(BUCKETS[m]).forEach(function(s){
-    BUCKETS[m][s].sort(function(a,b){var pa=pkey(a),pb=pkey(b);return (pa[0]-pb[0])||(pa[1]-pb[1]);});});});
+    var arr=BUCKETS[m][s];
+    // srt is a BRAND's own collection order (Carhartt), only meaningful when every item in the sub has
+    // one. Mixed in with priced goods it ranked every promo item (srt:0) above real prices, so vendor
+    // goods surfaced at the top of a category as if we had chosen them.
+    var useSrt=arr.every(function(k){return (BYKEY[k]||{}).srt!=null;});
+    arr.sort(function(a,b){var pa=pkey(a,useSrt),pb=pkey(b,useSrt);return (pa[0]-pb[0])||(pa[1]-pb[1]);});});});
   CATS=MEGA.filter(function(m){return BUCKETS[m.id];}).map(function(m){return m.id;});
 }
 var ALLKEYS=[];
@@ -917,7 +926,12 @@ function renderPromoSheet(){
     priceSub='<div class="pprice-sub">'+(multi?'Order more, pay less per '+unitP:'Your price per '+unitP)+' · your logo added at proof</div>';
     logoGrp='<div class="pgrp"><div class="pgl">Your logo</div><div class="qlogo"><span class="pinci">✓</span> Add your logo — we’ll email a <b>free proof</b> and confirm decoration &amp; setup on your quote.</div></div>';
     var tq=(q.tiers&&q.tiers.length)?q.tiers.map(function(t){return t.q;}):promoTiers(min);
-    picksHtml='<div class="ptiers">'+tq.map(function(t){return '<button class="ptier'+(t===q.qty?' on':'')+'" data-q="'+t+'"><b>'+t+'</b><span>'+money(tierPrice(item,t))+'/'+unitP+'</span></button>';}).join('')+'</div>';
+    // Show the BREAK RANGE, not just its opening number: the vendor's own table reads "6 - 47" then
+    // "48+", and a bare "6" next to a bare "48" makes a buyer guess where one price stops and the next
+    // starts. Last tier is open-ended.
+    picksHtml='<div class="ptiers">'+tq.map(function(t,ti){
+      var lbl=(ti<tq.length-1)?(t+'\u2013'+(tq[ti+1]-1)):(t+'+');
+      return '<button class="ptier'+(t===q.qty?' on':'')+'" data-q="'+t+'"><b>'+lbl+'</b><span>'+money(tierPrice(item,t))+'/'+unitP+'</span></button>';}).join('')+'</div>';
     sumHtml='<div class="psum"><div class="psrow"><span>'+q.qty+' '+unitP+' × '+money(q.perPiece)+'</span><span>'+money(q.goods)+'</span></div>'+
       '<div class="psrow"><span>Your logo</span><span>added at proof</span></div>'+
       '<div class="psrow pstot"><span>Product subtotal</span><span>'+money(q.goods)+'</span></div></div>';
