@@ -739,3 +739,25 @@ main{padding:0 0 22px}
 .ckpm{margin:0 0 10px;padding:11px 13px;border-radius:11px;font-size:12.8px;line-height:1.5;color:var(--steel);
   background:color-mix(in srgb,var(--amber) 10%,#fff);border:1px solid color-mix(in srgb,var(--amber) 32%,#fff)}
 .ckpm b{font-weight:800}
+
+/* ---------- browse-level colour + fit affordances (added 2026-08-13) ----------
+   The swatches were inert spans: they read as a spec line, so shoppers never learned colour was a
+   choice, and the men's/ladies' toggle was buried inside the product sheet. Both decisions now happen
+   on the grid, where the shopper is actually deciding. */
+.cdot{width:15px;height:15px;border-radius:50%;border:0;padding:0;appearance:none;cursor:pointer;
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.14),0 0 0 1.5px #fff;flex:none;transition:transform .12s,box-shadow .12s}
+.cdot:hover{transform:scale(1.22);box-shadow:inset 0 0 0 1px rgba(0,0,0,.2),0 0 0 2px #fff,0 0 0 3px color-mix(in srgb,var(--a) 40%,#fff)}
+.cdot.on{box-shadow:inset 0 0 0 1px rgba(0,0,0,.18),0 0 0 2px #fff,0 0 0 3.5px var(--a)}
+.cdot:focus-visible{outline:2px solid var(--a);outline-offset:3px}
+.cdots{cursor:default}
+.cdnow{color:var(--ink);font-weight:800}
+.mfit{display:inline-flex;align-items:center;gap:4px;margin-top:6px;font-size:11px;font-weight:800;
+  letter-spacing:.01em;color:var(--ink);background:color-mix(in srgb,var(--a) 9%,#fff);
+  border:1px solid color-mix(in srgb,var(--a) 28%,#fff);border-radius:999px;padding:3px 9px}
+.fitbar{display:flex;align-items:center;gap:7px;padding:0 12px 10px;flex-wrap:wrap}
+.fitlbl{font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--mut);margin-right:1px}
+.fchip{white-space:nowrap;font-size:12px;font-weight:700;color:var(--mut);background:#fff;
+  border:1.5px solid var(--line);border-radius:999px;padding:6px 12px;cursor:pointer;transition:.12s}
+.fchip:hover{color:var(--ink);border-color:color-mix(in srgb,var(--a) 35%,#fff)}
+.fchip.on{color:var(--ink);background:color-mix(in srgb,var(--a) 12%,#fff);border-color:color-mix(in srgb,var(--a) 55%,#fff)}
+@media (max-width:520px){.fitbar{padding:0 10px 9px}.cdot{width:17px;height:17px}}
