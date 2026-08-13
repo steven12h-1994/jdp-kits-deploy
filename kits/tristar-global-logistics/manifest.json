@@ -1,12 +1,13 @@
 {
   "generator": "client-app",
-  "version": "1786623073",
-  "slug": "pr-desjardins",
-  "client": "P+R Desjardins",
+  "version": "1786623084",
+  "slug": "tristar-global-logistics",
+  "client": "Tristar Global Logistics",
   "files": [
     "index.html",
     "client.json",
     "img/favicon.png",
+    "img/lg_full_6090cb.png",
     "img/lg_full_brand.png",
     "img/lg_full_dark.png",
     "img/lg_full_white.png",
