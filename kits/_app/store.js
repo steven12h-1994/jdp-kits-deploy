@@ -201,7 +201,7 @@ function menuCard(key){
       '<button class="madd'+(q?' has':'')+'" data-key="'+key+'" aria-label="'+(q?'Edit ':'Add ')+esc(item.name)+'">'+addlbl+'</button></div>'+
     '<div class="mb"><h3>'+esc(item.name)+'</h3>'+
       '<div class="mmeta">'+esc(item.sku)+(item.layer==='promo'?'':(item.unisex?' · Unisex':''))+'</div>'+
-      (item.womens?'<div class="mfit">Men’s &amp; Ladies’ cuts</div>':'')+
+      (item.womens?'<div class="mfit">Men’s &amp; Ladies’ cuts</div>':(item.unisex?'<div class="mfit alt">Unisex — one cut</div>':''))+
       csa+fab+
       colourDots(item,key)+
       (item.layer==='promo'
@@ -489,10 +489,14 @@ function worldSelect(w,scroll){
 function renderFitbar(){
   var el=document.getElementById('fitbar');if(!el)return;
   var keys=(VIEW.sub==='all'?ALLKEYS.filter(function(k){var c=classify(BYKEY[k]);return c.mega===VIEW.cat;}):(BUCKETS[VIEW.cat]||{})[VIEW.sub]||[]);
-  var nW=keys.filter(function(k){return (BYKEY[k]||{}).womens;}).length;
-  if(!nW){el.innerHTML='';el.style.display='none';return;}
+  var nCut=keys.filter(function(k){return (BYKEY[k]||{}).womens;}).length;                       // distinct ladies' cut
+  var nHer=keys.filter(function(k){var i=BYKEY[k]||{};return i.womens||i.unisex;}).length;        // everything she can wear
+  // Only offer the filter where there is a real choice to make: if nothing has its own ladies' cut,
+  // Men's and Ladies' would return the same cards AND the same photos, which just trains people to
+  // ignore filters.
+  if(!nCut){el.innerHTML='';el.style.display='none';return;}
   el.style.display='';
-  var opts=[{id:'all',lbl:'All fits'},{id:'mens',lbl:'Men’s'},{id:'womens',lbl:'Ladies’ ('+nW+')'}];
+  var opts=[{id:'all',lbl:'All fits'},{id:'mens',lbl:'Men’s'},{id:'womens',lbl:'Ladies’ ('+nHer+')'}];
   el.innerHTML='<span class="fitlbl">Fit</span>'+opts.map(function(o){
     return '<button type="button" class="fchip'+(VIEW.fit===o.id?' on':'')+'" data-fit="'+o.id+'">'+o.lbl+'</button>';}).join('');
   el.querySelectorAll('.fchip').forEach(function(b){b.addEventListener('click',function(){VIEW.fit=b.dataset.fit;renderFitbar();renderGrid();});});
@@ -550,10 +554,13 @@ function renderGrid(){
   nr.style.display='none';
   // One place decides which keys the grid may show, so the Fit chip behaves identically in the flat,
   // grouped and single-sub layouts.
-  var fitOK=function(list){return (VIEW.fit==='womens')?list.filter(function(k){return (BYKEY[k]||{}).womens;}):list;};
+  // Ladies' includes UNISEX. A unisex hoodie is genuinely available to her — it simply isn't cut
+  // separately — so excluding it hid 10 of the 21 Sweaters & Fleece styles from anyone shopping for
+  // the women on their team. Items with neither flag are men's-only and stay hidden.
+  var fitOK=function(list){return (VIEW.fit==='womens')?list.filter(function(k){var i=BYKEY[k]||{};return i.womens||i.unisex;}):list;};
   var subs=subNames(VIEW.cat),csa=VIEW.cat==='hivis'?' <span class="csa">CSA Z96 · ANSI 107</span>':'';
   var _shown=(VIEW.sub==='all'?fitOK(ALLKEYS.filter(function(k){return (BUCKETS[VIEW.cat]||{})&&subs.some(function(s){return BUCKETS[VIEW.cat][s].indexOf(k)>=0;});})).length:fitOK(BUCKETS[VIEW.cat][VIEW.sub]||[]).length);
-  hd.innerHTML='<h2 class="glbl">'+esc(megaName(VIEW.cat))+csa+'</h2><span class="gsub">'+_shown+' styles'+(VIEW.fit==='womens'?' in ladies’ fit':'')+'</span>';
+  hd.innerHTML='<h2 class="glbl">'+esc(megaName(VIEW.cat))+csa+'</h2><span class="gsub">'+_shown+' styles'+(VIEW.fit==='womens'?' in ladies’ &amp; unisex fits':'')+'</span>';
   var inner;
   if(VIEW.sub!=='all'){inner='<div class="menu">'+fitOK(BUCKETS[VIEW.cat][VIEW.sub]||[]).map(menuCard).join('')+'</div>';}
   else if(subs.length>1&&TOTALS[VIEW.cat]>6){
