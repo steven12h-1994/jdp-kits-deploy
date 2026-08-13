@@ -196,7 +196,7 @@ function menuCard(key){
   var q=CART[key]?CART[key].qty:0;
   var inkit=q?' inkit':'';
   var addlbl=q?('<b>'+q+'</b>'):'+';
-  return '<article class="mcard'+inkit+'" data-key="'+key+'" data-name="'+esc((item.name+' '+item.sku).toLowerCase().replace(/"/g,''))+'" tabindex="0" role="button" aria-label="'+esc(item.name)+'">'+
+  return '<article class="mcard'+inkit+'" data-key="'+key+'" data-name="'+esc(searchText(item).replace(/"/g,''))+'" tabindex="0" role="button" aria-label="'+esc(item.name)+'">'+
     '<div class="mstage">'+rec+(item.video?'<button class="mvid" data-vid="'+esc(item.video)+'" data-vname="'+esc(item.name)+'" aria-label="Play product video">▶ Video</button>':'')+'<img class="g" src="'+o.g+'" alt="'+esc(item.name)+'" loading="lazy" decoding="async">'+o.lg+
       '<button class="madd'+(q?' has':'')+'" data-key="'+key+'" aria-label="'+(q?'Edit ':'Add ')+esc(item.name)+'">'+addlbl+'</button></div>'+
     '<div class="mb"><h3>'+esc(item.name)+'</h3>'+
@@ -462,11 +462,19 @@ function wireCards(){
   g.querySelectorAll('.mccard,.nextup').forEach(function(b){b.addEventListener('click',function(){setCat(b.dataset.cat,true);});
     b.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();setCat(b.dataset.cat,true);}});});
   refreshCartUI();}
+// Everything a buyer might reasonably type. Steven searched "sanmar" for the Red Kap / Dickies shirts and
+// got zero results, because only name+sku were indexed and their sku reads "Red Kap" — the distributor we
+// buy from was nowhere in the haystack. Now it also covers brand, supplier, the vendor style numbers
+// (men's AND ladies', so "SP24" or "SP23" finds the shirt) and fabric, so "cotton" finds the cotton styles.
+function searchText(it){
+  return ((it.name||'')+' '+(it.sku||'')+' '+(it.brand||'')+' '+(it.vendor||'')+' '+
+          (it.msku||'')+' '+(it.wsku||'')+' '+(it.fabric||'')).toLowerCase();
+}
 function renderGrid(){
   var grid=document.getElementById('grid'),hd=document.getElementById('gridhd'),nr=document.getElementById('noResults');
   if(!grid)return;var q=(VIEW.q||'').trim().toLowerCase();
   if(q){
-    var matches=ALLKEYS.filter(function(k){var it=BYKEY[k];return it&&((it.name+' '+it.sku).toLowerCase().indexOf(q)>=0);});
+    var matches=ALLKEYS.filter(function(k){var it=BYKEY[k];return it&&searchText(it).indexOf(q)>=0;});
     hd.innerHTML=matches.length?('<h2 class="glbl">Search results</h2><span class="gsub">'+matches.length+' match'+(matches.length===1?'':'es')+' for “'+esc(VIEW.q)+'”</span>'):'';
     grid.innerHTML='<div class="menu">'+matches.map(menuCard).join('')+'</div>';
     nr.style.display=matches.length?'none':'';wireCards();return;}
