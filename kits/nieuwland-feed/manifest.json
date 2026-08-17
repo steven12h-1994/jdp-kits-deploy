@@ -1,13 +1,13 @@
 {
   "generator": "client-app",
-  "version": "1786979476",
+  "version": "1786980449",
   "slug": "nieuwland-feed",
-  "client": "Nieuwland Feed &amp; Supply Ltd",
+  "client": "Nieuwland Feed &amp; Supply",
   "files": [
     "index.html",
     "client.json",
     "img/favicon.png",
-    "img/lg_full_a30108.png",
+    "img/lg_full_a30007.png",
     "img/lg_full_brand.png",
     "img/lg_full_dark.png",
     "img/lg_full_white.png",
