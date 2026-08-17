@@ -1,0 +1,16 @@
+{
+  "generator": "client-app",
+  "version": "1787000271",
+  "slug": "winmar-regina",
+  "client": "WINMAR Property Restoration Specialists \u2013 Regina",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_004e99.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}
