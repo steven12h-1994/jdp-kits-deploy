@@ -1,0 +1,18 @@
+{
+  "generator": "client-app",
+  "version": "1786982286",
+  "slug": "cambrianford",
+  "client": "Cambrian Ford Sales Inc",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_0d3068.png",
+    "img/lg_full_199cd0.png",
+    "img/lg_full_a7cadb.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}

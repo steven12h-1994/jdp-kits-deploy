@@ -1,0 +1,17 @@
+{
+  "generator": "client-app",
+  "version": "1786982468",
+  "slug": "co280",
+  "client": "CO280",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_d44141.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_f28b47.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}
