@@ -1,0 +1,16 @@
+{
+  "generator": "client-app",
+  "version": "1786984447",
+  "slug": "manshaplan",
+  "client": "Mansha Plan",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_c3a74b.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "generator": "client-app",
+  "version": "1786984509",
+  "slug": "greatermilwaukeefoundation",
+  "client": "Greater Milwaukee Foundation",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_003057.png",
+    "img/lg_full_005596.png",
+    "img/lg_full_00a3e0.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}
