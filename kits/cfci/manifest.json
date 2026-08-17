@@ -1,0 +1,12 @@
+{
+  "generator": "client-app",
+  "version": "1786996248",
+  "slug": "cfci",
+  "client": "Canada First Construction",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_brand.png"
+  ]
+}
