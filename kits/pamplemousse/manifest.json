@@ -1,8 +1,8 @@
 {
   "generator": "client-app",
-  "version": "1786982564",
+  "version": "1786982863",
   "slug": "pamplemousse",
-  "client": "Pamplemousse M\u00e9dia",
+  "client": "Pamplemousse",
   "files": [
     "index.html",
     "client.json",

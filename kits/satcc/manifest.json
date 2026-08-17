@@ -1,8 +1,8 @@
 {
   "generator": "client-app",
-  "version": "1786982645",
+  "version": "1786982920",
   "slug": "satcc",
-  "client": "SAT Consulting &amp; Construction",
+  "client": "SATCC",
   "files": [
     "index.html",
     "client.json",

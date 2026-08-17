@@ -1,8 +1,8 @@
 {
   "generator": "client-app",
-  "version": "1786982444",
+  "version": "1786982788",
   "slug": "cornerstonefm",
-  "client": "CornerstoneFM",
+  "client": "Cornerstone FM",
   "files": [
     "index.html",
     "client.json",

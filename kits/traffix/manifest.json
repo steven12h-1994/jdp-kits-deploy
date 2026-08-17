@@ -1,8 +1,8 @@
 {
   "generator": "client-app",
-  "version": "1786982587",
+  "version": "1786982882",
   "slug": "traffix",
-  "client": "TRAFFIX",
+  "client": "Traffix",
   "files": [
     "index.html",
     "client.json",
