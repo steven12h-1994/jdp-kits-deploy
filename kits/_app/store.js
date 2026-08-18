@@ -257,7 +257,7 @@ var MEGASUB={
   // never declared, so work pants and bibs were unreachable in the nav.
   bottoms:['Joggers & Sweatpants','Work Pants & Bibs','Work Pants','Bibs & Overalls'],
   fr:['FR Hoodies','FR Shirts','FR Tees','FR Pants','FR Jackets','FR Accessories'],
-  accessories:['Bags','Drinkware','Notebooks & Pens','Gift Sets','Golf','Headwear']
+  accessories:['Kits & Gift Sets','Drinkware','Notebooks & Pens','Bags','Golf','Headwear'],
 };
 // Hi-vis by NAME (any layer). Organized how safety buyers actually shop — vests lead (the #1 entry
 // hi-vis item), then shirts, warm mid-layers, insulated jackets, winter parkas, and rain/gear last.
@@ -409,7 +409,7 @@ function classify(it){
   return {mega:'tops',sub:'Shirts'};
 }
 /* ---------- FILTERED BROWSE MODEL (one category at a time; no endless scroll) ---------- */
-var VIEW={cat:null,sub:'all',q:'',world:'all',fit:'all'};
+var VIEW={cat:null,sub:'all',q:'',world:'all',fit:'all',col:null};
 // Colour chosen while BROWSING, per item+fit. A shopper who picks navy on the grid should still be on
 // navy when the product opens — otherwise the swatch feels fake.
 var BCOL={};
@@ -490,6 +490,39 @@ function worldSelect(w,scroll){
 // Men's / Ladies' was buried inside the product sheet, so nobody browsing knew the ladies' cuts existed.
 // It belongs where the shopper is deciding. Only rendered when this view actually HAS ladies' styles —
 // a filter that returns the same grid teaches the shopper to ignore filters.
+// Colour families. A buyer outfitting a team thinks "everything in navy", not in 40 vendor colour
+// names, so we bucket the names into families and filter on those.
+var COLFAM=[['black',/black|onyx|jet/i,'#1c1c1c'],['white',/white|ivory|bone|cream|natural/i,'#f0efec'],
+  ['grey',/grey|gray|charcoal|graphite|silver|ash|steel|heather|taupe|greystone/i,'#8b8f94'],
+  ['navy',/navy|midnight/i,'#1b2a44'],['blue',/blue|royal|cobalt|sky|azure|powder|retro/i,'#2f6fb5'],
+  ['green',/green|sage|olive|forest|evergreen|lime|keylime/i,'#2f6b41'],
+  ['red',/\bred\b|burgundy|maroon|crimson|wine/i,'#b3232c'],
+  ['orange',/orange|melon|rust|copper/i,'#e2701e'],['yellow',/yellow|gold|mustard|khaki|sand|latte|wheat/i,'#d9b23c'],
+  ['brown',/brown|wood|acacia|chocolate|coffee|espresso/i,'#8a5a34'],
+  ['pink',/pink|flamingo|rose|plum|purple|violet/i,'#c8567f']];
+function famOf(name){for(var i=0;i<COLFAM.length;i++)if(COLFAM[i][1].test(name||''))return COLFAM[i][0];return null;}
+function famSwatch(f){for(var i=0;i<COLFAM.length;i++)if(COLFAM[i][0]===f)return COLFAM[i][2];return '#ccc';}
+function itemFam(it){var o={};(curColsOf(it,fitOf(it))||[]).forEach(function(c){var f=famOf(c.name);if(f)o[f]=c.name;});return o;}
+function colourOK(list){
+  if(!VIEW.col)return list;
+  return list.filter(function(k){var it=BYKEY[k];return it&&itemFam(it)[VIEW.col];});}
+function renderColbar(){
+  var el=document.getElementById('colbar');if(!el)return;
+  var keys=(VIEW.sub==='all')?[].concat.apply([],subNames(VIEW.cat).map(function(s){return BUCKETS[VIEW.cat][s];})):((BUCKETS[VIEW.cat]||{})[VIEW.sub]||[]);
+  var count={};keys.forEach(function(k){var it=BYKEY[k];if(!it)return;Object.keys(itemFam(it)).forEach(function(f){count[f]=(count[f]||0)+1;});});
+  var fams=COLFAM.map(function(c){return c[0];}).filter(function(f){return count[f]>1;});
+  if(fams.length<3||keys.length<6){el.innerHTML='';el.style.display='none';VIEW.col=null;return;}
+  el.style.display='';
+  el.innerHTML='<span class="fitlbl">Colour</span>'+
+    '<button type="button" class="cfchip'+(VIEW.col?'':' on')+'" data-fam="">Any</button>'+
+    fams.map(function(f){return '<button type="button" class="cfchip sw'+(VIEW.col===f?' on':'')+'" data-fam="'+f+'" title="'+f+'">'+
+      '<span style="background:'+famSwatch(f)+'"></span>'+f+' <i>'+count[f]+'</i></button>';}).join('');
+  el.querySelectorAll('.cfchip').forEach(function(b){b.addEventListener('click',function(){
+    VIEW.col=b.dataset.fam||null;
+    // jump every matching card to that colour so the grid reads as one coherent palette
+    if(VIEW.col)Object.keys(BYKEY).forEach(function(k){var it=BYKEY[k],m=it&&itemFam(it)[VIEW.col];if(m)BCOL[k+'|'+fitOf(it)]=m;});
+    renderColbar();renderGrid();});});
+}
 function renderFitbar(){
   var el=document.getElementById('fitbar');if(!el)return;
   var keys=(VIEW.sub==='all'?ALLKEYS.filter(function(k){var c=classify(BYKEY[k]);return c.mega===VIEW.cat;}):(BUCKETS[VIEW.cat]||{})[VIEW.sub]||[]);
@@ -510,7 +543,7 @@ function renderSubchips(){var el=document.getElementById('subchips');if(!el)retu
   var h='<button class="schip'+(VIEW.sub==='all'?' on':'')+'" data-sub="all">All<span class="scn">'+TOTALS[VIEW.cat]+'</span></button>';
   h+=subs.map(function(s){return '<button class="schip'+(VIEW.sub===s?' on':'')+'" data-sub="'+esc(s)+'">'+esc(s)+'<span class="scn">'+BUCKETS[VIEW.cat][s].length+'</span></button>';}).join('');
   el.innerHTML=h;
-  renderFitbar();
+  renderFitbar();renderColbar();
   el.querySelectorAll('.schip').forEach(function(b){b.addEventListener('click',function(){setSub(b.dataset.sub);
     var tr=b.closest('.subchips');if(tr)tr.scrollTo({left:b.offsetLeft-tr.clientWidth/2+b.clientWidth/2,behavior:'smooth'});});});}
 function wireCards(){
@@ -561,7 +594,7 @@ function renderGrid(){
   // Ladies' includes UNISEX. A unisex hoodie is genuinely available to her — it simply isn't cut
   // separately — so excluding it hid 10 of the 21 Sweaters & Fleece styles from anyone shopping for
   // the women on their team. Items with neither flag are men's-only and stay hidden.
-  var fitOK=function(list){return (VIEW.fit==='womens')?list.filter(function(k){var i=BYKEY[k]||{};return hasLadies(i)||i.unisex;}):list;};
+  var fitOK=function(list){var L=(VIEW.fit==='womens')?list.filter(function(k){var i=BYKEY[k]||{};return hasLadies(i)||i.unisex;}):list;return colourOK(L);};
   var subs=subNames(VIEW.cat),csa=VIEW.cat==='hivis'?' <span class="csa">CSA Z96 · ANSI 107</span>':'';
   var _shown=(VIEW.sub==='all'?fitOK(ALLKEYS.filter(function(k){return (BUCKETS[VIEW.cat]||{})&&subs.some(function(s){return BUCKETS[VIEW.cat][s].indexOf(k)>=0;});})).length:fitOK(BUCKETS[VIEW.cat][VIEW.sub]||[]).length);
   hd.innerHTML='<h2 class="glbl">'+esc(megaName(VIEW.cat))+csa+'</h2><span class="gsub">'+_shown+' styles'+(VIEW.fit==='womens'?' in ladies’ &amp; unisex fits':'')+'</span>';
@@ -806,7 +839,7 @@ function buildStore(){
          '<input id="kitSearch" type="search" placeholder="Search all '+ALLKEYS.length+' products…" aria-label="Search products" autocomplete="off">'+
          '<button class="fsx" id="searchClose" aria-label="Close search">Cancel</button></div>'+
      '</div>'+
-     '<div class="subbar"><div class="subchips" id="subchips"></div><div class="fitbar" id="fitbar"></div></div>'+
+     '<div class="subbar"><div class="subchips" id="subchips"></div><div class="fitbar" id="fitbar"></div><div class="fitbar colbar" id="colbar"></div></div>'+
    '</div>'+
    '<main class="w"><div class="gridhd" id="gridhd"></div><div class="grid" id="grid"></div>'+
      '<div class="noresults" id="noResults" style="display:none">No products match your search. Try another term.</div></main>'+
@@ -986,7 +1019,16 @@ function renderPromoSheet(){
   if(isDQ){
     var multi=(q.tiers&&q.tiers.length>1);
     priceSub='<div class="pprice-sub">'+(multi?'Order more, pay less per '+unitP:'Your price per '+unitP)+' · your logo added at proof</div>';
-    logoGrp='<div class="pgrp"><div class="pgl">Your logo</div><div class="qlogo"><span class="pinci">✓</span> Add your logo — we’ll email a <b>free proof</b> and confirm decoration &amp; setup on your quote.</div></div>';
+    // What's in the box. A gift set is bought on its CONTENTS, so list them; link any component we
+    // actually stock (matched on vendor SKU) and leave the rest as plain text rather than a dead link.
+    var incHtml='';
+    if(item.includes&&item.includes.length){
+      incHtml='<div class="pgrp"><div class="pgl">Gift set includes</div><ul class="pinc">'+item.includes.map(function(x){
+        var hit=null;for(var k in BYKEY){if((BYKEY[k].msku||'').toUpperCase()===String(x.sku||'').toUpperCase()){hit=k;break;}}
+        var txt=esc(x.desc||x.sku||'');
+        return '<li>'+(hit?('<a href="?item='+encodeURIComponent(hit)+'">'+txt+'</a>'):txt)+
+               (x.sku?(' <small>'+esc(x.sku)+'</small>'):'')+'</li>';}).join('')+'</ul></div>';}
+    logoGrp=incHtml+'<div class="pgrp"><div class="pgl">Your logo</div><div class="qlogo"><span class="pinci">✓</span> Add your logo — we’ll email a <b>free proof</b> and confirm decoration &amp; setup on your quote.</div></div>';
     var tq=(q.tiers&&q.tiers.length)?q.tiers.map(function(t){return t.q;}):promoTiers(min);
     // Show the BREAK RANGE, not just its opening number: the vendor's own table reads "6 - 47" then
     // "48+", and a bare "6" next to a bare "48" makes a buyer guess where one price stops and the next
