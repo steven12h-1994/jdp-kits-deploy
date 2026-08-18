@@ -762,3 +762,20 @@ main{padding:0 0 22px}
 .fchip:hover{color:var(--ink);border-color:color-mix(in srgb,var(--a) 35%,#fff)}
 .fchip.on{color:var(--ink);background:color-mix(in srgb,var(--a) 12%,#fff);border-color:color-mix(in srgb,var(--a) 55%,#fff)}
 @media (max-width:520px){.fitbar{padding:0 10px 9px}.cdot{width:17px;height:17px}}
+
+/* ---------- Kits: colour-family filter + gift-set contents (2026-08-18) ---------- */
+.colbar{padding-top:0}
+.cfchip{white-space:nowrap;font-size:12px;font-weight:700;color:var(--mut);background:#fff;border:1.5px solid var(--line);
+  border-radius:999px;padding:5px 11px;cursor:pointer;transition:.12s;display:inline-flex;align-items:center;gap:6px;text-transform:capitalize}
+.cfchip span{width:13px;height:13px;border-radius:50%;box-shadow:inset 0 0 0 1px rgba(0,0,0,.18);flex:none}
+.cfchip i{font-style:normal;font-size:10.5px;font-weight:800;opacity:.5}
+.cfchip:hover{color:var(--ink);border-color:color-mix(in srgb,var(--a) 35%,#fff)}
+.cfchip.on{color:var(--ink);background:color-mix(in srgb,var(--a) 12%,#fff);border-color:color-mix(in srgb,var(--a) 55%,#fff)}
+.cfchip.on i{opacity:.85}
+.pinc{margin:6px 0 0;padding:0 0 0 2px;list-style:none;display:flex;flex-direction:column;gap:7px}
+.pinc li{position:relative;padding-left:20px;font-size:13.5px;line-height:1.35;color:var(--ink)}
+.pinc li:before{content:'';position:absolute;left:4px;top:7px;width:7px;height:7px;border-radius:2px;background:var(--a);opacity:.75}
+.pinc small{color:var(--mut);font-weight:700;font-size:10.5px;letter-spacing:.04em}
+.pinc a{color:var(--ink);text-decoration:underline;text-decoration-color:color-mix(in srgb,var(--a) 55%,#fff);text-underline-offset:2px}
+.pinc a:hover{text-decoration-color:var(--a)}
+@media (max-width:520px){.pinc li{font-size:13px}}
