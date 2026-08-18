@@ -1,0 +1,16 @@
+{
+  "generator": "client-app",
+  "version": "1787094390",
+  "slug": "encore-trucking",
+  "client": "Encore Trucking &amp; Transport Ltd.",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_d8261c.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}
