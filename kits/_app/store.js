@@ -258,7 +258,7 @@ var MEGASUB={
   // never declared, so work pants and bibs were unreachable in the nav.
   bottoms:['Joggers & Sweatpants','Work Pants & Bibs','Work Pants','Bibs & Overalls'],
   fr:['FR Hoodies','FR Shirts','FR Tees','FR Pants','FR Jackets','FR Accessories'],
-  accessories:['Kits & Gift Sets','Drinkware','Notebooks & Pens','Bags','Golf','Headwear'],
+  accessories:['Kits & Gift Sets','Drinkware','Notebooks & Pens','Tech','Lifestyle','Bags','Golf','Headwear'],
 };
 // Hi-vis by NAME (any layer). Organized how safety buyers actually shop — vests lead (the #1 entry
 // hi-vis item), then shirts, warm mid-layers, insulated jackets, winter parkas, and rain/gear last.
