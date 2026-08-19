@@ -205,7 +205,8 @@ function menuCard(key){
       csa+fab+
       colourDots(item,key)+
       (item.layer==='promo'
-        ? '<div class="mprice"><b>'+money(item.price_cad)+'</b> <small>/'+(item.unit==='dozen'?'dozen':'pc')+' · min '+item.moq+'</small></div>'
+        ? ((item.includes&&item.includes.length?'<div class="mpcs">'+item.includes.length+' pieces</div>':'')+
+           '<div class="mprice"><b>'+money(item.price_cad)+'</b> <small>/'+(item.unit==='dozen'?'dozen':'pc')+' · min '+item.moq+'</small></div>')
         : '<div class="mprice">from <b>'+money(fromP)+'</b> <small>/pc'+(hasDecoPlace(item)?' · decorated':'')+'</small></div>')+
       '</div></article>';
 }
@@ -409,7 +410,7 @@ function classify(it){
   return {mega:'tops',sub:'Shirts'};
 }
 /* ---------- FILTERED BROWSE MODEL (one category at a time; no endless scroll) ---------- */
-var VIEW={cat:null,sub:'all',q:'',world:'all',fit:'all',col:null};
+var VIEW={cat:null,sub:'all',q:'',world:'all',fit:'all',col:null,band:null};
 // Colour chosen while BROWSING, per item+fit. A shopper who picks navy on the grid should still be on
 // navy when the product opens — otherwise the swatch feels fake.
 var BCOL={};
@@ -506,6 +507,24 @@ function itemFam(it){var o={};(curColsOf(it,fitOf(it))||[]).forEach(function(c){
 function colourOK(list){
   if(!VIEW.col)return list;
   return list.filter(function(k){var it=BYKEY[k];return it&&itemFam(it)[VIEW.col];});}
+// Corporate gifting starts from a per-head budget, so let the buyer shop the band directly.
+var BANDS=[['u50','Under $50',0,50],['50_75','$50-$75',50,75],['75_100','$75-$100',75,100],['o100','$100+',100,1e9]];
+function unitOf(it){return (it.layer==='promo')?(it.price_cad||0):(it.prices?it.prices[it.prices.length-1]:0);}
+function bandOK(list){
+  if(!VIEW.band)return list;
+  var b=BANDS.filter(function(x){return x[0]===VIEW.band;})[0];if(!b)return list;
+  return list.filter(function(k){var u=unitOf(BYKEY[k]||{});return u>=b[2]&&u<b[3];});}
+function renderBandbar(){
+  var el=document.getElementById('bandbar');if(!el)return;
+  var keys=(VIEW.sub==='all')?[].concat.apply([],subNames(VIEW.cat).map(function(s){return BUCKETS[VIEW.cat][s];})):((BUCKETS[VIEW.cat]||{})[VIEW.sub]||[]);
+  var cnt={};BANDS.forEach(function(b){cnt[b[0]]=keys.filter(function(k){var u=unitOf(BYKEY[k]||{});return u>=b[2]&&u<b[3];}).length;});
+  var live=BANDS.filter(function(b){return cnt[b[0]]>0;});
+  if(live.length<2||keys.length<6){el.innerHTML='';el.style.display='none';VIEW.band=null;return;}
+  el.style.display='';
+  el.innerHTML='<span class="fitlbl">Budget</span><button type="button" class="cfchip'+(VIEW.band?'':' on')+'" data-band="">Any</button>'+
+    live.map(function(b){return '<button type="button" class="cfchip'+(VIEW.band===b[0]?' on':'')+'" data-band="'+b[0]+'">'+b[1]+' <i>'+cnt[b[0]]+'</i></button>';}).join('');
+  el.querySelectorAll('.cfchip').forEach(function(x){x.addEventListener('click',function(){VIEW.band=x.dataset.band||null;renderBandbar();renderGrid();});});
+}
 function renderColbar(){
   var el=document.getElementById('colbar');if(!el)return;
   var keys=(VIEW.sub==='all')?[].concat.apply([],subNames(VIEW.cat).map(function(s){return BUCKETS[VIEW.cat][s];})):((BUCKETS[VIEW.cat]||{})[VIEW.sub]||[]);
@@ -543,7 +562,7 @@ function renderSubchips(){var el=document.getElementById('subchips');if(!el)retu
   var h='<button class="schip'+(VIEW.sub==='all'?' on':'')+'" data-sub="all">All<span class="scn">'+TOTALS[VIEW.cat]+'</span></button>';
   h+=subs.map(function(s){return '<button class="schip'+(VIEW.sub===s?' on':'')+'" data-sub="'+esc(s)+'">'+esc(s)+'<span class="scn">'+BUCKETS[VIEW.cat][s].length+'</span></button>';}).join('');
   el.innerHTML=h;
-  renderFitbar();renderColbar();
+  renderFitbar();renderColbar();renderBandbar();
   el.querySelectorAll('.schip').forEach(function(b){b.addEventListener('click',function(){setSub(b.dataset.sub);
     var tr=b.closest('.subchips');if(tr)tr.scrollTo({left:b.offsetLeft-tr.clientWidth/2+b.clientWidth/2,behavior:'smooth'});});});}
 function wireCards(){
@@ -577,7 +596,7 @@ function wireCards(){
 // buy from was nowhere in the haystack. Now it also covers brand, supplier, the vendor style numbers
 // (men's AND ladies', so "SP24" or "SP23" finds the shirt) and fabric, so "cotton" finds the cotton styles.
 function searchText(it){
-  return ((it.name||'')+' '+(it.sku||'')+' '+(it.brand||'')+' '+(it.vendor||'')+' '+
+  return ((it.name||'')+' '+(it.sku||'')+' '+(it.brand||'')+' '+
           (it.msku||'')+' '+(it.wsku||'')+' '+(it.fabric||'')).toLowerCase();
 }
 function renderGrid(){
@@ -594,7 +613,7 @@ function renderGrid(){
   // Ladies' includes UNISEX. A unisex hoodie is genuinely available to her — it simply isn't cut
   // separately — so excluding it hid 10 of the 21 Sweaters & Fleece styles from anyone shopping for
   // the women on their team. Items with neither flag are men's-only and stay hidden.
-  var fitOK=function(list){var L=(VIEW.fit==='womens')?list.filter(function(k){var i=BYKEY[k]||{};return hasLadies(i)||i.unisex;}):list;return colourOK(L);};
+  var fitOK=function(list){var L=(VIEW.fit==='womens')?list.filter(function(k){var i=BYKEY[k]||{};return hasLadies(i)||i.unisex;}):list;return bandOK(colourOK(L));};
   var subs=subNames(VIEW.cat),csa=VIEW.cat==='hivis'?' <span class="csa">CSA Z96 · ANSI 107</span>':'';
   var _shown=(VIEW.sub==='all'?fitOK(ALLKEYS.filter(function(k){return (BUCKETS[VIEW.cat]||{})&&subs.some(function(s){return BUCKETS[VIEW.cat][s].indexOf(k)>=0;});})).length:fitOK(BUCKETS[VIEW.cat][VIEW.sub]||[]).length);
   hd.innerHTML='<h2 class="glbl">'+esc(megaName(VIEW.cat))+csa+'</h2><span class="gsub">'+_shown+' styles'+(VIEW.fit==='womens'?' in ladies’ &amp; unisex fits':'')+'</span>';
@@ -839,7 +858,7 @@ function buildStore(){
          '<input id="kitSearch" type="search" placeholder="Search all '+ALLKEYS.length+' products…" aria-label="Search products" autocomplete="off">'+
          '<button class="fsx" id="searchClose" aria-label="Close search">Cancel</button></div>'+
      '</div>'+
-     '<div class="subbar"><div class="subchips" id="subchips"></div><div class="fitbar" id="fitbar"></div><div class="fitbar colbar" id="colbar"></div></div>'+
+     '<div class="subbar"><div class="subchips" id="subchips"></div><div class="fitbar" id="fitbar"></div><div class="fitbar colbar" id="colbar"></div><div class="fitbar colbar" id="bandbar"></div></div>'+
    '</div>'+
    '<main class="w"><div class="gridhd" id="gridhd"></div><div class="grid" id="grid"></div>'+
      '<div class="noresults" id="noResults" style="display:none">No products match your search. Try another term.</div></main>'+
@@ -1063,7 +1082,7 @@ function renderPromoSheet(){
       '<div class="shimg"><div class="shstage"><img id="pmain" class="g" src="'+gurl(gal[gi])+'" alt="'+esc(item.name)+'"></div>'+thumbs+'</div>'+
       '<div class="shb">'+
         '<h2>'+esc(item.name)+'</h2>'+
-        '<div class="shsku">'+esc(item.brand||'Debco')+' · item '+esc(item.msku||item.sku)+'</div>'+
+        '<div class="shsku">'+esc(item.brand||'')+(item.layer==='promo'?'':' · item '+esc(item.msku||item.sku))+'</div>'+
         '<div class="pprice"><b>'+money(q.perPiece)+'</b><span>per '+unitP+'</span></div>'+
         priceSub+
         (item.desc?'<p class="shblurb">'+esc(item.desc)+'</p>':'')+
