@@ -55,12 +55,19 @@ function autoInkFor(method,rgb,logo){
      3. No colour family may repeat inside a short sliding window, so a section reads as an assortment
         instead of nine identical navy polos.
 
-   Two layers are EXEMPT by design. Hi-vis field gear keeps its CSA colour, which is a compliance
-   requirement and not a style choice. Premium keeps its lead colour because that shot is the on-body
-   model photo, and a model shot is worth more than a brighter flat lay.
+   Hi-vis field gear is EXEMPT: CSA colour is a compliance requirement, not a style choice.
+
+   PREMIUM was exempt too, on the assumption that its lead colour is always the on-body model shot and
+   a model shot beats a brighter flat lay. That assumption was half right. Classifying all 1,303 apparel
+   photos showed premium splits three ways: 44 styles are flat lays in EVERY colour (nothing to protect),
+   7 are on-model in every colour (Cutter & Buck shoots its whole range on a model, including red,
+   purple, orange and yellow), and only 19 have a single model shot that must not be traded away.
+   So premium is now re-picked under one extra rule: NEVER DOWNGRADE THE PHOTOGRAPHY. If the colour an
+   item currently opens on is an on-model shot, only other on-model colours may replace it; if it opens
+   on a flat lay, anything goes. That protects the 19 while freeing the other 69.
    Buyers can still reach every colour: this only decides which one greets them. */
 var BRANDPAL=[];                       // brand hues (0-359) learned from the logo art + kit accent
-var CW_LAYERS={office:1,bags:1,promo:1};
+var CW_LAYERS={office:1,bags:1,promo:1,premium:1};
 var CW_WINDOW=3;                       // how far back the no-repeat rule looks
 /* Assortment is judged on TONE groups, not raw families. Navy and blue are separate families but read
    as the same colour on a grid, so treating them separately is how the first attempt replaced a wall of
@@ -91,9 +98,12 @@ function buildBrandPal(){
   if(a)addBrandHue(a[0],a[1],a[2]);
 }
 /* Score one candidate colourway. Higher is better; -Infinity means "never show this". */
-function colourwayScore(col,recent,load,assigned){
+function colourwayScore(col,recent,load,assigned,needModel){
   var rgb=hex2rgbArr(col.rgb);
   if(!rgb||!usableColourName(col.name))return -Infinity;
+  // Never trade an on-body model shot for a flat lay. `mdl` is set on a colour whose photo was
+  // classified as on-model at build time (see onmodel.py).
+  if(needModel&&!col.mdl)return -Infinity;
   var gl=relLum(rgb[0],rgb[1],rgb[2]);
   // RULE 1 — legibility. We do not need the BRAND ink to read: autoInkFor() already swaps to white or
   // dark thread when the brand colour fails. What we require is that SOME ink clears 3:1, which rules
@@ -137,9 +147,13 @@ function assignColourways(){
       if(!it||!vm||vm.cfix)return;                    // cfix = a colour the client actually asked for
       var cols=it.cols||[];
       if(cols.length<2)return;
+      // Does this item currently greet the buyer with a model shot? If so, only model shots qualify.
+      var cur=null;
+      for(var ci=0;ci<cols.length;ci++)if(cols[ci].name===vm.colour){cur=cols[ci];break;}
+      var needModel=!!(cur&&cur.mdl);
       var best=null,bs=-Infinity;
       for(var i=0;i<cols.length;i++){
-        var sc=colourwayScore(cols[i],recent,load,assigned);
+        var sc=colourwayScore(cols[i],recent,load,assigned,needModel);
         if(sc>bs){bs=sc;best=cols[i];}
       }
       if(!best)return;
