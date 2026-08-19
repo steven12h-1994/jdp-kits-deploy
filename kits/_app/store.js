@@ -338,7 +338,7 @@ function menuCard(key){
       csa+fab+
       colourDots(item,key)+
       (item.layer==='promo'
-        ? ((item.includes&&item.includes.length?'<div class="mpcs">'+item.includes.length+' pieces</div>':'')+
+        ? (kitContentsHtml(item)+
            '<div class="mprice"><b>'+money(item.price_cad)+'</b> <small>/'+(item.unit==='dozen'?'dozen':'pc')+' · min '+item.moq+'</small></div>')
         : '<div class="mprice">from <b>'+money(fromP)+'</b> <small>/pc'+(hasDecoPlace(item)?' · decorated':'')+'</small></div>')+
       '</div></article>';
@@ -660,6 +660,46 @@ function colourOK(list){
   if(!VIEW.col)return list;
   return list.filter(function(k){var it=BYKEY[k];return it&&itemFam(it)[VIEW.col];});}
 // Corporate gifting starts from a per-head budget, so let the buyer shop the band directly.
+/* ---- Shop gift kits by OCCASION -------------------------------------------------------------
+   A corporate buyer almost never arrives looking for a SKU. They arrive with a job to do: fifteen
+   new hires start Monday, the sales team needs a leave-behind for a trade show, someone hits ten
+   years next month. Until now the only route through the gift sets was to scroll all of them,
+   which was tolerable at 32 kits and becomes unusable as the range grows past a hundred.
+   Occasions are stored per kit as `occ` in the catalogue, derived from what is actually inside the
+   box and what it costs per head -- never guessed in the browser. */
+var OCC=[['onboarding','New hire welcome'],['client','Client & prospect gifts'],
+  ['recognition','Employee recognition'],['tradeshow','Trade show & events'],
+  ['holiday','Holiday & year-end'],['exec','Executive & VIP']];
+function occOK(list){
+  if(!VIEW.occ)return list;
+  return list.filter(function(k){var it=BYKEY[k];return it&&(it.occ||[]).indexOf(VIEW.occ)>=0;});}
+function renderOccbar(){
+  var el=document.getElementById('occbar');if(!el)return;
+  var keys=(VIEW.sub==='all')?[].concat.apply([],subNames(VIEW.cat).map(function(s){return BUCKETS[VIEW.cat][s];})):((BUCKETS[VIEW.cat]||{})[VIEW.sub]||[]);
+  var cnt={};keys.forEach(function(k){var it=BYKEY[k];if(!it)return;(it.occ||[]).forEach(function(o){cnt[o]=(cnt[o]||0)+1;});});
+  var live=OCC.filter(function(o){return cnt[o[0]]>0;});
+  // Only appears where occasions exist (the gift-set aisle); silent everywhere else.
+  if(live.length<2){el.innerHTML='';el.style.display='none';VIEW.occ=null;return;}
+  el.style.display='';
+  el.innerHTML='<span class="fitlbl">Occasion</span><button type="button" class="cfchip'+(VIEW.occ?'':' on')+'" data-occ="">All</button>'+
+    live.map(function(o){return '<button type="button" class="cfchip'+(VIEW.occ===o[0]?' on':'')+'" data-occ="'+o[0]+'">'+o[1]+' <i>'+cnt[o[0]]+'</i></button>';}).join('');
+  el.querySelectorAll('.cfchip').forEach(function(x){x.addEventListener('click',function(){
+    VIEW.occ=x.dataset.occ||null;renderOccbar();renderGrid();});});
+}
+/* What is actually IN the box, on the card itself. Scanning a hundred gift sets by hero photo alone
+   means opening every one to find out whether it has a bottle or a blanket in it.
+   Two accuracy notes, both from reading the real data:
+     * the piece COUNT used to include the gift box, so a "4 pieces" set handed the recipient three
+       things. `pieces` counts only what comes out of the box; the box is credited separately.
+     * component names are pre-shortened in the catalogue (`contents`), because deriving them in the
+       browser produced "Set · Set · Set" on the bar and tea sets. */
+function kitContentsHtml(item){
+  var c=item.contents||[];
+  if(!c.length&&!(item.includes||[]).length)return '';
+  var n=(item.pieces!=null)?item.pieces:(item.includes||[]).length;
+  var pill='<div class="mpcs">'+n+(n===1?' piece':' pieces')+(item.boxed?' + gift box':'')+'</div>';
+  return pill+(c.length?'<div class="minc">'+esc(c.join(' · '))+'</div>':'');
+}
 var BANDS=[['u50','Under $50',0,50],['50_75','$50-$75',50,75],['75_100','$75-$100',75,100],['o100','$100+',100,1e9]];
 function unitOf(it){return (it.layer==='promo')?(it.price_cad||0):(it.prices?it.prices[it.prices.length-1]:0);}
 function bandOK(list){
@@ -692,7 +732,7 @@ function renderColbar(){
     VIEW.col=b.dataset.fam||null;
     // jump every matching card to that colour so the grid reads as one coherent palette
     if(VIEW.col)Object.keys(BYKEY).forEach(function(k){var it=BYKEY[k],m=it&&itemFam(it)[VIEW.col];if(m)BCOL[k+'|'+fitOf(it)]=m;});
-    renderColbar();renderGrid();});});
+    renderColbar();renderOccbar();renderGrid();});});
 }
 function renderFitbar(){
   var el=document.getElementById('fitbar');if(!el)return;
@@ -714,7 +754,7 @@ function renderSubchips(){var el=document.getElementById('subchips');if(!el)retu
   var h='<button class="schip'+(VIEW.sub==='all'?' on':'')+'" data-sub="all">All<span class="scn">'+TOTALS[VIEW.cat]+'</span></button>';
   h+=subs.map(function(s){return '<button class="schip'+(VIEW.sub===s?' on':'')+'" data-sub="'+esc(s)+'">'+esc(s)+'<span class="scn">'+BUCKETS[VIEW.cat][s].length+'</span></button>';}).join('');
   el.innerHTML=h;
-  renderFitbar();renderColbar();renderBandbar();
+  renderFitbar();renderColbar();renderOccbar();renderBandbar();
   el.querySelectorAll('.schip').forEach(function(b){b.addEventListener('click',function(){setSub(b.dataset.sub);
     var tr=b.closest('.subchips');if(tr)tr.scrollTo({left:b.offsetLeft-tr.clientWidth/2+b.clientWidth/2,behavior:'smooth'});});});}
 function wireCards(){
@@ -765,7 +805,7 @@ function renderGrid(){
   // Ladies' includes UNISEX. A unisex hoodie is genuinely available to her — it simply isn't cut
   // separately — so excluding it hid 10 of the 21 Sweaters & Fleece styles from anyone shopping for
   // the women on their team. Items with neither flag are men's-only and stay hidden.
-  var fitOK=function(list){var L=(VIEW.fit==='womens')?list.filter(function(k){var i=BYKEY[k]||{};return hasLadies(i)||i.unisex;}):list;return bandOK(colourOK(L));};
+  var fitOK=function(list){var L=(VIEW.fit==='womens')?list.filter(function(k){var i=BYKEY[k]||{};return hasLadies(i)||i.unisex;}):list;return bandOK(colourOK(occOK(L)));};
   var subs=subNames(VIEW.cat),csa=VIEW.cat==='hivis'?' <span class="csa">CSA Z96 · ANSI 107</span>':'';
   var _shown=(VIEW.sub==='all'?fitOK(ALLKEYS.filter(function(k){return (BUCKETS[VIEW.cat]||{})&&subs.some(function(s){return BUCKETS[VIEW.cat][s].indexOf(k)>=0;});})).length:fitOK(BUCKETS[VIEW.cat][VIEW.sub]||[]).length);
   hd.innerHTML='<h2 class="glbl">'+esc(megaName(VIEW.cat))+csa+'</h2><span class="gsub">'+_shown+' styles'+(VIEW.fit==='womens'?' in ladies’ &amp; unisex fits':'')+'</span>';
@@ -1010,7 +1050,7 @@ function buildStore(){
          '<input id="kitSearch" type="search" placeholder="Search all '+ALLKEYS.length+' products…" aria-label="Search products" autocomplete="off">'+
          '<button class="fsx" id="searchClose" aria-label="Close search">Cancel</button></div>'+
      '</div>'+
-     '<div class="subbar"><div class="subchips" id="subchips"></div><div class="fitbar" id="fitbar"></div><div class="fitbar colbar" id="colbar"></div><div class="fitbar colbar" id="bandbar"></div></div>'+
+     '<div class="subbar"><div class="subchips" id="subchips"></div><div class="fitbar" id="fitbar"></div><div class="fitbar colbar" id="occbar"></div><div class="fitbar colbar" id="colbar"></div><div class="fitbar colbar" id="bandbar"></div></div>'+
    '</div>'+
    '<main class="w"><div class="gridhd" id="gridhd"></div><div class="grid" id="grid"></div>'+
      '<div class="noresults" id="noResults" style="display:none">No products match your search. Try another term.</div></main>'+

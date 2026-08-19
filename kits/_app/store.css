@@ -782,3 +782,8 @@ main{padding:0 0 22px}
 
 .mpcs{margin-top:8px;display:inline-block;font-size:11px;font-weight:800;letter-spacing:.02em;color:var(--ink);
   background:color-mix(in srgb,var(--a) 10%,#fff);border:1px solid color-mix(in srgb,var(--a) 30%,#fff);border-radius:999px;padding:3px 9px}
+
+/* What's inside a gift set, listed on the card so a buyer can scan the range without opening
+   every one. Deliberately quiet: the hero photo and the price stay the loudest things on the card. */
+.minc{margin-top:6px;font-size:12px;line-height:1.35;color:var(--mut,#6b6b6b);
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
