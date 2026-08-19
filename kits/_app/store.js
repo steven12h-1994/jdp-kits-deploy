@@ -1055,9 +1055,11 @@ function renderPromoSheet(){
     picksHtml='<div class="ptiers">'+tq.map(function(t,ti){
       var lbl=(ti<tq.length-1)?(t+'\u2013'+(tq[ti+1]-1)):(t+'+');
       return '<button class="ptier'+(t===q.qty?' on':'')+'" data-q="'+t+'"><b>'+lbl+'</b><span>'+money(tierPrice(item,t))+'/'+unitP+'</span></button>';}).join('')+'</div>';
+    var setupLine=(item.setup>0)?('<div class="psrow"><span>One-time setup <small>charged once per logo</small></span><span>'+money(item.setup)+'</span></div>'):'';
     sumHtml='<div class="psum"><div class="psrow"><span>'+q.qty+' '+unitP+' × '+money(q.perPiece)+'</span><span>'+money(q.goods)+'</span></div>'+
+      setupLine+
       '<div class="psrow"><span>Your logo</span><span>added at proof</span></div>'+
-      '<div class="psrow pstot"><span>Product subtotal</span><span>'+money(q.goods)+'</span></div></div>';
+      '<div class="psrow pstot"><span>Estimated total</span><span>'+money(q.goods+(item.setup>0?item.setup:0))+'</span></div></div>';
     footHtml='<div class="pfrow"><span>'+q.qty+' '+unitP+' · '+money(q.perPiece)+'/'+unitP+'</span><b>'+money(q.goods)+'</b></div>'+
       '<button class="shaddbtn" id="shAdd"><span>'+(CART[SH.key]?'Update kit':'Add to kit')+'</span><span class="p">'+money(q.goods)+'</span></button>'+
       '<div class="shtrust">Minimum '+min+' '+unitP+' · free proof · logo &amp; final price confirmed on your quote</div>';
