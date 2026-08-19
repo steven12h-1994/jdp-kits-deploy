@@ -1,13 +1,13 @@
 {
   "generator": "client-app",
-  "version": "1787152659",
+  "version": "1787153576",
   "slug": "sinclair-supply",
   "client": "Sinclair Supply",
   "files": [
     "index.html",
     "client.json",
     "img/favicon.png",
-    "img/lg_full_035798.png",
+    "img/lg_full_223469.png",
     "img/lg_full_brand.png",
     "img/lg_full_dark.png",
     "img/lg_full_white.png",
