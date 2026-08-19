@@ -1045,7 +1045,7 @@ function renderPromoSheet(){
       incHtml='<div class="pgrp"><div class="pgl">Gift set includes</div><ul class="pinc">'+item.includes.map(function(x){
         var hit=null;for(var k in BYKEY){if((BYKEY[k].msku||'').toUpperCase()===String(x.sku||'').toUpperCase()){hit=k;break;}}
         var txt=esc(x.desc||x.sku||'');
-        return '<li>'+(hit?('<a href="?item='+encodeURIComponent(hit)+'">'+txt+'</a>'):txt)+
+        return '<li>'+(hit?('<a href="?item='+encodeURIComponent(hit)+'" data-item="'+esc(hit)+'">'+txt+'</a>'):txt)+
                (x.sku?(' <small>'+esc(x.sku)+'</small>'):'')+'</li>';}).join('')+'</ul></div>';}
     logoGrp=incHtml+'<div class="pgrp"><div class="pgl">Your logo</div><div class="qlogo"><span class="pinci">✓</span> Add your logo — we’ll email a <b>free proof</b> and confirm decoration &amp; setup on your quote.</div></div>';
     var tq=(q.tiers&&q.tiers.length)?q.tiers.map(function(t){return t.q;}):promoTiers(min);
@@ -1100,6 +1100,9 @@ function renderPromoSheet(){
   document.getElementById('shx').addEventListener('click',closeAll);
   sh.querySelectorAll('.pthumb').forEach(function(b){b.addEventListener('click',function(){SH.gi=+b.dataset.i;var mi=document.getElementById('pmain');if(mi)mi.src=gurl(gal[SH.gi]);sh.querySelectorAll('.pthumb').forEach(function(x){x.classList.toggle('on',x===b);});});});
   sh.querySelectorAll('.pcol').forEach(function(b){b.addEventListener('click',function(){SH.colour=b.dataset.col;SH.gi=0;renderPromoSheet();});});
+  // Jump straight from a gift set to any component it contains, in place, with no page reload.
+  sh.querySelectorAll('.pinc a[data-item]').forEach(function(a){a.addEventListener('click',function(e){
+    e.preventDefault();e.stopPropagation();openSheet(a.dataset.item);});});
   sh.querySelectorAll('.pmeth').forEach(function(b){b.addEventListener('click',function(){SH.mi=+b.dataset.mi;renderPromoSheet();});});
   sh.querySelectorAll('.ploc').forEach(function(b){b.addEventListener('click',function(){SH.locs=+b.dataset.loc;renderPromoSheet();});});
   sh.querySelectorAll('.ppick').forEach(function(b){b.addEventListener('click',function(){SH.qty=+b.dataset.q;renderPromoSheet();});});
@@ -1505,11 +1508,15 @@ function go(cfg){
   fetch((cfg.catalog_base||CATALOG_BASE)+'/catalog.json?v='+(cfg.ver||'1'),{cache:'no-cache'}).then(function(r){return r.json();}).then(function(cat){
     CFG.catalog_base=cfg.catalog_base||CATALOG_BASE;CAT=cat;CATVER=cat.version||cat.v||'';(cat.items||[]).forEach(function(it){BYKEY[it.key]=it;});
     // Learn each logo's ink BEFORE first paint so garments render a thread colour that actually reads.
-    Promise.all((cfg.logos||[]).map(probeInk)).then(function(){loadCart();buildStore();refreshCartUI();});
-    // Deep link: /kits/<slug>/?item=<key> (or #item=<key>) opens straight to that product — handy for
-    // linking a prospect right to a specific piece's finishes + pricing.
-    try{var m=(location.search.match(/[?&]item=([^&#]+)/)||location.hash.match(/item=([^&#]+)/));
-      if(m){var k=decodeURIComponent(m[1]);if(BYKEY[k])openSheet(k);}}catch(e){}
+    Promise.all((cfg.logos||[]).map(probeInk)).then(function(){
+      loadCart();buildStore();refreshCartUI();
+      // Deep link: /kits/<slug>/?item=<key> (or #item=<key>) opens straight to that product. This MUST
+      // run AFTER buildStore(). It used to fire synchronously, before the async ink probe resolved, so
+      // the sheet opened against an unbuilt store and was wiped by the first render -- every ?item=
+      // link, including every gift-set contents link, silently did nothing.
+      try{var m=(location.search.match(/[?&]item=([^&#]+)/)||location.hash.match(/item=([^&#]+)/));
+        if(m){var k=decodeURIComponent(m[1]);if(BYKEY[k])openSheet(k);}}catch(e){}
+    });
   }).catch(function(e){document.getElementById('app').innerHTML='<p style="padding:60px;text-align:center">Could not load the catalogue. Please refresh.</p>';});
 }
 var cel=document.getElementById('jdpcfg');
