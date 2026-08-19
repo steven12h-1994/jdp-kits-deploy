@@ -41,6 +41,115 @@ function autoInkFor(method,rgb,logo){
   if(k.sat<=INK_MAXSAT&&contrast(k.lum,gl)<INK_MINRATIO)return gl<0.18?'white':'dark';
   return 'brand';
 }
+/* ---- Vibrant, brand-aware colourways -------------------------------------------------------
+   Every store used to open as a wall of black. 169 of 353 items defaulted to Black and 68% of the
+   accessories did, because the build-time picker scored ONLY for logo legibility: it paid a bonus for
+   neutrals and a penalty for any saturated garment, so "safe" always won. That produces defensible
+   mockups and a lifeless shop, and a lifeless shop does not sell a branded-apparel program.
+
+   This pass re-picks the colour each item OPENS on, at boot, from the client's own palette, and then
+   deliberately varies it down the grid. Three rules, in priority order:
+     1. LEGIBILITY is still absolute — a colourway where no ink can read is never offered.
+     2. Prefer the client's brand hues, then rich colour, then neutrals, and treat black as the
+        fallback rather than the default.
+     3. No colour family may repeat inside a short sliding window, so a section reads as an assortment
+        instead of nine identical navy polos.
+
+   Two layers are EXEMPT by design. Hi-vis field gear keeps its CSA colour, which is a compliance
+   requirement and not a style choice. Premium keeps its lead colour because that shot is the on-body
+   model photo, and a model shot is worth more than a brighter flat lay.
+   Buyers can still reach every colour: this only decides which one greets them. */
+var BRANDPAL=[];                       // brand hues (0-359) learned from the logo art + kit accent
+var CW_LAYERS={office:1,bags:1,promo:1};
+var CW_WINDOW=3;                       // how far back the no-repeat rule looks
+/* Assortment is judged on TONE groups, not raw families. Navy and blue are separate families but read
+   as the same colour on a grid, so treating them separately is how the first attempt replaced a wall of
+   black with a wall of blue (129 of 192 items). Same for black and grey. */
+var CW_TONE={black:'dark',grey:'dark',white:'light',navy:'blue',blue:'blue'};
+function toneOf(fam){return fam?(CW_TONE[fam]||fam):null;}
+/* A colour name that carries no letters is a vendor colour CODE that leaked into the data (the Logan
+   Thermal ships one literally called "06000001"). The old picker never chose it, so it never showed. */
+function usableColourName(n){return /[A-Za-z]{3}/.test(n||'');}
+function hex2rgbArr(hex){var h=String(hex||'').replace('#','');if(h.length!==6)return null;
+  var n=parseInt(h,16);return [(n>>16)&255,(n>>8)&255,n&255];}
+function hueOf(r,g,b){var mx=Math.max(r,g,b),mn=Math.min(r,g,b),d=mx-mn;if(!d)return -1;
+  var h;if(mx===r)h=((g-b)/d)%6;else if(mx===g)h=(b-r)/d+2;else h=(r-g)/d+4;
+  h*=60;return h<0?h+360:h;}
+function satOf(r,g,b){var mx=Math.max(r,g,b);return mx?(mx-Math.min(r,g,b))/mx:0;}
+function hueGap(a,b){var d=Math.abs(a-b)%360;return d>180?360-d:d;}
+function addBrandHue(r,g,b){
+  if(satOf(r,g,b)<0.28)return;                       // a neutral mark carries no hue to match
+  // A near-black or near-white brand colour is technically saturated but carries no usable hue:
+  // grimefighters' #080F24 would otherwise register as "this is a blue company" and tint the store.
+  var L=relLum(r,g,b);if(L<0.035||L>0.75)return;
+  var h=hueOf(r,g,b);if(h<0)return;
+  for(var i=0;i<BRANDPAL.length;i++)if(hueGap(BRANDPAL[i],h)<18)return;   // dedupe near-identical
+  BRANDPAL.push(h);
+}
+function buildBrandPal(){
+  var a=hex2rgbArr(CFG.accent);                      // the accent is brand-derived at build time
+  if(a)addBrandHue(a[0],a[1],a[2]);
+}
+/* Score one candidate colourway. Higher is better; -Infinity means "never show this". */
+function colourwayScore(col,recent,load,assigned){
+  var rgb=hex2rgbArr(col.rgb);
+  if(!rgb||!usableColourName(col.name))return -Infinity;
+  var gl=relLum(rgb[0],rgb[1],rgb[2]);
+  // RULE 1 — legibility. We do not need the BRAND ink to read: autoInkFor() already swaps to white or
+  // dark thread when the brand colour fails. What we require is that SOME ink clears 3:1, which rules
+  // out only the mid-tones where nothing reads.
+  if(Math.max(contrast(gl,relLum(255,255,255)),contrast(gl,relLum(20,20,20)))<INK_MINRATIO)
+    return -Infinity;
+  var sat=satOf(rgb[0],rgb[1],rgb[2]),hue=hueOf(rgb[0],rgb[1],rgb[2]),fam=famOfCol(col);
+  var sc=0;
+  // RULE 2 — brand affinity, then general richness.
+  if(sat>0.22&&hue>=0&&BRANDPAL.length){
+    var gap=360;
+    for(var i=0;i<BRANDPAL.length;i++)gap=Math.min(gap,hueGap(BRANDPAL[i],hue));
+    sc += gap<=22 ? 115 : gap<=45 ? 74 : gap<=72 ? 28 : -30;
+  }
+  sc += Math.round(60*Math.min(1,sat/0.6));
+  if(fam==='black')sc-=46;                            // the fallback, not the default
+  if(fam==='white')sc-=4;
+  if(fam==='grey')sc-=12;
+  // RULE 3 — assortment, as a running SHARE rather than a flat penalty. A tone that already owns half
+  // the section costs ~95 points, which is what stops the brand hue from taking everything; a tone not
+  // used yet is free. On top of that, an immediate neighbour repeat is penalised hard.
+  var grp=toneOf(fam);
+  if(grp){
+    sc-=Math.round(190*((load[grp]||0)/Math.max(1,assigned)));
+    var idx=recent.indexOf(grp);
+    if(idx>=0)sc-=(112-26*idx);
+  }
+  return sc;
+}
+/* Re-pick every eligible item's opening colour. Runs once at boot, after the logo probes have taught
+   us the brand hues and BEFORE the first render, so the grid paints correct the first time. */
+function assignColourways(){
+  buildBrandPal();
+  if(!CFG.items||!CFG.order)return 0;
+  var changed=0;
+  Object.keys(CFG.order).forEach(function(bucket){
+    if(!CW_LAYERS[bucket])return;
+    var recent=[],load={},assigned=0;
+    (CFG.order[bucket]||[]).forEach(function(k){
+      var it=BYKEY[k],vm=CFG.items[k];
+      if(!it||!vm||vm.cfix)return;                    // cfix = a colour the client actually asked for
+      var cols=it.cols||[];
+      if(cols.length<2)return;
+      var best=null,bs=-Infinity;
+      for(var i=0;i<cols.length;i++){
+        var sc=colourwayScore(cols[i],recent,load,assigned);
+        if(sc>bs){bs=sc;best=cols[i];}
+      }
+      if(!best)return;
+      if(best.name!==vm.colour){vm.colour=best.name;changed++;}
+      var g=toneOf(famOfCol(best));
+      if(g){load[g]=(load[g]||0)+1;assigned++;recent.unshift(g);if(recent.length>CW_WINDOW)recent.pop();}
+    });
+  });
+  return changed;
+}
 /* Sample each logo's brand artwork once at boot to learn its true ink colour. Sampled at 256px with
    alpha>200 because SOLID ink is the thread colour — a small canvas blurs black letterforms into mid
    grey, which quietly defeated the whole test on the first attempt. Same-origin asset, so the canvas
@@ -68,6 +177,16 @@ function probeInk(logo){
           var md=function(a){a.sort(function(p,q){return p-q;});return a[a.length>>1];};
           var r=md(R),g=md(G),b=md(B);
           INK[logo.id]={lum:relLum(r,g,b),sat:Math.max(r,g,b)-Math.min(r,g,b)};
+          // Same pass, second job: learn the brand's SATURATED hues. The ink probe above deliberately
+          // medians every solid pixel, which on a two-colour lockup returns a muddy average — useless
+          // for matching a garment. So collect only the genuinely colourful pixels and median THEM.
+          var HR=[],HG=[],HB=[];
+          for(var j=0;j<d.length;j+=4){
+            if(d[j+3]<=200)continue;
+            var mx=Math.max(d[j],d[j+1],d[j+2]),mn=Math.min(d[j],d[j+1],d[j+2]);
+            if(mx>60&&mx-mn>0.28*mx){HR.push(d[j]);HG.push(d[j+1]);HB.push(d[j+2]);}
+          }
+          if(HR.length>=24)addBrandHue(md(HR),md(HG),md(HB));
         }
       }catch(e){}
       fin();
@@ -502,8 +621,27 @@ var COLFAM=[['black',/black|onyx|jet/i,'#1c1c1c'],['white',/white|ivory|bone|cre
   ['brown',/brown|wood|acacia|chocolate|coffee|espresso/i,'#8a5a34'],
   ['pink',/pink|flamingo|rose|plum|purple|violet/i,'#c8567f']];
 function famOf(name){for(var i=0;i<COLFAM.length;i++)if(COLFAM[i][1].test(name||''))return COLFAM[i][0];return null;}
+/* Name regexes miss a long tail of real colour names — Coral, Sapphire, Heliconia, Caramel, Pearl.
+   Roughly 40 colours per kit matched nothing, which left them invisible to the colour filter AND
+   exempt from the assortment rule, so two "Caramel" pieces could land side by side. Every colour
+   carries an rgb hex, so fall back to classifying the actual pixel value. */
+function famFromRgb(hex){
+  var rgb=hex2rgbArr(hex);if(!rgb)return null;
+  var L=relLum(rgb[0],rgb[1],rgb[2]),s=satOf(rgb[0],rgb[1],rgb[2]),h=hueOf(rgb[0],rgb[1],rgb[2]);
+  if(L<0.045)return 'black';
+  if(s<0.18)return L>0.62?'white':'grey';
+  if(h<0)return 'grey';
+  if(h<14||h>=344)return 'red';
+  if(h<44)return L<0.16?'brown':'orange';
+  if(h<70)return 'yellow';
+  if(h<165)return 'green';
+  if(h<200)return 'blue';
+  if(h<255)return L<0.13?'navy':'blue';
+  return 'pink';
+}
+function famOfCol(col){return col?(famOf(col.name)||famFromRgb(col.rgb)):null;}
 function famSwatch(f){for(var i=0;i<COLFAM.length;i++)if(COLFAM[i][0]===f)return COLFAM[i][2];return '#ccc';}
-function itemFam(it){var o={};(curColsOf(it,fitOf(it))||[]).forEach(function(c){var f=famOf(c.name);if(f)o[f]=c.name;});return o;}
+function itemFam(it){var o={};(curColsOf(it,fitOf(it))||[]).forEach(function(c){var f=famOfCol(c);if(f)o[f]=c.name;});return o;}
 function colourOK(list){
   if(!VIEW.col)return list;
   return list.filter(function(k){var it=BYKEY[k];return it&&itemFam(it)[VIEW.col];});}
@@ -1509,6 +1647,7 @@ function go(cfg){
     CFG.catalog_base=cfg.catalog_base||CATALOG_BASE;CAT=cat;CATVER=cat.version||cat.v||'';(cat.items||[]).forEach(function(it){BYKEY[it.key]=it;});
     // Learn each logo's ink BEFORE first paint so garments render a thread colour that actually reads.
     Promise.all((cfg.logos||[]).map(probeInk)).then(function(){
+      assignColourways();
       loadCart();buildStore();refreshCartUI();
       // Deep link: /kits/<slug>/?item=<key> (or #item=<key>) opens straight to that product. This MUST
       // run AFTER buildStore(). It used to fire synchronously, before the async ink probe resolved, so
