@@ -708,6 +708,82 @@ function renderColbar(){
     if(VIEW.col)Object.keys(BYKEY).forEach(function(k){var it=BYKEY[k],m=it&&itemFam(it)[VIEW.col];if(m)BCOL[k+'|'+fitOf(it)]=m;});
     renderColbar();renderGrid();});});
 }
+/* ---- Filters live behind one control ---------------------------------------------------------
+   Fit, Colour and Budget used to sit permanently stacked under the category tabs. Measured on the
+   live store that cost 200px of a 1080px desktop viewport and about 325px of an 844px phone --
+   roughly 39% of a phone screen spent on filters the buyer had not asked for, leaving barely one
+   row of product visible. The colour row alone wrapped to three lines on a phone.
+
+   Navigation stays where it was (category tabs, then subcategory chips) because that is how people
+   browse. The three FACETS collapse into a single "Filters" button carrying a count, with whatever
+   is currently applied shown next to it as dismissable pills -- so the state is never hidden, only
+   the controls are. The panel is a dropdown on desktop and a bottom sheet on the phone, which is
+   where a thumb can actually reach it. */
+var FOPEN=false;
+function activeFilters(){
+  var a=[];
+  if(VIEW.fit&&VIEW.fit!=='all')a.push({k:'fit',label:VIEW.fit==='womens'?'Ladies’':'Men’s'});
+  if(VIEW.col)a.push({k:'col',label:VIEW.col.charAt(0).toUpperCase()+VIEW.col.slice(1),sw:famSwatch(VIEW.col)});
+  if(VIEW.band){var b=BANDS.filter(function(x){return x[0]===VIEW.band;})[0];if(b)a.push({k:'band',label:b[1]});}
+  return a;
+}
+function clearFilter(k){
+  if(k==='fit')VIEW.fit='all'; else if(k==='col')VIEW.col=null; else if(k==='band')VIEW.band=null;
+  renderFitbar();renderColbar();renderBandbar();renderGrid();renderFilterUI();
+}
+function setFilters(open){
+  FOPEN=!!open;
+  var p=document.getElementById('fpanel'),b=document.getElementById('fbtn'),sc=document.getElementById('fscrim');
+  if(p)p.classList.toggle('on',FOPEN);
+  if(sc)sc.classList.toggle('on',FOPEN);
+  if(b)b.setAttribute('aria-expanded',FOPEN?'true':'false');
+  document.documentElement.classList.toggle('fopen',FOPEN);
+}
+function renderFilterUI(){
+  var btn=document.getElementById('fbtn');if(!btn)return;
+  // Hide the whole control where there is nothing to filter, rather than offering an empty panel.
+  var any=['fitbar','colbar','bandbar'].some(function(id){
+    var el=document.getElementById(id);return el&&el.style.display!=='none'&&el.innerHTML;});
+  btn.style.display=any?'':'none';
+  if(!any&&FOPEN)setFilters(false);
+  var act=activeFilters(),c=document.getElementById('fcount');
+  if(c){c.textContent=act.length?String(act.length):'';c.style.display=act.length?'':'none';}
+  btn.classList.toggle('on',act.length>0);
+  var pil=document.getElementById('fpills');
+  if(pil){
+    pil.innerHTML=act.map(function(a){
+      return '<button type="button" class="fpill" data-clear="'+a.k+'">'+
+        (a.sw?'<span style="background:'+a.sw+'"></span>':'')+esc(a.label)+'<em>&times;</em></button>';}).join('')+
+      (act.length>1?'<button type="button" class="fpill alt" data-clear="all">Clear all</button>':'');
+    pil.style.display=act.length?'':'none';
+    pil.querySelectorAll('.fpill').forEach(function(x){x.addEventListener('click',function(){
+      var k=x.dataset.clear;
+      if(k==='all'){VIEW.fit='all';VIEW.col=null;VIEW.band=null;
+        renderFitbar();renderColbar();renderBandbar();renderGrid();renderFilterUI();}
+      else clearFilter(k);});});
+  }
+  var done=document.getElementById('fdone');
+  if(done)done.textContent=(SHOWN!=null?('Show '+SHOWN+' style'+(SHOWN===1?'':'s')):'Show results');
+  var clr=document.getElementById('fclear');
+  if(clr)clr.disabled=!act.length;
+}
+function wireFilters(){
+  var btn=document.getElementById('fbtn');if(!btn||btn._w)return;btn._w=1;
+  btn.addEventListener('click',function(e){e.stopPropagation();setFilters(!FOPEN);});
+  ['fpx','fdone'].forEach(function(id){var el=document.getElementById(id);
+    if(el)el.addEventListener('click',function(){setFilters(false);});});
+  var sc=document.getElementById('fscrim');
+  if(sc)sc.addEventListener('click',function(){setFilters(false);});
+  var clr=document.getElementById('fclear');
+  if(clr)clr.addEventListener('click',function(){VIEW.fit='all';VIEW.col=null;VIEW.band=null;
+    renderFitbar();renderColbar();renderBandbar();renderGrid();renderFilterUI();});
+  document.addEventListener('keydown',function(e){if(e.key==='Escape'&&FOPEN)setFilters(false);});
+  document.addEventListener('click',function(e){
+    if(!FOPEN)return;
+    var p=document.getElementById('fpanel');
+    if(p&&!p.contains(e.target)&&e.target!==btn)setFilters(false);});
+}
+var SHOWN=null;
 function renderFitbar(){
   var el=document.getElementById('fitbar');if(!el)return;
   var keys=(VIEW.sub==='all'?ALLKEYS.filter(function(k){var c=classify(BYKEY[k]);return c.mega===VIEW.cat;}):(BUCKETS[VIEW.cat]||{})[VIEW.sub]||[]);
@@ -782,6 +858,7 @@ function renderGrid(){
   var fitOK=function(list){var L=(VIEW.fit==='womens')?list.filter(function(k){var i=BYKEY[k]||{};return hasLadies(i)||i.unisex;}):list;return bandOK(colourOK(L));};
   var subs=subNames(VIEW.cat),csa=VIEW.cat==='hivis'?' <span class="csa">CSA Z96 · ANSI 107</span>':'';
   var _shown=(VIEW.sub==='all'?fitOK(ALLKEYS.filter(function(k){return (BUCKETS[VIEW.cat]||{})&&subs.some(function(s){return BUCKETS[VIEW.cat][s].indexOf(k)>=0;});})).length:fitOK(BUCKETS[VIEW.cat][VIEW.sub]||[]).length);
+  SHOWN=_shown;
   hd.innerHTML='<h2 class="glbl">'+esc(megaName(VIEW.cat))+csa+'</h2><span class="gsub">'+_shown+' styles'+(VIEW.fit==='womens'?' in ladies’ &amp; unisex fits':'')+'</span>';
   var inner;
   if(VIEW.sub!=='all'){inner='<div class="menu">'+fitOK(BUCKETS[VIEW.cat][VIEW.sub]||[]).map(menuCard).join('')+'</div>';}
@@ -1024,7 +1101,19 @@ function buildStore(){
          '<input id="kitSearch" type="search" placeholder="Search all '+ALLKEYS.length+' products…" aria-label="Search products" autocomplete="off">'+
          '<button class="fsx" id="searchClose" aria-label="Close search">Cancel</button></div>'+
      '</div>'+
-     '<div class="subbar"><div class="subchips" id="subchips"></div><div class="fitbar" id="fitbar"></div><div class="fitbar colbar" id="colbar"></div><div class="fitbar colbar" id="bandbar"></div></div>'+
+     '<div class="subbar">'+
+       '<div class="subrow"><div class="subchips" id="subchips"></div>'+
+         '<button type="button" class="fbtn" id="fbtn" aria-expanded="false">Filters<i id="fcount"></i></button></div>'+
+       '<div class="fpills" id="fpills"></div>'+
+       '<div class="fscrim" id="fscrim"></div>'+
+       '<div class="fpanel" id="fpanel">'+
+         '<div class="fphd">Filter<button type="button" class="fpx" id="fpx" aria-label="Close">&times;</button></div>'+
+         '<div class="fpbody">'+
+           '<div class="fitbar" id="fitbar"></div><div class="fitbar colbar" id="colbar"></div>'+
+           '<div class="fitbar colbar" id="bandbar"></div></div>'+
+         '<div class="fpfoot"><button type="button" class="fclear" id="fclear">Clear all</button>'+
+           '<button type="button" class="fdone" id="fdone">Show results</button></div>'+
+       '</div></div>'+
    '</div>'+
    '<main class="w"><div class="gridhd" id="gridhd"></div><div class="grid" id="grid"></div>'+
      '<div class="noresults" id="noResults" style="display:none">No products match your search. Try another term.</div></main>'+
@@ -1057,6 +1146,7 @@ function buildStore(){
   document.querySelectorAll('.audbanner').forEach(function(b){b.addEventListener('click',function(){var a=audOf(b.dataset.world);var cs=a?a.cats.filter(function(c){return CATS.indexOf(c)>=0;}):[];if(cs.length)setCat(cs[0],true);});});
   // FILTERED BROWSE: category tabs + subcategory chips + search (one category at a time).
   renderCtabs();
+  wireFilters();renderFilterUI();
   var st=document.getElementById('searchToggle');if(st)st.addEventListener('click',openSearch);
   var sc=document.getElementById('searchClose');if(sc)sc.addEventListener('click',closeSearch);
   var si=document.getElementById('kitSearch');
