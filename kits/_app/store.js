@@ -706,7 +706,7 @@ function renderColbar(){
     VIEW.col=b.dataset.fam||null;
     // jump every matching card to that colour so the grid reads as one coherent palette
     if(VIEW.col)Object.keys(BYKEY).forEach(function(k){var it=BYKEY[k],m=it&&itemFam(it)[VIEW.col];if(m)BCOL[k+'|'+fitOf(it)]=m;});
-    renderColbar();renderGrid();});});
+    renderColbar();renderGrid();renderFilterUI();});});
 }
 /* ---- Filters live behind one control ---------------------------------------------------------
    Fit, Colour and Budget used to sit permanently stacked under the category tabs. Measured on the
@@ -816,7 +816,7 @@ function renderSubchips(){var el=document.getElementById('subchips');if(!el)retu
   var h='<button class="schip'+(VIEW.sub==='all'?' on':'')+'" data-sub="all">All<span class="scn">'+TOTALS[VIEW.cat]+'</span></button>';
   h+=subs.map(function(s){return '<button class="schip'+(VIEW.sub===s?' on':'')+'" data-sub="'+esc(s)+'">'+esc(s)+'<span class="scn">'+BUCKETS[VIEW.cat][s].length+'</span></button>';}).join('');
   el.innerHTML=h;
-  renderFitbar();renderColbar();renderBandbar();
+  renderFitbar();renderColbar();renderBandbar();renderFilterUI();
   el.querySelectorAll('.schip').forEach(function(b){b.addEventListener('click',function(){setSub(b.dataset.sub);
     var tr=b.closest('.subchips');if(tr)tr.scrollTo({left:b.offsetLeft-tr.clientWidth/2+b.clientWidth/2,behavior:'smooth'});});});}
 function wireCards(){
