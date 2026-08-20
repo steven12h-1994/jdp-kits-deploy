@@ -1413,12 +1413,13 @@ function renderPromoSheet(){
       '<div class="shtrust">Minimum '+min+' pcs · free proof · no payment now</div>';
   }
   document.getElementById('sheet').innerHTML=
-    '<button class="shx" id="shx" aria-label="Close">✕</button>'+shareBtnHtml(SHEETKEY)+
+    '<button class="shx" id="shx" aria-label="Close">✕</button>'+
     '<div class="shscroll">'+
       '<div class="shimg"><div class="shstage"><img id="pmain" class="g" src="'+gurl(gal[gi])+'" alt="'+esc(item.name)+'"></div>'+thumbs+'</div>'+
       '<div class="shb">'+
         '<h2>'+esc(item.name)+'</h2>'+
-        '<div class="shsku">'+esc(item.brand||'')+(item.layer==='promo'?'':' · item '+esc(item.msku||item.sku))+'</div>'+
+        '<div class="shsku">'+esc(item.brand||'')+(item.layer==='promo'?'':' · item '+esc(item.msku||item.sku))+
+          shareBtnHtml(SHEETKEY)+'</div>'+
         '<div class="pprice"><b>'+money(q.perPiece)+'</b><span>per '+unitP+'</span></div>'+
         priceSub+
         (item.desc?'<p class="shblurb">'+esc(item.desc)+'</p>':'')+
@@ -1519,7 +1520,7 @@ function renderSheet(){
     ? '<div class="shprice"><span>'+q+' pcs × '+money(unit)+'/pc</span><b>'+money(line)+' total</b></div>'
     : '<div class="shprice under"><span>Minimum '+moq()+' pieces</span><b>add '+(moq()-q)+' more</b></div>';
   document.getElementById('sheet').innerHTML=
-    '<button class="shx" id="shx" aria-label="Close">✕</button>'+shareBtnHtml(SHEETKEY)+
+    '<button class="shx" id="shx" aria-label="Close">✕</button>'+
     '<div class="shscroll">'+
       '<div class="shimg" id="shimg"><div class="shstage"><img class="g" src="'+(SH.gimg?gurl(SH.gimg):o.g)+'" alt="">'+(SH.gimg?'':o.lg)+'</div>'+faceTog+'</div>'+
       galleryStrip(item)+
@@ -1527,7 +1528,7 @@ function renderSheet(){
         (item.scenic?'<button class="shworn" id="shworn" aria-label="See it worn"><img src="'+gurl(item.scenic)+'" alt="" loading="lazy"><span class="swt"><b>See it worn</b><i>real in-the-field photo</i></span><span class="swgo">→</span></button>':'')+
         (item.video?'<button class="vwatch" id="vwatch"><svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>Watch video</button>':'')+
       '</div>'):'')+
-      '<div class="shb"><h2>'+esc(item.name)+'</h2><div class="shsku">'+esc(item.sku)+(hasLadies(item)?(SH.fit==='womens'?' · Ladies’':' · Men’s'):(item.unisex?' · Unisex':''))+(item.layer==='field'&&item.csa?' · CSA hi-vis':'')+'</div>'+
+      '<div class="shb"><h2>'+esc(item.name)+'</h2><div class="shsku">'+esc(item.sku)+(hasLadies(item)?(SH.fit==='womens'?' · Ladies’':' · Men’s'):(item.unisex?' · Unisex':''))+(item.layer==='field'&&item.csa?' · CSA hi-vis':'')+shareBtnHtml(SHEETKEY)+'</div>'+
       '<div class="shfrom">from <b>'+money(fromP)+'</b> <small>/pc</small>'+(hasDecoPlace(item)?' · decorated':'')+'</div>'+
       (item.blurb?'<p class="shblurb">'+esc(item.blurb)+'</p>':'')+
       fitTog+step1+qtyGrp+primaryHtml+extraHtml+
