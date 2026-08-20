@@ -1573,6 +1573,10 @@ function renderPromoSheet(){
       '</div></div>'+
     '<div class="shfoot">'+footHtml+'</div>';
   var sh=document.getElementById('sheet');
+  // Re-render replaces this markup, so the sheet chrome must be re-bound every time, not just
+  // on open: clicking a colour swatch calls the renderer again and left Share and Back dead.
+  // The panel is dismissed too, since the link it was showing is for the previous colour.
+  closeShareMenu();wireShare(sh);wireBack(sh);
   document.getElementById('shx').addEventListener('click',closeAll);
   sh.querySelectorAll('.pthumb').forEach(function(b){b.addEventListener('click',function(){SH.gi=+b.dataset.i;var mi=document.getElementById('pmain');if(mi)mi.src=gurl(gal[SH.gi]);sh.querySelectorAll('.pthumb').forEach(function(x){x.classList.toggle('on',x===b);});});});
   sh.querySelectorAll('.pcol').forEach(function(b){b.addEventListener('click',function(){SH.colour=b.dataset.col;SH.gi=0;renderPromoSheet();});});
@@ -1679,6 +1683,10 @@ function renderSheet(){
       '<button class="shaddbtn" id="shAdd"'+(canAdd?'':' disabled')+'><span>'+(canAdd?(CART[SH.key]?'Update kit':'Add to kit'):('Add '+moq()+'+ pieces'))+'</span><span class="p">'+money(line)+'</span></button>'+
       '<div class="shtrust">✓ Live pricing · exact quote · no obligation · no payment now</div></div>';
   var sh=document.getElementById('sheet');
+  // Re-render replaces this markup, so the sheet chrome must be re-bound every time, not just
+  // on open: clicking a colour swatch calls the renderer again and left Share and Back dead.
+  // The panel is dismissed too, since the link it was showing is for the previous colour.
+  closeShareMenu();wireShare(sh);wireBack(sh);
   document.getElementById('shx').addEventListener('click',closeAll);
   var vw=document.getElementById('vwatch');if(vw)vw.addEventListener('click',function(){openVideo(item.video,item.name);});
   var sw=document.getElementById('shworn');if(sw)sw.addEventListener('click',function(){openScenic(gurl(item.scenic),item.name);});
