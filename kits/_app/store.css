@@ -844,3 +844,27 @@ main{padding:0 0 22px}
   .subrow{padding-right:10px}
   .fpills{padding:0 10px 8px}
 }
+
+/* ---- Share this item -------------------------------------------------------------------------
+   Sits beside the sheet's close button. Quiet until hovered: sharing is a deliberate act, not the
+   primary one, and the Add-to-kit button must stay the loudest thing on the sheet. */
+.shshare{position:absolute;top:12px;right:52px;z-index:6;display:inline-flex;align-items:center;gap:6px;
+  cursor:pointer;font:inherit;font-size:12px;font-weight:800;letter-spacing:.01em;color:var(--ink);
+  background:rgba(255,255,255,.92);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);
+  border:1.5px solid var(--line);border-radius:999px;padding:7px 12px;line-height:1}
+.shshare:hover{border-color:color-mix(in srgb,var(--a) 45%,#fff);color:var(--a)}
+.shshare:active{transform:scale(.97)}
+.shshare svg{opacity:.75}
+.shshare:hover svg{opacity:1}
+@media (max-width:640px){
+  .shshare{top:10px;right:48px;padding:7px 10px}
+  .shshare span{display:none}      /* the glyph is universally understood; the room is not spare */
+}
+
+/* Confirmation for the copy path — a click that does nothing visible reads as a broken button. */
+.jdptoast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,14px);z-index:200;
+  background:#141821;color:#fff;font-size:13.5px;font-weight:700;letter-spacing:-.01em;
+  padding:12px 20px;border-radius:999px;box-shadow:0 12px 34px rgba(16,18,22,.34);
+  opacity:0;pointer-events:none;transition:opacity .18s ease,transform .18s ease}
+.jdptoast.on{opacity:1;transform:translate(-50%,0)}
+@media (max-width:640px){.jdptoast{bottom:calc(18px + env(safe-area-inset-bottom));font-size:13px}}

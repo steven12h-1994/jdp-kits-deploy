@@ -719,7 +719,7 @@ function renderColbar(){
    is currently applied shown next to it as dismissable pills -- so the state is never hidden, only
    the controls are. The panel is a dropdown on desktop and a bottom sheet on the phone, which is
    where a thumb can actually reach it. */
-var FOPEN=false;
+var FOPEN=false,SHEETKEY='';
 function activeFilters(){
   var a=[];
   if(VIEW.fit&&VIEW.fit!=='all')a.push({k:'fit',label:VIEW.fit==='womens'?'Ladies’':'Men’s'});
@@ -1223,13 +1223,72 @@ function effQty(){var t=sizeTotal();return t>0?t:(SH.baseQty||0);}
 function nextTier(q){var t=CFG.pricing.cols||[];for(var i=0;i<t.length;i++){if(q<t[i])return t[i];}return null;}
 function savingsNudge(key,decos,q){var nt=nextTier(q);if(!nt)return null;var a=unitPrice(key,decos,q),b=unitPrice(key,decos,nt);var pct=a>0?Math.round((1-b/a)*100):0;if(pct<=0)return null;return {need:nt-q,tier:nt,pct:pct};}
 function sizesSummary(c){if(!c||!c.sizes)return '';return ALLSIZES.filter(function(s){return c.sizes[s];}).map(function(s){return s+' '+c.sizes[s];}).join(' · ');}
-function openSheet(key){
+/* ---- Share a product or a gift set --------------------------------------------------------
+   Steven: "What if I want to share a specific kit / product to a client." The deep link already
+   existed -- ?item=<key> is how the gift-set contents links work -- but there was no way for a
+   human to GET one. It was plumbing with no tap on it.
+
+   The link carries the COLOUR as well as the item, so a rep who sends "the Coastline in Cardinal
+   Red" gets a recipient looking at Cardinal Red, not at whatever the store would have defaulted to.
+   On a phone this opens the real OS share sheet (WhatsApp, Messages, email); everywhere else it
+   copies, with a toast so the click is never silent. */
+function shareUrlFor(key,colour){
+  var base=location.origin+location.pathname;
+  return base+'?item='+encodeURIComponent(key)+(colour?('&c='+encodeURIComponent(colour)):'');
+}
+function currentSheetColour(key){
+  if(SH&&SH.key===key&&SH.colour)return SH.colour;
+  var vm=(CFG.items||{})[key];
+  return (vm&&vm.colour)||((BYKEY[key]&&(BYKEY[key].cols||[])[0]||{}).name)||'';
+}
+function toast(msg){
+  var t=document.getElementById('jdptoast');
+  if(!t){t=document.createElement('div');t.id='jdptoast';t.className='jdptoast';document.body.appendChild(t);}
+  t.textContent=msg;t.classList.add('on');
+  clearTimeout(t._h);t._h=setTimeout(function(){t.classList.remove('on');},2400);
+}
+function shareItem(key){
+  var it=BYKEY[key];if(!it)return;
+  var colour=currentSheetColour(key),url=shareUrlFor(key,colour);
+  var title=it.name+(colour?(' — '+colour):'');
+  var text=title+' · '+(CFG.client||'our team store');
+  if(navigator.share){
+    navigator.share({title:title,text:text,url:url}).catch(function(){});
+    return;
+  }
+  var done=function(){toast('Link copied — opens straight to this item');};
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(url).then(done,function(){prompt('Copy this link:',url);});
+  }else{
+    // Older Safari and any non-secure context: a throwaway field is the only reliable path.
+    try{var ta=document.createElement('textarea');ta.value=url;ta.setAttribute('readonly','');
+      ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();
+      document.execCommand('copy');document.body.removeChild(ta);done();}
+    catch(e){prompt('Copy this link:',url);}
+  }
+}
+function shareBtnHtml(key){
+  return '<button class="shshare" data-share="'+esc(key)+'" aria-label="Share this item" title="Share this item">'+
+    '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" '+
+    'stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/>'+
+    '<circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg><span>Share</span></button>';
+}
+function wireShare(root){
+  (root||document).querySelectorAll('[data-share]').forEach(function(b){
+    if(b._w)return;b._w=1;
+    b.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();shareItem(b.dataset.share);});});
+}
+function openSheet(key,wantCol){
+  SHEETKEY=key;
   var item=BYKEY[key],vm=vmOf(key),ex=CART[key],exmap={};
+  // A shared link carries the colour the sender was looking at, so the recipient sees the same thing.
+  if(item&&wantCol){var _m=colInList(item.cols||[],wantCol);if(_m&&_m.name)wantCol=_m.name;else wantCol=null;}
   if(item&&item.layer==='promo'){   // promotional products: clean photo + colour + quantity + decoration
-    SH={key:key,promo:true,gi:0,colour:(ex&&ex.colour)||(item.cols[0]||{}).name,
+    SH={key:key,promo:true,gi:0,colour:wantCol||(ex&&ex.colour)||(item.cols[0]||{}).name,
         qty:(ex&&ex.qty)||item.moq||1,mi:(ex&&ex.mi)||0,locs:(ex&&ex.locs)||1};
     renderSheet();
-    document.getElementById('ov').classList.add('on');document.getElementById('sheet').classList.add('on');
+    wireShare(document.getElementById('sheet'));
+  document.getElementById('ov').classList.add('on');document.getElementById('sheet').classList.add('on');
     document.body.style.overflow='hidden';return;
   }
   if(ex&&ex.decos){ex.decos.forEach(function(d){exmap[d.pl]=d;});}
@@ -1354,7 +1413,7 @@ function renderPromoSheet(){
       '<div class="shtrust">Minimum '+min+' pcs · free proof · no payment now</div>';
   }
   document.getElementById('sheet').innerHTML=
-    '<button class="shx" id="shx" aria-label="Close">✕</button>'+
+    '<button class="shx" id="shx" aria-label="Close">✕</button>'+shareBtnHtml(SHEETKEY)+
     '<div class="shscroll">'+
       '<div class="shimg"><div class="shstage"><img id="pmain" class="g" src="'+gurl(gal[gi])+'" alt="'+esc(item.name)+'"></div>'+thumbs+'</div>'+
       '<div class="shb">'+
@@ -1460,7 +1519,7 @@ function renderSheet(){
     ? '<div class="shprice"><span>'+q+' pcs × '+money(unit)+'/pc</span><b>'+money(line)+' total</b></div>'
     : '<div class="shprice under"><span>Minimum '+moq()+' pieces</span><b>add '+(moq()-q)+' more</b></div>';
   document.getElementById('sheet').innerHTML=
-    '<button class="shx" id="shx" aria-label="Close">✕</button>'+
+    '<button class="shx" id="shx" aria-label="Close">✕</button>'+shareBtnHtml(SHEETKEY)+
     '<div class="shscroll">'+
       '<div class="shimg" id="shimg"><div class="shstage"><img class="g" src="'+(SH.gimg?gurl(SH.gimg):o.g)+'" alt="">'+(SH.gimg?'':o.lg)+'</div>'+faceTog+'</div>'+
       galleryStrip(item)+
@@ -1791,7 +1850,9 @@ function go(cfg){
       // the sheet opened against an unbuilt store and was wiped by the first render -- every ?item=
       // link, including every gift-set contents link, silently did nothing.
       try{var m=(location.search.match(/[?&]item=([^&#]+)/)||location.hash.match(/item=([^&#]+)/));
-        if(m){var k=decodeURIComponent(m[1]);if(BYKEY[k])openSheet(k);}}catch(e){}
+        if(m){var k=decodeURIComponent(m[1]);
+          var cm=(location.search.match(/[?&]c=([^&#]+)/)||location.hash.match(/[&#]c=([^&#]+)/));
+          if(BYKEY[k])openSheet(k,cm?decodeURIComponent(cm[1]):null);}}catch(e){}
     });
   }).catch(function(e){document.getElementById('app').innerHTML='<p style="padding:60px;text-align:center">Could not load the catalogue. Please refresh.</p>';});
 }
