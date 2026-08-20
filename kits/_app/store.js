@@ -1376,19 +1376,35 @@ function shareBtnHtml(key){
     'stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/>'+
     '<circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg><span>Share</span></button>';
 }
-function wireShare(root){
-  (root||document).querySelectorAll('[data-share]').forEach(function(b){
-    if(b._w)return;b._w=1;
-    b.addEventListener('click',function(e){
-      e.preventDefault();e.stopPropagation();
-      // On a phone the OS sheet IS the best experience, so go straight there. On a desktop, where
-      // there is room and where the paste target is Slack/Teams/Outlook, show the panel.
-      var touch=!!(window.matchMedia&&window.matchMedia('(pointer:coarse)').matches);
-      if(touch&&navigator.share){nativeShare(b.dataset.share);return;}
-      if(document.getElementById('shmenu')){closeShareMenu();return;}
-      openShareMenu(b.dataset.share,b);
-    });});
+/* DELEGATION, not per-element binding. Both product sheets rebuild their innerHTML whenever the
+   buyer changes colour, so every handler attached to a button inside them dies on the next render.
+   Re-binding after each render works only as long as every future render path remembers to do it --
+   and the colour swatch path did not, which is exactly why Share stopped responding after clicking a
+   colour. One listener on the document, matched with closest(), cannot be lost that way. */
+function onShareClick(b){
+  // On a phone the OS sheet IS the best experience, so go straight there. On a desktop, where
+  // there is room and the paste target is Slack/Teams/Outlook, show the panel.
+  var touch=!!(window.matchMedia&&window.matchMedia('(pointer:coarse)').matches);
+  if(touch&&navigator.share){nativeShare(b.getAttribute('data-share'));return;}
+  if(document.getElementById('shmenu')){closeShareMenu();return;}
+  openShareMenu(b.getAttribute('data-share'),b);
 }
+var _DELEG=false;
+function wireDelegates(){
+  if(_DELEG)return;_DELEG=true;
+  document.addEventListener('click',function(e){
+    if(!e.target||!e.target.closest)return;
+    var sb=e.target.closest('[data-share]');
+    if(sb){e.preventDefault();e.stopPropagation();onShareClick(sb);return;}
+    var bk=e.target.closest('[data-back]');
+    if(bk){e.preventDefault();e.stopPropagation();
+      var k=bk.getAttribute('data-back');FROMKEY='';openSheet(k);return;}
+    var it=e.target.closest('.pinc a[data-item]');
+    if(it){e.preventDefault();e.stopPropagation();
+      openSheet(it.getAttribute('data-item'),null,it.getAttribute('data-from')||'');return;}
+  });
+}
+function wireShare(root){wireDelegates();}
 /* Opening a component from a gift set used to be a one-way door: the sheet was replaced and the
    only route back was to close it and hunt for the kit again. FROMKEY remembers the set you came
    from so the component sheet can offer a labelled way back, and clicking it returns you to the
@@ -1401,12 +1417,7 @@ function backChipHtml(){
     'stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>'+
     'Back to '+esc(BYKEY[FROMKEY].name)+'</button>';
 }
-function wireBack(root){
-  (root||document).querySelectorAll('[data-back]').forEach(function(b){
-    if(b._w)return;b._w=1;
-    b.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();
-      var k=b.dataset.back;FROMKEY='';openSheet(k);});});
-}
+function wireBack(root){wireDelegates();}
 function openSheet(key,wantCol,fromKey){
   FROMKEY=(fromKey&&fromKey!==key)?fromKey:'';
   SHEETKEY=key;
@@ -1581,8 +1592,7 @@ function renderPromoSheet(){
   sh.querySelectorAll('.pthumb').forEach(function(b){b.addEventListener('click',function(){SH.gi=+b.dataset.i;var mi=document.getElementById('pmain');if(mi)mi.src=gurl(gal[SH.gi]);sh.querySelectorAll('.pthumb').forEach(function(x){x.classList.toggle('on',x===b);});});});
   sh.querySelectorAll('.pcol').forEach(function(b){b.addEventListener('click',function(){SH.colour=b.dataset.col;SH.gi=0;renderPromoSheet();});});
   // Jump straight from a gift set to any component it contains, in place, with no page reload.
-  sh.querySelectorAll('.pinc a[data-item]').forEach(function(a){a.addEventListener('click',function(e){
-    e.preventDefault();e.stopPropagation();openSheet(a.dataset.item,null,a.dataset.from||'');});});
+  // contents links are handled by the delegated listener in wireDelegates()
   sh.querySelectorAll('.pmeth').forEach(function(b){b.addEventListener('click',function(){SH.mi=+b.dataset.mi;renderPromoSheet();});});
   sh.querySelectorAll('.ploc').forEach(function(b){b.addEventListener('click',function(){SH.locs=+b.dataset.loc;renderPromoSheet();});});
   sh.querySelectorAll('.ppick').forEach(function(b){b.addEventListener('click',function(){SH.qty=+b.dataset.q;renderPromoSheet();});});
