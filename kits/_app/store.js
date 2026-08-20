@@ -660,6 +660,20 @@ function colourOK(list){
   if(!VIEW.col)return list;
   return list.filter(function(k){var it=BYKEY[k];return it&&itemFam(it)[VIEW.col];});}
 // Corporate gifting starts from a per-head budget, so let the buyer shop the band directly.
+/* What is actually IN the box, on the card itself. Scanning a hundred gift sets by hero photo alone
+   means opening every one to find out whether it has a bottle or a blanket in it.
+   Two accuracy notes, both from reading the real data:
+     * the piece COUNT used to include the gift box, so a "4 pieces" set handed the recipient three
+       things. `pieces` counts only what comes out of the box; the box is credited separately.
+     * component names are pre-shortened in the catalogue (`contents`), because deriving them in the
+       browser produced "Set · Set · Set" on the bar and tea sets. */
+function kitContentsHtml(item){
+  var c=item.contents||[];
+  if(!c.length&&!(item.includes||[]).length)return '';
+  var n=(item.pieces!=null)?item.pieces:(item.includes||[]).length;
+  var pill='<div class="mpcs">'+n+(n===1?' piece':' pieces')+(item.boxed?' + gift box':'')+'</div>';
+  return pill+(c.length?'<div class="minc">'+esc(c.join(' · '))+'</div>':'');
+}
 var BANDS=[['u50','Under $50',0,50],['50_75','$50-$75',50,75],['75_100','$75-$100',75,100],['o100','$100+',100,1e9]];
 function unitOf(it){return (it.layer==='promo')?(it.price_cad||0):(it.prices?it.prices[it.prices.length-1]:0);}
 function bandOK(list){
