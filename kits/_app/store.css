@@ -813,11 +813,10 @@ main{padding:0 0 22px}
 .fpill.alt{background:#fff;border-color:var(--line);color:var(--mut)}
 
 .fscrim{display:none}
-.fpanel{display:none;position:absolute;right:12px;top:100%;z-index:60;width:min(560px,calc(100vw - 24px));
+.fpanel{display:none;position:fixed;z-index:60;width:min(560px,calc(100vw - 24px));
   background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:0 18px 50px rgba(16,18,22,.18);
   overflow:hidden}
 .fpanel.on{display:block}
-.subbar{position:relative}
 .fphd{display:none}
 .fpbody{padding:12px 4px 4px}
 .fpbody .fitbar{padding:0 12px 10px}
@@ -832,8 +831,8 @@ main{padding:0 0 22px}
 @media (max-width:640px){
   .fpanel{position:fixed;left:0;right:0;bottom:0;top:auto;width:100%;max-height:78vh;
     border-radius:18px 18px 0 0;border-left:0;border-right:0;border-bottom:0;
-    display:flex;flex-direction:column;box-shadow:0 -14px 44px rgba(16,18,22,.22)}
-  .fpanel.on{display:flex}
+    box-shadow:0 -14px 44px rgba(16,18,22,.22)}
+  .fpanel.on{display:flex;flex-direction:column}
   .fphd{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 8px;
     font-size:15px;font-weight:800;letter-spacing:-.01em}
   .fpx{cursor:pointer;background:none;border:0;font-size:26px;line-height:1;color:var(--mut);padding:0 4px}

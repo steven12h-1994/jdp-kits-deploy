@@ -731,10 +731,19 @@ function clearFilter(k){
   if(k==='fit')VIEW.fit='all'; else if(k==='col')VIEW.col=null; else if(k==='band')VIEW.band=null;
   renderFitbar();renderColbar();renderBandbar();renderGrid();renderFilterUI();
 }
+function positionPanel(){
+  var p=document.getElementById('fpanel'),b=document.getElementById('fbtn');
+  if(!p||!b)return;
+  if(window.innerWidth<=640){p.style.top='';p.style.right='';p.style.left='';return;}
+  var r=b.getBoundingClientRect();
+  p.style.top=Math.round(r.bottom+8)+'px';
+  p.style.right=Math.max(12,Math.round(window.innerWidth-r.right))+'px';
+  p.style.left='auto';
+}
 function setFilters(open){
   FOPEN=!!open;
   var p=document.getElementById('fpanel'),b=document.getElementById('fbtn'),sc=document.getElementById('fscrim');
-  if(p)p.classList.toggle('on',FOPEN);
+  if(p){p.classList.toggle('on',FOPEN);if(FOPEN)positionPanel();}
   if(sc)sc.classList.toggle('on',FOPEN);
   if(b)b.setAttribute('aria-expanded',FOPEN?'true':'false');
   document.documentElement.classList.toggle('fopen',FOPEN);
@@ -778,6 +787,9 @@ function wireFilters(){
   if(clr)clr.addEventListener('click',function(){VIEW.fit='all';VIEW.col=null;VIEW.band=null;
     renderFitbar();renderColbar();renderBandbar();renderGrid();renderFilterUI();});
   document.addEventListener('keydown',function(e){if(e.key==='Escape'&&FOPEN)setFilters(false);});
+  // The button is sticky, so keep the dropdown attached to it as the page moves.
+  window.addEventListener('resize',function(){if(FOPEN)positionPanel();});
+  window.addEventListener('scroll',function(){if(FOPEN)positionPanel();},{passive:true});
   document.addEventListener('click',function(e){
     if(!FOPEN)return;
     var p=document.getElementById('fpanel');
@@ -1094,6 +1106,15 @@ function buildStore(){
    valueStripHtml()+
    shopCatsHtml()+
    '<div class="navwrap" id="navwrap">'+
+     '<div class="fscrim" id="fscrim"></div>'+
+     '<div class="fpanel" id="fpanel" role="dialog" aria-label="Filter products">'+
+       '<div class="fphd">Filter<button type="button" class="fpx" id="fpx" aria-label="Close">&times;</button></div>'+
+       '<div class="fpbody">'+
+         '<div class="fitbar" id="fitbar"></div><div class="fitbar colbar" id="colbar"></div>'+
+         '<div class="fitbar colbar" id="bandbar"></div></div>'+
+       '<div class="fpfoot"><button type="button" class="fclear" id="fclear">Clear all</button>'+
+         '<button type="button" class="fdone" id="fdone">Show results</button></div>'+
+     '</div>'+
      '<div class="filterbar"><div class="ctabsrow">'+
        '<div class="ctabs" id="ctabs"></div>'+
        '<button class="fsbtn" id="searchToggle" aria-label="Search products"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></button></div>'+
@@ -1105,15 +1126,7 @@ function buildStore(){
        '<div class="subrow"><div class="subchips" id="subchips"></div>'+
          '<button type="button" class="fbtn" id="fbtn" aria-expanded="false">Filters<i id="fcount"></i></button></div>'+
        '<div class="fpills" id="fpills"></div>'+
-       '<div class="fscrim" id="fscrim"></div>'+
-       '<div class="fpanel" id="fpanel">'+
-         '<div class="fphd">Filter<button type="button" class="fpx" id="fpx" aria-label="Close">&times;</button></div>'+
-         '<div class="fpbody">'+
-           '<div class="fitbar" id="fitbar"></div><div class="fitbar colbar" id="colbar"></div>'+
-           '<div class="fitbar colbar" id="bandbar"></div></div>'+
-         '<div class="fpfoot"><button type="button" class="fclear" id="fclear">Clear all</button>'+
-           '<button type="button" class="fdone" id="fdone">Show results</button></div>'+
-       '</div></div>'+
+       '</div>'+
    '</div>'+
    '<main class="w"><div class="gridhd" id="gridhd"></div><div class="grid" id="grid"></div>'+
      '<div class="noresults" id="noResults" style="display:none">No products match your search. Try another term.</div></main>'+
