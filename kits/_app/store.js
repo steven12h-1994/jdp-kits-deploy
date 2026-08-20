@@ -1247,25 +1247,42 @@ function toast(msg){
   t.textContent=msg;t.classList.add('on');
   clearTimeout(t._h);t._h=setTimeout(function(){t.classList.remove('on');},2400);
 }
+function copyLink(url){
+  var done=function(){toast('Link copied — opens straight to this item');};
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(url).then(done,function(){legacyCopy(url,done);});
+  }else legacyCopy(url,done);
+}
+function legacyCopy(url,done){
+  // Older Safari and any non-secure context: a throwaway field is the only reliable path.
+  try{var ta=document.createElement('textarea');ta.value=url;ta.setAttribute('readonly','');
+    ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();
+    ta.setSelectionRange(0,99999);document.execCommand('copy');document.body.removeChild(ta);done();}
+  catch(e){prompt('Copy this link:',url);}
+}
 function shareItem(key){
   var it=BYKEY[key];if(!it)return;
   var colour=currentSheetColour(key),url=shareUrlFor(key,colour);
   var title=it.name+(colour?(' — '+colour):'');
   var text=title+' · '+(CFG.client||'our team store');
-  if(navigator.share){
-    navigator.share({title:title,text:text,url:url}).catch(function(){});
+  /* The OS share sheet is right on a phone and wrong on a desktop: Chrome on Windows exposes
+     navigator.share but frequently rejects it, and the first version swallowed that rejection, so
+     the button did nothing at all. Native is now used only where there is a touch pointer, and ANY
+     failure other than the user deliberately cancelling falls through to copying. A share control
+     must never be able to do nothing. */
+  var touch=!!(window.matchMedia&&window.matchMedia('(pointer:coarse)').matches);
+  var canNative=!!navigator.share&&touch&&(!navigator.canShare||navigator.canShare({url:url}));
+  if(canNative){
+    try{
+      var p=navigator.share({title:title,text:text,url:url});
+      if(p&&p.catch)p.catch(function(err){
+        if(err&&err.name==='AbortError')return;      // the user closed the share sheet: respect it
+        copyLink(url);
+      });
+    }catch(e){copyLink(url);}
     return;
   }
-  var done=function(){toast('Link copied — opens straight to this item');};
-  if(navigator.clipboard&&navigator.clipboard.writeText){
-    navigator.clipboard.writeText(url).then(done,function(){prompt('Copy this link:',url);});
-  }else{
-    // Older Safari and any non-secure context: a throwaway field is the only reliable path.
-    try{var ta=document.createElement('textarea');ta.value=url;ta.setAttribute('readonly','');
-      ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();
-      document.execCommand('copy');document.body.removeChild(ta);done();}
-    catch(e){prompt('Copy this link:',url);}
-  }
+  copyLink(url);
 }
 function shareBtnHtml(key){
   return '<button class="shshare" data-share="'+esc(key)+'" aria-label="Share this item" title="Share this item">'+
