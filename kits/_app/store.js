@@ -1260,6 +1260,84 @@ function legacyCopy(url,done){
     ta.setSelectionRange(0,99999);document.execCommand('copy');document.body.removeChild(ta);done();}
   catch(e){prompt('Copy this link:',url);}
 }
+/* A single copy button was not enough. Steven: "the sharing experience is terrible. optimize so we
+   boost co workers sharing product links with each other." Two things were wrong with it:
+
+     1. Nothing was VISIBLE. You clicked, a toast said "copied", and you had to trust it. People do
+        not forward a link they have not seen, and there was no way to check it before pasting.
+     2. Copy was the only route. The realistic ways a colleague passes a product around are a chat
+        paste and an email — and email deserves to arrive written, not blank.
+
+   So Share now opens a small panel showing the actual URL with a Copy button beside it, plus Email
+   (subject and body pre-written with the product, colour, price and link) and, where the OS can do
+   it, the native share sheet. The link is selectable text, so even if every button failed a person
+   could still read it off the screen and send it. */
+function shareMenuHtml(key){
+  var it=BYKEY[key];if(!it)return '';
+  var colour=currentSheetColour(key),url=shareUrlFor(key,colour);
+  return '<div class="shmenu" id="shmenu">'+
+    '<div class="shmt">Share this item</div>'+
+    '<div class="shmrow"><input class="shmurl" id="shmurl" readonly value="'+esc(url)+'">'+
+      '<button class="shmcopy" data-copy="'+esc(url)+'">Copy</button></div>'+
+    '<div class="shmacts">'+
+      '<button class="shma" data-email="'+esc(key)+'">'+
+        '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" '+
+        'stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="4.5" width="19" height="15" rx="2"/>'+
+        '<path d="M3 6l9 6 9-6"/></svg>Email it</button>'+
+      (navigator.share?('<button class="shma" data-native="'+esc(key)+'">'+
+        '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" '+
+        'stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M8 8l4-4 4 4"/>'+
+        '<path d="M4 14v4a2 2 0 002 2h12a2 2 0 002-2v-4"/></svg>More…</button>'):'')+
+    '</div>'+
+    '<div class="shmnote">Opens straight to this item'+(colour?(' in '+esc(colour)):'')+'.</div>'+
+  '</div>';
+}
+function shareEmail(key){
+  var it=BYKEY[key];if(!it)return;
+  var colour=currentSheetColour(key),url=shareUrlFor(key,colour);
+  var price=(it.layer==='promo')?money(it.price_cad):money(it.blank||it.price_cad||0);
+  var subj=it.name+' — '+(CFG.client||'team store');
+  var body=['Have a look at this one:','',it.name+(colour?(' — '+colour):''),
+            price+' per '+(it.unit==='dozen'?'dozen':'pc')+(it.moq?(' · minimum '+it.moq):''),
+            '',url,'','Logo and final pricing are confirmed on the quote — free proof, no obligation.'].join('\n');
+  location.href='mailto:?subject='+encodeURIComponent(subj)+'&body='+encodeURIComponent(body);
+}
+function closeShareMenu(){
+  var m=document.getElementById('shmenu');if(m&&m.parentNode)m.parentNode.removeChild(m);
+  document.removeEventListener('click',_shOutside,true);
+}
+function _shOutside(e){
+  var m=document.getElementById('shmenu');
+  if(m&&!m.contains(e.target)&&!(e.target.closest&&e.target.closest('[data-share]')))closeShareMenu();
+}
+function openShareMenu(key,btn){
+  closeShareMenu();
+  var wrap=btn.parentNode;
+  if(wrap&&getComputedStyle(wrap).position==='static')wrap.style.position='relative';
+  btn.insertAdjacentHTML('afterend',shareMenuHtml(key));
+  var m=document.getElementById('shmenu');if(!m)return;
+  var inp=document.getElementById('shmurl');
+  if(inp){inp.addEventListener('click',function(){inp.select();});}
+  m.querySelectorAll('[data-copy]').forEach(function(b){b.addEventListener('click',function(e){
+    e.preventDefault();e.stopPropagation();copyLink(b.dataset.copy);b.textContent='Copied';
+    setTimeout(function(){b.textContent='Copy';},1800);});});
+  m.querySelectorAll('[data-email]').forEach(function(b){b.addEventListener('click',function(e){
+    e.preventDefault();e.stopPropagation();shareEmail(b.dataset.email);closeShareMenu();});});
+  m.querySelectorAll('[data-native]').forEach(function(b){b.addEventListener('click',function(e){
+    e.preventDefault();e.stopPropagation();closeShareMenu();nativeShare(b.dataset.native);});});
+  setTimeout(function(){document.addEventListener('click',_shOutside,true);},0);
+}
+function nativeShare(key){
+  var it=BYKEY[key];if(!it)return;
+  var colour=currentSheetColour(key),url=shareUrlFor(key,colour);
+  var title=it.name+(colour?(' — '+colour):'');
+  try{
+    var p=navigator.share({title:title,text:title+' · '+(CFG.client||'our team store'),url:url});
+    if(p&&p.catch)p.catch(function(err){
+      if(err&&err.name==='AbortError')return;      // the user closed the share sheet: respect it
+      copyLink(url);});
+  }catch(e){copyLink(url);}
+}
 function shareItem(key){
   var it=BYKEY[key];if(!it)return;
   var colour=currentSheetColour(key),url=shareUrlFor(key,colour);
@@ -1293,9 +1371,36 @@ function shareBtnHtml(key){
 function wireShare(root){
   (root||document).querySelectorAll('[data-share]').forEach(function(b){
     if(b._w)return;b._w=1;
-    b.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();shareItem(b.dataset.share);});});
+    b.addEventListener('click',function(e){
+      e.preventDefault();e.stopPropagation();
+      // On a phone the OS sheet IS the best experience, so go straight there. On a desktop, where
+      // there is room and where the paste target is Slack/Teams/Outlook, show the panel.
+      var touch=!!(window.matchMedia&&window.matchMedia('(pointer:coarse)').matches);
+      if(touch&&navigator.share){nativeShare(b.dataset.share);return;}
+      if(document.getElementById('shmenu')){closeShareMenu();return;}
+      openShareMenu(b.dataset.share,b);
+    });});
 }
-function openSheet(key,wantCol){
+/* Opening a component from a gift set used to be a one-way door: the sheet was replaced and the
+   only route back was to close it and hunt for the kit again. FROMKEY remembers the set you came
+   from so the component sheet can offer a labelled way back, and clicking it returns you to the
+   kit rather than to a blank page. */
+var FROMKEY='';
+function backChipHtml(){
+  if(!FROMKEY||!BYKEY[FROMKEY])return '';
+  return '<button class="shback" data-back="'+esc(FROMKEY)+'">'+
+    '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" '+
+    'stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>'+
+    'Back to '+esc(BYKEY[FROMKEY].name)+'</button>';
+}
+function wireBack(root){
+  (root||document).querySelectorAll('[data-back]').forEach(function(b){
+    if(b._w)return;b._w=1;
+    b.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();
+      var k=b.dataset.back;FROMKEY='';openSheet(k);});});
+}
+function openSheet(key,wantCol,fromKey){
+  FROMKEY=(fromKey&&fromKey!==key)?fromKey:'';
   SHEETKEY=key;
   var item=BYKEY[key],vm=vmOf(key),ex=CART[key],exmap={};
   // A shared link carries the colour the sender was looking at, so the recipient sees the same thing.
@@ -1304,7 +1409,7 @@ function openSheet(key,wantCol){
     SH={key:key,promo:true,gi:0,colour:wantCol||(ex&&ex.colour)||(item.cols[0]||{}).name,
         qty:(ex&&ex.qty)||item.moq||1,mi:(ex&&ex.mi)||0,locs:(ex&&ex.locs)||1};
     renderSheet();
-    wireShare(document.getElementById('sheet'));
+    wireShare(document.getElementById('sheet'));wireBack(document.getElementById('sheet'));
   document.getElementById('ov').classList.add('on');document.getElementById('sheet').classList.add('on');
     document.body.style.overflow='hidden';return;
   }
@@ -1389,15 +1494,26 @@ function renderPromoSheet(){
   if(isDQ){
     var multi=(q.tiers&&q.tiers.length>1);
     priceSub='<div class="pprice-sub">'+(multi?'Order more, pay less per '+unitP:'Your price per '+unitP)+' · your logo added at proof</div>';
-    // What's in the box. A gift set is bought on its CONTENTS, so list them; link any component we
-    // actually stock (matched on vendor SKU) and leave the rest as plain text rather than a dead link.
-    var incHtml='';
+    /* What's in the box. A gift set is bought on its CONTENTS, so list them and link each one.
+       PACKAGING IS NOT A PRODUCT. The P-series gift box was previously listed as the first row of
+       every set, where it was the one entry that could not be clicked -- Steven read that, quite
+       reasonably, as "the first item in the kit is not clickable". A box has no product page, so it
+       is now credited on its own line underneath instead of sitting in a list of things you can
+       open. Every row that remains is clickable. */
+    var incHtml='',_pkg=/\b(gift box|giftbox|magnetic box|crate|packaging|mailer box)\b/i;
     if(item.includes&&item.includes.length){
-      incHtml='<div class="pgrp"><div class="pgl">Gift set includes</div><ul class="pinc">'+item.includes.map(function(x){
-        var hit=null;for(var k in BYKEY){if((BYKEY[k].msku||'').toUpperCase()===String(x.sku||'').toUpperCase()){hit=k;break;}}
-        var txt=esc(x.desc||x.sku||'');
-        return '<li>'+(hit?('<a href="?item='+encodeURIComponent(hit)+'" data-item="'+esc(hit)+'">'+txt+'</a>'):txt)+
-               (x.sku?(' <small>'+esc(x.sku)+'</small>'):'')+'</li>';}).join('')+'</ul></div>';}
+      var real=item.includes.filter(function(x){
+        return !(_pkg.test(x.desc||'')||/^P\d/i.test(x.sku||''));});
+      var boxes=item.includes.filter(function(x){
+        return _pkg.test(x.desc||'')||/^P\d/i.test(x.sku||'');});
+      if(real.length){
+        incHtml='<div class="pgrp"><div class="pgl">Gift set includes</div><ul class="pinc">'+real.map(function(x){
+          var hit=null;for(var k in BYKEY){if((BYKEY[k].msku||'').toUpperCase()===String(x.sku||'').toUpperCase()){hit=k;break;}}
+          var txt=esc(x.desc||x.sku||'');
+          return '<li>'+(hit?('<a href="?item='+encodeURIComponent(hit)+'" data-item="'+esc(hit)+'" data-from="'+esc(SHEETKEY)+'">'+txt+'</a>'):txt)+
+                 (x.sku?(' <small>'+esc(x.sku)+'</small>'):'')+'</li>';}).join('')+'</ul>'+
+          (boxes.length?('<div class="pboxnote">Presented in a '+esc((boxes[0].desc||'gift box').toLowerCase())+'</div>'):'')+
+          '</div>';}}
     logoGrp=incHtml+'<div class="pgrp"><div class="pgl">Your logo</div><div class="qlogo"><span class="pinci">✓</span> Add your logo — we’ll email a <b>free proof</b> and confirm decoration &amp; setup on your quote.</div></div>';
     var tq=(q.tiers&&q.tiers.length)?q.tiers.map(function(t){return t.q;}):promoTiers(min);
     // Show the BREAK RANGE, not just its opening number: the vendor's own table reads "6 - 47" then
@@ -1430,7 +1546,7 @@ function renderPromoSheet(){
       '<div class="shtrust">Minimum '+min+' pcs · free proof · no payment now</div>';
   }
   document.getElementById('sheet').innerHTML=
-    '<button class="shx" id="shx" aria-label="Close">✕</button>'+
+    '<button class="shx" id="shx" aria-label="Close">✕</button>'+backChipHtml()+
     '<div class="shscroll">'+
       '<div class="shimg"><div class="shstage"><img id="pmain" class="g" src="'+gurl(gal[gi])+'" alt="'+esc(item.name)+'"></div>'+thumbs+'</div>'+
       '<div class="shb">'+
@@ -1454,7 +1570,7 @@ function renderPromoSheet(){
   sh.querySelectorAll('.pcol').forEach(function(b){b.addEventListener('click',function(){SH.colour=b.dataset.col;SH.gi=0;renderPromoSheet();});});
   // Jump straight from a gift set to any component it contains, in place, with no page reload.
   sh.querySelectorAll('.pinc a[data-item]').forEach(function(a){a.addEventListener('click',function(e){
-    e.preventDefault();e.stopPropagation();openSheet(a.dataset.item);});});
+    e.preventDefault();e.stopPropagation();openSheet(a.dataset.item,null,a.dataset.from||'');});});
   sh.querySelectorAll('.pmeth').forEach(function(b){b.addEventListener('click',function(){SH.mi=+b.dataset.mi;renderPromoSheet();});});
   sh.querySelectorAll('.ploc').forEach(function(b){b.addEventListener('click',function(){SH.locs=+b.dataset.loc;renderPromoSheet();});});
   sh.querySelectorAll('.ppick').forEach(function(b){b.addEventListener('click',function(){SH.qty=+b.dataset.q;renderPromoSheet();});});
@@ -1537,7 +1653,7 @@ function renderSheet(){
     ? '<div class="shprice"><span>'+q+' pcs × '+money(unit)+'/pc</span><b>'+money(line)+' total</b></div>'
     : '<div class="shprice under"><span>Minimum '+moq()+' pieces</span><b>add '+(moq()-q)+' more</b></div>';
   document.getElementById('sheet').innerHTML=
-    '<button class="shx" id="shx" aria-label="Close">✕</button>'+
+    '<button class="shx" id="shx" aria-label="Close">✕</button>'+backChipHtml()+
     '<div class="shscroll">'+
       '<div class="shimg" id="shimg"><div class="shstage"><img class="g" src="'+(SH.gimg?gurl(SH.gimg):o.g)+'" alt="">'+(SH.gimg?'':o.lg)+'</div>'+faceTog+'</div>'+
       galleryStrip(item)+
