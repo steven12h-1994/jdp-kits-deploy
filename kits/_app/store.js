@@ -1272,6 +1272,14 @@ function legacyCopy(url,done){
    (subject and body pre-written with the product, colour, price and link) and, where the OS can do
    it, the native share sheet. The link is selectable text, so even if every button failed a person
    could still read it off the screen and send it. */
+/* Vendor box descriptions carry fitment jargon meant for the warehouse -- "SMALL JOURNAL GIFT BOX
+   TUMBLER CUTOUT". A buyer only needs to know a gift box is included, so trim everything after the
+   word "box". */
+function boxName(desc){
+  var d=String(desc||'gift box').toLowerCase().replace(/\s+/g,' ').trim();
+  var m=d.match(/^(.*?\bbox)\b/);
+  return (m?m[1]:d).trim()||'gift box';
+}
 function shareMenuHtml(key){
   var it=BYKEY[key];if(!it)return '';
   var colour=currentSheetColour(key),url=shareUrlFor(key,colour);
@@ -1512,7 +1520,7 @@ function renderPromoSheet(){
           var txt=esc(x.desc||x.sku||'');
           return '<li>'+(hit?('<a href="?item='+encodeURIComponent(hit)+'" data-item="'+esc(hit)+'" data-from="'+esc(SHEETKEY)+'">'+txt+'</a>'):txt)+
                  (x.sku?(' <small>'+esc(x.sku)+'</small>'):'')+'</li>';}).join('')+'</ul>'+
-          (boxes.length?('<div class="pboxnote">Presented in a '+esc((boxes[0].desc||'gift box').toLowerCase())+'</div>'):'')+
+          (boxes.length?('<div class="pboxnote">Presented in a '+esc(boxName(boxes[0].desc))+'</div>'):'')+
           '</div>';}}
     logoGrp=incHtml+'<div class="pgrp"><div class="pgl">Your logo</div><div class="qlogo"><span class="pinci">✓</span> Add your logo — we’ll email a <b>free proof</b> and confirm decoration &amp; setup on your quote.</div></div>';
     var tq=(q.tiers&&q.tiers.length)?q.tiers.map(function(t){return t.q;}):promoTiers(min);
