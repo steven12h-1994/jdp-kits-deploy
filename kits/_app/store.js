@@ -778,6 +778,12 @@ function renderFilterUI(){
 }
 function wireFilters(){
   var btn=document.getElementById('fbtn');if(!btn||btn._w)return;btn._w=1;
+  // Re-home the sheet and its backdrop on BODY. Anywhere inside .navwrap they are trapped: that
+  // element carries backdrop-filter, which makes it the containing block for position:fixed, so a
+  // "full screen" scrim covered only the header strip and the bottom sheet anchored to it.
+  ['fpanel','fscrim'].forEach(function(id){
+    var el=document.getElementById(id);
+    if(el&&el.parentNode!==document.body)document.body.appendChild(el);});
   btn.addEventListener('click',function(e){e.stopPropagation();setFilters(!FOPEN);});
   ['fpx','fdone'].forEach(function(id){var el=document.getElementById(id);
     if(el)el.addEventListener('click',function(){setFilters(false);});});
