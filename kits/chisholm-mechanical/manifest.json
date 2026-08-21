@@ -1,16 +1,16 @@
 {
   "generator": "client-app",
-  "version": "1787316002",
-  "slug": "medatech",
-  "client": "MEDATech",
+  "version": "1787315849",
+  "slug": "chisholm-mechanical",
+  "client": "Chisholm Mechanical",
   "files": [
     "index.html",
     "client.json",
     "img/favicon.png",
-    "img/lg_full_033962.png",
-    "img/lg_full_3e6784.png",
+    "img/lg_full_3b379c.png",
     "img/lg_full_brand.png",
     "img/lg_full_dark.png",
+    "img/lg_full_f72721.png",
     "img/lg_full_white.png",
     "img/logo-white.png"
   ]

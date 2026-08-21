@@ -1,14 +1,13 @@
 {
   "generator": "client-app",
-  "version": "1787316002",
-  "slug": "medatech",
-  "client": "MEDATech",
+  "version": "1787315831",
+  "slug": "loomex-group",
+  "client": "The Loomex Group Ltd.",
   "files": [
     "index.html",
     "client.json",
     "img/favicon.png",
-    "img/lg_full_033962.png",
-    "img/lg_full_3e6784.png",
+    "img/lg_full_00a06e.png",
     "img/lg_full_brand.png",
     "img/lg_full_dark.png",
     "img/lg_full_white.png",
