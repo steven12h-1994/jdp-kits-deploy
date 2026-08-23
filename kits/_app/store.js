@@ -225,6 +225,9 @@ function inkUrl(logo,ink,col,method){var t=(ink&&ink!=='auto')?ink:autoInkFor(me
 function gurl(f){return CFG.catalog_base+'/img/'+f+(CATVER?((f.indexOf('?')<0?'?':'&')+'v='+CATVER):'');}
 function colOf(item,name){for(var i=0;i<item.cols.length;i++)if(item.cols[i].name===name)return item.cols[i];return item.cols[0];}
 function colInList(cols,name){for(var i=0;i<cols.length;i++)if(cols[i].name===name)return cols[i];return cols[0];}
+// colInList falls back to cols[0] so callers always have something to render. When the question is
+// "does this set actually contain that colour", that fallback is a wrong answer -- hence this.
+function hasCol(cols,name){for(var i=0;i<(cols||[]).length;i++)if(cols[i].name===name)return true;return false;}
 function curColsOf(item,fit){return (fit==='womens'&&item.wcols&&item.wcols.length)?item.wcols:item.cols;}
 function placeOf(item,pid){for(var i=0;i<item.places.length;i++)if(item.places[i].id===pid)return item.places[i];return null;}
 function vmOf(key){return (CFG.items||{})[key]||{colour:(BYKEY[key].cols[0]||{}).name,decos:[]};}
@@ -1494,7 +1497,8 @@ function openSheet(key,wantCol,fromKey){
   SHEETKEY=key;
   var item=BYKEY[key],vm=vmOf(key),ex=CART[key],exmap={};
   // A shared link carries the colour the sender was looking at, so the recipient sees the same thing.
-  if(item&&wantCol){var _m=colInList(item.cols||[],wantCol);if(_m&&_m.name)wantCol=_m.name;else wantCol=null;}
+  // A shared link may name a colour that only exists in the ladies' cut, so check both sets.
+  if(item&&wantCol&&!hasCol(item.cols,wantCol)&&!hasCol(item.wcols,wantCol))wantCol=null;
   if(item&&item.layer==='promo'){   // promotional products: clean photo + colour + quantity + decoration
     SH={key:key,promo:true,gi:0,colour:wantCol||(ex&&ex.colour)||(item.cols[0]||{}).name,
         qty:(ex&&ex.qty)||item.moq||1,mi:(ex&&ex.mi)||0,locs:(ex&&ex.locs)||1};
@@ -1507,7 +1511,14 @@ function openSheet(key,wantCol,fromKey){
   // Size breakdown is the ONLY quantity control. baseQty preserves the count of an item that was
   // quick-started without a size split (e.g. the recommended kit) so reopening it doesn't lose it.
   var exfit=(ex&&ex.fit)||fitOf(item);
-  SH={key:key,colour:(ex&&ex.colour)||BCOL[key+'|'+exfit]||vm.colour,face:'front',gimg:null,D:{},showExtra:false,sizes:{},fit:exfit,baseQty:ex?(ex.sizes?0:(ex.qty||moq())):moq()};
+  // Follow a shared link's colour into the cut that actually has it: a rep who sends the ladies'
+  // Valor Blue must not land the recipient on the men's default. Without this the whole ?c= half of
+  // every share link was dead for apparel -- only promo items ever read it.
+  if(wantCol&&!hasCol(curColsOf(item,exfit),wantCol)){
+    var _oth=(exfit==='womens')?'mens':'womens';
+    if(hasCol(curColsOf(item,_oth),wantCol))exfit=_oth;
+  }
+  SH={key:key,colour:wantCol||(ex&&ex.colour)||BCOL[key+'|'+exfit]||vm.colour,face:'front',gimg:null,D:{},showExtra:false,sizes:{},fit:exfit,baseQty:ex?(ex.sizes?0:(ex.qty||moq())):moq()};
   // if the saved colour isn't in the active fit's colour set, fall back to that set's first colour
   var _cc=curColsOf(item,SH.fit);if(!colInList(_cc,SH.colour)||colInList(_cc,SH.colour).name!==SH.colour)SH.colour=_cc[0].name;
   sheetSizes().forEach(function(s){SH.sizes[s]=(ex&&ex.sizes&&ex.sizes[s])||0;});
