@@ -904,3 +904,31 @@ main{padding:0 0 22px}
   .shmenu{right:auto;left:0;width:min(320px,calc(100vw - 32px))}
   .shback{max-width:52%;font-size:11px;padding:6px 10px 6px 8px}
 }
+
+/* ---- Fabric & construction ------------------------------------------------------------------
+   Replaces an emoji pill that sat in the CSA safety-badge style. Reads as a spec table because that
+   is what it is: every figure here is the maker's own published number.
+   Palette follows the JDP house identity -- warm canvas, condensed industrial caps, amber rule --
+   so it reads as part of the product sheet rather than a component borrowed from another site. */
+.mfab{margin-top:6px;font-size:11.5px;line-height:1.35;color:var(--mut);letter-spacing:.005em}
+.fabblk{margin:18px 0 4px;padding:15px 16px;background:linear-gradient(180deg,#fffdf9,#fbf7ef);
+  border:1px solid var(--line);border-left:3px solid var(--amber);border-radius:12px}
+.fabhd{font-family:var(--disp);font-size:13px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--mut);margin-bottom:12px}
+/* The proportional bar: shape carries the meaning before any number is read. */
+.fbar{display:flex;height:10px;border-radius:999px;overflow:hidden;background:var(--canvas);
+  box-shadow:inset 0 0 0 1px rgba(28,22,12,.07)}
+.fbar span{display:block;height:100%}
+.fleg{display:flex;flex-wrap:wrap;gap:5px 16px;margin-top:11px}
+.fleg span{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--ink);line-height:1.3}
+.fleg i{width:9px;height:9px;border-radius:2px;flex:none;box-shadow:inset 0 0 0 1px rgba(28,22,12,.14)}
+.fleg b{font-weight:800}
+.frw{display:flex;justify-content:space-between;gap:14px;margin-top:9px;padding-top:9px;
+  border-top:1px solid var(--line);font-size:12.5px}
+.frw span{color:var(--mut);font-weight:600}
+.frw b{font-weight:700;color:var(--ink);text-align:right}
+.ftags{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.ftags span{font-size:11px;font-weight:700;color:var(--ink);background:#fff;
+  border:1px solid var(--line);border-radius:999px;padding:4px 10px;line-height:1}
+.fabsrc{margin-top:11px;font-size:10.5px;color:var(--mut);opacity:.85}
+@media (max-width:640px){.fabblk{padding:13px 14px}.fleg{gap:5px 12px}}

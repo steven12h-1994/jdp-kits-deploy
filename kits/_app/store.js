@@ -323,9 +323,10 @@ function menuCard(key){
   // Class badge: a specific published class reads bold; styles whose maker publishes only the generic
   // "meets CSA" claim (no class number) render muted — we never invent a class.
   var csa=item.csa?'<span class="mcsa'+(/^Meets/.test(item.csa)?' gen':'')+'" title="'+(/^Meets/.test(item.csa)?'Certified high-visibility apparel — ask us to confirm the exact class for your job':'Certified high-visibility rating')+'">🛡 '+esc(item.csa)+'</span>':'';
-  // Fabric chip: shoppers hunting for a *cotton* polo need to see it on the tile, not three clicks deep.
-  // Reuses the muted badge style so it reads as spec, not a safety rating.
-  var fab=item.fabric?'<span class="mcsa gen" title="Fabric content as published by the maker">\ud83e\uddf5 '+esc(item.fabric)+'</span>':'';
+  // A typographic spec line, not a badge: fabric is information, not a safety rating, and the
+  // emoji pill it shared with the CSA rating read as clip-art on a B2B storefront.
+  var _fl=fabLine(item);
+  var fab=_fl?'<div class="mfab" title="Fabric content as published by the maker">'+esc(_fl)+'</div>':'';
   var q=CART[key]?CART[key].qty:0;
   var inkit=q?' inkit':'';
   var addlbl=q?('<b>'+q+'</b>'):'+';
@@ -484,6 +485,10 @@ function headwearSub(n){
   return 'Caps & Hats';
 }
 function classify(it){
+  // A kit that references a product the catalogue no longer carries must degrade to "not shown",
+  // never throw: this runs inside the filter that builds every grid, so one stale key would take
+  // the whole storefront down rather than hide one card.
+  if(!it)return {mega:'accessories',sub:'Other'};
   var layer=it.layer,n=((it.name||'')+' '+(it.key||'')).toLowerCase();
   // PPE on the promo/quote-mode pricing path must NOT land in Accessories. Hard hats are CSA/ANSI
   // rated head protection bought by a safety manager, so they belong beside hi-vis. Keys off pmega
@@ -1280,6 +1285,72 @@ function boxName(desc){
   var m=d.match(/^(.*?\bbox)\b/);
   return (m?m[1]:d).trim()||'gift box';
 }
+/* ---- Fabric, presented like a spec sheet rather than a sticker ------------------------------
+   Fabric used to be a beige pill with a thread emoji, borrowed from the CSA safety-badge style, and
+   it appeared ONLY on the grid tile -- the product sheet, where a buyer actually decides, said
+   nothing about what the garment is made of. For a polo programme that is the single most asked
+   question after price.
+
+   The composition is now drawn as a proportional bar. A buyer reads "mostly cotton with a little
+   stretch" from the shape before reading a single number, and the numbers are the maker's own
+   published percentages, not a description we wrote. Weight and construction sit beside it as plain
+   spec rows, and genuine published finishes appear as small tags. */
+var FIBRE_COLS={
+  cotton:'#D9C7A7','organic cotton':'#D9C7A7','certified cotton':'#D9C7A7','ringspun cotton':'#D9C7A7',
+  polyester:'#8794A5','recycled polyester':'#6F9E9B',rpet:'#6F9E9B',
+  spandex:'#B08BBF',elastane:'#B08BBF',lycra:'#B08BBF',
+  nylon:'#6E8CA0',polyamide:'#6E8CA0',
+  wool:'#B9A38C',merino:'#B9A38C',
+  rayon:'#9FB49A',viscose:'#9FB49A',modal:'#9FB49A',bamboo:'#9FB49A',tencel:'#9FB49A',
+  linen:'#CBBFA0',acrylic:'#A8A2B8'
+};
+var FIBRE_KEYS=Object.keys(FIBRE_COLS).sort(function(a,b){return b.length-a.length;});
+function fibreColour(name){
+  // Longest key first: "recycled polyester" contains "polyester", and insertion order would hand
+  // recycled content the plain-polyester grey.
+  var n=String(name||'').toLowerCase().trim();
+  if(FIBRE_COLS[n])return FIBRE_COLS[n];
+  for(var i=0;i<FIBRE_KEYS.length;i++)if(n.indexOf(FIBRE_KEYS[i])>=0)return FIBRE_COLS[FIBRE_KEYS[i]];
+  return '#BFC5CC';
+}
+/* Accepts the structured `fab` built from maker spec tables, and falls back to parsing the older
+   plain string so nothing goes blank while the data is still being filled in. */
+function fabMix(item){
+  if(item.fab&&item.fab.mix&&item.fab.mix.length)return item.fab.mix;
+  var s=item.fabric||'';if(!s)return [];
+  var out=[],re=/(\d{1,3})\s*%\s*([A-Za-z][A-Za-z\/\- ]{2,28})/g,m;
+  while((m=re.exec(s))){out.push([m[2].replace(/\s+$/,''),parseInt(m[1],10)]);}
+  return out;
+}
+function fabLine(item){
+  var mix=fabMix(item);
+  if(mix.length)return mix.map(function(p){return p[1]+'% '+p[0];}).join(' · ');
+  return item.fabric||'';
+}
+function fabricHtml(item){
+  var f=item.fab||{},mix=fabMix(item);
+  if(!mix.length&&!f.weight&&!f.knit&&!(f.finishes&&f.finishes.length)&&!item.fabric)return '';
+  var bar='',leg='';
+  if(mix.length){
+    var tot=0;mix.forEach(function(p){tot+=p[1];});
+    if(tot<=0)tot=100;
+    bar='<div class="fbar" role="img" aria-label="'+esc(fabLine(item))+'">'+mix.map(function(p){
+      return '<span style="width:'+(100*p[1]/tot).toFixed(2)+'%;background:'+fibreColour(p[0])+'"></span>';
+    }).join('')+'</div>';
+    leg='<div class="fleg">'+mix.map(function(p){
+      return '<span><i style="background:'+fibreColour(p[0])+'"></i><b>'+p[1]+'%</b> '+esc(p[0])+'</span>';
+    }).join('')+'</div>';
+  }
+  var rows='';
+  if(!mix.length&&item.fabric)rows+='<div class="frw"><span>Fabric</span><b>'+esc(item.fabric)+'</b></div>';
+  if(f.weight)rows+='<div class="frw"><span>Weight</span><b>'+esc(f.weight)+'</b></div>';
+  if(f.knit)rows+='<div class="frw"><span>Construction</span><b>'+esc(f.knit)+'</b></div>';
+  if(f.note)rows+='<div class="frw"><span>Also</span><b>'+esc(f.note)+'</b></div>';
+  var tags=(f.finishes&&f.finishes.length)?('<div class="ftags">'+f.finishes.map(function(t){
+    return '<span>'+esc(t)+'</span>';}).join('')+'</div>'):'';
+  return '<div class="fabblk"><div class="fabhd">Fabric &amp; construction</div>'+bar+leg+rows+tags+
+    '<div class="fabsrc">As published by the maker</div></div>';
+}
 function shareMenuHtml(key){
   var it=BYKEY[key];if(!it)return '';
   var colour=currentSheetColour(key),url=shareUrlFor(key,colour);
@@ -1686,6 +1757,7 @@ function renderSheet(){
       '<div class="shb"><h2>'+esc(item.name)+'</h2><div class="shsku">'+esc(item.sku)+(hasLadies(item)?(SH.fit==='womens'?' · Ladies’':' · Men’s'):(item.unisex?' · Unisex':''))+(item.layer==='field'&&item.csa?' · CSA hi-vis':'')+shareBtnHtml(SHEETKEY)+'</div>'+
       '<div class="shfrom">from <b>'+money(fromP)+'</b> <small>/pc</small>'+(hasDecoPlace(item)?' · decorated':'')+'</div>'+
       (item.blurb?'<p class="shblurb">'+esc(item.blurb)+'</p>':'')+
+      fabricHtml(item)+
       fitTog+step1+qtyGrp+primaryHtml+extraHtml+
       '<div class="shnote">'+(hasDecoPlace(item)?'Prices are per piece, decorated — your logo (embroidery / print) is included. One-time setup shows once in your kit summary. ':'Prices are per piece (blank garment — no decoration on this item). ')+'Exact quote confirmed before anything runs.</div>'+
     '</div></div>'+
