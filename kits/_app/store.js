@@ -328,7 +328,7 @@ function menuCard(key){
   var csa=item.csa?'<span class="mcsa'+(/^Meets/.test(item.csa)?' gen':'')+'" title="'+(/^Meets/.test(item.csa)?'Certified high-visibility apparel — ask us to confirm the exact class for your job':'Certified high-visibility rating')+'">🛡 '+esc(item.csa)+'</span>':'';
   // A typographic spec line, not a badge: fabric is information, not a safety rating, and the
   // emoji pill it shared with the CSA rating read as clip-art on a B2B storefront.
-  var _fl=fabLine(item);
+  var _fl=fabCardLine(item);
   var fab=_fl?'<div class="mfab" title="Fabric content as published by the maker">'+esc(_fl)+'</div>':'';
   var q=CART[key]?CART[key].qty:0;
   var inkit=q?' inkit':'';
@@ -551,7 +551,7 @@ function classify(it){
   return {mega:'tops',sub:'Shirts'};
 }
 /* ---------- FILTERED BROWSE MODEL (one category at a time; no endless scroll) ---------- */
-var VIEW={cat:null,sub:'all',q:'',world:'all',fit:'all',col:null,band:null};
+var VIEW={cat:null,sub:'all',q:'',world:'all',fit:'all',col:null,band:null,sort:null};
 // Colour chosen while BROWSING, per item+fit. A shopper who picks navy on the grid should still be on
 // navy when the product opens — otherwise the swatch feels fake.
 var BCOL={};
@@ -684,10 +684,30 @@ function kitContentsHtml(item){
 }
 var BANDS=[['u50','Under $50',0,50],['50_75','$50-$75',50,75],['75_100','$75-$100',75,100],['o100','$100+',100,1e9]];
 function unitOf(it){return (it.layer==='promo')?(it.price_cad||0):(it.prices?it.prices[it.prices.length-1]:0);}
+// SORT is not a filter -- it never removes a product, it only re-orders. With 18 polos in one
+// section, "cheapest first" is the question a buyer actually asks, and until now the only order on
+// offer was ours. Price basis is unitOf, the same figure the card prints and the budget chips band,
+// so the ordering always agrees with the numbers on screen.
+var SORTS=[['','Recommended'],['pl','Price: low to high'],['ph','Price: high to low']];
+function sortList(list){
+  if(!VIEW.sort)return list;
+  var dir=(VIEW.sort==='ph')?-1:1;
+  return list.slice().sort(function(a,b){return (unitOf(BYKEY[a]||{})-unitOf(BYKEY[b]||{}))*dir;});
+}
 function bandOK(list){
   if(!VIEW.band)return list;
   var b=BANDS.filter(function(x){return x[0]===VIEW.band;})[0];if(!b)return list;
   return list.filter(function(k){var u=unitOf(BYKEY[k]||{});return u>=b[2]&&u<b[3];});}
+function renderSortbar(){
+  var el=document.getElementById('sortbar');if(!el)return;
+  var keys=(VIEW.sub==='all')?[].concat.apply([],subNames(VIEW.cat).map(function(s){return BUCKETS[VIEW.cat][s];})):((BUCKETS[VIEW.cat]||{})[VIEW.sub]||[]);
+  if(keys.length<6){el.innerHTML='';el.style.display='none';VIEW.sort=null;return;}
+  el.style.display='';
+  el.innerHTML='<span class="fitlbl">Sort</span>'+SORTS.map(function(o){
+    return '<button type="button" class="cfchip'+(((VIEW.sort||'')===o[0])?' on':'')+'" data-sort="'+o[0]+'">'+esc(o[1])+'</button>';}).join('');
+  el.querySelectorAll('.cfchip').forEach(function(x){x.addEventListener('click',function(){
+    VIEW.sort=x.dataset.sort||null;renderSortbar();renderGrid();renderFilterUI();});});
+}
 function renderBandbar(){
   var el=document.getElementById('bandbar');if(!el)return;
   var keys=(VIEW.sub==='all')?[].concat.apply([],subNames(VIEW.cat).map(function(s){return BUCKETS[VIEW.cat][s];})):((BUCKETS[VIEW.cat]||{})[VIEW.sub]||[]);
@@ -733,11 +753,13 @@ function activeFilters(){
   if(VIEW.fit&&VIEW.fit!=='all')a.push({k:'fit',label:VIEW.fit==='womens'?'Ladies’':'Men’s'});
   if(VIEW.col)a.push({k:'col',label:VIEW.col.charAt(0).toUpperCase()+VIEW.col.slice(1),sw:famSwatch(VIEW.col)});
   if(VIEW.band){var b=BANDS.filter(function(x){return x[0]===VIEW.band;})[0];if(b)a.push({k:'band',label:b[1]});}
+  if(VIEW.sort){var o=SORTS.filter(function(x){return x[0]===VIEW.sort;})[0];if(o)a.push({k:'sort',label:o[1]});}
   return a;
 }
 function clearFilter(k){
   if(k==='fit')VIEW.fit='all'; else if(k==='col')VIEW.col=null; else if(k==='band')VIEW.band=null;
-  renderFitbar();renderColbar();renderBandbar();renderGrid();renderFilterUI();
+  else if(k==='sort')VIEW.sort=null;
+  renderFitbar();renderColbar();renderBandbar();renderSortbar();renderGrid();renderFilterUI();
 }
 function positionPanel(){
   var p=document.getElementById('fpanel'),b=document.getElementById('fbtn');
@@ -759,7 +781,7 @@ function setFilters(open){
 function renderFilterUI(){
   var btn=document.getElementById('fbtn');if(!btn)return;
   // Hide the whole control where there is nothing to filter, rather than offering an empty panel.
-  var any=['fitbar','colbar','bandbar'].some(function(id){
+  var any=['fitbar','colbar','bandbar','sortbar'].some(function(id){
     var el=document.getElementById(id);return el&&el.style.display!=='none'&&el.innerHTML;});
   btn.style.display=any?'':'none';
   if(!any&&FOPEN)setFilters(false);
@@ -776,7 +798,7 @@ function renderFilterUI(){
     pil.querySelectorAll('.fpill').forEach(function(x){x.addEventListener('click',function(){
       var k=x.dataset.clear;
       if(k==='all'){VIEW.fit='all';VIEW.col=null;VIEW.band=null;
-        renderFitbar();renderColbar();renderBandbar();renderGrid();renderFilterUI();}
+        renderFitbar();renderColbar();renderBandbar();renderSortbar();renderGrid();renderFilterUI();}
       else clearFilter(k);});});
   }
   var done=document.getElementById('fdone');
@@ -799,7 +821,7 @@ function wireFilters(){
   if(sc)sc.addEventListener('click',function(){setFilters(false);});
   var clr=document.getElementById('fclear');
   if(clr)clr.addEventListener('click',function(){VIEW.fit='all';VIEW.col=null;VIEW.band=null;
-    renderFitbar();renderColbar();renderBandbar();renderGrid();renderFilterUI();});
+    renderFitbar();renderColbar();renderBandbar();renderSortbar();renderGrid();renderFilterUI();});
   document.addEventListener('keydown',function(e){if(e.key==='Escape'&&FOPEN)setFilters(false);});
   // The button is sticky, so keep the dropdown attached to it as the page moves.
   window.addEventListener('resize',function(){if(FOPEN)positionPanel();});
@@ -830,7 +852,7 @@ function renderSubchips(){var el=document.getElementById('subchips');if(!el)retu
   var h='<button class="schip'+(VIEW.sub==='all'?' on':'')+'" data-sub="all">All<span class="scn">'+TOTALS[VIEW.cat]+'</span></button>';
   h+=subs.map(function(s){return '<button class="schip'+(VIEW.sub===s?' on':'')+'" data-sub="'+esc(s)+'">'+esc(s)+'<span class="scn">'+BUCKETS[VIEW.cat][s].length+'</span></button>';}).join('');
   el.innerHTML=h;
-  renderFitbar();renderColbar();renderBandbar();renderFilterUI();
+  renderFitbar();renderColbar();renderBandbar();renderSortbar();renderFilterUI();
   el.querySelectorAll('.schip').forEach(function(b){b.addEventListener('click',function(){setSub(b.dataset.sub);
     var tr=b.closest('.subchips');if(tr)tr.scrollTo({left:b.offsetLeft-tr.clientWidth/2+b.clientWidth/2,behavior:'smooth'});});});}
 function wireCards(){
@@ -881,7 +903,7 @@ function renderGrid(){
   // Ladies' includes UNISEX. A unisex hoodie is genuinely available to her — it simply isn't cut
   // separately — so excluding it hid 10 of the 21 Sweaters & Fleece styles from anyone shopping for
   // the women on their team. Items with neither flag are men's-only and stay hidden.
-  var fitOK=function(list){var L=(VIEW.fit==='womens')?list.filter(function(k){var i=BYKEY[k]||{};return hasLadies(i)||i.unisex;}):list;return bandOK(colourOK(L));};
+  var fitOK=function(list){var L=(VIEW.fit==='womens')?list.filter(function(k){var i=BYKEY[k]||{};return hasLadies(i)||i.unisex;}):list;return sortList(bandOK(colourOK(L)));};
   var subs=subNames(VIEW.cat),csa=VIEW.cat==='hivis'?' <span class="csa">CSA Z96 · ANSI 107</span>':'';
   var _shown=(VIEW.sub==='all'?fitOK(ALLKEYS.filter(function(k){return (BUCKETS[VIEW.cat]||{})&&subs.some(function(s){return BUCKETS[VIEW.cat][s].indexOf(k)>=0;});})).length:fitOK(BUCKETS[VIEW.cat][VIEW.sub]||[]).length);
   SHOWN=_shown;
@@ -1125,7 +1147,8 @@ function buildStore(){
        '<div class="fphd">Filter<button type="button" class="fpx" id="fpx" aria-label="Close">&times;</button></div>'+
        '<div class="fpbody">'+
          '<div class="fitbar" id="fitbar"></div><div class="fitbar colbar" id="colbar"></div>'+
-         '<div class="fitbar colbar" id="bandbar"></div></div>'+
+         '<div class="fitbar colbar" id="bandbar"></div>'+
+         '<div class="fitbar colbar" id="sortbar"></div></div>'+
        '<div class="fpfoot"><button type="button" class="fclear" id="fclear">Clear all</button>'+
          '<button type="button" class="fdone" id="fdone">Show results</button></div>'+
      '</div>'+
@@ -1329,6 +1352,15 @@ function fabLine(item){
   var mix=fabMix(item);
   if(mix.length)return mix.map(function(p){return p[1]+'% '+p[0];}).join(' · ');
   return item.fabric||'';
+}
+// The card line. Weight rides along with the fibre content because heft is the difference a buyer
+// can't see in a photo: an 8.3 oz cotton-rich polo and a 4.1 oz performance piqu\u00e9 photograph
+// identically and wear nothing alike. One unit only -- gsm when the maker gives it -- so the line
+// stays short enough for a card.
+function fabCardLine(item){
+  var l=fabLine(item);if(!l)return '';
+  var w=(item.fab&&item.fab.weight)?String(item.fab.weight).split(' \u00b7 ')[0]:'';
+  return w?(l+' \u00b7 '+w):l;
 }
 function fabricHtml(item){
   var f=item.fab||{},mix=fabMix(item);
