@@ -1,0 +1,16 @@
+{
+  "generator": "client-app",
+  "version": "1787661685",
+  "slug": "labelink",
+  "client": "Labelink",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_152b74.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}
