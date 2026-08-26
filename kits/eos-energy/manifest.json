@@ -1,0 +1,17 @@
+{
+  "generator": "client-app",
+  "version": "1787755083",
+  "slug": "eos-energy",
+  "client": "Eos Energy Enterprises",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_0a4635.png",
+    "img/lg_full_7acc00.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}
