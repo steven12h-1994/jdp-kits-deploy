@@ -1222,6 +1222,11 @@ function buildStore(){
   document.getElementById('openCart').addEventListener('click',openCart);
   document.getElementById('openCart2').addEventListener('click',openCart);
   document.getElementById('ov').addEventListener('click',closeAll);
+  // The delegated click handler was only ever attached when a product sheet first opened, because
+  // that is the one place that needed it. The hero's sample-visit CTA is on the page before any
+  // sheet exists, so on a fresh load the button did nothing at all. Attach it at boot; the _DELEG
+  // guard keeps it to a single listener.
+  wireDelegates();
   var ar=document.getElementById('addRec');if(ar)ar.addEventListener('click',addRecommended);
   var wc=document.getElementById('whyCta');if(wc)wc.addEventListener('click',function(){
     if(cartCount()>0){openCart();}else{VIEW.sub='all';renderGrid();scrollToResults();}});
