@@ -321,7 +321,12 @@ function menuCard(key){
   var o=overlayHtml(item,vm,browseColour(key,item),'front',browseCols(item),browsePlaces(item));
   var ncol=item.cols.length;
   var topcol=CFG.pricing.cols[CFG.pricing.cols.length-1];
-  var fromP=unitPrice(key,vm.decos,topcol);
+  // Two honest numbers instead of one misleading one. "from $23" was the 144+ tier: real, but not
+  // available to anyone ordering the 12-piece minimum, who was then quoted $27 on the very next
+  // screen. Across the catalogue that gap ran to a median 15% -- and $43/pc on a jacket. So the
+  // headline is now the price at the minimum, with the volume break kept as the upside it is.
+  var startP=unitPrice(key,vm.decos,moq());
+  var bestP=unitPrice(key,vm.decos,topcol);
   var rec=(key===CFG.feature||item.rec)?'<span class="mrec">★ Top pick</span>':'';
   // Class badge: a specific published class reads bold; styles whose maker publishes only the generic
   // "meets CSA" claim (no class number) render muted — we never invent a class.
@@ -344,7 +349,8 @@ function menuCard(key){
       (item.layer==='promo'
         ? (kitContentsHtml(item)+
            '<div class="mprice"><b>'+money(item.price_cad)+'</b> <small>/'+(item.unit==='dozen'?'dozen':'pc')+' · min '+item.moq+'</small></div>')
-        : '<div class="mprice">from <b>'+money(fromP)+'</b> <small>/pc'+(hasDecoPlace(item)?' · decorated':'')+'</small></div>')+
+        : '<div class="mprice"><b>'+money(startP)+'</b> <small>/pc'+(hasDecoPlace(item)?' · decorated':'')+'</small></div>'+
+           '<div class="mvol">at '+moq()+' pcs'+(bestP<startP?(' · <b>'+money(bestP)+'</b>/pc at '+topcol+'+'):'')+'</div>')+
       '</div></article>';
 }
 // A row of real colour swatches on each card — shows selection depth at a glance (conversion signal).
@@ -683,7 +689,20 @@ function kitContentsHtml(item){
   return pill+(c.length?'<div class="minc">'+esc(c.join(' · '))+'</div>':'');
 }
 var BANDS=[['u50','Under $50',0,50],['50_75','$50-$75',50,75],['75_100','$75-$100',75,100],['o100','$100+',100,1e9]];
-function unitOf(it){return (it.layer==='promo')?(it.price_cad||0):(it.prices?it.prices[it.prices.length-1]:0);}
+// The price a buyer can ACTUALLY get, which is the one at the order minimum -- not the deepest
+// volume tier. This is what the card headlines, so the budget chips and the price sort must band and
+// order on the same number; filtering "Under $50" and getting a $60 polo is the same broken promise
+// as the old "from" headline, just wearing a different hat.
+function unitOf(it){return (it.layer==='promo')?(it.price_cad||0):(it.prices?it.prices[0]:0);}
+// The exact number the card headlines: price at the order minimum, decoration included, for THIS
+// kit's configured decoration. unitOf reads the raw list price and so drifts from the printed figure
+// by the cost of the embroidery -- fine for a rough band, wrong when the whole point of this change
+// is that every number on screen agrees with every other one.
+function shelfPrice(k){
+  var it=BYKEY[k]||{};
+  if(it.layer==='promo')return it.price_cad||0;
+  try{return unitPrice(k,vmOf(k).decos,moq());}catch(e){return unitOf(it);}
+}
 // SORT is not a filter -- it never removes a product, it only re-orders. With 18 polos in one
 // section, "cheapest first" is the question a buyer actually asks, and until now the only order on
 // offer was ours. Price basis is unitOf, the same figure the card prints and the budget chips band,
@@ -692,12 +711,12 @@ var SORTS=[['','Recommended'],['pl','Price: low to high'],['ph','Price: high to 
 function sortList(list){
   if(!VIEW.sort)return list;
   var dir=(VIEW.sort==='ph')?-1:1;
-  return list.slice().sort(function(a,b){return (unitOf(BYKEY[a]||{})-unitOf(BYKEY[b]||{}))*dir;});
+  return list.slice().sort(function(a,b){return (shelfPrice(a)-shelfPrice(b))*dir;});
 }
 function bandOK(list){
   if(!VIEW.band)return list;
   var b=BANDS.filter(function(x){return x[0]===VIEW.band;})[0];if(!b)return list;
-  return list.filter(function(k){var u=unitOf(BYKEY[k]||{});return u>=b[2]&&u<b[3];});}
+  return list.filter(function(k){var u=shelfPrice(k);return u>=b[2]&&u<b[3];});}
 function renderSortbar(){
   var el=document.getElementById('sortbar');if(!el)return;
   var keys=(VIEW.sub==='all')?[].concat.apply([],subNames(VIEW.cat).map(function(s){return BUCKETS[VIEW.cat][s];})):((BUCKETS[VIEW.cat]||{})[VIEW.sub]||[]);
@@ -711,7 +730,7 @@ function renderSortbar(){
 function renderBandbar(){
   var el=document.getElementById('bandbar');if(!el)return;
   var keys=(VIEW.sub==='all')?[].concat.apply([],subNames(VIEW.cat).map(function(s){return BUCKETS[VIEW.cat][s];})):((BUCKETS[VIEW.cat]||{})[VIEW.sub]||[]);
-  var cnt={};BANDS.forEach(function(b){cnt[b[0]]=keys.filter(function(k){var u=unitOf(BYKEY[k]||{});return u>=b[2]&&u<b[3];}).length;});
+  var cnt={};BANDS.forEach(function(b){cnt[b[0]]=keys.filter(function(k){var u=shelfPrice(k);return u>=b[2]&&u<b[3];}).length;});
   var live=BANDS.filter(function(b){return cnt[b[0]]>0;});
   if(live.length<2||keys.length<6){el.innerHTML='';el.style.display='none';VIEW.band=null;return;}
   el.style.display='';
@@ -1729,7 +1748,7 @@ function renderSheet(){
     ".shprice b{color:#141414;font-size:18px;font-weight:800}"+
     ".shprice.under,.shprice.under b{color:#c0392b}"+
     ".shnote{margin:22px 2px 2px;font-size:11.5px;line-height:1.6;color:#9a9a9a}"+
-    ".shfrom{margin:7px 0 4px;font-size:14px;color:#666;font-weight:600}.shfrom b{color:#141414;font-size:17px;font-weight:800}.shfrom small{color:#8a8a8a;font-weight:600}"+
+    ".shfrom{margin:7px 0 4px;font-size:14px;color:#666;font-weight:600;display:flex;align-items:baseline;flex-wrap:wrap;gap:0 6px}.shfrom b{color:#141414;font-size:17px;font-weight:800}.shfrom small{color:#8a8a8a;font-weight:600}.shfrom i{font-style:normal;color:#666;font-weight:700}.shfrom .shvol{font-size:12.5px;font-weight:700;color:#0a7d3c;background:#e8f7ee;border-radius:999px;padding:3px 9px}"+
     ".fp.inc{color:#2e7d32;font-weight:700}"+
     ".fittog{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:14px 0 2px}"+
     ".fitl{font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#8a8a8a;margin-right:2px}"+
@@ -1798,7 +1817,8 @@ function renderSheet(){
         (item.video?'<button class="vwatch" id="vwatch"><svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>Watch video</button>':'')+
       '</div>'):'')+
       '<div class="shb"><h2>'+esc(item.name)+'</h2><div class="shsku">'+esc(item.sku)+(hasLadies(item)?(SH.fit==='womens'?' · Ladies’':' · Men’s'):(item.unisex?' · Unisex':''))+(item.layer==='field'&&item.csa?' · CSA hi-vis':'')+shareBtnHtml(SHEETKEY)+'</div>'+
-      '<div class="shfrom">from <b>'+money(fromP)+'</b> <small>/pc</small>'+(hasDecoPlace(item)?' · decorated':'')+'</div>'+
+      '<div class="shfrom"><b>'+money(unit)+'</b> <small>/pc</small> <i>at '+(q||moq())+' pcs</i>'+(hasDecoPlace(item)?' · decorated':'')+
+        (fromP<unit?('<span class="shvol">'+money(fromP)+'/pc at '+topcol+'+</span>'):'')+'</div>'+
       (item.blurb?'<p class="shblurb">'+esc(item.blurb)+'</p>':'')+
       fabricHtml(item)+
       fitTog+step1+qtyGrp+primaryHtml+extraHtml+
