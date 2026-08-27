@@ -1141,7 +1141,7 @@ function buildStore(){
       '<div class="bcell"><b>77%</b><span>of workers feel a uniform gives them a <strong>sense of pride</strong> in wearing the <strong>company brand</strong>.</span></div>'+
     '</div>'+
   '</div></section>';
-  var recN=recKeysAll().length;
+  var recN=(essKeysAll().length||recKeysAll().length);
   var demo=!!CFG.demo,cta=CFG.cta||{};
   var heroCta = demo
     ? ('<button class="reccta" id="leadOpen1">'+esc(cta.label||'Get your store — free')+' →</button>'+(cta.phone?'<div class="herophone">or call <b>'+esc(cta.phone)+'</b></div>':''))
@@ -1161,7 +1161,7 @@ function buildStore(){
           '<i>We bring the actual garments to your workplace \u2014 fabric, fit and colours side by side. No obligation.</i></span>'+
         '<button type="button" class="reccta hobtn" data-samp="">See &amp; feel it first <span class="ar">\u2192</span></button>'+
       '</div>'+
-      (recN?'<button type="button" class="herosecond" id="addRec">\u2605 Or add our top picks <span>'+recN+' item'+(recN===1?'':'s')+'</span></button>':''));
+      (recN?'<button type="button" class="herosecond" id="addRec">Or start with the '+recN+' essentials <span>every team needs</span></button>':''));
   var html=''+
    '<header class="hdr"><div class="w hdrin">'+
      '<span class="brand"><img src="'+kurl(((CFG.logos&&CFG.logos[0]&&CFG.logos[0].inks&&CFG.logos[0].inks.dark))||CFG.cover_logo||'img/logo-white.png')+'" onerror="this.style.display=\'none\'" alt=""><b>'+esc(CFG.client)+'</b><i>× Just Deals</i></span>'+
@@ -1174,7 +1174,13 @@ function buildStore(){
      heroCta+
      '<div class="herotrust"><span>Family-owned in Toronto since 1994</span><span>12,846+ teams outfitted</span><span>Ships across Canada &amp; the U.S.</span></div>'+
    '</div></section>'+
-   valueStripHtml()+
+   /* The value strip is gone. It stacked three more claims directly beneath a hero that already
+      carries three trust chips AND the sample offer -- six competing assertions above the fold, which
+      reads as sales noise to an enterprise buyer rather than reassurance. Two of the three were weak
+      on their own merits: "competitive pricing, guaranteed" repeats the price-match line already in
+      the cart, and "3,400+ impressions per shirt" is promo-industry trivia that has nothing to do
+      with outfitting staff. Removing the band makes the in-person offer the unambiguous focal point
+      and lifts the catalogue up the page. */
    shopCatsHtml()+
    '<div class="navwrap" id="navwrap">'+
      '<div class="fscrim" id="fscrim"></div>'+
@@ -2026,16 +2032,27 @@ function quickAdd(key){
 }
 // The curated "top picks" set = items flagged rec across every category (not the whole catalogue — a
 // full dump overwhelms and inflates the quote). Falls back to the first few office items if none flagged.
+/* The curated starter set. `rec` marks ~23 products as a strong pick WITHIN their category, which
+   is right for a badge and wrong for a "start here" button: adding 23 items is not a starting point,
+   it is the whole store. `ess` is an explicit, ordered nine -- everyday tops, layers, then the
+   onboarding pieces -- so the button offers advice instead of a bulk action. */
+function essKeysAll(){
+  var out=[];
+  for(var k in BYKEY){if(BYKEY[k]&&BYKEY[k].ess)out.push(k);}
+  out.sort(function(a,b){return (BYKEY[a].ess||99)-(BYKEY[b].ess||99);});
+  return out;
+}
 function recKeysAll(){var order=CFG.order||{},cats=['office','field','premium','bags'],out=[];
   cats.forEach(function(c){(order[c]||[]).forEach(function(k){if(BYKEY[k]&&BYKEY[k].rec&&out.indexOf(k)<0)out.push(k);});});
   if(!out.length)out=(order.office||[]).filter(function(k){return BYKEY[k];}).slice(0,4);
   return out;}
 function addRecommended(){
-  var keys=recKeysAll(),n=0;
+  var keys=essKeysAll(),n=0;
+  if(!keys.length)keys=recKeysAll();
   keys.forEach(function(k){if(CART[k]||!BYKEY[k])return;
     CART[k]={qty:moq(),colour:vmOf(k).colour,decos:recCartDecos(k)};n++;});
   saveCart();refreshCartUI();openCart();
-  toast(n?('Added '+n+' top pick'+(n===1?'':'s')+' — edit or add more anytime'):'Your kit already has our top picks');
+  toast(n?('Added '+n+' essential'+(n===1?'':'s')+' — edit or add more anytime'):'Your kit already has the essentials');
 }
 
 /* ---------- cart ---------- */
@@ -2087,7 +2104,7 @@ function renderCart(){
       (nud?'<div class="cinudge">＋'+nud.need+' to reach '+nud.tier+'+ · save '+nud.pct+'%</div>':'')+
       '<div class="row">'+ctrl+'<div class="lp">'+money(unit*c.qty)+'</div></div></div>'+
       '<button class="rm" data-rm="'+k+'" aria-label="Remove">✕</button></div>';}).join('');
-  var body=keys.length?items:('<div class="cempty"><div class="ce-ic">🛒</div><b>Your kit is empty</b><span>Add a few pieces to get your exact quote.</span>'+(recKeysAll().length?'<button class="ceadd" id="emptyAddRec">★ Add our top picks</button>':'')+'</div>');
+  var body=keys.length?items:('<div class="cempty"><div class="ce-ic">🛒</div><b>Your kit is empty</b><span>Add a few pieces to get your exact quote.</span>'+(recKeysAll().length?'<button class="ceadd" id="emptyAddRec">Add the '+essKeysAll().length+' essentials</button>':'')+'</div>');
   var setupRows=setupBreakdown(),setup=setupRows.reduce(function(t,x){return t+x.amount;},0);
   var brk=setupRows.length?('<details class="setupbrk"><summary>One-time setup '+money(setup)+' <i>· once per design, shared across the kit</i></summary>'+setupRows.map(function(x){return '<div class="sbk"><span>'+esc(x.label)+'</span><span>'+money(x.amount)+'</span></div>';}).join('')+'</details>'):'';
   document.getElementById('cart').innerHTML=
