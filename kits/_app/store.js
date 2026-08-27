@@ -1198,6 +1198,7 @@ function buildStore(){
    '<aside class="cart" id="cart"></aside>'+
    (demo?('<div class="demobar"><div class="demobarin w"><span class="demotxt"><b>Like the look?</b> Get this store with <b>your</b> logo — free, no obligation.</span><button class="demobtn" id="leadOpen2">'+esc(cta.label||'Get your store — free')+'</button></div></div>'):'')+
    (demo?'<div class="lead" id="lead"></div>':'')+
+   '<div class="lead samp" id="samp"></div>'+
    '<div class="cbar" id="cbar"><div class="cbarin w"><div class="cbarL"><span class="n" id="cbarN">0</span> in your kit</div>'+
      '<button class="cbarbtn" id="openCart2">View kit <span class="p" id="cbarP"></span> <span class="ar">→</span></button></div></div>'+
    '<div class="toast" id="toast"><span class="tk">✓</span><span class="tm" id="toastM">Added</span><button class="tview" id="toastView">View kit →</button></div>';
@@ -1515,6 +1516,126 @@ function onShareClick(b){
   openShareMenu(b.getAttribute('data-share'),b);
 }
 var _DELEG=false;
+/* ---- "See & feel it first" -------------------------------------------------------------------
+   Nobody signs off 200 shirts they have never touched. The blocker on a company-wide order is not
+   price and not choice -- it is that gsm and a photograph cannot tell you how a collar sits or how
+   heavy a fleece really is. So the ask is not "book a meeting" (a cost to the buyer); it is "we'll
+   bring these to you" (a service to the buyer), and it carries the shortlist they have already
+   built rather than making them describe it again.
+
+   It appears at the three moments doubt actually peaks: reading the fabric spec, looking at a full
+   kit before requesting a quote, and hesitating at the final step. Copy claims nothing we have not
+   been told to claim -- no cost, no timeframe, no coverage area. */
+var SAMPKEYS=null;
+function sampShortlist(){
+  if(SAMPKEYS&&SAMPKEYS.length)return SAMPKEYS.slice();
+  var ck=Object.keys(CART);
+  return ck.length?ck:(SHEETKEY?[SHEETKEY]:[]);
+}
+function sampCtaHtml(key){
+  return '<button type="button" class="svcta" data-samp="'+esc(key||'')+'">'+
+    '<span class="svic" aria-hidden="true">\u270B</span>'+
+    '<span class="svtx"><b>Not sure how it feels?</b>'+
+    '<i>We\u2019ll bring samples to you \u2014 try it on, compare the fabrics, then decide.</i></span>'+
+    '<span class="svgo" aria-hidden="true">\u2192</span></button>';
+}
+function openSampleVisit(key){
+  SAMPKEYS=key?[key]:null;
+  var el=document.getElementById('samp');if(!el)return;
+  var keys=sampShortlist();
+  var saved={};try{saved=JSON.parse(localStorage.getItem('jdpkit_contact')||'{}');}catch(e){}
+  var list=keys.length
+    ? '<ul class="svlist">'+keys.map(function(k){var it=BYKEY[k];if(!it)return '';
+        var c=(CART[k]&&CART[k].colour)||(SH&&SH.key===k?SH.colour:'')||'';
+        return '<li><span>'+esc(it.name)+'</span>'+(c?'<i>'+esc(c)+'</i>':'')+'</li>';}).join('')+'</ul>'
+    : '<p class="svnone">Add a few pieces to your kit and we\u2019ll bring those \u2014 or just tell us below what you want to see.</p>';
+  el.innerHTML='<button class="shx" id="sampX" aria-label="Close">\u2715</button><div class="leadb">'+
+    '<div class="eyb">No obligation</div><h2>See &amp; feel it in person</h2>'+
+    '<p class="leadsub">We\u2019ll come to your workplace with the actual garments so your team can '+
+      'handle the fabric, check the fit and compare options side by side before you commit to a '+
+      'company-wide order.</p>'+
+    '<div class="svhd">What we\u2019ll bring'+(keys.length?' <i>'+keys.length+' item'+(keys.length===1?'':'s')+'</i>':'')+'</div>'+
+    list+
+    '<div class="coform svform">'+
+      '<input id="svName" placeholder="Your name" autocomplete="name" value="'+esc(saved.name||'')+'">'+
+      '<input id="svEmail" type="email" inputmode="email" placeholder="Email" autocomplete="email" value="'+esc(saved.email||'')+'">'+
+      '<input id="svCompany" placeholder="Company / team" autocomplete="organization" value="'+esc(saved.company||CFG.client||'')+'">'+
+      '<input id="svWhere" placeholder="Where are you? City or address" autocomplete="street-address">'+
+      '<textarea id="svNote" placeholder="Anything that helps \u2014 sizes to bring, how many people, best days/times\u2026"></textarea>'+
+    '</div>'+
+    '<button class="leadbtn" id="svSend">Request a sample visit \u2192</button>'+
+    '<div class="cktrust svtrust"><span>No payment now</span><span>No obligation</span></div></div>';
+  document.getElementById('ov').classList.add('on');
+  el.classList.add('on');document.body.style.overflow='hidden';
+  var x=document.getElementById('sampX');if(x)x.addEventListener('click',closeSampleVisit);
+  var b=document.getElementById('svSend');if(b)b.addEventListener('click',submitSampleVisit);
+}
+function closeSampleVisit(){
+  var el=document.getElementById('samp');if(el)el.classList.remove('on');
+  SAMPKEYS=null;
+  if(!document.querySelector('.sheet.on')&&!document.querySelector('.cart.on')){
+    document.getElementById('ov').classList.remove('on');document.body.style.overflow='';}
+}
+function sampVals(){return {
+  name:((document.getElementById('svName')||{}).value||'').trim(),
+  email:((document.getElementById('svEmail')||{}).value||'').trim(),
+  company:((document.getElementById('svCompany')||{}).value||'').trim(),
+  where:((document.getElementById('svWhere')||{}).value||'').trim(),
+  note:((document.getElementById('svNote')||{}).value||'').trim()};}
+function sampText(c){
+  var lines=['SAMPLE VISIT REQUEST \u2014 '+CFG.client,''];
+  lines.push('From:');
+  if(c.name)lines.push('  '+c.name);
+  if(c.email)lines.push('  '+c.email);
+  if(c.company)lines.push('  '+c.company);
+  if(c.where)lines.push('  Location: '+c.where);
+  lines.push('');
+  var keys=sampShortlist();
+  if(keys.length){lines.push('Wants to see in person:');
+    keys.forEach(function(k){var it=BYKEY[k];if(!it)return;
+      var c2=(CART[k]&&CART[k].colour)||'';
+      lines.push('  \u2022 '+it.name+(it.sku?(' ('+it.sku+')'):'')+(c2?(' \u2014 '+c2):'')+
+        (it.msku?('  [item '+it.msku+']'):''));});
+    lines.push('');}
+  if(c.note){lines.push('Notes:');lines.push('  '+c.note);lines.push('');}
+  lines.push('Store: '+location.href.split('#')[0].split('?')[0]);
+  return lines.join('\n');
+}
+function submitSampleVisit(){
+  var c=sampVals();
+  if(!c.email||c.email.indexOf('@')<1){var e=document.getElementById('svEmail');
+    if(e){e.classList.add('err');e.focus();}toast('Add your email so we can get back to you');return;}
+  persistContact(c);
+  var body=sampText(c);
+  var subj='Sample visit request \u2014 '+(c.company||CFG.client)+(c.name?' \u2014 '+c.name:'');
+  var btn=document.getElementById('svSend');
+  if(btn){btn.disabled=true;btn.dataset.lbl=btn.innerHTML;btn.innerHTML='Sending\u2026';}
+  var payload={name:c.name||'(not given)',email:c.email,company:c.company||CFG.client||'',
+    location:c.where||'(not given)',_subject:subj,_template:'table',_captcha:'false',
+    request:body,store_link:location.href.split('#')[0].split('?')[0]};
+  var done=false,fell=false;
+  function fail(){if(done||fell)return;fell=true;
+    if(btn){btn.disabled=false;btn.innerHTML=btn.dataset.lbl||'Request a sample visit';}
+    clipCopy(body);
+    window.location.href='mailto:'+JDP_EMAIL+'?subject='+encodeURIComponent(subj)+'&body='+encodeURIComponent(body);}
+  var to=setTimeout(fail,9000);
+  fetch('https://formsubmit.co/ajax/'+JDP_EMAIL,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(payload)})
+    .then(function(r){return r.json().catch(function(){return {};});})
+    .then(function(j){clearTimeout(to);if(fell)return;done=true;
+      if(j&&String(j.success)==='true'){sampSuccess(c);}else{fail();}})
+    .catch(function(){clearTimeout(to);fail();});
+}
+function sampSuccess(c){
+  var first=c.name?esc(c.name.split(' ')[0]):'';
+  var el=document.getElementById('samp');if(!el)return;
+  el.innerHTML='<button class="shx" id="sampX" aria-label="Close">\u2715</button>'+
+    '<div class="cosent"><div class="csent-ic">\u2713</div>'+
+    '<h3>Request sent'+(first?(', '+first):'')+'</h3>'+
+    '<p>We\u2019ve got your list and where you are. We\u2019ll be in touch to arrange a time to bring the samples over.</p>'+
+    '<button class="checkout" id="sampDone">Keep browsing</button></div>';
+  var x=document.getElementById('sampX');if(x)x.addEventListener('click',closeSampleVisit);
+  var d=document.getElementById('sampDone');if(d)d.addEventListener('click',closeSampleVisit);
+}
 function wireDelegates(){
   if(_DELEG)return;_DELEG=true;
   document.addEventListener('click',function(e){
@@ -1524,6 +1645,9 @@ function wireDelegates(){
     var bk=e.target.closest('[data-back]');
     if(bk){e.preventDefault();e.stopPropagation();
       var k=bk.getAttribute('data-back');FROMKEY='';openSheet(k);return;}
+    var sv=e.target.closest('[data-samp]');
+    if(sv){e.preventDefault();e.stopPropagation();
+      openSampleVisit(sv.getAttribute('data-samp')||'');return;}
     var it=e.target.closest('.pinc a[data-item]');
     if(it){e.preventDefault();e.stopPropagation();
       openSheet(it.getAttribute('data-item'),null,it.getAttribute('data-from')||'');return;}
@@ -1820,7 +1944,7 @@ function renderSheet(){
       '<div class="shfrom"><b>'+money(unit)+'</b> <small>/pc</small> <i>at '+(q||moq())+' pcs</i>'+(hasDecoPlace(item)?' · decorated':'')+
         (fromP<unit?('<span class="shvol">'+money(fromP)+'/pc at '+topcol+'+</span>'):'')+'</div>'+
       (item.blurb?'<p class="shblurb">'+esc(item.blurb)+'</p>':'')+
-      fabricHtml(item)+
+      fabricHtml(item)+sampCtaHtml(SH.key)+
       fitTog+step1+qtyGrp+primaryHtml+extraHtml+
       '<div class="shnote">'+(hasDecoPlace(item)?'Prices are per piece, decorated — your logo (embroidery / print) is included. One-time setup shows once in your kit summary. ':'Prices are per piece (blank garment — no decoration on this item). ')+'Exact quote confirmed before anything runs.</div>'+
     '</div></div>'+
@@ -1953,6 +2077,7 @@ function renderCart(){
       (setup>0?brk:'')+
       '<div class="csetup">Prices include your logo, decorated. Setup is a one-time charge per logo &amp; location, reused across the kit. Exact itemised quote confirmed free before anything runs.</div>'+
       '<button class="checkout" id="checkout">Get my exact quote <span class="ar">→</span></button>'+
+      '<button type="button" class="svalt" data-samp="">\u270B See &amp; feel these first \u2014 we\u2019ll bring samples to you</button>'+
       '<div class="cktrust"><span>No payment now</span><span>No obligation</span><span>No minimum beyond 12 pcs</span></div></div>'):'')+
     '';
   document.getElementById('cartx').addEventListener('click',closeAll);
@@ -2043,6 +2168,7 @@ function openCheckout(){
       '<button class="checkout" id="emailKit">Send my kit — get my quote <span class="ar">→</span></button>'+
       '<button class="copyalt" id="copyKit">or copy my kit to paste into a reply</button>'+
       '<div class="ckpm">\u2605 <b>Price-match guarantee</b> — found a lower written quote for the same job? Send it with your kit and we\u2019ll match it.</div>'+
+      '<button type="button" class="svalt" data-samp="">\u270B Rather see them in person first? We\u2019ll bring samples to you</button>'+
       '<div class="cktrust" id="copyHint"><span>No payment now</span><span>No obligation</span><span>No minimum beyond 12 pcs</span></div></div>';
   document.getElementById('cartx').addEventListener('click',closeAll);
   document.getElementById('cartback').addEventListener('click',openCart);
