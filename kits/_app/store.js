@@ -1145,7 +1145,23 @@ function buildStore(){
   var demo=!!CFG.demo,cta=CFG.cta||{};
   var heroCta = demo
     ? ('<button class="reccta" id="leadOpen1">'+esc(cta.label||'Get your store — free')+' →</button>'+(cta.phone?'<div class="herophone">or call <b>'+esc(cta.phone)+'</b></div>':''))
-    : (recN?'<button class="reccta" id="addRec">★ Add our top picks <span>'+recN+' item'+(recN===1?'':'s')+'</span></button>':'');
+    : (
+      /* The hero is the most valuable space on the page, so it should carry the offer that actually
+         unblocks a company-wide order. Nobody signs off 200 shirts they have never touched -- the
+         in-person samples answer that, and "add our top picks" does not.
+
+         Two deliberate choices. First, the offer is explained, not just named: "we come to you" is
+         an unfamiliar proposition and a bare button would be ignored, so the unit states what
+         happens in one line. Second, top picks is demoted rather than deleted -- a visitor sent
+         here to pick their gear still needs the fast path, and a shortlist built first makes the
+         sample request far more useful to the rep who packs the bag. */
+      '<div class="herooffer">'+
+        '<span class="hoic" aria-hidden="true">\u270B</span>'+
+        '<span class="hotx"><b>Feel it before you commit</b>'+
+          '<i>We bring the actual garments to your workplace \u2014 fabric, fit and colours side by side. No obligation.</i></span>'+
+        '<button type="button" class="reccta hobtn" data-samp="">See &amp; feel it first <span class="ar">\u2192</span></button>'+
+      '</div>'+
+      (recN?'<button type="button" class="herosecond" id="addRec">\u2605 Or add our top picks <span>'+recN+' item'+(recN===1?'':'s')+'</span></button>':''));
   var html=''+
    '<header class="hdr"><div class="w hdrin">'+
      '<span class="brand"><img src="'+kurl(((CFG.logos&&CFG.logos[0]&&CFG.logos[0].inks&&CFG.logos[0].inks.dark))||CFG.cover_logo||'img/logo-white.png')+'" onerror="this.style.display=\'none\'" alt=""><b>'+esc(CFG.client)+'</b><i>× Just Deals</i></span>'+
