@@ -256,7 +256,8 @@ function unitPrice(key,decos,q){var r=CFG.rates;
   if(!r||r.blank==null){return unitAt(BYKEY[key],q);}
   var item=BYKEY[key],c=blankOf(key),dec=0;
   var vpl={};(item.places||[]).forEach(function(p){if(p.logo)vpl[p.id]=1;});   // only decorate on real logo places (pants have none -> no deco charge)
-  activeDecos(decos).forEach(function(d){if(!vpl[d.pl])return;dec+=decoCost(d,item);});
+  var _ly=stdLayers(key);   // 3-in-1 systems carry the mark on shell AND liner: two runs, two charges
+  activeDecos(decos).forEach(function(d){if(!vpl[d.pl])return;dec+=decoCost(d,item)*_ly;});
   var cm=isCarhartt(item)?costMultCarh(c):costMult(c),vf=isCarhartt(item)?volFactorCarh(q):volFactor(q);
   var price=c*cm*vf+dec,floor=(c+dec)/0.85;   // hard 15% total-margin clamp
   if(price<floor)price=floor; if(price<2.50)price=2.50;          // min piece price
@@ -299,6 +300,24 @@ function setupKey(d){return d.method==='screen' ? ('scr|'+d.lg+'|'+d.pl+'|'+(d.i
    another. The catalogue's `std` block is now the single source of truth, so the mockup, the price
    and the printed spec cannot disagree with each other or between stores. */
 function stdOf(key){var it=BYKEY[key]||{};return it.std||null;}
+/* A 3-in-1 is two garments -- an outer shell and a zip-out inner jacket -- and the "n" counts ways to
+   wear it, not pieces. Industry practice is to decorate BOTH layers at the left chest, because the
+   liner is worn on its own and an unbranded liner defeats the point of a uniform program. So the
+   standard covers two marks, and the price carries two. */
+function sysOf(key){var it=BYKEY[key]||{};return it.sys||null;}
+function stdLayers(key){var st=stdOf(key);return (st&&st.layers)?st.layers:1;}
+function sysHtml(item){
+  var sy=item&&item.sys;if(!sy)return '';
+  return '<div class="sysblk"><div class="syshd">'+sy.ways+'-in-1 system \u00b7 '+sy.garments+' garments</div>'+
+    '<div class="sysrow"><span class="sysn">1</span><span><b>Outer shell alone</b>'+
+      '<i>Wind and rain layer for milder days</i></span></div>'+
+    '<div class="sysrow"><span class="sysn">2</span><span><b>Inner jacket alone</b>'+
+      '<i>Zips out as a standalone jacket for spring and autumn</i></span></div>'+
+    '<div class="sysrow"><span class="sysn">3</span><span><b>Both together</b>'+
+      '<i>Full winter protection when the temperature drops</i></span></div>'+
+    '<div class="sysnote"><b>Your logo goes on both layers</b> \u2014 so the crew is branded whichever '+
+      'way they wear it. That is two embroidery runs, and the price already includes both.</div></div>';
+}
 function recDecos(key){
   var st=stdOf(key);
   if(!st||!st.method||!st.pl)return [];
@@ -1952,8 +1971,9 @@ function renderSheet(){
         '<i>included</i></div><div class="decostd">'+
         '<span class="dsic" aria-hidden="true">\u25C6</span>'+
         '<span class="dstx"><b>'+esc(_st.loc)+'</b><i>Embroidered \u00b7 '+esc(_st.size)+' \u00b7 included in the price</i></span>'+
-        '</div><div class="decofoot">Our standard setup for this product \u2014 the mockup above is exactly what gets produced. '+
-        'Need another location or a back print? Add it in the notes with your quote and we\u2019ll price it.</div></section>')
+        '</div>'+sysHtml(item)+'<div class="decofoot">Our standard setup for this product. The image above is a '+
+        'visual guide, not a production proof \u2014 we send you a digital proof to approve before anything runs. '+
+        'Need another location? Add it in the notes and we\u2019ll price it.</div></section>')
     : (hasDecoPlace(item)?'':'<section class="step"><div class="steph"><span class="stepn">3</span><span class="stept">Your logo</span></div>'+
         '<div class="decofoot">This piece is supplied blank. Tell us in the notes if you\u2019d like it decorated and we\u2019ll quote it.</div></section>');
   var extraHtml='';
@@ -2227,6 +2247,22 @@ function openCheckout(){
         '<input id="coCompany" placeholder="Company / team" autocomplete="organization" value="'+esc(saved.company||CFG.client||'')+'">'+
         '<textarea id="coNote" placeholder="Anything to add? Deadlines, sizes, other items…"></textarea>'+
       '</div>'+
+      /* Artwork is the single biggest cause of back-and-forth after an order lands. Asking for it
+         HERE, while they are already filling in a form, costs one click; chasing it by email later
+         costs days. Vector is what production actually wants, so it is named first -- but a
+         high-resolution PNG is accepted rather than blocking the order on a file they may not have. */
+      '<div class="artwrap">'+
+        '<div class="arthd">Your logo <i>optional \u2014 speeds up your quote</i></div>'+
+        '<label class="artdrop" for="coArt">'+
+          '<span class="artic" aria-hidden="true">\u2191</span>'+
+          '<span class="arttx"><b id="artLbl">Attach your logo file</b>'+
+            '<i>Best: vector \u2014 .ai, .eps, .pdf or .svg. Otherwise the highest-resolution '+
+            'PNG you have, on a transparent background.</i></span>'+
+        '</label>'+
+        '<input id="coArt" type="file" class="artin" accept=".ai,.eps,.pdf,.svg,.png,.jpg,.jpeg">'+
+        '<div class="artnote">No logo file to hand? Send your kit anyway \u2014 we\u2019ll redraw your '+
+          'logo to production quality from the best image you have, at no charge, and show you a proof.</div>'+
+      '</div>'+
     '</div></div>'+
     '<div class="cartf">'+
       '<button class="checkout" id="emailKit">Send my kit — get my quote <span class="ar">→</span></button>'+
@@ -2238,6 +2274,11 @@ function openCheckout(){
   document.getElementById('cartback').addEventListener('click',openCart);
   document.getElementById('cosumedit').addEventListener('click',openCart);
   document.getElementById('emailKit').addEventListener('click',submitKit);
+  var _ai=document.getElementById('coArt');
+  if(_ai)_ai.addEventListener('change',function(){
+    var f=_ai.files&&_ai.files[0],l=document.getElementById('artLbl');
+    if(l)l.textContent=f?(f.name+'  \u00b7  '+Math.max(1,Math.round(f.size/1024))+' KB'):'Attach your logo file';
+    var w=document.querySelector('.artdrop');if(w)w.classList.toggle('has',!!f);});
   document.getElementById('copyKit').addEventListener('click',copyKit);
 }
 function clipCopy(s){if(navigator.clipboard&&navigator.clipboard.writeText){try{navigator.clipboard.writeText(s);return;}catch(e){}}
@@ -2257,6 +2298,23 @@ function submitKit(){
   var done=false,fell=false;
   function fail(){if(done||fell)return;fell=true;mailtoFallback(c,body,subj);}
   var to=setTimeout(fail,9000);   // network stalls -> fallback, never leave them stuck
+
+  /* If they attached artwork, the request MUST go to the non-AJAX endpoint. Verified by sending both
+     ways and reading the delivered mail: /ajax/ accepts a multipart POST, answers {"success":"true"}
+     and silently DISCARDS the file -- the message arrives as single-part text/html with no attachment.
+     The plain endpoint delivers it as a real attachment. Its response is opaque under no-cors, so a
+     resolved request is the success signal; a rejection still falls back to the prefilled email. */
+  var _af=document.getElementById('coArt'),_file=(_af&&_af.files&&_af.files[0])||null;
+  if(_file){
+    var fd=new FormData();
+    Object.keys(payload).forEach(function(k){fd.append(k,payload[k]);});
+    fd.append('artwork_filename',_file.name);
+    fd.append('attachment',_file,_file.name);
+    fetch('https://formsubmit.co/'+JDP_EMAIL,{method:'POST',body:fd,mode:'no-cors'})
+      .then(function(){clearTimeout(to);if(fell)return;done=true;checkoutSuccess(c);})
+      .catch(function(){clearTimeout(to);fail();});
+    return;
+  }
   fetch('https://formsubmit.co/ajax/'+JDP_EMAIL,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(payload)})
     .then(function(r){return r.json().catch(function(){return {};});})
     .then(function(j){clearTimeout(to);if(fell)return;done=true;

@@ -1007,6 +1007,44 @@ main{padding:0 0 22px}
 .dstx i{font-style:normal;font-size:12.5px;font-weight:600;color:var(--mut)}
 .decofoot{margin-top:9px;font-size:12px;line-height:1.5;color:var(--mut)}
 
+/* ---- Layering systems (3-in-1 etc.) ---------------------------------------------------------
+   Two garments sold as one product. The buyer needs to understand that before the price makes
+   sense, so the three ways to wear it are spelled out and the both-layers decoration is framed as
+   what it is: value already included, not a surcharge. */
+.sysblk{margin-top:12px;padding:13px 14px;border-radius:13px;background:var(--canvas);
+  border:1px solid var(--line)}
+.syshd{font-family:var(--disp);font-size:13px;font-weight:700;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--mut);margin-bottom:10px}
+.sysrow{display:flex;align-items:flex-start;gap:10px;padding:6px 0}
+.sysrow+.sysrow{border-top:1px solid color-mix(in srgb,var(--line) 60%,transparent)}
+.sysn{flex:none;width:21px;height:21px;border-radius:50%;background:var(--ink);color:#fff;
+  font-size:11.5px;font-weight:800;display:flex;align-items:center;justify-content:center;margin-top:1px}
+.sysrow span span,.sysrow>span:last-child{display:flex;flex-direction:column;line-height:1.3}
+.sysrow b{font-size:13.5px;font-weight:800;color:var(--ink)}
+.sysrow i{font-style:normal;font-size:12px;font-weight:600;color:var(--mut)}
+.sysnote{margin-top:10px;padding-top:9px;border-top:1px solid var(--line);font-size:12.5px;
+  line-height:1.5;color:var(--mut)}
+.sysnote b{color:#0a7d3c;font-weight:800}
+
+/* ---- Artwork upload at checkout ------------------------------------------------------------- */
+.artwrap{margin-top:14px}
+.arthd{font-size:13px;font-weight:800;color:var(--ink);margin-bottom:7px}
+.arthd i{font-style:normal;font-weight:600;font-size:11.5px;color:var(--mut);margin-left:6px}
+.artin{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.artdrop{display:flex;align-items:center;gap:12px;padding:12px 14px;cursor:pointer;
+  border:1.5px dashed color-mix(in srgb,var(--a) 40%,var(--line));border-radius:13px;
+  background:color-mix(in srgb,var(--a) 4%,#fff);transition:.12s}
+.artdrop:hover{border-color:var(--a);background:color-mix(in srgb,var(--a) 7%,#fff)}
+.artdrop.has{border-style:solid;border-color:#0a7d3c;background:#f2fbf5}
+.artic{flex:none;width:30px;height:30px;border-radius:50%;background:#fff;display:flex;
+  align-items:center;justify-content:center;font-size:15px;font-weight:800;color:var(--a);
+  box-shadow:0 1px 3px rgba(28,22,12,.14)}
+.artdrop.has .artic{color:#0a7d3c}
+.arttx{display:flex;flex-direction:column;gap:2px;line-height:1.3;min-width:0}
+.arttx b{font-size:13.5px;font-weight:800;color:var(--ink);word-break:break-word}
+.arttx i{font-style:normal;font-size:11.5px;font-weight:600;color:var(--mut)}
+.artnote{margin-top:8px;font-size:11.5px;line-height:1.5;color:var(--mut)}
+
 @media (max-width:720px){
   .herooffer{flex-direction:column;align-items:flex-start;gap:12px;padding:14px}
   .hotx b{font-size:19px}
