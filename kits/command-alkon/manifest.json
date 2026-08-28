@@ -1,0 +1,16 @@
+{
+  "generator": "client-app",
+  "version": "1787926354",
+  "slug": "command-alkon",
+  "client": "Command Alkon",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_dd4f26.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}
