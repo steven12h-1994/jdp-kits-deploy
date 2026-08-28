@@ -1014,7 +1014,11 @@ main{padding:0 0 22px}
 .pkadd span{font-weight:600;opacity:.9}
 .pkadd:hover{filter:brightness(1.07)}.pkadd:active{transform:scale(.98)}
 .pkmenu{grid-template-columns:repeat(auto-fill,minmax(210px,1fr))}
-.pkwrap{display:flex;flex-direction:column}
+.pkmenu{align-items:stretch}
+/* Cards in a shortlist row vary in height (two-line names, more swatches), which left the reason
+   chips hanging at staggered heights. Stretch the card to fill its wrapper so every chip lines up. */
+.pkwrap{display:flex;flex-direction:column;height:100%}
+.pkwrap>.mcard{flex:1 1 auto}
 .pkwhy{margin-top:7px;padding:7px 11px;background:#fff;border:1px solid #cdeadb;border-left:3px solid #0a7d3c;
   border-radius:9px;font-size:12px;line-height:1.4;font-weight:700;color:#0a6b34}
 /* The hero variant, when the shortlist replaces the samples offer as the lead action. */
