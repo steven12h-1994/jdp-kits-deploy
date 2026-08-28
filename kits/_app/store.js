@@ -270,7 +270,7 @@ function promoMethods(it){return (it.methods&&it.methods.length)?it.methods:[{n:
 function tierPrice(it,qty){var t=it.tiers;if(!t||!t.length)return it.price_cad||0;var p=t[0].p;for(var i=0;i<t.length;i++){if(qty>=t[i].q)p=t[i].p;}return p;}
 function promoQuote(it,c){
   c=c||{}; var min=it.moq||((it.tiers&&it.tiers[0])?it.tiers[0].q:1);
-  // QUOTE-MODE (new suppliers): tiered blank product price; logo/decoration confirmed on the free proof.
+  // QUOTE-MODE (new suppliers): tiered blank product price; logo and decoration confirmed on your quote.
   if(it.decoquote){
     var q2=Math.max(parseInt(c.qty,10)||min,min);
     var pp=tierPrice(it,q2), gd=Math.round(pp*q2*100)/100;
@@ -308,16 +308,36 @@ function sysOf(key){var it=BYKEY[key]||{};return it.sys||null;}
 function stdLayers(key){var st=stdOf(key);return (st&&st.layers)?st.layers:1;}
 function sysHtml(item){
   var sy=item&&item.sys;if(!sy)return '';
-  return '<div class="sysblk"><div class="syshd">'+sy.ways+'-in-1 system \u00b7 '+sy.garments+' garments</div>'+
-    '<div class="sysrow"><span class="sysn">1</span><span><b>Outer shell alone</b>'+
-      '<i>Wind and rain layer for milder days</i></span></div>'+
-    '<div class="sysrow"><span class="sysn">2</span><span><b>Inner jacket alone</b>'+
-      '<i>Zips out as a standalone jacket for spring and autumn</i></span></div>'+
-    '<div class="sysrow"><span class="sysn">3</span><span><b>Both together</b>'+
-      '<i>Full winter protection when the temperature drops</i></span></div>'+
-    '<div class="sysnote"><b>Your logo goes on both layers</b> \u2014 so the crew is branded whichever '+
-      'way they wear it. That is two embroidery runs, and the price already includes both.</div></div>';
+  /* Per-product now, not one blanket description. A 3-in-1 and a 6-in-1 are both TWO garments -- the
+     number counts wearing configurations -- but showing three ways on a product sold as six-in-one
+     undersells it, and inventing six ways nobody published would be worse. So: list the maker's own
+     configurations where they publish them, and where they only claim a number without enumerating
+     it (Ground Force's TJ6), state the three that are true of every system and say the rest come
+     from the liner's zip-off sleeves rather than making them up. */
+  var combos=sy.combos||[];
+  var rows='';
+  if(combos.length){
+    rows=combos.map(function(t,i){
+      return '<div class="sysrow"><span class="sysn">'+(i+1)+'</span><span>'+esc(t)+'</span></div>';}).join('');
+  }else{
+    rows=['Outer shell alone','Inner jacket alone','Shell and liner zipped together']
+      .map(function(t,i){
+        return '<div class="sysrow"><span class="sysn">'+(i+1)+'</span><span>'+esc(t)+'</span></div>';}).join('')+
+      '<div class="sysrow"><span class="sysn">+</span><span>Further combinations from the liner\u2019s '+
+        'zip-off sleeves \u2014 '+sy.ways+' in total, per the maker</span></div>';
+  }
+  var liner=sy.liner?('<div class="sysliner"><b>Liner:</b> '+esc(sy.liner)+'</div>'):'';
+  var rev=sy.revside
+    ? ('<div class="sysrev">The liner is reversible. As standard we embroider the <b>'+esc(sy.revside)+
+       '</b> \u2014 the face worn on site. Tell us in the notes to switch it.</div>')
+    : '';
+  return '<div class="sysblk"><div class="syshd">'+sy.ways+' ways to wear \u00b7 '+sy.garments+' garments</div>'+
+    rows+liner+
+    '<div class="sysnote"><b>Your logo goes on both garments</b> \u2014 shell and liner \u2014 so the crew '+
+      'is branded whichever way they wear it. That is two embroidery runs, and the price already includes both.</div>'+
+    rev+'</div>';
 }
+
 function recDecos(key){
   var st=stdOf(key);
   if(!st||!st.method||!st.pl)return [];
@@ -402,7 +422,8 @@ function colourDots(item,key){
 var MEGA=[
   {id:'tops',name:'Polos, Shirts & Tees'},
   {id:'layers',name:'Sweaters & Fleece'},
-  {id:'outerwear',name:'Jackets & Vests'},
+  {id:'outerwear',name:'Jackets'},
+  {id:'vests',name:'Vests'},
   {id:'ruggedwear',name:'Rugged Wear'},
   {id:'hivis',name:'Hi-Vis & Safety'},
   {id:'carhartt',name:'Carhartt Workwear'},
@@ -415,7 +436,11 @@ var SHACKET_KEYS={st_bushwick:1,st_highlandplaid:1,st_oxide:1};
 var MEGASUB={
   tops:['Polos','Shirts','Tees'],
   layers:['Quarter & Half-Zips','Crewnecks & Sweatshirts','Hoodies','Fleece'],   // bottoms live in the Pants & Joggers tab
-  outerwear:['Softshell Jackets','Shackets & Overshirts','Insulated & Thermal','Puffer & Quilted','3-in-1 Systems','Shells & Rainwear','Vests','Jackets'],
+  outerwear:['Softshell Jackets','Shackets & Overshirts','Insulated & Thermal','Puffer & Quilted','3-in-1 Systems','Shells & Rainwear','Jackets'],
+  // Vests are their own category, not a drawer inside Jackets. A vest is a different purchase --
+  // worn indoors, over a hoodie, year round -- and burying eleven of them under Jackets meant a
+  // buyer shopping for vests had to know to look there first.
+  vests:['Quilted & Puffer','Fleece & Softshell','Canvas & Lined','Hi-Vis Vests'],
   // Rugged Wear = Canada Sportswear's heavy-duty line, its own brand category.
   // Rugged Wear — organized how trades/industrial buyers shop: by warmth & garment type. The #1 rugged selection.
   ruggedwear:['Insulated & Quilted','Canvas & Shackets','Parkas','Shells & 3-in-1','Vests','Hoodies & Thermals','Work Shirts'],
@@ -480,11 +505,23 @@ var RUGGED_CROSS={
 // never duplicated within a category. Headwear was scattered three ways — 24 promo caps here, 4 Carhartt
 // caps inside the Carhartt brand tab, 4 golf caps inside Accessories — so nobody shopping "Headwear" ever
 // saw all of it. Brand tabs keep their complete story; the buyer gets one aisle.
+function vestSub(n){
+  // Hi-vis first: a tear-away traffic vest is PPE before it is a garment style, and testing
+  // "quilted" ahead of it filed the 5-Point Tear-Away under Quilted & Puffer.
+  if(/hi-?vis|traffic|surveyor|safety|tearaway|tear-away/.test(n))return 'Hi-Vis Vests';
+  if(/quilt|puff|down|thermoball|insulat/.test(n))return 'Quilted & Puffer';
+  if(/fleece|softshell|soft shell|sherpa/.test(n))return 'Fleece & Softshell';
+  if(/canvas|duck|lined|flannel/.test(n))return 'Canvas & Lined';
+  return 'Quilted & Puffer';
+}
 function crossAlso(it,c){
   var out=[],n=((it.name||'')+' '+(it.key||'')).toLowerCase();
   if(c.mega!=='ruggedwear'&&RUGGED_CROSS[it.key])out.push({mega:'ruggedwear',sub:RUGGED_CROSS[it.key]});
   if(c.mega!=='headwear'&&isHeadwear(n)&&!/\bfr\b|flame[- ]resistant/.test(n))out.push({mega:'headwear',sub:headwearSub(n)});
   if(c.mega!=='bottoms'&&c.sub==='Pants & Bibs')out.push({mega:'bottoms',sub:'Work Pants & Bibs'});
+  // A vest keeps its brand home (Carhartt, Rugged Wear) or its PPE home (Hi-Vis) AND appears in the
+  // Vests category, so neither shopper loses it: one browses by brand, the other by garment.
+  if(c.mega!=='vests'&&/vest/.test(n))out.push({mega:'vests',sub:vestSub(n)});
   return out;
 }
 // Best-sellers (rec flag) are NOT a separate section — they live in their garment sub with the ★ Top pick badge, sorted first.
@@ -572,7 +609,7 @@ function classify(it){
   if(/quarter-?zip|half-?zip|1\/4/.test(n))return {mega:'layers',sub:'Quarter & Half-Zips'};
   if(/crewneck|sweatshirt/.test(n)&&!/hood/.test(n)&&!/t-shirt|\btee\b/.test(n))return {mega:'layers',sub:'Crewnecks & Sweatshirts'};  // a "Crewneck T-Shirt" is a TEE
   if(/hoodie|hooded/.test(n))return {mega:'layers',sub:'Hoodies'};
-  if(n.indexOf('vest')>=0)return {mega:'outerwear',sub:'Vests'};      // fleece/quilted vests -> Vests, not Fleece
+  if(n.indexOf('vest')>=0)return {mega:'vests',sub:vestSub(n)};
   if(/fleece/.test(n))return {mega:'layers',sub:'Fleece'};
   if(n.indexOf('polo')>=0)return {mega:'tops',sub:'Polos'};
   if(/tee|t-shirt|henley/.test(n))return {mega:'tops',sub:'Tees'};
@@ -603,7 +640,7 @@ function browseColour(key,item){
   return (hit&&hit.name===want)?want:(cols[0]||{}).name;
 }
 var BUCKETS={},TOTALS={},CATS=[];
-var SHORTCAT={tops:'Polos & Shirts',layers:'Fleece & Sweaters',outerwear:'Jackets & Vests',ruggedwear:'Rugged Wear',hivis:'Hi-Vis & Safety',carhartt:'Carhartt',headwear:'Headwear',bottoms:'Pants & Joggers',fr:'Flame-Resistant',accessories:'Accessories'};
+var SHORTCAT={tops:'Polos & Shirts',layers:'Fleece & Sweaters',outerwear:'Jackets',vests:'Vests',ruggedwear:'Rugged Wear',hivis:'Hi-Vis & Safety',carhartt:'Carhartt',headwear:'Headwear',bottoms:'Pants & Joggers',fr:'Flame-Resistant',accessories:'Accessories'};
 // Two brand worlds — how JDP sells: the jobsite crew and the front office / client-facing team.
 var AUD=[{id:'field',name:'Field & Crews',short:'Field & Crews',blurb:'CSA hi-vis, rugged workwear & hard-hat-ready layers built for the jobsite.',cats:['hivis','ruggedwear','carhartt','fr','headwear','bottoms']},
          {id:'office',name:'Office, Sales & Client-Facing',short:'Office & Sales',blurb:'Sharp branded polos, softshells, premium brands & client gifts for the front office and sales floor.',cats:['tops','layers','outerwear','headwear','bottoms','accessories']}];
@@ -1014,7 +1051,7 @@ function valueStripHtml(){
   // without pushing the catalogue below the fold.
   var items=[
     {i:'\u2605',b:'Competitive pricing, guaranteed',d:'We match any lower written quote'},
-    {i:'\u2713',b:'Free digital proofs',d:'See your logo before you commit'},
+    {i:'\u2713',b:'See it before you commit',d:'Your logo shown on the actual garment'},
     {i:'\u25C6',b:'3,400+ impressions per shirt',d:'Apparel is the most-kept promo item'}
   ];
   return '<section class="vbar"><div class="w vbarin">'+items.map(function(v){
@@ -1042,7 +1079,7 @@ function whyJdpHtml(){
   // Each card earns its place by removing a distinct risk.
   var reasons=[
     {t:'We match any lower written quote',d:'Same product, same decoration, same quantity — send it over and we match it. You never have to shop around to know the price is right.'},
-    {t:'See it before you commit',d:'Free digital proofs of your logo on the actual garment, at the exact size and placement. No cost, no obligation.'},
+    {t:'See it before you commit',d:'Every item shows your logo on the actual garment, at the size and placement we decorate. No cost, no obligation.'},
     {t:'A real person, not a call centre',d:'You deal with our team directly — same people from first quote through to delivery.'},
     {t:'One supplier for the whole crew',d:'CSA-rated hi-vis and rugged workwear through to polos and client gifts. One invoice, one contact.'}
   ];
@@ -1055,7 +1092,7 @@ function whyJdpHtml(){
         '<div><b>'+esc(r.t)+'</b><span>'+esc(r.d)+'</span></div></div>';
     }).join('')+'</div>'+
     '<div class="whycta"><button class="reccta" id="whyCta">Build your kit — get an exact quote <span class="ar">\u2192</span></button>'+
-      '<span class="whyctan">Free proofs · no payment now · no obligation</span></div>'+
+      '<span class="whyctan">No payment now · no obligation</span></div>'+
   '</div></section>';}
 
 function shopCatsHtml(){
@@ -1100,7 +1137,7 @@ function openKitSheet(kid){
     '<button class="shx" id="shx" aria-label="Close">✕</button>'+
     '<div class="shscroll"><div class="kithd"><span class="kittag">'+esc(kit.tag)+'</span><h2>'+esc(kit.name)+'</h2><p>'+esc(kit.blurb)+'</p></div>'+
     '<div class="krows">'+rows+'</div>'+
-    '<div class="pinc"><span class="pinci">✓</span> Add the set, then tweak sizes &amp; colours in your kit and send for your exact quote — free proof, no obligation.</div></div>'+
+    '<div class="pinc"><span class="pinci">✓</span> Add the set, then tweak sizes &amp; colours in your kit and send for your exact quote — no obligation.</div></div>'+
     '<div class="shfoot"><button class="shaddbtn" id="kitAdd"><span>Add all '+items.length+' pieces to my kit</span></button>'+
     '<div class="shtrust">Adjust any piece after adding · no payment now</div></div>';
   var sh=document.getElementById('sheet');
@@ -1490,7 +1527,7 @@ function shareEmail(key){
   var subj=it.name+' — '+(CFG.client||'team store');
   var body=['Have a look at this one:','',it.name+(colour?(' — '+colour):''),
             price+' per '+(it.unit==='dozen'?'dozen':'pc')+(it.moq?(' · minimum '+it.moq):''),
-            '',url,'','Logo and final pricing are confirmed on the quote — free proof, no obligation.'].join('\n');
+            '',url,'','Logo and final pricing are confirmed on the quote — no obligation.'].join('\n');
   location.href='mailto:?subject='+encodeURIComponent(subj)+'&body='+encodeURIComponent(body);
 }
 function closeShareMenu(){
@@ -1836,7 +1873,7 @@ function renderPromoSheet(){
   var priceSub,logoGrp,picksHtml,sumHtml,footHtml,step=(min>=48?48:(min>=24?24:12));
   if(isDQ){
     var multi=(q.tiers&&q.tiers.length>1);
-    priceSub='<div class="pprice-sub">'+(multi?'Order more, pay less per '+unitP:'Your price per '+unitP)+' · your logo added at proof</div>';
+    priceSub='<div class="pprice-sub">'+(multi?'Order more, pay less per '+unitP:'Your price per '+unitP)+' · your logo confirmed on your quote</div>';
     /* What's in the box. A gift set is bought on its CONTENTS, so list them and link each one.
        PACKAGING IS NOT A PRODUCT. The P-series gift box was previously listed as the first row of
        every set, where it was the one entry that could not be clicked -- Steven read that, quite
@@ -1857,7 +1894,7 @@ function renderPromoSheet(){
                  (x.sku?(' <small>'+esc(x.sku)+'</small>'):'')+'</li>';}).join('')+'</ul>'+
           (boxes.length?('<div class="pboxnote">Presented in a '+esc(boxName(boxes[0].desc))+'</div>'):'')+
           '</div>';}}
-    logoGrp=incHtml+'<div class="pgrp"><div class="pgl">Your logo</div><div class="qlogo"><span class="pinci">✓</span> Add your logo — we’ll email a <b>free proof</b> and confirm decoration &amp; setup on your quote.</div></div>';
+    logoGrp=incHtml+'<div class="pgrp"><div class="pgl">Your logo</div><div class="qlogo"><span class="pinci">✓</span> Add your logo — we’ll confirm decoration &amp; setup on your quote.</div></div>';
     var tq=(q.tiers&&q.tiers.length)?q.tiers.map(function(t){return t.q;}):promoTiers(min);
     // Show the BREAK RANGE, not just its opening number: the vendor's own table reads "6 - 47" then
     // "48+", and a bare "6" next to a bare "48" makes a buyer guess where one price stops and the next
@@ -1868,11 +1905,11 @@ function renderPromoSheet(){
     var setupLine=(item.setup>0)?('<div class="psrow"><span>One-time setup <small>charged once per logo</small></span><span>'+money(item.setup)+'</span></div>'):'';
     sumHtml='<div class="psum"><div class="psrow"><span>'+q.qty+' '+unitP+' × '+money(q.perPiece)+'</span><span>'+money(q.goods)+'</span></div>'+
       setupLine+
-      '<div class="psrow"><span>Your logo</span><span>added at proof</span></div>'+
+      '<div class="psrow"><span>Your logo</span><span>confirmed on quote</span></div>'+
       '<div class="psrow pstot"><span>Estimated total</span><span>'+money(q.goods+(item.setup>0?item.setup:0))+'</span></div></div>';
     footHtml='<div class="pfrow"><span>'+q.qty+' '+unitP+' · '+money(q.perPiece)+'/'+unitP+'</span><b>'+money(q.goods)+'</b></div>'+
       '<button class="shaddbtn" id="shAdd"><span>'+(CART[SH.key]?'Update kit':'Add to kit')+'</span><span class="p">'+money(q.goods)+'</span></button>'+
-      '<div class="shtrust">Minimum '+min+' '+unitP+' · free proof · logo &amp; final price confirmed on your quote</div>';
+      '<div class="shtrust">Minimum '+min+' '+unitP+' · logo &amp; final price confirmed on your quote</div>';
   }else{
     var meth=methods.map(function(m,i){var up=m.r>0?('<small>+'+money(m.r)+'/pc</small>'):'<small>included</small>';
       return '<button class="pmeth'+(i===q.mi?' on':'')+'" data-mi="'+i+'">'+esc(m.n)+' '+up+'</button>';}).join('');
@@ -1886,7 +1923,7 @@ function renderPromoSheet(){
       '<div class="psrow pstot"><span>Estimated total</span><span>'+money(q.total)+' <em>≈'+money(q.allIn)+'/pc</em></span></div></div>';
     footHtml='<div class="pfrow"><span>'+q.qty+' pcs · '+money(q.perPiece)+'/pc + '+money(q.setup)+' setup</span><b>'+money(q.total)+'</b></div>'+
       '<button class="shaddbtn" id="shAdd"><span>'+(CART[SH.key]?'Update kit':'Add to kit')+'</span><span class="p">'+money(q.total)+'</span></button>'+
-      '<div class="shtrust">Minimum '+min+' pcs · free proof · no payment now</div>';
+      '<div class="shtrust">Minimum '+min+' pcs · no payment now</div>';
   }
   document.getElementById('sheet').innerHTML=
     '<button class="shx" id="shx" aria-label="Close">✕</button>'+backChipHtml()+
@@ -1904,7 +1941,7 @@ function renderPromoSheet(){
         '<div class="pgrp"><div class="pgl">How many?<i>minimum '+min+' '+unitP+'</i></div>'+picksHtml+
           '<div class="qty pqty"><button data-d="-'+step+'" aria-label="Fewer">–</button><input id="pqin" class="szin" type="number" inputmode="numeric" value="'+q.qty+'" min="'+min+'"><button data-d="'+step+'" aria-label="More">+</button></div></div>'+
         sumHtml+
-        '<div class="pinc"><span class="pinci">✓</span> Free digital proof before anything is made · exact quote confirmed · no payment now.</div>'+
+        '<div class="pinc"><span class="pinci">✓</span> Exact quote confirmed before anything is made · no payment now.</div>'+
       '</div></div>'+
     '<div class="shfoot">'+footHtml+'</div>';
   var sh=document.getElementById('sheet');
@@ -1972,8 +2009,8 @@ function renderSheet(){
         '<span class="dsic" aria-hidden="true">\u25C6</span>'+
         '<span class="dstx"><b>'+esc(_st.loc)+'</b><i>Embroidered \u00b7 '+esc(_st.size)+' \u00b7 included in the price</i></span>'+
         '</div>'+sysHtml(item)+'<div class="decofoot">Our standard setup for this product. The image above is a '+
-        'visual guide, not a production proof \u2014 we send you a digital proof to approve before anything runs. '+
-        'Need another location? Add it in the notes and we\u2019ll price it.</div></section>')
+        'visual guide, not an exact production rendering. Your logo, placement and size are confirmed '+
+        'on your quote. Need another location? Add it in the notes and we\u2019ll price it.</div></section>')
     : (hasDecoPlace(item)?'':'<section class="step"><div class="steph"><span class="stepn">3</span><span class="stept">Your logo</span></div>'+
         '<div class="decofoot">This piece is supplied blank. Tell us in the notes if you\u2019d like it decorated and we\u2019ll quote it.</div></section>');
   var extraHtml='';
@@ -2136,7 +2173,7 @@ function renderCart(){
   var items=keys.map(function(k){var it=BYKEY[k];if(!it)return '';var c=CART[k];
     if(it.layer==='promo'){var pq=promoQuote(it,c);var pcol=colInList(it.cols,c.colour)||it.cols[0]||{};
       var pline=pq.goods+pq.decoRun;var uP=(pq.unit==='dozen'?'dozen':'pc');
-      var psub2=pq.decoquote?(esc(c.colour||'')+' · logo added at proof'):(esc(c.colour||'')+' · '+esc(pq.method.n)+(pq.locs>1?' · 2 spots':'')+' · +'+money(pq.setup)+' setup');
+      var psub2=pq.decoquote?(esc(c.colour||'')+' · logo confirmed on quote'):(esc(c.colour||'')+' · '+esc(pq.method.n)+(pq.locs>1?' · 2 spots':'')+' · +'+money(pq.setup)+' setup');
       return '<div class="ci" data-key="'+k+'"><div class="t" style="background-image:url('+gurl(pcol.front)+')"></div>'+
         '<div class="d"><h4>'+esc(it.name)+'</h4><div class="sub">'+psub2+'</div>'+
         '<div class="row"><button class="editln" data-edit="'+k+'">'+pq.qty+' '+uP+' · '+money(pq.perPiece)+'/'+uP+' ✎</button><div class="lp">'+money(pline)+'</div></div></div>'+
@@ -2261,7 +2298,7 @@ function openCheckout(){
         '</label>'+
         '<input id="coArt" type="file" class="artin" accept=".ai,.eps,.pdf,.svg,.png,.jpg,.jpeg">'+
         '<div class="artnote">No logo file to hand? Send your kit anyway \u2014 we\u2019ll redraw your '+
-          'logo to production quality from the best image you have, at no charge, and show you a proof.</div>'+
+          'logo to production quality from the best image you have, at no charge.</div>'+
       '</div>'+
     '</div></div>'+
     '<div class="cartf">'+

@@ -1025,6 +1025,13 @@ main{padding:0 0 22px}
 .sysnote{margin-top:10px;padding-top:9px;border-top:1px solid var(--line);font-size:12.5px;
   line-height:1.5;color:var(--mut)}
 .sysnote b{color:#0a7d3c;font-weight:800}
+.sysliner{margin-top:10px;padding-top:9px;border-top:1px solid var(--line);font-size:12.5px;
+  line-height:1.5;color:var(--mut)}
+.sysliner b{color:var(--ink);font-weight:800}
+.sysrev{margin-top:9px;padding:9px 11px;border-radius:10px;background:#fff;border:1px solid var(--line);
+  font-size:12px;line-height:1.5;color:var(--mut)}
+.sysrev b{color:var(--ink);font-weight:800}
+.sysrow>span:last-child{font-size:13px;font-weight:700;color:var(--ink)}
 
 /* ---- Artwork upload at checkout ------------------------------------------------------------- */
 .artwrap{margin-top:14px}
