@@ -941,8 +941,8 @@ function renderSubchips(){var el=document.getElementById('subchips');if(!el)retu
   renderFitbar();renderColbar();renderBandbar();renderSortbar();renderFilterUI();
   el.querySelectorAll('.schip').forEach(function(b){b.addEventListener('click',function(){setSub(b.dataset.sub);
     var tr=b.closest('.subchips');if(tr)tr.scrollTo({left:b.offsetLeft-tr.clientWidth/2+b.clientWidth/2,behavior:'smooth'});});});}
-function wireCards(){
-  var g=document.getElementById('grid');if(!g)return;
+function wireCards(rootId){
+  var g=document.getElementById(rootId||'grid');if(!g)return;
   g.querySelectorAll('.mcard').forEach(function(card){
     card.addEventListener('click',function(){openSheet(card.dataset.key);});
     card.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();openSheet(card.dataset.key);}});});
@@ -1209,6 +1209,7 @@ function buildStore(){
     '</div>'+
   '</div></section>';
   var recN=(essKeysAll().length||recKeysAll().length);
+  var _pk=picksOf();
   var demo=!!CFG.demo,cta=CFG.cta||{};
   var heroCta = demo
     ? ('<button class="reccta" id="leadOpen1">'+esc(cta.label||'Get your store — free')+' →</button>'+(cta.phone?'<div class="herophone">or call <b>'+esc(cta.phone)+'</b></div>':''))
@@ -1222,13 +1223,24 @@ function buildStore(){
          happens in one line. Second, top picks is demoted rather than deleted -- a visitor sent
          here to pick their gear still needs the fast path, and a shortlist built first makes the
          sample request far more useful to the rep who packs the bag. */
-      '<div class="herooffer">'+
-        '<span class="hoic" aria-hidden="true">\u270B</span>'+
-        '<span class="hotx"><b>Feel it before you commit</b>'+
-          '<i>We bring the actual garments to your workplace \u2014 fabric, fit and colours side by side. No obligation.</i></span>'+
-        '<button type="button" class="reccta hobtn" data-samp="">See &amp; feel it first <span class="ar">\u2192</span></button>'+
-      '</div>'+
-      (recN?'<button type="button" class="herosecond" id="addRec">Or start with the '+recN+' essentials <span>every team needs</span></button>':''));
+      (_pk
+        /* They have already had the visit and named their pieces: lead with those. */
+        ? ('<div class="herooffer pkoffer">'+
+             '<span class="hoic" aria-hidden="true">\u2713</span>'+
+             '<span class="hotx"><b>Your shortlist is ready</b>'+
+               '<i>The '+_pk.keys.length+' pieces you picked out are waiting \u2014 add them and get your exact quote.</i></span>'+
+             '<button type="button" class="reccta hobtn" id="addPicksHero">Add my '+_pk.keys.length+
+               ' pieces <span class="ar">\u2192</span></button>'+
+           '</div>'+
+           '<button type="button" class="herosecond" data-samp="">Or see &amp; feel them in person first '+
+             '<span>we bring samples to you</span></button>')
+        : ('<div class="herooffer">'+
+             '<span class="hoic" aria-hidden="true">\u270B</span>'+
+             '<span class="hotx"><b>Feel it before you commit</b>'+
+               '<i>We bring the actual garments to your workplace \u2014 fabric, fit and colours side by side. No obligation.</i></span>'+
+             '<button type="button" class="reccta hobtn" data-samp="">See &amp; feel it first <span class="ar">\u2192</span></button>'+
+           '</div>'+
+           (recN?'<button type="button" class="herosecond" id="addRec">Or start with the '+recN+' essentials <span>every team needs</span></button>':''))));
   var html=''+
    '<header class="hdr"><div class="w hdrin">'+
      '<span class="brand"><img src="'+kurl(((CFG.logos&&CFG.logos[0]&&CFG.logos[0].inks&&CFG.logos[0].inks.dark))||CFG.cover_logo||'img/logo-white.png')+'" onerror="this.style.display=\'none\'" alt=""><b>'+esc(CFG.client)+'</b><i>× Just Deals</i></span>'+
@@ -1248,6 +1260,7 @@ function buildStore(){
       the cart, and "3,400+ impressions per shirt" is promo-industry trivia that has nothing to do
       with outfitting staff. Removing the band makes the in-person offer the unambiguous focal point
       and lifts the catalogue up the page. */
+   picksSectionHtml()+
    shopCatsHtml()+
    '<div class="navwrap" id="navwrap">'+
      '<div class="fscrim" id="fscrim"></div>'+
@@ -1301,6 +1314,9 @@ function buildStore(){
   // guard keeps it to a single listener.
   wireDelegates();
   var ar=document.getElementById('addRec');if(ar)ar.addEventListener('click',addRecommended);
+  ['addPicks','addPicksHero'].forEach(function(id){
+    var b=document.getElementById(id);if(b)b.addEventListener('click',addPicks);});
+  wireCards('pkgrid');
   var wc=document.getElementById('whyCta');if(wc)wc.addEventListener('click',function(){
     if(cartCount()>0){openCart();}else{VIEW.sub='all';renderGrid();scrollToResults();}});
   // "Shop the collection" hero tiles -> jump into a category (and reveal their images, which sit outside #grid).
@@ -2119,6 +2135,48 @@ function quickAdd(key){
    is right for a badge and wrong for a "start here" button: adding 23 items is not a starting point,
    it is the whole store. `ess` is an explicit, ordered nine -- everyday tops, layers, then the
    onboarding pieces -- so the button offers advice instead of a bulk action. */
+/* ---- Per-store shortlist ---------------------------------------------------------------------
+   After a site visit the buyer has already told us what they want. Making them re-find those pieces
+   in a 489-item catalogue is the single most wasteful thing this store can do -- and the generic
+   "9 essentials" is the wrong answer for someone who has named their own.
+
+   So the store adapts to where the relationship actually is. No shortlist: lead with the samples
+   offer. Shortlist present: lead with THEIR list, and drop the samples offer to secondary, because
+   the visit already happened. Nothing here is invented -- the list, who picked it and the per-item
+   reason all come from the kit's own config, and the section simply does not render without one. */
+function picksOf(){
+  var p=CFG.picks;if(!p)return null;
+  var keys=(p.keys||p.items||[]).map(function(x){
+    return (typeof x==='string')?{k:x,why:''}:{k:x.k||x.key,why:x.why||''};
+  }).filter(function(x){return x.k&&BYKEY[x.k];});
+  if(!keys.length)return null;
+  return {by:p.by||'',note:p.note||'',keys:keys};
+}
+function picksTitle(p){
+  return p.by?('The gear you picked out with '+esc(p.by)):'The gear you shortlisted';
+}
+function addPicks(){
+  var p=picksOf();if(!p)return;
+  var n=0;
+  p.keys.forEach(function(x){
+    if(CART[x.k])return;
+    CART[x.k]={qty:moq(),colour:vmOf(x.k).colour,decos:recCartDecos(x.k)};n++;});
+  saveCart();refreshCartUI();openCart();
+  toast(n?('Added '+n+' piece'+(n===1?'':'s')+' from your shortlist'):'Your shortlist is already in your kit');
+}
+function picksSectionHtml(){
+  var p=picksOf();if(!p)return '';
+  var cards=p.keys.map(function(x){
+    var why=x.why?('<div class="pkwhy">'+esc(x.why)+'</div>'):'';
+    return '<div class="pkwrap">'+menuCard(x.k)+why+'</div>';}).join('');
+  return '<section class="picks"><div class="w picksin">'+
+    '<div class="pkhd"><div><div class="eyb">Your shortlist</div>'+
+      '<h2>'+picksTitle(p)+'</h2>'+
+      (p.note?('<p class="pknote">'+esc(p.note)+'</p>'):'')+'</div>'+
+      '<button type="button" class="pkadd" id="addPicks">Add all '+p.keys.length+
+        ' <span>to my kit</span></button></div>'+
+    '<div class="menu pkmenu" id="pkgrid">'+cards+'</div></div></section>';
+}
 function essKeysAll(){
   var out=[];
   for(var k in BYKEY){if(BYKEY[k]&&BYKEY[k].ess)out.push(k);}

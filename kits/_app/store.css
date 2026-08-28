@@ -997,6 +997,36 @@ main{padding:0 0 22px}
 .herosecond span{font-weight:600;color:var(--mut);margin-left:5px}
 .herosecond:hover{border-bottom-color:var(--a)}
 
+/* ---- Per-store shortlist -------------------------------------------------------------------
+   Recognition is the conversion mechanism here: the buyer sees their own decision reflected back,
+   named, with the pieces they chose. That is a stronger signal than any offer we could write. The
+   green accent separates it from the brand-accent offers -- it reads as "already agreed", not "new
+   pitch". Renders only when the kit config carries a shortlist. */
+.picks{background:linear-gradient(180deg,#f2fbf5,var(--card));border-bottom:1px solid var(--line)}
+.picksin{padding:26px 20px 28px}
+.pkhd{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;margin-bottom:18px;flex-wrap:wrap}
+.pkhd .eyb{color:#0a7d3c}
+.pkhd h2{font-size:26px;font-weight:850;letter-spacing:-.02em;margin:6px 0 0}
+.pknote{margin:8px 0 0;font-size:14px;line-height:1.5;color:var(--mut);max-width:62ch}
+.pkadd{flex:none;display:inline-flex;align-items:center;gap:8px;background:#0a7d3c;color:#fff;
+  font-weight:850;font-size:15.5px;padding:13px 22px;border-radius:12px;cursor:pointer;
+  box-shadow:0 12px 26px -14px rgba(10,125,60,.7);transition:transform .12s,filter .12s}
+.pkadd span{font-weight:600;opacity:.9}
+.pkadd:hover{filter:brightness(1.07)}.pkadd:active{transform:scale(.98)}
+.pkmenu{grid-template-columns:repeat(auto-fill,minmax(210px,1fr))}
+.pkwrap{display:flex;flex-direction:column}
+.pkwhy{margin-top:7px;padding:7px 11px;background:#fff;border:1px solid #cdeadb;border-left:3px solid #0a7d3c;
+  border-radius:9px;font-size:12px;line-height:1.4;font-weight:700;color:#0a6b34}
+/* The hero variant, when the shortlist replaces the samples offer as the lead action. */
+.herooffer.pkoffer{background:linear-gradient(100deg,#eafaf0,var(--card) 70%);border-color:#a9dcc0}
+.herooffer.pkoffer .hoic{color:#0a7d3c}
+.herooffer.pkoffer .hobtn{background:#0a7d3c;box-shadow:0 12px 26px -14px rgba(10,125,60,.7)}
+@media (max-width:600px){
+  .picksin{padding:22px 20px 24px}.pkhd h2{font-size:21px}
+  .pkadd{width:100%;justify-content:center}
+  .pkmenu{grid-template-columns:repeat(2,1fr);gap:12px}
+}
+
 /* ---- Standardized decoration, stated not chosen -------------------------------------------- */
 .decostd{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:13px;
   background:color-mix(in srgb,var(--a) 6%,#fff);border:1.5px solid color-mix(in srgb,var(--a) 26%,#fff)}
