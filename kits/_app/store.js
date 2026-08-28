@@ -293,7 +293,18 @@ function promoTiers(min){var out=[];[min,25,50,100,250,500].forEach(function(q){
 // A setup is charged ONCE per unique DESIGN+LOCATION+METHOD across the whole kit (a stitch file / set of
 // screens is reused on every garment & quantity). Screens also depend on ink colour, so screen keys include ink.
 function setupKey(d){return d.method==='screen' ? ('scr|'+d.lg+'|'+d.pl+'|'+(d.ink||'auto')) : (d.method+'|'+d.lg+'|'+d.pl);}
-function recDecos(key){return ((CFG.items||{})[key]||{}).decos||[];}
+/* ONE standardized setup per product, read from the catalogue -- not from each kit's own config.
+   Per-kit decos are why the same product was quoted differently store to store: a sample of 14 live
+   kits had 16 hi-vis items carrying a second centre-back screen in most stores, 5 in one and none in
+   another. The catalogue's `std` block is now the single source of truth, so the mockup, the price
+   and the printed spec cannot disagree with each other or between stores. */
+function stdOf(key){var it=BYKEY[key]||{};return it.std||null;}
+function recDecos(key){
+  var st=stdOf(key);
+  if(!st||!st.method||!st.pl)return [];
+  return [{pl:st.pl,on:true,lg:(CFG.logos&&CFG.logos[0]&&CFG.logos[0].id)||null,
+           ink:'auto',method:st.method,colours:1}];
+}
 
 /* ---------- persistence ---------- */
 function loadCart(){try{CART=JSON.parse(localStorage.getItem(LSKEY))||{};}catch(e){CART={};}}
@@ -1726,11 +1737,21 @@ function openSheet(key,wantCol,fromKey){
   sheetSizes().forEach(function(s){SH.sizes[s]=(ex&&ex.sizes&&ex.sizes[s])||0;});
   var logoPlaces=(item.places||[]).filter(function(p){return p.logo;}),primaryId=(logoPlaces[0]||{}).id;
   logoPlaces.forEach(function(p){
-    var rd=(vm.decos||[]).filter(function(x){return x.pl===p.id;})[0]||{},use=exmap[p.id];
+    // METHOD comes from the catalogue standard, never from the kit config. Reading vm.decos here is
+    // what left the hi-vis tee drawing a screen print and the rain jacket a heat transfer while the
+    // spec beside them said embroidery -- the mockup and the quote disagreeing on the same screen.
+    var _sd=(recDecos(key)||[]).filter(function(x){return x.pl===p.id;})[0]||{};
+    var _kd=(vm.decos||[]).filter(function(x){return x.pl===p.id;})[0]||{};
+    var rd={pl:p.id,on:!!_sd.on,method:_sd.method||_kd.method,colours:1,
+            lg:_kd.lg||_sd.lg,ink:_kd.ink||'auto'};
+    var use=exmap[p.id];
     var on = p.id===primaryId ? true : (ex?!!use:!!rd.on);
+    // A kit saved in the browser BEFORE standardisation can still hold an old method (screen, heat
+    // transfer). The store no longer offers that choice, so the standard wins over the saved value --
+    // otherwise a returning customer would keep being quoted a setup we no longer run.
     SH.D[p.id]={on:on, lg:(use&&use.lg)||rd.lg||(CFG.logos[0]||{}).id,
-                ink:(use&&use.ink)||rd.ink||'auto', method:(use&&use.method)||rd.method||'embroidery',
-                colours:(use&&use.colours)||rd.colours||1};
+                ink:(use&&use.ink)||rd.ink||'auto', method:rd.method||'embroidery',
+                colours:1};
     if(p.id!==primaryId && on)SH.showExtra=true;});
   renderSheet();
   document.getElementById('ov').classList.add('on');
@@ -1921,16 +1942,21 @@ function renderSheet(){
   var faceTog=hasBack?'<div class="ftog"><button class="pchip'+(SH.face==='front'?' on':'')+'" data-face="front">Front</button><button class="pchip'+(SH.face==='back'?' on':'')+'" data-face="back">Back</button></div>':'';
   var logoPlaces=(item.places||[]).filter(function(p){return p.logo;});
   var primary=logoPlaces[0],extras=logoPlaces.slice(1);
-  var primaryHtml=primary?('<section class="step"><div class="steph"><span class="stepn">3</span><span class="stept">Logo finish</span><i>'+esc(primary.label)+'</i></div>'+
-      '<div class="ghelp">Not sure? Go with the ★ Recommended finish — we’ll confirm it with your quote.</div>'+
-      '<div class="frows">'+finishGroup(primary.id,true)+'</div></section>'):'';
+  // Read-only: this is the setup that is mocked up, quoted AND produced. Offering a finish menu and
+  // optional extra spots meant the customer could leave the sheet in a state the quote never matched,
+  // and made every order a bespoke production setup. Anything beyond the standard is a quoted
+  // exception now, requested in the notes -- which is where variation belongs.
+  var _st=stdOf(SH.key);
+  var primaryHtml=(_st&&_st.method)
+    ? ('<section class="step"><div class="steph"><span class="stepn">3</span><span class="stept">Your logo</span>'+
+        '<i>included</i></div><div class="decostd">'+
+        '<span class="dsic" aria-hidden="true">\u25C6</span>'+
+        '<span class="dstx"><b>'+esc(_st.loc)+'</b><i>Embroidered \u00b7 '+esc(_st.size)+' \u00b7 included in the price</i></span>'+
+        '</div><div class="decofoot">Our standard setup for this product \u2014 the mockup above is exactly what gets produced. '+
+        'Need another location or a back print? Add it in the notes with your quote and we\u2019ll price it.</div></section>')
+    : (hasDecoPlace(item)?'':'<section class="step"><div class="steph"><span class="stepn">3</span><span class="stept">Your logo</span></div>'+
+        '<div class="decofoot">This piece is supplied blank. Tell us in the notes if you\u2019d like it decorated and we\u2019ll quote it.</div></section>');
   var extraHtml='';
-  if(extras.length){
-    if(SH.showExtra){extraHtml=extras.map(function(p){
-        return '<div class="grp"><div class="grphd"><span>Add a logo — '+esc(p.label)+'</span><i>optional</i></div>'+
-          '<div class="frows">'+finishGroup(p.id,false)+'</div></div>';}).join('');}
-    else{extraHtml='<button class="addspot" id="addSpot">＋ Add a logo to '+extras.map(function(p){return esc(p.label.toLowerCase());}).join(' or ')+'</button>';}
-  }
   var decos=sheetDecos();
   var q=effQty(),tiers=CFG.pricing.cols||[12],topcol=tiers[tiers.length-1];
   var unit=unitPrice(SH.key,decos,q||moq()),line=unit*q;
