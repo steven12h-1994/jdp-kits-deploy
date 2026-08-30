@@ -2219,9 +2219,38 @@ function shareListUrl(){
   var who=(c.name||'').trim().split(' ')[0];
   return base+'?list='+encodeURIComponent(encodeList())+(who?('&from='+encodeURIComponent(who)):'');
 }
+/* Sharing a list is the strongest buying signal this store produces, and until now it was invisible
+   to us -- the list lived in one browser and we only ever learned about it if that person went on to
+   request a quote. So a share also pings JDP with the list AND a curator link that opens this store
+   pre-loaded with it, one tap from becoming the store's permanent front page. That is what makes the
+   selection actually persist for the whole company instead of one device.
+   Fired once per distinct list per browser, so re-sharing the same list never spams the inbox. */
+function notifyShared(url){
+  var sig='';try{sig=localStorage.getItem('jdp_shared_sig')||'';}catch(e){}
+  var now=encodeList();
+  if(sig===now)return;
+  try{localStorage.setItem('jdp_shared_sig',now);}catch(e){}
+  var lines=[CFG.client+' \u2014 a list was shared from their store',''];
+  Object.keys(CART).forEach(function(k){
+    var it=BYKEY[k];if(!it)return;var c=CART[k];
+    lines.push('  \u2022 '+it.name+(it.sku?(' ('+it.sku+')'):'')+' \u2014 '+(c.colour||'')+' \u00d7 '+(c.qty||moq()));});
+  lines.push('');
+  lines.push('Open their list:  '+url);
+  lines.push('Pin it to this store (opens curator mode, ready to publish):');
+  lines.push('  '+location.origin+location.pathname+'?curate=1&list='+encodeURIComponent(now));
+  var c2={};try{c2=JSON.parse(localStorage.getItem('jdpkit_contact')||'{}');}catch(e){}
+  fetch('https://formsubmit.co/ajax/'+JDP_EMAIL,{method:'POST',
+    headers:{'Content-Type':'application/json','Accept':'application/json'},
+    body:JSON.stringify({_subject:'List shared \u2014 '+(c2.company||CFG.client),
+      _template:'table',_captcha:'false',
+      name:c2.name||'(not given)',email:c2.email||'(not given)',
+      company:c2.company||CFG.client||'',store:CFG.client||'',
+      list:lines.join('\n')})}).catch(function(){});
+}
 function shareList(){
   if(!Object.keys(CART).length){toast('Add a few pieces first');return;}
   var url=shareListUrl();
+  notifyShared(url);
   var txt='Here is our team gear list — open it and everything is ready to order.';
   if(navigator.share&&matchMedia('(hover:none)').matches){
     navigator.share({title:CFG.client+' — team gear list',text:txt,url:url})
@@ -2498,6 +2527,9 @@ function renderCart(){
       '<div class="crow"><span>Estimated subtotal</span><b>'+money(sub)+'</b></div>'+
       (setup>0?brk:'')+
       '<div class="csetup">Prices include your logo, decorated. Setup is a one-time charge per logo &amp; location, reused across the kit. Exact itemised quote confirmed free before anything runs.</div>'+
+      // People assume a list like this is saved to an account. It is saved to THIS browser -- say so,
+      // and point at the thing that actually makes it portable.
+      '<div class="cwhere">This list is saved on this device. <b>Send it to your team</b> to keep it \u2014 the link works on any phone or computer.</div>'+
       '<button class="checkout" id="checkout">Get my exact quote <span class="ar">→</span></button>'+
       '<button type="button" class="sharelist" id="shareList">'+
         '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" '+

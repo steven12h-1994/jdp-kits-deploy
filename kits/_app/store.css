@@ -1077,6 +1077,8 @@ body.curating{padding-bottom:340px}
 .sharelist:hover{filter:brightness(1.12)}
 .sharelist:active{transform:scale(.99)}
 .sharelist svg{flex:none;opacity:.9}
+.cwhere{margin:10px 0 2px;font-size:11.5px;line-height:1.5;color:var(--mut)}
+.cwhere b{color:var(--ink);font-weight:800}
 
 /* Share on the mobile bottom bar. Icon + short label so it reads as an action, not decoration, but
    stays visually subordinate to the quote CTA beside it. 44px tall for a real thumb target. */
