@@ -2152,10 +2152,72 @@ function quickAdd(key){
    offer. Shortlist present: lead with THEIR list, and drop the samples offer to secondary, because
    the visit already happened. Nothing here is invented -- the list, who picked it and the per-item
    reason all come from the kit's own config, and the section simply does not render without one. */
+/* ---- A list the CUSTOMER built, shared as a link ---------------------------------------------
+   The shortlist workflow had a hole in the middle. A per-store list needed a site visit; the global
+   list solved Steven's effort by making the list generic -- which threw away the personalisation
+   that made the feature worth having. Both versions assumed WE curate FOR the customer.
+
+   But the person who decides a company's program is the champion inside that company, and they are
+   already building exactly that list in their kit. So: let them send it. One link, no login, no
+   token, no involvement from us. Their team opens it and lands on a six-item store instead of a
+   489-item catalogue, and the champion gets the ownership that makes a program stick.
+
+   The link carries key, quantity and colour, and every field is re-validated on the way in -- an
+   edited or truncated URL degrades to fewer items, never to a broken store. */
+var SHARED=null;
+function encodeList(){
+  var parts=[];
+  Object.keys(CART).forEach(function(k){
+    var c=CART[k];if(!BYKEY[k])return;
+    parts.push([k,(c.qty||moq()),(c.colour||'')].join('~'));});
+  return parts.join('|');
+}
+function decodeList(str){
+  var out=[];
+  String(str||'').split('|').forEach(function(chunk){
+    var bits=chunk.split('~'),k=bits[0];
+    if(!k||!BYKEY[k])return;                                   // unknown/renamed product: drop it
+    if(out.some(function(x){return x.k===k;}))return;          // no duplicates
+    var q=parseInt(bits[1],10);if(!(q>0)||q>100000)q=moq();
+    var col=bits[2]||'';
+    var cols=BYKEY[k].cols||[];
+    if(col&&!cols.some(function(c){return c.name===col;}))col='';   // colour retired since sharing
+    out.push({k:k,qty:q,colour:col||((cols[0]||{}).name||'')});});
+  return out;
+}
+function readSharedList(){
+  var m=location.search.match(/[?&]list=([^&#]+)/);if(!m)return null;
+  var items;try{items=decodeList(decodeURIComponent(m[1]));}catch(e){return null;}
+  if(!items.length)return null;
+  var f=location.search.match(/[?&]from=([^&#]+)/),from='';
+  try{from=f?decodeURIComponent(f[1]).slice(0,40):'';}catch(e){from='';}
+  return {items:items,from:from};
+}
+function shareListUrl(){
+  var base=location.origin+location.pathname;
+  var c={};try{c=JSON.parse(localStorage.getItem('jdpkit_contact')||'{}');}catch(e){}
+  var who=(c.name||'').trim().split(' ')[0];
+  return base+'?list='+encodeURIComponent(encodeList())+(who?('&from='+encodeURIComponent(who)):'');
+}
+function shareList(){
+  if(!Object.keys(CART).length){toast('Add a few pieces first');return;}
+  var url=shareListUrl();
+  var txt='Here is our team gear list — open it and everything is ready to order.';
+  if(navigator.share&&matchMedia('(hover:none)').matches){
+    navigator.share({title:CFG.client+' — team gear list',text:txt,url:url})
+      .catch(function(e){if(!e||e.name!=='AbortError'){clipCopy(url);toast('Link copied — send it to your team');}});
+    return;
+  }
+  clipCopy(url);toast('Link copied — send it to your team');
+}
 function picksOf(){
   /* Store-level list wins; otherwise the GLOBAL list from the shared catalogue. That fallback is
      what removes the site visit from the loop -- one write to catalog.json curates all 376 stores at
      once, and the catalogue is fetched with cache:'no-cache', so it goes live without a version bump. */
+  if(SHARED){
+    return {by:SHARED.from,note:'',shared:true,
+            keys:SHARED.items.map(function(x){return {k:x.k,why:''};})};
+  }
   var p=CFG.picks||(CAT&&CAT.picks)||null;if(!p)return null;
   var keys=(p.keys||p.items||[]).map(function(x){
     return (typeof x==='string')?{k:x,why:''}:{k:x.k||x.key,why:x.why||''};
@@ -2164,14 +2226,19 @@ function picksOf(){
   return {by:p.by||'',note:p.note||'',keys:keys};
 }
 function picksTitle(p){
+  if(p.shared)return p.by?(esc(p.by)+' shared this list with you'):'A list was shared with you';
   return p.by?('The gear you picked out with '+esc(p.by)):'The gear you shortlisted';
 }
 function addPicks(){
   var p=picksOf();if(!p)return;
   var n=0;
+  // A shared link carries the sender's quantities and colours -- restore those, not our defaults,
+  // or the recipient has to redo the work the sender already did.
+  var det={};if(SHARED)SHARED.items.forEach(function(x){det[x.k]=x;});
   p.keys.forEach(function(x){
     if(CART[x.k])return;
-    CART[x.k]={qty:moq(),colour:vmOf(x.k).colour,decos:recCartDecos(x.k)};n++;});
+    var d=det[x.k];
+    CART[x.k]={qty:(d&&d.qty)||moq(),colour:(d&&d.colour)||vmOf(x.k).colour,decos:recCartDecos(x.k)};n++;});
   saveCart();refreshCartUI();openCart();
   toast(n?('Added '+n+' piece'+(n===1?'':'s')+' from your shortlist'):'Your shortlist is already in your kit');
 }
@@ -2412,11 +2479,17 @@ function renderCart(){
       (setup>0?brk:'')+
       '<div class="csetup">Prices include your logo, decorated. Setup is a one-time charge per logo &amp; location, reused across the kit. Exact itemised quote confirmed free before anything runs.</div>'+
       '<button class="checkout" id="checkout">Get my exact quote <span class="ar">→</span></button>'+
+      '<button type="button" class="sharelist" id="shareList">'+
+        '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" '+
+        'stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/>'+
+        '<circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>'+
+        'Send this list to your team</button>'+
       '<button type="button" class="svalt" data-samp="">\u270B See &amp; feel these first \u2014 we\u2019ll bring samples to you</button>'+
       '<div class="cktrust"><span>No payment now</span><span>No obligation</span><span>No minimum beyond 12 pcs</span></div></div>'):'')+
     '';
   document.getElementById('cartx').addEventListener('click',closeAll);
   var ck=document.getElementById('checkout');if(ck)ck.addEventListener('click',openCheckout);
+  var sl=document.getElementById('shareList');if(sl)sl.addEventListener('click',shareList);
   var ea=document.getElementById('emptyAddRec');if(ea)ea.addEventListener('click',function(){addRecommended();});
   document.querySelectorAll('.ci').forEach(function(ci){var k=ci.dataset.key;
     var ed=ci.querySelector('[data-edit]');if(ed)ed.addEventListener('click',function(){editItem(k);});
@@ -2545,7 +2618,11 @@ function submitKit(){
   var btn=document.getElementById('emailKit');if(btn){btn.disabled=true;btn.dataset.lbl=btn.innerHTML;btn.innerHTML='Sending…';}
   var subj='Kit request — '+(c.company||CFG.client)+(c.name?' — '+c.name:'');
   var payload={name:c.name||'(not given)',email:c.email,company:c.company||CFG.client||'',
-    _subject:subj,_template:'table',_captcha:'false',kit:body,kit_link:location.href.split('#')[0].split('?')[0]};
+    _subject:subj,_template:'table',_captcha:'false',kit:body,
+    kit_link:location.href.split('#')[0].split('?')[0],
+    // The customer's own list as a link: open it to see exactly what they chose, and adopt it as
+    // that store's shortlist in one click rather than reconstructing it from the text.
+    their_list:shareListUrl()};
   var done=false,fell=false;
   function fail(){if(done||fell)return;fell=true;mailtoFallback(c,body,subj);}
   var to=setTimeout(fail,9000);   // network stalls -> fallback, never leave them stuck
@@ -2638,7 +2715,7 @@ function go(cfg){
     // Learn each logo's ink BEFORE first paint so garments render a thread colour that actually reads.
     Promise.all((cfg.logos||[]).map(probeInk)).then(function(){
       assignColourways();
-      curateInit();loadCart();buildStore();refreshCartUI();if(curateOn())markCurCards();
+      SHARED=readSharedList();curateInit();loadCart();buildStore();refreshCartUI();if(curateOn())markCurCards();
       // Deep link: /kits/<slug>/?item=<key> (or #item=<key>) opens straight to that product. This MUST
       // run AFTER buildStore(). It used to fire synchronously, before the async ink probe resolved, so
       // the sheet opened against an unbuilt store and was wiped by the first render -- every ?item=

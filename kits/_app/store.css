@@ -1060,6 +1060,16 @@ body.curating{padding-bottom:340px}
 .curpub:hover{filter:brightness(1.1)}
 .curpub.alt{background:rgba(255,255,255,.12)}
 .curpub.warn{background:transparent;border:1px solid rgba(255,255,255,.22);color:#b9b0a1;font-weight:700}
+
+/* ---- Send this list to your team ------------------------------------------------------------
+   Sits under the quote CTA in the cart. Deliberately a peer of the samples offer, not a rival to
+   the primary action: sharing is what the champion does BEFORE they are ready to quote. */
+.sharelist{display:flex;align-items:center;justify-content:center;gap:9px;width:100%;margin-top:10px;
+  padding:12px;border-radius:12px;background:var(--ink);color:#fff;font:inherit;font-weight:850;
+  font-size:14px;cursor:pointer;transition:filter .12s,transform .12s}
+.sharelist:hover{filter:brightness(1.12)}
+.sharelist:active{transform:scale(.99)}
+.sharelist svg{flex:none;opacity:.9}
 .curstat{font-size:12.5px;font-weight:700;color:#8fd6ac}
 .curstat.bad{color:#ff9d9d}
 /* the per-card toggle */
