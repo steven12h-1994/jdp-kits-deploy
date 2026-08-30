@@ -944,7 +944,12 @@ function renderSubchips(){var el=document.getElementById('subchips');if(!el)retu
 function wireCards(rootId){
   var g=document.getElementById(rootId||'grid');if(!g)return;
   g.querySelectorAll('.mcard').forEach(function(card){
-    card.addEventListener('click',function(){openSheet(card.dataset.key);});
+    // The curator toggle sits INSIDE the card, and this handler is bound closer to the target than
+    // the document-level delegate -- so it fires first and stopPropagation() there is too late.
+    // Result: one tap both shortlisted the item and opened its sheet. Ignore those clicks here.
+    card.addEventListener('click',function(e){
+      if(e.target&&e.target.closest&&e.target.closest('[data-curk]'))return;
+      openSheet(card.dataset.key);});
     card.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();openSheet(card.dataset.key);}});});
   g.querySelectorAll('.madd').forEach(function(b){b.addEventListener('click',function(e){e.stopPropagation();var k=b.dataset.key;if(CART[k]){openSheet(k);}else{quickAdd(k);}});});
   // Swatch on the CARD: swap the photo in place. No re-render of the whole grid, so the shopper keeps
