@@ -389,7 +389,7 @@ function menuCard(key){
   var inkit=q?' inkit':'';
   var addlbl=q?('<b>'+q+'</b>'):'+';
   return '<article class="mcard'+inkit+'" data-key="'+key+'" data-name="'+esc(searchText(item).replace(/"/g,''))+'" tabindex="0" role="button" aria-label="'+esc(item.name)+'">'+
-    '<div class="mstage">'+rec+(item.video?'<button class="mvid" data-vid="'+esc(item.video)+'" data-vname="'+esc(item.name)+'" aria-label="Play product video">▶ Video</button>':'')+'<img class="g" src="'+o.g+'" alt="'+esc(item.name)+'" loading="lazy" decoding="async">'+o.lg+
+    '<div class="mstage">'+curToggleHtml(key)+rec+(item.video?'<button class="mvid" data-vid="'+esc(item.video)+'" data-vname="'+esc(item.name)+'" aria-label="Play product video">▶ Video</button>':'')+'<img class="g" src="'+o.g+'" alt="'+esc(item.name)+'" loading="lazy" decoding="async">'+o.lg+
       '<button class="madd'+(q?' has':'')+'" data-key="'+key+'" aria-label="'+(q?'Edit ':'Add ')+esc(item.name)+'">'+addlbl+'</button></div>'+
     '<div class="mb"><h3>'+esc(item.name)+'</h3>'+
       '<div class="mmeta">'+esc(item.sku)+(item.layer==='promo'?'':(item.unisex?' · Unisex':''))+'</div>'+
@@ -1317,6 +1317,7 @@ function buildStore(){
   ['addPicks','addPicksHero'].forEach(function(id){
     var b=document.getElementById(id);if(b)b.addEventListener('click',addPicks);});
   wireCards('pkgrid');
+  if(curateOn())markCurCards();
   var wc=document.getElementById('whyCta');if(wc)wc.addEventListener('click',function(){
     if(cartCount()>0){openCart();}else{VIEW.sub='all';renderGrid();scrollToResults();}});
   // "Shop the collection" hero tiles -> jump into a category (and reveal their images, which sit outside #grid).
@@ -1755,6 +1756,8 @@ function wireDelegates(){
     var bk=e.target.closest('[data-back]');
     if(bk){e.preventDefault();e.stopPropagation();
       var k=bk.getAttribute('data-back');FROMKEY='';openSheet(k);return;}
+    var ct=e.target.closest('[data-curk]');
+    if(ct){e.preventDefault();e.stopPropagation();curToggle(ct.getAttribute('data-curk'));return;}
     var sv=e.target.closest('[data-samp]');
     if(sv){e.preventDefault();e.stopPropagation();
       openSampleVisit(sv.getAttribute('data-samp')||'');return;}
@@ -2145,7 +2148,10 @@ function quickAdd(key){
    the visit already happened. Nothing here is invented -- the list, who picked it and the per-item
    reason all come from the kit's own config, and the section simply does not render without one. */
 function picksOf(){
-  var p=CFG.picks;if(!p)return null;
+  /* Store-level list wins; otherwise the GLOBAL list from the shared catalogue. That fallback is
+     what removes the site visit from the loop -- one write to catalog.json curates all 376 stores at
+     once, and the catalogue is fetched with cache:'no-cache', so it goes live without a version bump. */
+  var p=CFG.picks||(CAT&&CAT.picks)||null;if(!p)return null;
   var keys=(p.keys||p.items||[]).map(function(x){
     return (typeof x==='string')?{k:x,why:''}:{k:x.k||x.key,why:x.why||''};
   }).filter(function(x){return x.k&&BYKEY[x.k];});
@@ -2163,6 +2169,151 @@ function addPicks(){
     CART[x.k]={qty:moq(),colour:vmOf(x.k).colour,decos:recCartDecos(x.k)};n++;});
   saveCart();refreshCartUI();openCart();
   toast(n?('Added '+n+' piece'+(n===1?'':'s')+' from your shortlist'):'Your shortlist is already in your kit');
+}
+/* ---- Curator mode ----------------------------------------------------------------------------
+   Steven was the bottleneck: every shortlist change meant describing a store and a list of products
+   to someone else and waiting. This lets him build the list by clicking the actual products, in the
+   actual store, and publish it himself -- globally for every store, or to one store when a site
+   visit genuinely produced a bespoke list.
+
+   Gated hard behind ?curate=1. A shopper never sees any of it. Publishing needs a GitHub token,
+   entered once and kept in this browser only; without one the tray still works and hands over the
+   JSON to paste, so the mode is never a dead end. */
+var CURATE=false,CPICKS=[];
+function curateOn(){return CURATE;}
+function ghToken(){try{return localStorage.getItem('jdp_gh_token')||'';}catch(e){return '';}}
+function setGhToken(t){try{t?localStorage.setItem('jdp_gh_token',t):localStorage.removeItem('jdp_gh_token');}catch(e){}}
+function curateInit(){
+  if(!/[?&]curate=1/.test(location.search))return;
+  CURATE=true;
+  var cur=picksOf();
+  CPICKS=cur?cur.keys.map(function(x){return {k:x.k,why:x.why||''};}):[];
+  document.body.classList.add('curating');
+  var bar=document.createElement('div');bar.className='curbar';bar.id='curbar';
+  document.body.appendChild(bar);
+  renderCurBar();
+}
+function curHas(k){for(var i=0;i<CPICKS.length;i++)if(CPICKS[i].k===k)return i;return -1;}
+function curToggle(k){
+  var i=curHas(k);
+  if(i>=0)CPICKS.splice(i,1); else CPICKS.push({k:k,why:''});
+  renderCurBar();markCurCards();
+}
+function curMove(k,d){
+  var i=curHas(k);if(i<0)return;var j=i+d;if(j<0||j>=CPICKS.length)return;
+  var t=CPICKS[i];CPICKS[i]=CPICKS[j];CPICKS[j]=t;renderCurBar();
+}
+function markCurCards(){
+  document.querySelectorAll('.mcard').forEach(function(c){
+    var on=curHas(c.dataset.key)>=0;
+    c.classList.toggle('curon',on);
+    var b=c.querySelector('.curtog');if(b)b.textContent=on?'\u2713 On the list':'+ Shortlist';});
+}
+function curPayload(){
+  return {by:(document.getElementById('curBy')||{}).value||'',
+          note:(document.getElementById('curNote')||{}).value||'',
+          keys:CPICKS.filter(function(x){return BYKEY[x.k];})};
+}
+function renderCurBar(){
+  var el=document.getElementById('curbar');if(!el)return;
+  var rows=CPICKS.map(function(x,i){
+    var it=BYKEY[x.k]||{};
+    return '<div class="currow"><span class="curn">'+(i+1)+'</span>'+
+      '<span class="curnm">'+esc(it.name||x.k)+'</span>'+
+      '<input class="curwhy" data-k="'+esc(x.k)+'" placeholder="why this one (optional)" value="'+esc(x.why||'')+'">'+
+      '<button type="button" class="curbtn" data-up="'+esc(x.k)+'" aria-label="Move up">\u2191</button>'+
+      '<button type="button" class="curbtn" data-down="'+esc(x.k)+'" aria-label="Move down">\u2193</button>'+
+      '<button type="button" class="curbtn rm" data-rmk="'+esc(x.k)+'" aria-label="Remove">\u2715</button></div>';}).join('');
+  var cur=picksOf();
+  el.innerHTML='<div class="curin">'+
+    '<div class="curhd"><b>Curator mode</b><span>'+CPICKS.length+' selected</span>'+
+      '<button type="button" class="curx" id="curExit">Exit</button></div>'+
+    (CPICKS.length?('<div class="currows">'+rows+'</div>'):'<div class="curempty">Tap <b>+ Shortlist</b> on any product to build the list.</div>')+
+    '<div class="curmeta">'+
+      '<input id="curBy" placeholder="Picked out with… (optional name)" value="'+esc((cur&&cur.by)||'')+'">'+
+      '<input id="curNote" placeholder="One line of context (optional)" value="'+esc((cur&&cur.note)||'')+'">'+
+    '</div>'+
+    '<div class="curacts">'+
+      '<button type="button" class="curpub" id="curPubAll">Publish to <b>all stores</b></button>'+
+      '<button type="button" class="curpub alt" id="curPubOne">This store only</button>'+
+      '<button type="button" class="curpub warn" id="curClear">Clear list</button>'+
+      '<span class="curstat" id="curStat"></span>'+
+    '</div></div>';
+  el.querySelectorAll('[data-up]').forEach(function(b){b.addEventListener('click',function(){curMove(b.dataset.up,-1);});});
+  el.querySelectorAll('[data-down]').forEach(function(b){b.addEventListener('click',function(){curMove(b.dataset.down,1);});});
+  el.querySelectorAll('[data-rmk]').forEach(function(b){b.addEventListener('click',function(){curToggle(b.dataset.rmk);});});
+  el.querySelectorAll('.curwhy').forEach(function(inp){inp.addEventListener('input',function(){
+    var i=curHas(inp.dataset.k);if(i>=0)CPICKS[i].why=inp.value;});});
+  document.getElementById('curExit').addEventListener('click',function(){
+    location.href=location.pathname;});
+  document.getElementById('curPubAll').addEventListener('click',function(){curPublish('all');});
+  document.getElementById('curPubOne').addEventListener('click',function(){curPublish('one');});
+  document.getElementById('curClear').addEventListener('click',function(){CPICKS=[];renderCurBar();markCurCards();});
+}
+function curStat(msg,bad){
+  var s2=document.getElementById('curStat');if(!s2)return;
+  s2.textContent=msg;s2.className='curstat'+(bad?' bad':'');
+}
+function ghApi(method,path,body){
+  var tok=ghToken();
+  return fetch('https://api.github.com/repos/steven12h-1994/jdp-kits-deploy/'+path,{
+    method:method,headers:{'Authorization':'Bearer '+tok,'Accept':'application/vnd.github+json'},
+    body:body?JSON.stringify(body):undefined
+  }).then(function(r){return r.json().then(function(j){return {ok:r.ok,status:r.status,body:j};});});
+}
+/* Base64 over UTF-8. The old escape()/unescape() pair is deprecated AND easy to get subtly wrong;
+   the catalogue is full of characters like é and · , so a bad round-trip here would corrupt the
+   shared product data for every store the moment someone publishes. */
+function b64(str){
+  var bytes=new TextEncoder().encode(str),bin='';
+  for(var i=0;i<bytes.length;i++)bin+=String.fromCharCode(bytes[i]);
+  return btoa(bin);
+}
+function unb64(str){
+  var bin=atob(String(str).replace(/\s/g,'')),bytes=new Uint8Array(bin.length);
+  for(var i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
+  return new TextDecoder().decode(bytes);
+}
+function curPublish(scope){
+  var p=curPayload();
+  if(!p.keys.length&&scope!=='all'){curStat('Nothing selected',1);return;}
+  var tok=ghToken();
+  if(!tok){
+    tok=window.prompt('Paste your GitHub token to publish (stored in this browser only)');
+    if(!tok){curStat('Publish needs a token \u2014 or copy the JSON below',1);
+      clipCopy(JSON.stringify(p,null,1));curStat('Copied the list to your clipboard instead');return;}
+    setGhToken(tok.trim());
+  }
+  curStat('Publishing\u2026');
+  var path=(scope==='all')?'contents/kits/_catalog/catalog.json'
+                          :'contents/kits/'+SLUG+'/index.html';
+  ghApi('GET',path+'?ref=main').then(function(r){
+    if(!r.ok){throw new Error('read failed ('+r.status+')');}
+    var sha=r.body.sha,txt=unb64(r.body.content),out;
+    if(scope==='all'){
+      var cat=JSON.parse(txt);
+      if(p.keys.length)cat.picks=p; else delete cat.picks;
+      out=JSON.stringify(cat);
+    }else{
+      var m=txt.match(/(<script id="?jdpcfg"?[^>]*>)([\s\S]*?)(<\/script>)/);
+      if(!m)throw new Error('no config block in this store');
+      var cfg=JSON.parse(m[2]);
+      if(p.keys.length)cfg.picks=p; else delete cfg.picks;
+      out=txt.slice(0,txt.indexOf(m[2]))+JSON.stringify(cfg)+txt.slice(txt.indexOf(m[2])+m[2].length);
+    }
+    return ghApi('PUT',path,{message:'picks: '+(scope==='all'?'global shortlist':SLUG+' shortlist')+
+      ' ('+p.keys.length+' items)',content:b64(out),sha:sha,branch:'main'});
+  }).then(function(r){
+    if(!r.ok)throw new Error('write failed ('+r.status+')');
+    curStat(scope==='all'?'Published to every store \u2014 live in a few minutes'
+                         :'Published to this store \u2014 live in a few minutes');
+  }).catch(function(e){
+    if(/401|403/.test(String(e.message)))setGhToken('');
+    curStat(String(e.message||e),1);});
+}
+function curToggleHtml(key){
+  if(!CURATE)return '';
+  return '<button type="button" class="curtog" data-curk="'+esc(key)+'">+ Shortlist</button>';
 }
 function picksSectionHtml(){
   var p=picksOf();if(!p)return '';
@@ -2482,7 +2633,7 @@ function go(cfg){
     // Learn each logo's ink BEFORE first paint so garments render a thread colour that actually reads.
     Promise.all((cfg.logos||[]).map(probeInk)).then(function(){
       assignColourways();
-      loadCart();buildStore();refreshCartUI();
+      curateInit();loadCart();buildStore();refreshCartUI();if(curateOn())markCurCards();
       // Deep link: /kits/<slug>/?item=<key> (or #item=<key>) opens straight to that product. This MUST
       // run AFTER buildStore(). It used to fire synchronously, before the async ink probe resolved, so
       // the sheet opened against an unbuilt store and was wiped by the first render -- every ?item=

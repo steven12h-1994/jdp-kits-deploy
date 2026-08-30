@@ -1019,6 +1019,60 @@ main{padding:0 0 22px}
    chips hanging at staggered heights. Stretch the card to fill its wrapper so every chip lines up. */
 .pkwrap{display:flex;flex-direction:column;height:100%}
 .pkwrap>.mcard{flex:1 1 auto}
+
+/* ---- Curator mode ----------------------------------------------------------------------------
+   Internal tooling, deliberately styled as such: dark, fixed, unmistakably not the storefront, so
+   there is never a moment of doubt about whether a shopper can see it. Only renders under ?curate=1. */
+body.curating{padding-bottom:340px}
+.curbar{position:fixed;left:0;right:0;bottom:0;z-index:95;background:#15130f;color:#fff;
+  border-top:3px solid var(--amber);box-shadow:0 -18px 40px -14px rgba(0,0,0,.6);
+  max-height:52vh;overflow-y:auto}
+.curin{max-width:1120px;margin:0 auto;padding:14px 20px 18px}
+.curhd{display:flex;align-items:center;gap:12px;margin-bottom:11px}
+.curhd b{font-family:var(--disp);font-size:17px;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
+.curhd span{font-size:12.5px;font-weight:700;color:#b9b0a1;background:rgba(255,255,255,.09);
+  border-radius:999px;padding:3px 10px}
+.curx{margin-left:auto;font-size:12.5px;font-weight:800;color:#b9b0a1;background:rgba(255,255,255,.08);
+  border-radius:999px;padding:6px 13px;cursor:pointer}
+.curx:hover{color:#fff}
+.curempty{font-size:13px;color:#b9b0a1;padding:6px 0 10px}
+.curempty b{color:#fff}
+.currows{display:flex;flex-direction:column;gap:6px;margin-bottom:11px}
+.currow{display:flex;align-items:center;gap:9px;background:rgba(255,255,255,.06);border-radius:10px;padding:7px 9px}
+.curn{flex:none;width:20px;height:20px;border-radius:50%;background:var(--amber);color:#15130f;
+  font-size:11.5px;font-weight:850;display:flex;align-items:center;justify-content:center}
+.curnm{flex:0 0 30%;font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.curwhy{flex:1;min-width:0;background:rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.14);
+  border-radius:8px;color:#fff;font:inherit;font-size:12.5px;padding:6px 9px}
+.curwhy::placeholder{color:#7d766b}
+.curbtn{flex:none;width:26px;height:26px;border-radius:7px;background:rgba(255,255,255,.1);
+  color:#fff;font-size:12px;cursor:pointer}
+.curbtn:hover{background:rgba(255,255,255,.2)}
+.curbtn.rm:hover{background:#8c2020}
+.curmeta{display:flex;gap:9px;margin-bottom:11px;flex-wrap:wrap}
+.curmeta input{flex:1;min-width:220px;background:rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.14);
+  border-radius:9px;color:#fff;font:inherit;font-size:13px;padding:9px 11px}
+.curmeta input::placeholder{color:#7d766b}
+.curacts{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.curpub{background:#0a7d3c;color:#fff;font:inherit;font-weight:850;font-size:14px;padding:11px 18px;
+  border-radius:10px;cursor:pointer}
+.curpub b{font-weight:900}
+.curpub:hover{filter:brightness(1.1)}
+.curpub.alt{background:rgba(255,255,255,.12)}
+.curpub.warn{background:transparent;border:1px solid rgba(255,255,255,.22);color:#b9b0a1;font-weight:700}
+.curstat{font-size:12.5px;font-weight:700;color:#8fd6ac}
+.curstat.bad{color:#ff9d9d}
+/* the per-card toggle */
+.curtog{position:absolute;left:9px;bottom:9px;z-index:3;background:#15130f;color:#fff;
+  font-size:11.5px;font-weight:800;padding:6px 11px;border-radius:999px;cursor:pointer;
+  box-shadow:0 3px 10px rgba(0,0,0,.35)}
+.curtog:hover{background:#0a7d3c}
+.mcard.curon{box-shadow:0 0 0 2.5px #0a7d3c,var(--sh)}
+.mcard.curon .curtog{background:#0a7d3c}
+@media (max-width:600px){
+  .curnm{flex:0 0 100%}.currow{flex-wrap:wrap}
+  .curpub{flex:1;text-align:center}
+}
 .pkwhy{margin-top:7px;padding:7px 11px;background:#fff;border:1px solid #cdeadb;border-left:3px solid #0a7d3c;
   border-radius:9px;font-size:12px;line-height:1.4;font-weight:700;color:#0a6b34}
 /* The hero variant, when the shortlist replaces the samples offer as the lead action. */
