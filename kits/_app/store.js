@@ -1232,8 +1232,14 @@ function buildStore(){
         /* They have already had the visit and named their pieces: lead with those. */
         ? ('<div class="herooffer pkoffer">'+
              '<span class="hoic" aria-hidden="true">\u2713</span>'+
-             '<span class="hotx"><b>Your shortlist is ready</b>'+
-               '<i>The '+_pk.keys.length+' pieces you picked out are waiting \u2014 add them and get your exact quote.</i></span>'+
+             '<span class="hotx"><b>'+(_pk.shared
+                 ? (_pk.by?(esc(_pk.by)+'\u2019s list is ready'):'A list was shared with you')
+                 : 'Your shortlist is ready')+'</b>'+
+               '<i>'+(_pk.shared
+                 ? ('The '+_pk.keys.length+' pieces'+(_pk.by?(' '+esc(_pk.by)+' chose'):'')+
+                    ' \u2014 same colours and quantities. Add them and get your exact quote.')
+                 : ('The '+_pk.keys.length+' pieces you picked out are waiting \u2014 add them and get your exact quote.'))+
+               '</i></span>'+
              '<button type="button" class="reccta hobtn" id="addPicksHero">Add my '+_pk.keys.length+
                ' pieces <span class="ar">\u2192</span></button>'+
            '</div>'+
