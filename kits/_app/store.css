@@ -1080,6 +1080,28 @@ body.curating{padding-bottom:340px}
 .cwhere{margin:10px 0 2px;font-size:11.5px;line-height:1.5;color:var(--mut)}
 .cwhere b{color:var(--ink);font-weight:800}
 
+/* ---- Mobile: get the product on screen ------------------------------------------------------
+   Measured on a real phone-width load: the first product sat 1057px down, past a full screen. The
+   page spent that budget on two competing asks and a "pick your world" panel that is 431px of the
+   same job the 110px category bar right below it already does. A store that shows no product on the
+   first screen cannot convert -- nobody shortlists, shares or requests a quote for gear they have
+   not seen yet. So on phones the duplicate panel goes and the hero tightens; the samples offer stays
+   but stops being a full card competing with the catalogue. */
+@media (max-width:600px){
+  .shopcats{display:none}                       /* the category chips are the same navigation, 4x smaller */
+  .heroin{padding:18px 20px 16px}
+  .hero h1{font-size:24px}
+  .herosub{font-size:13.5px;line-height:1.45;margin-top:8px}
+  .herooffer{margin-top:14px;padding:11px 12px;gap:10px;flex-direction:row;align-items:center}
+  .hoic{width:34px;height:34px;font-size:17px}
+  .hotx b{font-size:14.5px}
+  .hotx i{display:none}                          /* the headline carries it; the detail is in the modal */
+  .herooffer .hobtn{width:auto;padding:10px 14px;font-size:13.5px;margin-top:0}
+  .herooffer .hobtn .ar{display:none}
+  .herosecond{margin-top:9px;font-size:12.5px;padding:6px 2px}
+  .herotrust{margin-top:12px}
+}
+
 /* Share on the mobile bottom bar. Icon + short label so it reads as an action, not decoration, but
    stays visually subordinate to the quote CTA beside it. 44px tall for a real thumb target. */
 .cbarshare{display:inline-flex;align-items:center;justify-content:center;gap:7px;flex:none;
