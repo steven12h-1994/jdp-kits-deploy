@@ -2067,7 +2067,7 @@ function renderSheet(){
   var totHint = under ? (' <span>· add '+(moq()-q)+' more to reach the '+moq()+' minimum</span>')
     : (sizeTotal()===0&&SH.baseQty>0 ? ' <span>· set your split below (optional)</span>' : '');
   var qtyGrp='<section class="step"><div class="steph"><span class="stepn">2</span><span class="stept">How many of each size?</span><i>'+moq()+' min</i></div>'+
-    '<div class="szgrid">'+grid+'</div>'+
+    '<div class="szgrid">'+grid+'</div>'+spreadReuseHtml()+
     '<div class="sztot'+(under?' under':'')+'">Total <b>'+q+' pcs</b>'+totHint+'</div>'+
     '<div class="pthead">Price per piece — the more you order, the less each costs</div>'+
     '<div class="ptable">'+ptable+'</div>'+nudHtml+'</section>';
@@ -2123,10 +2123,40 @@ function renderSheet(){
       var p=placeOf(item,pl);if(p&&(p.face||'front')!==SH.face&&hasBack)SH.face=p.face||'front';}
     swapPreview();renderSheet();});});
   sh.querySelectorAll('.szqty button').forEach(function(b){b.addEventListener('click',function(){var s=b.dataset.sz,d=parseInt(b.dataset.d,10);SH.sizes[s]=Math.max(0,(parseInt(SH.sizes[s],10)||0)+d);renderSheet();});});
+  var _sr=document.getElementById('spreadre');if(_sr)_sr.addEventListener('click',applySpread);
   sh.querySelectorAll('.szin').forEach(function(inp){inp.addEventListener('change',function(e){SH.sizes[e.target.dataset.sz]=Math.max(0,parseInt(e.target.value,10)||0);renderSheet();});});
   document.getElementById('shAdd').addEventListener('click',addFromSheet);
   var _n=document.querySelector('#sheet .shscroll');if(_n)_n.scrollTop=_top;
 }
+/* ---------- reuse the size split -------------------------------------------------------------
+   The size grid IS the quantity control, so every product in a program asks for the same breakdown
+   again: a 6-piece program for one 24-person crew means entering the same six numbers six times --
+   36 inputs to describe one headcount. That is the single biggest piece of repeated work left in the
+   flow, and it lands right before "add to kit", the click the whole store exists to produce.
+   So we remember the last split and offer it in one tap. It appears ONLY on an item with no sizes
+   entered yet, so it never argues with someone who has already started typing, and it maps onto the
+   sizes the current fit actually offers (womens runs XS-2XL, mens S-3XL). */
+function saveSpread(sz,fit,name){
+  try{localStorage.setItem('jdp_spread',JSON.stringify({sz:sz,fit:fit,name:name}));}catch(e){}}
+function lastSpread(){
+  try{var s=JSON.parse(localStorage.getItem('jdp_spread')||'null');
+    return (s&&s.sz&&Object.keys(s.sz).length)?s:null;}catch(e){return null;}}
+function spreadFor(sp){
+  var out={},n=0;
+  sheetSizes().forEach(function(s){var v=parseInt(sp.sz[s],10)||0;if(v){out[s]=v;n+=v;}});
+  return {sizes:out,total:n};}
+function spreadReuseHtml(){
+  var sp=lastSpread();if(!sp||sizeTotal()>0)return '';
+  var m=spreadFor(sp);if(!m.total)return '';
+  var txt=Object.keys(m.sizes).map(function(s){return s+' '+m.sizes[s];}).join(' \u00b7 ');
+  return '<button type="button" class="spreadre" id="spreadre">'+
+    '<b>\u21ba Same split as '+esc(sp.name||'your last item')+'</b>'+
+    '<i>'+esc(txt)+' \u00b7 '+m.total+' pcs</i></button>';}
+function applySpread(){
+  var sp=lastSpread();if(!sp)return;
+  var m=spreadFor(sp);
+  sheetSizes().forEach(function(s){SH.sizes[s]=m.sizes[s]||0;});
+  renderSheet();}
 function swapPreview(){var im=document.getElementById('shimg');if(im){im.classList.add('sw');setTimeout(function(){im.classList.remove('sw');},220);}}
 function addFromSheet(){
   var q=effQty();
@@ -2136,6 +2166,7 @@ function addFromSheet(){
   var entry={qty:q,colour:SH.colour,decos:decos,fit:SH.fit};
   var sz={};sheetSizes().forEach(function(s){if(SH.sizes[s])sz[s]=SH.sizes[s];});
   if(Object.keys(sz).length)entry.sizes=sz;   // else keep the plain qty (a quick-started item reopened & saved as-is)
+  if(Object.keys(sz).length)saveSpread(sz,SH.fit,BYKEY[SH.key].name);
   CART[SH.key]=entry;
   saveCart();closeAll();refreshCartUI();
   toast((was?'Updated · ':'Added · ')+BYKEY[SH.key].name);
@@ -2189,7 +2220,7 @@ function encodeList(){
   var parts=[];
   Object.keys(CART).forEach(function(k){
     var c=CART[k];if(!BYKEY[k])return;
-    parts.push([k,(c.qty||moq()),(c.colour||''),teamClean(c.team)].join('~'));});
+    parts.push([k,(c.qty||moq()),(c.colour||'')].join('~'));});
   return parts.join('|');
 }
 function decodeList(str){
@@ -2202,7 +2233,7 @@ function decodeList(str){
     var col=bits[2]||'';
     var cols=BYKEY[k].cols||[];
     if(col&&!cols.some(function(c){return c.name===col;}))col='';   // colour retired since sharing
-    out.push({k:k,qty:q,colour:col||((cols[0]||{}).name||''),team:teamClean(bits[3])});});
+    out.push({k:k,qty:q,colour:col||((cols[0]||{}).name||'')});});
   return out;
 }
 function readSharedList(){
@@ -2288,9 +2319,6 @@ function addPicks(){
     if(CART[x.k])return;
     var d=det[x.k];
     CART[x.k]={qty:(d&&d.qty)||moq(),colour:(d&&d.colour)||vmOf(x.k).colour,decos:recCartDecos(x.k)};
-    // A shared kit that was organised by team must ARRIVE organised, or the approver opening the link
-    // sees a flat pile and the sender's structure -- the whole reason they grouped it -- is lost.
-    var tt=teamClean(d&&d.team);if(tt)CART[x.k].team=tt;
     n++;});
   saveCart();refreshCartUI();openCart();
   toast(n?('Added '+n+' piece'+(n===1?'':'s')+' from your shortlist'):'Your shortlist is already in your kit');
@@ -2502,54 +2530,6 @@ function refreshCartUI(){
   document.querySelectorAll('.mcard').forEach(function(card){var k=card.dataset.key;var on=!!CART[k];card.classList.toggle('inkit',on);var b=card.querySelector('.madd');if(b){b.classList.toggle('has',on);b.innerHTML=on?('<b>'+CART[k].qty+'</b>'):'+';}});
 }
 function openCart(){renderCart();document.getElementById('ov').classList.add('on');document.getElementById('cart').classList.add('on');document.body.style.overflow='hidden';}
-/* ---------- "who is this for?" — grouping WITHIN the one kit ----------
-   Steven asked whether customers should get multiple curated lists. They should not: a second axis of
-   state ("which list am I adding to?") puts a decision in front of the single highest-value click in
-   the funnel, and a quote request that arrives referencing three lists is harder for us to price, not
-   easier. But the need behind the question is real -- a buyer outfitting a company genuinely thinks
-   "office gets these three, the crew gets those four". That is ONE kit with groups, not many kits.
-   So: an optional per-line team label. Off by default, so a buyer who does not care sees exactly the
-   flat list they see today; on, it clusters the kit, the shared link and our quote email by team. */
-var JDP_TEAMS=['Office','Field crew','Everyone'];
-function teamClean(s){return String(s||'').replace(/[~|]/g,' ').replace(/\s+/g,' ').trim().slice(0,24);}
-function anyTeam(){return Object.keys(CART).some(function(k){return !!teamClean((CART[k]||{}).team);});}
-function teamMode(){if(anyTeam())return true;
-  try{return localStorage.getItem('jdp_teammode')==='1';}catch(e){return false;}}
-function setTeamMode(v){try{localStorage.setItem('jdp_teammode',v?'1':'0');}catch(e){}}
-function setTeam(k,name){if(!CART[k])return;var t=teamClean(name);
-  if(t)CART[k].team=t;else delete CART[k].team;
-  saveCart();renderCart();}
-/* Groups in first-encountered order, unlabelled lines last -- so the kit never reorders itself under
-   someone who has not opted in. */
-function cartGroups(){
-  var order=[],by={};
-  Object.keys(CART).forEach(function(k){
-    if(!BYKEY[k])return;
-    var t=teamClean((CART[k]||{}).team)||'';
-    if(!(t in by)){by[t]=[];order.push(t);}
-    by[t].push(k);});
-  order.sort(function(a,b){return (a===''?1:0)-(b===''?1:0);});
-  return order.map(function(t){return {name:t,keys:by[t]};});
-}
-function orderedCartKeys(){
-  var out=[];cartGroups().forEach(function(g){out=out.concat(g.keys);});return out;
-}
-function groupTotals(keys){
-  var pcs=0,sum=0;
-  keys.forEach(function(k){var it=BYKEY[k];if(!it)return;var c=CART[k];
-    if(it.layer==='promo'){var q=promoQuote(it,c);pcs+=q.qty;sum+=q.goods+q.decoRun;}
-    else{pcs+=(c.qty||0);sum+=unitPrice(k,c.decos,c.qty)*(c.qty||0);}});
-  return {pcs:pcs,sum:sum};
-}
-function teamPickerHtml(k){
-  var cur=teamClean((CART[k]||{}).team);
-  var known=JDP_TEAMS.slice();
-  if(cur&&known.indexOf(cur)<0)known.push(cur);
-  return '<div class="tmrow">'+known.map(function(t){
-      return '<button type="button" class="tmchip'+(cur===t?' on':'')+'" data-team="'+esc(k)+
-             '" data-tval="'+esc(t)+'">'+esc(t)+'</button>';}).join('')+
-    '<button type="button" class="tmchip tmadd" data-teamx="'+esc(k)+'">+ Team</button></div>';
-}
 function cartLineHtml(k){var it=BYKEY[k];if(!it)return '';var c=CART[k];
     if(it.layer==='promo'){var pq=promoQuote(it,c);var pcol=colInList(it.cols,c.colour)||it.cols[0]||{};
       var pline=pq.goods+pq.decoRun;var uP=(pq.unit==='dozen'?'dozen':'pc');
@@ -2569,15 +2549,7 @@ function cartLineHtml(k){var it=BYKEY[k];if(!it)return '';var c=CART[k];
       '<button class="rm" data-rm="'+k+'" aria-label="Remove">✕</button></div>';}
 function renderCart(){
   var keys=Object.keys(CART),sub=cartSubtotal();
-  var tm=teamMode();
-  var items=cartGroups().map(function(g){
-    var rows=g.keys.map(function(k){
-      return cartLineHtml(k)+(tm?teamPickerHtml(k):'');}).join('');
-    if(!tm)return rows;
-    var t=groupTotals(g.keys);
-    return '<div class="cgrp"><div class="cgrph"><b>'+esc(g.name||'Not assigned yet')+'</b>'+
-      '<span>'+t.pcs+' pc'+(t.pcs===1?'':'s')+' · '+money(t.sum)+'</span></div>'+rows+'</div>';
-  }).join('');
+  var items=keys.map(function(k){return cartLineHtml(k);}).join('');
   var body=keys.length?items:('<div class="cempty"><div class="ce-ic">🛒</div><b>Your kit is empty</b><span>Add a few pieces to get your exact quote \u2014 or to send your team a list.</span>'+(recKeysAll().length?'<button class="ceadd" id="emptyAddRec">Add the '+essKeysAll().length+' essentials</button>':'')+'</div>');
   var setupRows=setupBreakdown(),setup=setupRows.reduce(function(t,x){return t+x.amount;},0);
   var brk=setupRows.length?('<details class="setupbrk"><summary>One-time setup '+money(setup)+' <i>· once per design, shared across the kit</i></summary>'+setupRows.map(function(x){return '<div class="sbk"><span>'+esc(x.label)+'</span><span>'+money(x.amount)+'</span></div>';}).join('')+'</details>'):'';
@@ -2590,7 +2562,6 @@ function renderCart(){
       '<div class="csetup">Prices include your logo, decorated. Setup is a one-time charge per logo &amp; location, reused across the kit. Exact itemised quote confirmed free before anything runs.</div>'+
       // People assume a list like this is saved to an account. It is saved to THIS browser -- say so,
       // and point at the thing that actually makes it portable.
-      '<button type="button" class="tmtog" id="tmtog">'+(tm?'\u2713 Grouped by team':'Outfitting more than one team? Group this kit')+'</button>'+
       '<div class="cwhere">This list is saved on this device. <b>Send it to your team</b> to keep it \u2014 the link works on any phone or computer.</div>'+
       '<button class="checkout" id="checkout">Get my exact quote <span class="ar">→</span></button>'+
       '<button type="button" class="sharelist" id="shareList">'+
@@ -2604,20 +2575,7 @@ function renderCart(){
   document.getElementById('cartx').addEventListener('click',closeAll);
   var ck=document.getElementById('checkout');if(ck)ck.addEventListener('click',openCheckout);
   var sl=document.getElementById('shareList');if(sl)sl.addEventListener('click',shareList);
-  var tt=document.getElementById('tmtog');
-  if(tt)tt.addEventListener('click',function(){
-    var on=!teamMode();setTeamMode(on);
-    // Turning it OFF must actually clear the labels, or teamMode() reads anyTeam() and springs back on.
-    if(!on)Object.keys(CART).forEach(function(k){if(CART[k])delete CART[k].team;});
-    saveCart();renderCart();});
-  document.querySelectorAll('.tmchip[data-team]').forEach(function(b){
-    b.addEventListener('click',function(){
-      var k=b.dataset.team,v=b.dataset.tval;
-      setTeam(k, teamClean((CART[k]||{}).team)===v ? '' : v);});});
-  document.querySelectorAll('.tmchip[data-teamx]').forEach(function(b){
-    b.addEventListener('click',function(){
-      var v=window.prompt('Name this team (e.g. Drivers, Shop, Sales)','');
-      if(v!==null&&teamClean(v))setTeam(b.dataset.teamx,v);});});
+
   var ea=document.getElementById('emptyAddRec');if(ea)ea.addEventListener('click',function(){addRecommended();});
   document.querySelectorAll('.ci').forEach(function(ci){var k=ci.dataset.key;
     var ed=ci.querySelector('[data-edit]');if(ed)ed.addEventListener('click',function(){editItem(k);});
@@ -2673,11 +2631,7 @@ function orderText(c){c=c||{};
     if(c.company)lines.push('  Company/team: '+c.company);
     if(c.email)lines.push('  Email: '+c.email);
     lines.push('');}
-  var __lt=null,__grp=anyTeam();
-  orderedCartKeys().forEach(function(k){var it=BYKEY[k];if(!it)return;var cc=CART[k];
-    if(__grp){var __t=teamClean(cc.team);if(__t!==__lt){__lt=__t;
-      var __g=groupTotals(cartGroups().filter(function(x){return x.name===__t;})[0].keys);
-      lines.push('','— '+(__t||'NOT ASSIGNED')+' ('+__g.pcs+' pcs · '+money(__g.sum)+') —');}}var u=unitPrice(k,cc.decos,cc.qty);
+  Object.keys(CART).forEach(function(k){var it=BYKEY[k];if(!it)return;var cc=CART[k];var u=unitPrice(k,cc.decos,cc.qty);
     lines.push('• '+it.name+(fitSku(it,cc)?' '+fitSku(it,cc):'')+' ('+it.sku+') — '+(fitTag(it,cc)?fitTag(it,cc)+' · ':'')+cc.colour+' · '+decoSummary(it,cc)+' · qty '+cc.qty+' @ '+money(u)+' ea = '+money(u*cc.qty));
     var ss=sizesSummary(cc);if(ss)lines.push('    sizes: '+ss);});
   lines.push('','Estimated subtotal: '+money(cartSubtotal()));
