@@ -1078,6 +1078,32 @@ body.curating{padding-bottom:340px}
 .sharelist:active{transform:scale(.99)}
 .sharelist svg{flex:none;opacity:.9}
 .cwhere{margin:10px 0 2px;font-size:11.5px;line-height:1.5;color:var(--mut)}
+
+/* ---- Grouping the kit by team -----------------------------------------------------------------
+   Deliberately quiet. These controls sit on the same row as a price and a quantity; if they compete
+   for attention they slow down the click that matters. Off by default -- a buyer outfitting one team
+   never sees a chip. */
+.tmtog{display:block;width:100%;margin:10px 0 0;padding:9px 12px;border:1px dashed var(--ln);
+  border-radius:10px;background:transparent;color:var(--mut);font:inherit;font-size:12.5px;
+  font-weight:700;cursor:pointer;text-align:center;transition:.15s}
+.tmtog:hover{border-color:var(--ac);color:var(--ac);background:rgba(0,0,0,.015)}
+.tmrow{display:flex;flex-wrap:wrap;gap:5px;padding:0 12px 11px 78px;margin-top:-4px}
+.tmchip{padding:4px 10px;border:1px solid var(--ln);border-radius:999px;background:#fff;
+  color:var(--mut);font:inherit;font-size:11px;font-weight:700;cursor:pointer;line-height:1.5;
+  transition:.14s;white-space:nowrap}
+.tmchip:hover{border-color:var(--ac);color:var(--ac)}
+.tmchip.on{background:var(--ac);border-color:var(--ac);color:#fff}
+.tmchip.tmadd{border-style:dashed;font-weight:600}
+.cgrp{border:1px solid var(--ln);border-radius:12px;margin:0 0 10px;overflow:hidden;background:#fff}
+.cgrph{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:9px 12px;background:var(--bg2,#f7f7f5);border-bottom:1px solid var(--ln)}
+.cgrph b{font-size:11px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--ink)}
+.cgrph span{font-size:11.5px;font-weight:700;color:var(--mut);white-space:nowrap}
+.cgrp .ci:last-child{border-bottom:0}
+@media (max-width:600px){
+  .tmrow{padding:0 10px 10px 10px;margin-top:-2px}
+  .tmchip{font-size:11.5px;padding:5px 11px}      /* a shade bigger: these are real touch targets */
+}
 .cwhere b{color:var(--ink);font-weight:800}
 
 /* ---- Mobile: get the product on screen ------------------------------------------------------
