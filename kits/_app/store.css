@@ -222,8 +222,14 @@ main{padding:26px 0 10px}
 /* bottom cart bar (mobile) */
 .cbar{position:fixed;left:0;right:0;bottom:0;z-index:55;transform:translateY(120%);transition:transform .28s cubic-bezier(.22,1,.36,1);padding:0 0 env(safe-area-inset-bottom);pointer-events:none}
 .cbar.on{transform:translateY(0)}
-.cbarin{display:flex;align-items:center;gap:9px;margin:0 auto;padding:11px 16px;pointer-events:auto}
-.cbarin .cbarL{flex:1;min-width:0}
+/* A floating action bar, not three loose controls. Without a backdrop the "N in your kit" label sat
+   directly on top of whatever product card happened to be behind it -- legible only by luck. */
+.cbarin{display:flex;align-items:center;gap:9px;margin:0 12px;padding:9px 10px 9px 16px;
+  pointer-events:auto;background:rgba(255,255,255,.92);-webkit-backdrop-filter:blur(14px);
+  backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:999px;
+  box-shadow:0 12px 34px -12px rgba(28,22,12,.45)}
+.cbarin .cbarL{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cbar{padding:0 0 calc(10px + env(safe-area-inset-bottom))}
 .cbarL{font-size:13.5px;font-weight:700;color:var(--mut)}
 .cbarL .n{color:var(--ink);font-weight:850}
 .cbarbtn{display:inline-flex;align-items:center;gap:9px;background:var(--a);color:#fff;font-weight:850;font-size:15px;padding:13px 20px;border-radius:999px;box-shadow:0 10px 26px -10px var(--a);margin-left:auto}
@@ -1074,9 +1080,9 @@ body.curating{padding-bottom:340px}
 
 /* Share on the mobile bottom bar. Icon + short label so it reads as an action, not decoration, but
    stays visually subordinate to the quote CTA beside it. 44px tall for a real thumb target. */
-.cbarshare{display:inline-flex;align-items:center;gap:7px;flex:none;height:44px;padding:0 14px;
-  border-radius:999px;background:#fff;color:var(--ink);font:inherit;font-weight:800;font-size:13.5px;
-  border:1.5px solid var(--line);cursor:pointer;transition:.12s}
+.cbarshare{display:inline-flex;align-items:center;justify-content:center;gap:7px;flex:none;
+  height:42px;min-width:42px;padding:0 13px;border-radius:999px;background:var(--bg);color:var(--ink);
+  font:inherit;font-weight:800;font-size:13.5px;border:1.5px solid var(--line);cursor:pointer;transition:.12s}
 .cbarshare:hover{border-color:var(--ink)}
 .cbarshare:active{transform:scale(.97)}
 .cbarshare svg{flex:none}
