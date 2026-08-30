@@ -1312,11 +1312,20 @@ function buildStore(){
    (demo?('<div class="demobar"><div class="demobarin w"><span class="demotxt"><b>Like the look?</b> Get this store with <b>your</b> logo — free, no obligation.</span><button class="demobtn" id="leadOpen2">'+esc(cta.label||'Get your store — free')+'</button></div></div>'):'')+
    (demo?'<div class="lead" id="lead"></div>':'')+
    '<div class="lead samp" id="samp"></div>'+
+   /* Share lives HERE, not only in the cart drawer. Buried behind "add items -> open kit -> scroll
+      the footer" it was invisible: the person it is built for could not find it on his own store.
+      The bar appears the moment the kit has something in it, which is exactly when sharing starts to
+      mean anything, and it is the one piece of chrome always in reach on a phone. */
    '<div class="cbar" id="cbar"><div class="cbarin w"><div class="cbarL"><span class="n" id="cbarN">0</span> in your kit</div>'+
+     '<button class="cbarshare" id="cbarShare" aria-label="Send this list to your team" title="Send this list to your team">'+
+       '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" '+
+       'stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/>'+
+       '<circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg><span>Share</span></button>'+
      '<button class="cbarbtn" id="openCart2">View kit <span class="p" id="cbarP"></span> <span class="ar">→</span></button></div></div>'+
    '<div class="toast" id="toast"><span class="tk">✓</span><span class="tm" id="toastM">Added</span><button class="tview" id="toastView">View kit →</button></div>';
   document.getElementById('app').innerHTML=html;
   document.getElementById('openCart').addEventListener('click',openCart);
+  var cbs=document.getElementById('cbarShare');if(cbs)cbs.addEventListener('click',shareList);
   document.getElementById('openCart2').addEventListener('click',openCart);
   document.getElementById('ov').addEventListener('click',closeAll);
   // The delegated click handler was only ever attached when a product sheet first opened, because
@@ -2141,7 +2150,13 @@ function quickAdd(key){
   if(!BYKEY[key])return;var it=BYKEY[key],vm=vmOf(key),ex=CART[key];
   if(it.layer==='promo'){CART[key]={qty:(ex&&ex.qty)||it.moq||1,colour:(ex&&ex.colour)||(it.cols[0]||{}).name,mi:(ex&&ex.mi)||0,locs:(ex&&ex.locs)||1,promo:true};saveCart();refreshCartUI();toast('Added · '+it.name);return;}
   CART[key]={qty:(ex&&ex.qty)||moq(),colour:(ex&&ex.colour)||vm.colour,decos:recCartDecos(key)};
-  saveCart();refreshCartUI();toast('Added · '+BYKEY[key].name);
+  saveCart();refreshCartUI();
+  // First item ever: say what the kit is FOR. After that, stay out of the way.
+  var taught=false;try{taught=!!localStorage.getItem('jdp_taught_share');}catch(e){}
+  if(!taught&&cartCount()===1){
+    try{localStorage.setItem('jdp_taught_share','1');}catch(e){}
+    toast('Added \u2014 build your list, then Share it with your team');
+  }else{toast('Added \u00b7 '+BYKEY[key].name);}
 }
 // The curated "top picks" set = items flagged rec across every category (not the whole catalogue — a
 // full dump overwhelms and inflates the quote). Falls back to the first few office items if none flagged.
@@ -2474,7 +2489,7 @@ function renderCart(){
       (nud?'<div class="cinudge">＋'+nud.need+' to reach '+nud.tier+'+ · save '+nud.pct+'%</div>':'')+
       '<div class="row">'+ctrl+'<div class="lp">'+money(unit*c.qty)+'</div></div></div>'+
       '<button class="rm" data-rm="'+k+'" aria-label="Remove">✕</button></div>';}).join('');
-  var body=keys.length?items:('<div class="cempty"><div class="ce-ic">🛒</div><b>Your kit is empty</b><span>Add a few pieces to get your exact quote.</span>'+(recKeysAll().length?'<button class="ceadd" id="emptyAddRec">Add the '+essKeysAll().length+' essentials</button>':'')+'</div>');
+  var body=keys.length?items:('<div class="cempty"><div class="ce-ic">🛒</div><b>Your kit is empty</b><span>Add a few pieces to get your exact quote \u2014 or to send your team a list.</span>'+(recKeysAll().length?'<button class="ceadd" id="emptyAddRec">Add the '+essKeysAll().length+' essentials</button>':'')+'</div>');
   var setupRows=setupBreakdown(),setup=setupRows.reduce(function(t,x){return t+x.amount;},0);
   var brk=setupRows.length?('<details class="setupbrk"><summary>One-time setup '+money(setup)+' <i>· once per design, shared across the kit</i></summary>'+setupRows.map(function(x){return '<div class="sbk"><span>'+esc(x.label)+'</span><span>'+money(x.amount)+'</span></div>';}).join('')+'</details>'):'';
   document.getElementById('cart').innerHTML=
