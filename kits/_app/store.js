@@ -1423,12 +1423,11 @@ function currentSheetColour(key){
   var vm=(CFG.items||{})[key];
   return (vm&&vm.colour)||((BYKEY[key]&&(BYKEY[key].cols||[])[0]||{}).name)||'';
 }
-function toast(msg){
-  var t=document.getElementById('jdptoast');
-  if(!t){t=document.createElement('div');t.id='jdptoast';t.className='jdptoast';document.body.appendChild(t);}
-  t.textContent=msg;t.classList.add('on');
-  clearTimeout(t._h);t._h=setTimeout(function(){t.classList.remove('on');},2400);
-}
+/* NOTE: there used to be a SECOND toast() here that built a bare #jdptoast div. Function
+   declarations hoist, so this later one silently overrode the designed toast above -- meaning the
+   real component (tick, message, and a "View kit \u2192" button) had never once rendered. Customers
+   were getting a plain text pill and, worse, losing the one-tap route to their kit right after
+   adding something. Removed; the designed toast is the only toast. */
 function copyLink(url){
   var done=function(){toast('Link copied — opens straight to this item');};
   if(navigator.clipboard&&navigator.clipboard.writeText){
