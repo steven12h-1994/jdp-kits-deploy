@@ -1297,7 +1297,7 @@ function openKitSheet(kid){
   var sh=document.getElementById('sheet');
   document.getElementById('shx').addEventListener('click',closeAll);
   sh.querySelectorAll('.krpic .g').forEach(function(im){if(im.complete)im.classList.add('ld');else im.addEventListener('load',function(){im.classList.add('ld');});});
-  document.getElementById('kitAdd').addEventListener('click',function(){items.forEach(function(k){quickAdd(k);});closeAll();refreshCartUI();openCart();});
+  document.getElementById('kitAdd').addEventListener('click',function(){items.forEach(function(k){quickAdd(k);});closeAll();refreshCartUI();openBoard();});
   document.getElementById('ov').classList.add('on');sh.classList.add('on');document.body.style.overflow='hidden';
 }
 function moreCatsHtml(){
@@ -1454,7 +1454,7 @@ function buildStore(){
        'stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/>'+
        '<circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg><span>Share</span></button>'+
      '<button class="cbarbtn" id="openCart2">View list <span class="p" id="cbarP"></span> <span class="ar">→</span></button></div></div>'+
-   '<div class="toast" id="toast"><span class="tk">✓</span><span class="tm" id="toastM">Added</span><button class="tview" id="toastView">View list →</button></div>';
+   '<div class="toast" id="toast"><span class="tk">✓</span><span class="tm" id="toastM">Added</span><button class="tview" id="toastView">View board →</button></div>';
   document.getElementById('app').innerHTML=html;
   var _oc=document.getElementById('openCart');
   if(_oc)_oc.addEventListener('click',function(){openBoard();});
@@ -1483,7 +1483,7 @@ function buildStore(){
   var shr=document.getElementById('shReview');if(shr)shr.addEventListener('click',openCart);
   if(curateOn())markCurCards();
   var wc=document.getElementById('whyCta');if(wc)wc.addEventListener('click',function(){
-    if(cartCount()>0){openCart();}else{VIEW.sub='all';renderGrid();scrollToResults();}});
+    if(cartCount()>0){openBoard();}else{VIEW.sub='all';renderGrid();scrollToResults();}});
   // "Shop the collection" hero tiles -> jump into a category (and reveal their images, which sit outside #grid).
   document.querySelectorAll('.sccard').forEach(function(b){b.addEventListener('click',function(){setCat(b.dataset.cat,true);});});
   document.querySelectorAll('.scpic .g,.kpic .g').forEach(function(im){if(im.complete)im.classList.add('ld');else im.addEventListener('load',function(){im.classList.add('ld');});});
@@ -1500,7 +1500,9 @@ function buildStore(){
   setCat(VIEW.cat,false);       // initial focused render
   document.addEventListener('keydown',function(e){if(e.key==='Escape'){if(mediaOpen())closeMedia();else closeAll();}});
   if(C.feed&&!document.getElementById('beholdjs')){var bs=document.createElement('script');bs.id='beholdjs';bs.type='module';bs.src='https://w.behold.so/widget.js';document.head.appendChild(bs);}
-  var tv=document.getElementById('toastView');if(tv)tv.addEventListener('click',function(){document.getElementById('toast').classList.remove('on');openCart();});
+  var tv=document.getElementById('toastView');
+  if(tv)tv.addEventListener('click',function(){
+    document.getElementById('toast').classList.remove('on');openBoard();});
   ['leadOpen1','leadOpen2'].forEach(function(id){var b=document.getElementById(id);if(b)b.addEventListener('click',openLead);});
 }
 // Generic/demo store: a conversion-focused lead modal. When a published Airtable form URL is configured
@@ -2143,7 +2145,7 @@ function renderPromoSheet(){
   sh.querySelectorAll('.ppick').forEach(function(b){b.addEventListener('click',function(){SH.qty=+b.dataset.q;renderPromoSheet();});});
   sh.querySelectorAll('.pqty button').forEach(function(b){b.addEventListener('click',function(){var cur=parseInt(document.getElementById('pqin').value,10)||min;SH.qty=Math.max(min,cur+parseInt(b.dataset.d,10));renderPromoSheet();});});
   var qin=document.getElementById('pqin');if(qin)qin.addEventListener('change',function(){SH.qty=Math.max(min,parseInt(qin.value,10)||min);renderPromoSheet();});
-  document.getElementById('shAdd').addEventListener('click',function(){var was=!!CART[SH.key];CART[SH.key]={qty:q.qty,colour:SH.colour,mi:SH.mi,locs:SH.locs,promo:true};saveCart();closeAll();refreshCartUI();toast((was?'Updated · ':'Added · ')+item.name);});
+  document.getElementById('shAdd').addEventListener('click',function(){var was=!!CART[SH.key];CART[SH.key]={qty:q.qty,colour:SH.colour,mi:SH.mi,locs:SH.locs,promo:true};saveCart();closeAll();refreshCartUI();syncBoardIfOpen();toast((was?'Updated · ':'Added · ')+item.name);});
 }
 function renderSheet(){
   var item=BYKEY[SH.key];
@@ -2321,7 +2323,7 @@ function addFromSheet(){
   if(Object.keys(sz).length)entry.sizes=sz;   // else keep the plain qty (a quick-started item reopened & saved as-is)
   if(Object.keys(sz).length)saveSpread(sz,SH.fit,BYKEY[SH.key].name);
   CART[_ck]=entry;
-  saveCart();closeAll();refreshCartUI();
+  saveCart();closeAll();refreshCartUI();syncBoardIfOpen();
   toast((was?'Updated · ':'Added · ')+BYKEY[SH.key].name);
 }
 function recCartDecos(key){key=bkey(key);
@@ -2335,7 +2337,7 @@ function quickAdd(key){
   var _moved=ensureWritable();
   if(_moved)ex=CART[key];                       // different list -- re-read any existing line
   CART[key]={qty:(ex&&ex.qty)||moq(),colour:(ex&&ex.colour)||vm.colour,decos:recCartDecos(key)};
-  saveCart();refreshCartUI();
+  saveCart();refreshCartUI();syncBoardIfOpen();
   if(_moved){toast('Added to '+activeName()+' \u2014 the JDP starter list stays as a template');return;}
   // First item ever: say what the kit is FOR. After that, stay out of the way.
   var taught=false;try{taught=!!localStorage.getItem('jdp_taught_share');}catch(e){}
@@ -2569,7 +2571,7 @@ function addPicks(){
     var d=det[x.k];
     CART[x.k]={qty:(d&&d.qty)||moq(),colour:(d&&d.colour)||vmOf(x.k).colour,decos:recCartDecos(x.k)};
     n++;});
-  saveCart();refreshCartUI();openCart();
+  saveCart();refreshCartUI();openBoard();
   toast(n?('Added '+n+' piece'+(n===1?'':'s')+' from your shortlist'):'Your shortlist is already in your list');
 }
 /* ---- Curator mode ----------------------------------------------------------------------------
@@ -2843,7 +2845,7 @@ function addRecommended(){
   if(!keys.length)keys=recKeysAll();
   keys.forEach(function(k){if(CART[k]||!BYKEY[k])return;
     CART[k]={qty:moq(),colour:vmOf(k).colour,decos:recCartDecos(k)};n++;});
-  saveCart();refreshCartUI();openCart();
+  saveCart();refreshCartUI();openBoard();
   toast(n?('Added '+n+' essential'+(n===1?'':'s')+' to '+activeName()):(activeName()+' already has the essentials'));
 }
 
@@ -2872,6 +2874,11 @@ function refreshCartUI(){
   var n=cartCount(),sub=cartSubtotal();
   var cn=document.getElementById('cartN');if(cn){cn.textContent=n;cn.classList.toggle('has',n>0);}
   // The single most common confusion was "which list did that just go into?". Name it, always.
+  /* Removing the header removed the one place that named the active board, so on Explore there was
+     nothing telling you where a heart would land. The bar's Boards button now carries it. */
+  var tbl=document.getElementById('tbBoardsLbl');
+  if(tbl){var nm=activeName();
+    tbl.textContent=(nm.length>15?(nm.slice(0,14)+'\u2026'):nm)+' \u00b7 '+cartCount();}
   var rn=document.getElementById('railN');
   if(rn){var bn=listIds().length;rn.textContent=bn>1?bn:'';rn.style.display=bn>1?'':'none';}
   var cl=document.getElementById('cartLbl');
@@ -3086,7 +3093,11 @@ function wireBoard(){
     var save=function(){setNote(t.dataset.note,t.value);};
     t.addEventListener('change',save);t.addEventListener('blur',save);});
   el.querySelectorAll('[data-bedit]').forEach(function(b){b.addEventListener('click',function(){
-    closeBoard();openSheet(b.dataset.bedit);});});
+    /* The board STAYS OPEN underneath. It used to be closed first because the product sheet sits at
+       z-index 70 and the board at 1400, so the sheet would have opened behind it -- which meant
+       closing the sheet dumped you on Explore instead of back on the board you were editing. The
+       sheet is now layered above the board and the board is simply revealed again. */
+    openSheet(b.dataset.bedit);});});
   el.querySelectorAll('[data-brm]').forEach(function(b){b.addEventListener('click',function(){
     delete CART[b.dataset.brm];saveCart();refreshCartUI();renderBoard();});});
   var x=document.getElementById('bClose');if(x)x.addEventListener('click',closeBoard);
@@ -3332,7 +3343,7 @@ function tbarHtml(){
         '<button type="button" class="exsx" id="topSearchX" aria-label="Clear">\u2715</button>'+
       '</div>'+
       '<button type="button" class="tbboards" id="tbBoards">'+railIcon('boards')+
-        '<span>Boards</span></button>'+
+        '<span id="tbBoardsLbl">Boards</span></button>'+
     '</div>'+catMenuHtml()+'</div>';
 }
 function toggleCatMenu(force){
@@ -3496,6 +3507,16 @@ function openVideo(src,title){var m=document.getElementById('vmodal');if(!m||!sr
   // Click the dark backdrop (anywhere outside the player) to close; clicks on the player itself don't.
   m.onclick=function(e){if(e.target===m)closeMedia();};
   var w=m.querySelector('.vwrap');if(w)w.addEventListener('click',function(e){e.stopPropagation();});}
+/* When the sheet was opened FROM the board, the board is still mounted behind it. Anything that
+   changes a line has to refresh that view, or the buyer closes the sheet and sees stale numbers --
+   the edit appears not to have taken. */
+function boardOpen(){var e=document.getElementById('board');return !!(e&&e.classList.contains('on'));}
+function boardsOpen(){var e=document.getElementById('boards');return !!(e&&e.classList.contains('on'));}
+function syncBoardIfOpen(){
+  if(boardOpen())renderBoard();
+  else if(boardsOpen())renderBoardsIndex();
+  if(boardOpen()||boardsOpen())document.body.style.overflow='hidden';
+}
 function closeAll(){['ov','sheet','cart','lead','vmodal'].forEach(function(id){var e=document.getElementById(id);if(e)e.classList.remove('on');});var mv=document.getElementById('vmodal');if(mv)mv.innerHTML='';document.body.style.overflow='';}
 
 /* ---------- checkout: capture contact + send the kit for an exact quote ---------- */

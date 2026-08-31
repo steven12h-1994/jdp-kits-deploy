@@ -76,13 +76,13 @@ main{padding:26px 0 10px}
 .mvol b{color:#0a7d3c;font-weight:800}
 
 /* overlay + generic drawer/sheet mechanics */
-.ov{position:fixed;inset:0;background:rgba(16,18,29,.5);opacity:0;visibility:hidden;transition:opacity .25s;z-index:60}
+.ov{position:fixed;inset:0;background:rgba(16,18,29,.5);opacity:0;visibility:hidden;transition:opacity .25s;z-index:15600}
 .ov.on{opacity:1;visibility:visible}
 
 /* item customiser sheet */
 /* pointer-events:none when closed is CRITICAL: on desktop the closed sheet stays centered with
    opacity:0 and would otherwise swallow clicks on the menu cards beneath it. */
-.sheet{position:fixed;z-index:70;background:var(--card);display:flex;flex-direction:column;pointer-events:none;
+.sheet{position:fixed;z-index:1580;background:var(--card);display:flex;flex-direction:column;pointer-events:none;
   left:50%;bottom:0;width:100%;max-width:560px;transform:translate(-50%,102%);max-height:94vh;
   border-radius:22px 22px 0 0;box-shadow:0 -10px 40px -12px rgba(16,18,29,.4);transition:transform .32s cubic-bezier(.22,1,.36,1)}
 .sheet.on{transform:translate(-50%,0);pointer-events:auto}
@@ -175,7 +175,7 @@ main{padding:26px 0 10px}
 .shtrust{font-size:12px;color:var(--mut);text-align:center;margin-top:10px;font-weight:600}
 
 /* cart drawer */
-.cart{position:fixed;top:0;right:0;bottom:0;z-index:70;width:100%;max-width:430px;background:var(--bg);display:flex;flex-direction:column;transform:translateX(102%);transition:transform .3s cubic-bezier(.22,1,.36,1);box-shadow:-10px 0 40px -12px rgba(16,18,29,.4)}
+.cart{position:fixed;top:0;right:0;bottom:0;z-index:1580;width:100%;max-width:430px;background:var(--bg);display:flex;flex-direction:column;transform:translateX(102%);transition:transform .3s cubic-bezier(.22,1,.36,1);box-shadow:-10px 0 40px -12px rgba(16,18,29,.4)}
 .cart.on{transform:translateX(0)}
 .carth{display:flex;align-items:center;gap:10px;padding:16px 18px;background:var(--card);border-bottom:1px solid var(--line)}
 .carth h2{font-size:19px;font-weight:850;flex:1}
