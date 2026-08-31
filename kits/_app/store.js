@@ -3518,6 +3518,8 @@ function renderBoardsIndex(){
   var x=document.getElementById('biClose');if(x)x.addEventListener('click',closeBoards);
 }
 function openBoards(){
+  // Opening the index is exactly when a stale list is most visible -- reconcile, then re-render.
+  syncBoardsFromServer().then(function(changed){if(changed)renderBoardsIndex();});
   var el=document.getElementById('boards');
   if(!el){el=document.createElement('div');el.id='boards';el.className='boardov';document.body.appendChild(el);}
   renderBoardsIndex();
@@ -3795,6 +3797,47 @@ function openVideo(src,title){var m=document.getElementById('vmodal');if(!m||!sr
    the edit appears not to have taken. */
 function boardOpen(){var e=document.getElementById('board');return !!(e&&e.classList.contains('on'));}
 function boardsOpen(){var e=document.getElementById('boards');return !!(e&&e.classList.contains('on'));}
+/* THE MISSING HALF OF "LIVE".
+   Saving worked from the first deploy -- boards were reaching the server correctly. But a browser
+   only ever rendered its OWN localStorage, and asked the server for a board solely when the URL
+   carried ?b=<slug>. So a board created on one machine was stored perfectly and stayed invisible
+   everywhere else. A live document has to be read from the server, not just written to it.
+
+   Board slugs are whatever the customer names them -- nothing here assumes any particular board. */
+function syncBoardsFromServer(){
+  if(!boardsApi())return Promise.resolve(false);
+  return fetch(boardsApi()+'?kit='+encodeURIComponent(SLUG)+'&list=1',{cache:'no-store'})
+    .then(function(r){return r.ok?r.json():null;})
+    .then(function(j){
+      if(!j||!j.ok||!j.boards||!j.boards.length)return false;
+      if(!LISTS)loadLists();
+      var rows=j.boards.slice(0,40);          // bounded: never a request storm on a big store
+      return Promise.all(rows.map(function(row){
+        var localId=null;
+        for(var k in LISTS){if(LISTS[k].slug===row.b){localId=k;break;}}
+        var local=localId?LISTS[localId]:null;
+        /* Local edits newer than the server copy win -- they are mid-flight and will push on the
+           next save. Never overwrite what someone is typing right now. */
+        if(local&&(local.updated||0)>((row.updated||0)*1000))return false;
+        return pullBoard(row.b).then(function(sb){
+          if(!sb)return false;
+          var id=localId;
+          if(!id){id=newListId();LISTS[id]={name:sb.name||row.b,items:{},updated:0};}
+          LISTS[id].name=sb.name||LISTS[id].name;
+          LISTS[id].items=sb.items||{};
+          LISTS[id].slug=row.b;
+          LISTS[id].rev=sb.rev||0;
+          LISTS[id].updated=(sb.updated||0)*1000;
+          if(id===ALID)CART=LISTS[id].items;
+          return true;
+        });
+      })).then(function(res){
+        var changed=res.some(Boolean);
+        if(changed){persistLists();refreshCartUI();syncBoardIfOpen();markSync('saved');}
+        return changed;
+      });
+    }).catch(function(){return false;});
+}
 function syncBoardIfOpen(){
   if(boardOpen())renderBoard();
   else if(boardsOpen())renderBoardsIndex();
@@ -3996,6 +4039,9 @@ function go(cfg){
       if(_bm){try{openBoard(decodeURIComponent(_bm[1]));}catch(e){}}
       /* ?b=<slug> is the live-board link. The legacy ?list=... links stay working via SHARED, so
          anything already emailed to a customer keeps opening. */
+      /* Every visit reconciles with the server, so a board made on any other device shows up here
+         without needing its link. */
+      syncBoardsFromServer();
       var _lb=location.search.match(/[?&]b=([^&#]+)/);
       if(_lb&&!/[?&]list=/.test(location.search)){
         openSharedBoard(qdec(_lb[1])).then(function(found){
