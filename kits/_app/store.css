@@ -1282,6 +1282,9 @@ body{padding-left:74px}
 .bhdin{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;padding:20px 0 14px;flex-wrap:wrap}
 .beyb{font-size:10.5px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--mut)}
 .btitle{margin:5px 0 4px;font-size:31px;line-height:1.12;font-weight:800;letter-spacing:-.02em;color:var(--ink)}
+.btitle.edit{cursor:text;border-radius:6px;transition:.14s;display:inline-block}
+.btitle.edit:hover{background:rgba(0,0,0,.05);box-shadow:0 0 0 6px rgba(0,0,0,.05)}
+.btitle.edit:focus-visible{outline:2px solid var(--ac);outline-offset:3px}
 .bsum{font-size:13px;font-weight:600;color:var(--mut)}
 .bhdR{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
 .bghost{padding:9px 13px;border:1px solid var(--ln);border-radius:9px;background:#fff;font:inherit;

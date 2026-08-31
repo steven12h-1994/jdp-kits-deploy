@@ -385,7 +385,7 @@ function loadLists(){
     // First run under Lists: adopt whatever single cart already exists so no work is lost.
     var old={};try{old=JSON.parse(localStorage.getItem(LSKEY)||'{}')||{};}catch(e){old={};}
     var id=newListId();LISTS={};
-    LISTS[id]={name:'My list',items:old,updated:Date.now()};
+    LISTS[id]={name:'My board',items:old,updated:Date.now()};
     ALID=id;
     /* Our recommendations, as a List -- not a section, not a hero button. Seeded once on first
        visit and left as a SEPARATE list so a first-timer's own list is never silently pre-filled
@@ -418,7 +418,7 @@ function personalListId(){
   var ids=listIds().filter(function(id){return !LISTS[id].starter;});
   if(ids.length)return ids[0];                       // most recently touched personal list
   var id=newListId();
-  LISTS[id]={name:'My list',items:{},updated:Date.now()};
+  LISTS[id]={name:'My board',items:{},updated:Date.now()};
   persistLists();
   return id;
 }
@@ -447,12 +447,12 @@ function starterId(){for(var id in (LISTS||{})){if(LISTS[id].starter)return id;}
 function listIds(){
   return Object.keys(LISTS||{}).sort(function(a,b){
     return (LISTS[b].updated||0)-(LISTS[a].updated||0);});}
-function listName(id){return ((LISTS||{})[id]||{}).name||'My list';}
+function listName(id){return ((LISTS||{})[id]||{}).name||'My board';}
 function listLen(id){return Object.keys((((LISTS||{})[id])||{}).items||{}).length;}
 function activeName(){return listName(ALID);}
 function newList(name){
   var id=newListId();
-  LISTS[id]={name:(name||'').trim()||('List '+(listIds().length+1)),items:{},updated:Date.now()};
+  LISTS[id]={name:(name||'').trim()||('Board '+(listIds().length+1)),items:{},updated:Date.now()};
   ALID=id;CART=LISTS[id].items;persistLists();return id;}
 function switchList(id){
   if(!LISTS[id])return;
@@ -1245,7 +1245,7 @@ function whyJdpHtml(){
       return '<div class="rsn'+(i===0?' rsnhero':'')+'"><span class="rsnk">'+(i===0?'\u2605':'\u2713')+'</span>'+
         '<div><b>'+esc(r.t)+'</b><span>'+esc(r.d)+'</span></div></div>';
     }).join('')+'</div>'+
-    '<div class="whycta"><button class="reccta" id="whyCta">Build your list — get an exact quote <span class="ar">\u2192</span></button>'+
+    '<div class="whycta"><button class="reccta" id="whyCta">Build your board — get an exact quote <span class="ar">\u2192</span></button>'+
       '<span class="whyctan">No payment now · no obligation</span></div>'+
   '</div></section>';}
 
@@ -1291,7 +1291,7 @@ function openKitSheet(kid){
     '<button class="shx" id="shx" aria-label="Close">✕</button>'+
     '<div class="shscroll"><div class="kithd"><span class="kittag">'+esc(kit.tag)+'</span><h2>'+esc(kit.name)+'</h2><p>'+esc(kit.blurb)+'</p></div>'+
     '<div class="krows">'+rows+'</div>'+
-    '<div class="pinc"><span class="pinci">✓</span> Add the set, then tweak sizes &amp; colours in your list and send for your exact quote — no obligation.</div></div>'+
+    '<div class="pinc"><span class="pinci">✓</span> Add the set, then tweak sizes &amp; colours in your board and send for your exact quote — no obligation.</div></div>'+
     '<div class="shfoot"><button class="shaddbtn" id="kitAdd"><span>Add all '+items.length+' pieces to my list</span></button>'+
     '<div class="shtrust">Adjust any piece after adding · no payment now</div></div>';
   var sh=document.getElementById('sheet');
@@ -1448,8 +1448,8 @@ function buildStore(){
       the footer" it was invisible: the person it is built for could not find it on his own store.
       The bar appears the moment the kit has something in it, which is exactly when sharing starts to
       mean anything, and it is the one piece of chrome always in reach on a phone. */
-   '<div class="cbar" id="cbar"><div class="cbarin w"><div class="cbarL"><span class="n" id="cbarN">0</span> in this list</div>'+
-     '<button class="cbarshare" id="cbarShare" aria-label="Send this list to your team" title="Send this list to your team">'+
+   '<div class="cbar" id="cbar"><div class="cbarin w"><div class="cbarL"><span class="n" id="cbarN">0</span> in this board</div>'+
+     '<button class="cbarshare" id="cbarShare" aria-label="Send this board to your team" title="Send this board to your team">'+
        '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" '+
        'stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/>'+
        '<circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg><span>Share</span></button>'+
@@ -1532,7 +1532,7 @@ function openLead(){
   document.body.style.overflow='hidden';
 }
 var TT;
-function toast(msg){var t=document.getElementById('toast'),m=document.getElementById('toastM');if(!t)return;if(m)m.textContent=msg||'Added to your list';t.classList.add('on');clearTimeout(TT);TT=setTimeout(function(){t.classList.remove('on');},3600);}
+function toast(msg){var t=document.getElementById('toast'),m=document.getElementById('toastM');if(!t)return;if(m)m.textContent=msg||'Added to your board';t.classList.add('on');clearTimeout(TT);TT=setTimeout(function(){t.classList.remove('on');},3600);}
 
 /* ---------- item customiser (one clean screen) ---------- */
 var SH={key:null,colour:null,face:'front',D:{},qty:12,showExtra:false,fit:'mens'};
@@ -1824,7 +1824,7 @@ function openSampleVisit(key){
     ? '<ul class="svlist">'+keys.map(function(k){var it=BYKEY[k];if(!it)return '';
         var c=((CART[k]||CART[k+'#w'])||{}).colour||(SH&&SH.key===k?SH.colour:'')||'';
         return '<li><span>'+esc(it.name)+'</span>'+(c?'<i>'+esc(c)+'</i>':'')+'</li>';}).join('')+'</ul>'
-    : '<p class="svnone">Add a few pieces to your list and we\u2019ll bring those \u2014 or just tell us below what you want to see.</p>';
+    : '<p class="svnone">Add a few pieces to your board and we\u2019ll bring those \u2014 or just tell us below what you want to see.</p>';
   el.innerHTML='<button class="shx" id="sampX" aria-label="Close">\u2715</button><div class="leadb">'+
     '<div class="eyb">No obligation</div><h2>See &amp; feel it in person</h2>'+
     '<p class="leadsub">We\u2019ll come to your workplace with the actual garments so your team can '+
@@ -1907,7 +1907,7 @@ function sampSuccess(c){
   el.innerHTML='<button class="shx" id="sampX" aria-label="Close">\u2715</button>'+
     '<div class="cosent"><div class="csent-ic">\u2713</div>'+
     '<h3>Request sent'+(first?(', '+first):'')+'</h3>'+
-    '<p>We\u2019ve got your list and where you are. We\u2019ll be in touch to arrange a time to bring the samples over.</p>'+
+    '<p>We\u2019ve got your board and where you are. We\u2019ll be in touch to arrange a time to bring the samples over.</p>'+
     '<button class="checkout" id="sampDone">Keep browsing</button></div>';
   var x=document.getElementById('sampX');if(x)x.addEventListener('click',closeSampleVisit);
   var d=document.getElementById('sampDone');if(d)d.addEventListener('click',closeSampleVisit);
@@ -2094,7 +2094,7 @@ function renderPromoSheet(){
       '<div class="psrow"><span>Your logo</span><span>confirmed on quote</span></div>'+
       '<div class="psrow pstot"><span>Estimated total</span><span>'+money(q.goods+(item.setup>0?item.setup:0))+'</span></div></div>';
     footHtml='<div class="pfrow"><span>'+q.qty+' '+unitP+' · '+money(q.perPiece)+'/'+unitP+'</span><b>'+money(q.goods)+'</b></div>'+
-      '<button class="shaddbtn" id="shAdd"><span>'+(CART[SH.key]?'Update list':'Add to list')+'</span><span class="p">'+money(q.goods)+'</span></button>'+
+      '<button class="shaddbtn" id="shAdd"><span>'+(CART[SH.key]?'Update board':'Add to board')+'</span><span class="p">'+money(q.goods)+'</span></button>'+
       '<div class="shtrust">Minimum '+min+' '+unitP+' · logo &amp; final price confirmed on your quote</div>';
   }else{
     var meth=methods.map(function(m,i){var up=m.r>0?('<small>+'+money(m.r)+'/pc</small>'):'<small>included</small>';
@@ -2108,7 +2108,7 @@ function renderPromoSheet(){
       '<div class="psrow"><span>One-time logo setup'+(q.locs>1?' · 2 spots':'')+'</span><span>'+money(q.setup)+'</span></div>'+
       '<div class="psrow pstot"><span>Estimated total</span><span>'+money(q.total)+' <em>≈'+money(q.allIn)+'/pc</em></span></div></div>';
     footHtml='<div class="pfrow"><span>'+q.qty+' pcs · '+money(q.perPiece)+'/pc + '+money(q.setup)+' setup</span><b>'+money(q.total)+'</b></div>'+
-      '<button class="shaddbtn" id="shAdd"><span>'+(CART[SH.key]?'Update list':'Add to list')+'</span><span class="p">'+money(q.total)+'</span></button>'+
+      '<button class="shaddbtn" id="shAdd"><span>'+(CART[SH.key]?'Update board':'Add to board')+'</span><span class="p">'+money(q.total)+'</span></button>'+
       '<div class="shtrust">Minimum '+min+' pcs · no payment now</div>';
   }
   document.getElementById('sheet').innerHTML=
@@ -2184,7 +2184,7 @@ function renderSheet(){
        already in there removes the "did I just overwrite it?" doubt, and nudges the second add. */
     (function(){var other=ckey(SH.key,SH.fit==='womens'?'mens':'womens');var o=CART[other];
       return o?('<span class="fitboth">\u2713 '+(SH.fit==='womens'?'Men\u2019s':'Women\u2019s')+
-        ' cut already in your list \u2014 '+(o.qty||0)+' pcs</span>'):'';})()+
+        ' cut already in your board \u2014 '+(o.qty||0)+' pcs</span>'):'';})()+
     '</div>'):(item.unisex?'<div class="fittog"><span class="fitl">Fit</span><span class="unitag">Unisex</span><span class="fitnote">One unisex cut — fits everyone</span></div>':'');
   var faceTog=hasBack?'<div class="ftog"><button class="pchip'+(SH.face==='front'?' on':'')+'" data-face="front">Front</button><button class="pchip'+(SH.face==='back'?' on':'')+'" data-face="back">Back</button></div>':'';
   var logoPlaces=(item.places||[]).filter(function(p){return p.logo;});
@@ -2247,10 +2247,10 @@ function renderSheet(){
       (item.blurb?'<p class="shblurb">'+esc(item.blurb)+'</p>':'')+
       fabricHtml(item)+sampCtaHtml(SH.key)+
       fitTog+step1+qtyGrp+primaryHtml+extraHtml+
-      '<div class="shnote">'+(hasDecoPlace(item)?'Prices are per piece, decorated — your logo (embroidery / print) is included. One-time setup shows once in your list summary. ':'Prices are per piece (blank garment — no decoration on this item). ')+'Exact quote confirmed before anything runs.</div>'+
+      '<div class="shnote">'+(hasDecoPlace(item)?'Prices are per piece, decorated — your logo (embroidery / print) is included. One-time setup shows once in your board summary. ':'Prices are per piece (blank garment — no decoration on this item). ')+'Exact quote confirmed before anything runs.</div>'+
     '</div></div>'+
     '<div class="shfoot">'+priceClar+
-      '<button class="shaddbtn" id="shAdd"'+(canAdd?'':' disabled')+'><span>'+(canAdd?(CART[ckey(SH.key,SH.fit)]?'Update list':'Add to list'):('Add '+moq()+'+ pieces'))+'</span><span class="p">'+money(line)+'</span></button>'+
+      '<button class="shaddbtn" id="shAdd"'+(canAdd?'':' disabled')+'><span>'+(canAdd?(CART[ckey(SH.key,SH.fit)]?'Update board':'Add to board'):('Add '+moq()+'+ pieces'))+'</span><span class="p">'+money(line)+'</span></button>'+
       '<div class="shtrust">✓ Live pricing · exact quote · no obligation · no payment now</div></div>';
   var sh=document.getElementById('sheet');
   // Re-render replaces this markup, so the sheet chrome must be re-bound every time, not just
@@ -2343,7 +2343,9 @@ function quickAdd(key){
   var taught=false;try{taught=!!localStorage.getItem('jdp_taught_share');}catch(e){}
   if(!taught&&cartCount()===1){
     try{localStorage.setItem('jdp_taught_share','1');}catch(e){}
-    toast('Added \u2014 build your list, then Share it with your team');
+    /* This teaching toast fired on the very first save and never said WHERE the item went, which
+       is the one moment a buyer has no mental model yet. Name the board first, teach second. */
+    toast('Added to '+activeName()+' \u2014 build it up, then Share it with your team');
   }else{
     // Name the destination on every save. When there is only one list this reads naturally; when
     // there are several it is the difference between confidence and "where did that go?".
@@ -2472,7 +2474,7 @@ function shareList(){
   if(!Object.keys(CART).length){toast('Add a few pieces first');return;}
   var url=shareListUrl();
   notifyShared(url);
-  var txt='Here is our team gear list — open it and everything is ready to order.';
+  var txt='Here is our team gear board — open it and everything is ready to order.';
   if(navigator.share&&matchMedia('(hover:none)').matches){
     navigator.share({title:CFG.client+' — team gear list',text:txt,url:url})
       .catch(function(e){if(!e||e.name!=='AbortError'){clipCopy(url);toast('Link copied — send it to your team');}});
@@ -2524,9 +2526,9 @@ function sharedStripHtml(){
   return '<div class="herooffer pkoffer">'+
       '<span class="hoic" aria-hidden="true">\u2713</span>'+
       '<span class="hotx"><b>'+(still<n
-          ? (still+' of '+(who?(esc(who)+'\u2019s '):'')+n+' pieces are in your list')
-          : (who?(esc(who)+'\u2019s '+n+' piece'+(n===1?' is':'s are')+' in your list')
-               :(n+' piece'+(n===1?'':'s')+' \u2014 already in your list')))+'</b>'+
+          ? (still+' of '+(who?(esc(who)+'\u2019s '):'')+n+' pieces are in your board')
+          : (who?(esc(who)+'\u2019s '+n+' piece'+(n===1?' is':'s are')+' in your board')
+               :(n+' piece'+(n===1?'':'s')+' \u2014 already in your board')))+'</b>'+
         '<i>'+(still<n
           ? 'You\u2019ve changed the list \u2014 that\u2019s fine, add or remove anything you like. '
           : ('Colours, sizes and quantities exactly as '+(who?esc(who):'they')+' set them. '))+
@@ -2572,7 +2574,7 @@ function addPicks(){
     CART[x.k]={qty:(d&&d.qty)||moq(),colour:(d&&d.colour)||vmOf(x.k).colour,decos:recCartDecos(x.k)};
     n++;});
   saveCart();refreshCartUI();openBoard();
-  toast(n?('Added '+n+' piece'+(n===1?'':'s')+' from your shortlist'):'Your shortlist is already in your list');
+  toast(n?('Added '+n+' piece'+(n===1?'':'s')+' from your shortlist'):'Your shortlist is already in your board');
 }
 /* ---- Curator mode ----------------------------------------------------------------------------
    Steven was the bottleneck: every shortlist change meant describing a store and a list of products
@@ -2891,7 +2893,7 @@ function refreshCartUI(){
     var b=card.querySelector('.madd');
     if(b){b.classList.toggle('has',on);
       b.innerHTML=on?(heartSvg(1)+'<b>'+qn+'</b>'):heartSvg(0);
-      b.setAttribute('aria-label',on?(qn+' in your list'):'Save to my list');}});
+      b.setAttribute('aria-label',on?(qn+' in your board'):'Save to my board');}});
 }
 function openCart(){renderCart();document.getElementById('ov').classList.add('on');document.getElementById('cart').classList.add('on');document.body.style.overflow='hidden';}
 function cartLineHtml(k){var it=BYKEY[bkey(k)];if(!it)return '';var c=CART[k];
@@ -3054,14 +3056,15 @@ function renderBoard(){
     '<header class="bhd"><div class="bhdin">'+
       '<div class="bhdL">'+
         '<div class="beyb">'+esc(CFG.client)+' \u00b7 board</div>'+
-        '<h1 class="btitle" id="bTitle">'+esc(activeName())+'</h1>'+
+        '<h1 class="btitle edit" id="bTitle" title="Click to rename" '+
+          'role="button" tabindex="0">'+esc(activeName())+'</h1>'+
         '<div class="bsum">'+(t.lines?(t.lines+' item'+(t.lines===1?'':'s')+' \u00b7 '+t.pieces+
           ' pieces \u00b7 est. '+money(t.sub)+(t.setup>0?(' + '+money(t.setup)+' setup'):'')):'Nothing saved yet')+'</div>'+
       '</div>'+
       '<div class="bhdR">'+
         '<button type="button" class="bghost" id="bAll">\u2039 All boards</button>'+
-        '<button type="button" class="bghost" id="bRename">Rename</button>'+
-        '<button type="button" class="bghost" id="bNew">+ New board</button>'+
+        '<button type="button" class="bghost" id="bMore">+ Add more gear</button>'+
+
         '<button type="button" class="bghost bshare" id="bShare">Share board \u2197</button>'+
         (t.lines?'<button type="button" class="bcta" id="bQuote">Request exact quote <span class="ar">\u2192</span></button>':'')+
         '<button type="button" class="bx" id="bClose" aria-label="Close">\u2715</button>'+
@@ -3103,12 +3106,18 @@ function wireBoard(){
   var x=document.getElementById('bClose');if(x)x.addEventListener('click',closeBoard);
   var ba=document.getElementById('bAll');if(ba)ba.addEventListener('click',function(){
     closeBoard();openBoards();});
-  var rn=document.getElementById('bRename');if(rn)rn.addEventListener('click',function(){
-    var n=window.prompt('Rename this board',activeName());
-    if(n===null)return;renameList(ALID,n);renderBoard();refreshCartUI();});
-  var nw=document.getElementById('bNew');if(nw)nw.addEventListener('click',function(){
-    var n=window.prompt('Name this board','Board '+(listIds().length+1));
-    if(n===null)return;newList(n);renderBoard();refreshCartUI();});
+  /* The board is a review surface; the natural next move is "add another piece". Without this you
+     have to close the board and find your way back to the catalogue yourself. */
+  var bm=document.getElementById('bMore');if(bm)bm.addEventListener('click',function(){
+    closeBoard();closeBoards();setRail('explore');
+    var g=document.getElementById('gridhd')||document.getElementById('grid');
+    if(g)g.scrollIntoView({behavior:'smooth',block:'start'});});
+  var bt=document.getElementById('bTitle');
+  if(bt){var ren=function(){
+      var n=window.prompt('Rename this board',activeName());
+      if(n===null)return;renameList(ALID,n);renderBoard();refreshCartUI();};
+    bt.addEventListener('click',ren);
+    bt.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();ren();}});}
   var sh=document.getElementById('bShare');if(sh)sh.addEventListener('click',shareList);
   var qt=document.getElementById('bQuote');if(qt)qt.addEventListener('click',function(){
     closeBoard();
@@ -3421,7 +3430,7 @@ function renderCart(){
     'Anything you save goes to your own list \u2014 this one stays as it is.'+
     '<button type="button" class="tmplcopy" id="tmplCopy">Copy these '+keys.length+
     ' into my list</button></div>'):'';
-  var body=keys.length?(tmpl+items):('<div class="cempty"><div class="ce-ic">🛒</div><b>This list is empty</b><span>Add a few pieces to get your exact quote \u2014 or to send your team a list.</span>'+((starterId()&&starterId()!==ALID)
+  var body=keys.length?(tmpl+items):('<div class="cempty"><div class="ce-ic">🛒</div><b>This board is empty</b><span>Add a few pieces to get your exact quote \u2014 or to send your team a list.</span>'+((starterId()&&starterId()!==ALID)
       ?('<button class="ceadd" id="emptyAddRec">Start from our JDP starter list \u00b7 '+
         listLen(starterId())+' pieces</button>'):'')+'</div>');
   var setupRows=setupBreakdown(),setup=setupRows.reduce(function(t,x){return t+x.amount;},0);
@@ -3437,13 +3446,13 @@ function renderCart(){
       '<div class="csetup">Prices include your logo, decorated. Setup is a one-time charge per logo &amp; location, reused across the kit. Exact itemised quote confirmed free before anything runs.</div>'+
       // People assume a list like this is saved to an account. It is saved to THIS browser -- say so,
       // and point at the thing that actually makes it portable.
-      '<div class="cwhere">This list is saved on this device. <b>Send it to your team</b> to keep it \u2014 the link works on any phone or computer.</div>'+
+      '<div class="cwhere">This board is saved on this device. <b>Send it to your team</b> to keep it \u2014 the link works on any phone or computer.</div>'+
       '<button class="checkout" id="checkout">Get my exact quote <span class="ar">→</span></button>'+
       '<button type="button" class="sharelist" id="shareList">'+
         '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" '+
         'stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/>'+
         '<circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>'+
-        'Send this list to your team</button>'+
+        'Send this board to your team</button>'+
       '<button type="button" class="svalt" data-samp="">\u270B See &amp; feel these first \u2014 we\u2019ll bring samples to you</button>'+
       '<div class="cktrust"><span>No payment now</span><span>No obligation</span><span>No minimum beyond 12 pcs</span></div></div>'):'')+
     '';
@@ -3459,12 +3468,12 @@ function renderCart(){
   if(lsl)lsl.addEventListener('change',function(){switchList(lsl.value);});
   var lnw=document.getElementById('lNew');
   if(lnw)lnw.addEventListener('click',function(){
-    var n=window.prompt('Name this list','List '+(listIds().length+1));
+    var n=window.prompt('Name this board','Board '+(listIds().length+1));
     if(n===null)return;newList(n);renderCart();refreshCartUI();
     toast('Started \u201c'+listName(ALID)+'\u201d');});
   var lrn=document.getElementById('lRen');
   if(lrn)lrn.addEventListener('click',function(){
-    var n=window.prompt('Rename this list',activeName());
+    var n=window.prompt('Rename this board',activeName());
     if(n===null)return;renameList(ALID,n);renderCart();refreshCartUI();});
   var ldl=document.getElementById('lDel');
   if(ldl)ldl.addEventListener('click',function(){
@@ -3577,14 +3586,14 @@ function openCheckout(){
             'PNG you have, on a transparent background.</i></span>'+
         '</label>'+
         '<input id="coArt" type="file" class="artin" accept=".ai,.eps,.pdf,.svg,.png,.jpg,.jpeg">'+
-        '<div class="artnote">No logo file to hand? Send your list anyway \u2014 we\u2019ll redraw your '+
+        '<div class="artnote">No logo file to hand? Send your board anyway \u2014 we\u2019ll redraw your '+
           'logo to production quality from the best image you have, at no charge.</div>'+
       '</div>'+
     '</div></div>'+
     '<div class="cartf">'+
       '<button class="checkout" id="emailKit">Send my list — get my quote <span class="ar">→</span></button>'+
       '<button class="copyalt" id="copyKit">or copy my list to paste into a reply</button>'+
-      '<div class="ckpm">\u2605 <b>Price-match guarantee</b> — found a lower written quote for the same job? Send it with your list and we\u2019ll match it.</div>'+
+      '<div class="ckpm">\u2605 <b>Price-match guarantee</b> — found a lower written quote for the same job? Send it with your board and we\u2019ll match it.</div>'+
       '<button type="button" class="svalt" data-samp="">\u270B Rather see them in person first? We\u2019ll bring samples to you</button>'+
       '<div class="cktrust" id="copyHint"><span>No payment now</span><span>No obligation</span><span>No minimum beyond 12 pcs</span></div></div>';
   document.getElementById('cartx').addEventListener('click',closeAll);
@@ -3673,7 +3682,7 @@ function renderSkeleton(cfg){
     '<header class="hdr"><div class="w hdrin"><span class="brand"><b>'+esc((cfg&&cfg.client)||'')+'</b><i>× Just Deals</i></span></div></header>'+
     '<section class="hero"><div class="w heroin"><div class="eyb">Branded apparel · ready to order</div>'+
       '<h1>'+esc(poss((cfg&&cfg.client)||'Your'))+" team store</h1>"+
-      '<p class="herosub">Loading your list…</p></div></section>'+
+      '<p class="herosub">Loading your board…</p></div></section>'+
     '<main class="w"><div class="menu">'+cards+'</div></main>';
 }
 // Keep the accent readable: a near-white / very light brand colour is invisible as text on the
