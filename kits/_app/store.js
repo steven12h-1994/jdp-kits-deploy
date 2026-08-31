@@ -1395,6 +1395,7 @@ function buildStore(){
      '<span class="brand"><img src="'+kurl(((CFG.logos&&CFG.logos[0]&&CFG.logos[0].inks&&CFG.logos[0].inks.dark))||CFG.cover_logo||'img/logo-white.png')+'" onerror="this.style.display=\'none\'" alt=""><b>'+esc(CFG.client)+'</b><i>× Just Deals</i></span>'+
      '<button class="cartbtn" id="openCart"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2 3h3l2.4 12.2a1.5 1.5 0 0 0 1.5 1.2h8.2a1.5 1.5 0 0 0 1.5-1.2L22 7H6"/></svg>'+
        '<span class="lbl" id="cartLbl">My list</span><span class="n" id="cartN">0</span></button></div></header>'+
+   topSearchHtml()+
    '<section class="hero"><div class="w heroin">'+
      '<div class="eyb">'+(demo?'Sample store · your logo goes here':'Premium branded workwear &amp; apparel')+'</div>'+
      '<h1>'+esc(poss(CFG.client))+" team store</h1>"+
@@ -1409,7 +1410,7 @@ function buildStore(){
       the cart, and "3,400+ impressions per shirt" is promo-industry trivia that has nothing to do
       with outfitting staff. Removing the band makes the in-person offer the unambiguous focal point
       and lifts the catalogue up the page. */
-   shopCatsHtml()+
+   catTilesHtml()+
    '<div class="navwrap" id="navwrap">'+
      '<div class="fscrim" id="fscrim"></div>'+
      '<div class="fpanel" id="fpanel" role="dialog" aria-label="Filter products">'+
@@ -1465,6 +1466,7 @@ function buildStore(){
   var cbs=document.getElementById('cbarShare');if(cbs)cbs.addEventListener('click',shareList);
   document.getElementById('openCart2').addEventListener('click',function(){openBoard();});
   wireRail();
+  wireExplore();
   document.getElementById('ov').addEventListener('click',closeAll);
   // The delegated click handler was only ever attached when a product sheet first opened, because
   // that is the one place that needed it. The hero's sample-visit CTA is on the page before any
@@ -2986,7 +2988,7 @@ function renderBoard(){
         '<button type="button" class="bghost" id="bAll">\u2039 All boards</button>'+
         '<button type="button" class="bghost" id="bRename">Rename</button>'+
         '<button type="button" class="bghost" id="bNew">+ New board</button>'+
-        '<button type="button" class="bghost" id="bShare">Share board</button>'+
+        '<button type="button" class="bghost bshare" id="bShare">Share board \u2197</button>'+
         (t.lines?'<button type="button" class="bcta" id="bQuote">Request exact quote <span class="ar">\u2192</span></button>':'')+
         '<button type="button" class="bx" id="bClose" aria-label="Close">\u2715</button>'+
       '</div>'+
@@ -3031,12 +3033,18 @@ function wireBoard(){
   if(tc)tc.addEventListener('click',function(){copyStarterToMine();renderBoard();});
 }
 function openBoard(id){
+  /* A board id is local to the browser that made it. openBoard used to write ?board=<id> into the
+     address bar, so copying that URL -- the obvious thing to do -- handed someone a link that
+     resolves to nothing on their machine, or worse, silently showed them their OWN board under the
+     sender's board name. The address bar is left clean and the Share button (which encodes the
+     actual contents) is the one way to hand a board to someone. */
+  if(id&&(!LISTS||!LISTS[id])){openBoards();toast('That board isn\u2019t on this device \u2014 here are your boards');return;}
   if(id&&LISTS&&LISTS[id])switchList(id);
   var el=document.getElementById('board');
   if(!el){el=document.createElement('div');el.id='board';el.className='boardov';document.body.appendChild(el);}
   renderBoard();
   el.classList.add('on');document.body.style.overflow='hidden';
-  try{if(history.replaceState)history.replaceState({},'',boardUrl(ALID));}catch(e){}
+  setRail('boards');
 }
 function closeBoard(){
   var el=document.getElementById('board');if(el)el.classList.remove('on');
@@ -3189,6 +3197,65 @@ function wireRail(){
         document.getElementById('cart').classList.add('on');
         document.body.style.overflow='hidden';openCheckout();return;}
     });});
+}
+/* Pinterest's Explore is one search field and image tiles. Ours had the search collapsed behind a
+   magnifier and categories as a chip strip below a hero, a trust row and a category panel. The
+   search is now always visible at the top; it PROXIES the existing #kitSearch input so every
+   filter, count and no-results path keeps working untouched. */
+function topSearchHtml(){
+  return '<section class="exsearch"><div class="w exsin">'+
+    '<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" '+
+    'stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/>'+
+    '<path d="M21 21l-4.3-4.3"/></svg>'+
+    '<input id="topSearch" type="search" autocomplete="off" aria-label="Search products" '+
+    'placeholder="Search '+ALLKEYS.length+' products \u2014 polos, hi-vis, Carhartt\u2026">'+
+    '<button type="button" class="exsx" id="topSearchX" aria-label="Clear">\u2715</button>'+
+    '</div></section>';
+}
+function catKeysOf(cat){
+  var b=(typeof BUCKETS!=='undefined')?BUCKETS[cat]:null;
+  if(!b)return [];
+  if(Object.prototype.toString.call(b)==='[object Array]')return b;
+  var out=[];for(var k in b){if(b[k])out.push(k);}return out;
+}
+function catTileImg(cat){
+  var keys=catKeysOf(cat);
+  for(var i=0;i<keys.length;i++){
+    var it=BYKEY[keys[i]];if(!it)continue;
+    var c=(it.cols||[])[0];
+    if(c&&c.front)return gurl(c.front);}
+  return '';
+}
+function catTilesHtml(){
+  var cats=(typeof CATS!=='undefined'&&CATS.length)?CATS:[];
+  if(!cats.length)return '';
+  return '<section class="excats"><div class="w">'+
+    '<h2 class="exh">Browse by category</h2>'+
+    '<div class="cattiles">'+cats.map(function(c){
+      var img=catTileImg(c);
+      return '<button type="button" class="cattile" data-catgo="'+esc(c)+'">'+
+        '<span class="ctimg">'+(img?('<img src="'+img+'" alt="" loading="lazy">'):'')+'</span>'+
+        '<span class="ctlab"><b>'+esc(shortCat(c))+'</b><i>'+((TOTALS&&TOTALS[c])||0)+'</i></span>'+
+        '</button>';}).join('')+
+    '</div></div></section>';
+}
+function wireExplore(){
+  var ts=document.getElementById('topSearch'),ks=document.getElementById('kitSearch');
+  if(ts&&ks){
+    var push=function(){ks.value=ts.value;
+      try{ks.dispatchEvent(new Event('input',{bubbles:true}));}catch(e){}
+      var x=document.getElementById('topSearchX');if(x)x.style.display=ts.value?'':'none';};
+    ts.addEventListener('input',push);
+    ts.addEventListener('search',push);
+    var x=document.getElementById('topSearchX');
+    if(x){x.style.display='none';
+      x.addEventListener('click',function(){ts.value='';push();ts.focus();});}
+  }
+  document.querySelectorAll('[data-catgo]').forEach(function(b){
+    b.addEventListener('click',function(){
+      setCat(b.dataset.catgo,true);
+      var g=document.getElementById('gridhd')||document.getElementById('grid');
+      if(g)g.scrollIntoView({behavior:'smooth',block:'start'});});});
 }
 function renderCart(){
   var keys=Object.keys(CART),sub=cartSubtotal();
