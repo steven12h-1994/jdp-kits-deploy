@@ -1082,6 +1082,11 @@ body.curating{padding-bottom:340px}
 /* ---- one-tap reuse of the last size split ---
    Reads as a helpful shortcut, not a competing action: dashed, accent-tinted, full width under the
    grid it fills in. It only ever renders on an item with no sizes entered yet. */
+/* A colour that genuinely retired since the link was sent. Stated plainly rather than swapped in
+   silence -- and framed as something we will source, not a dead end. */
+.shlost{margin:9px 0 0;padding:9px 12px;border-radius:10px;font-size:12px;line-height:1.5;
+  background:rgba(180,120,0,.09);border:1px solid rgba(180,120,0,.25);color:#7a5200}
+
 .spreadre{display:flex;flex-direction:column;gap:2px;width:100%;margin:9px 0 0;padding:10px 12px;
   border:1px dashed var(--ac);border-radius:11px;background:rgba(0,0,0,.012);color:var(--ac);
   font:inherit;cursor:pointer;text-align:left;transition:.15s}

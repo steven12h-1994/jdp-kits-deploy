@@ -1228,7 +1228,10 @@ function buildStore(){
          happens in one line. Second, top picks is demoted rather than deleted -- a visitor sent
          here to pick their gear still needs the fast path, and a shortlist built first makes the
          sample request far more useful to the rep who packs the bag. */
-      (_pk
+      (SHARED
+        /* Already applied on arrival -- confirm it, do not ask for it again. */
+        ? sharedStripHtml()
+        : _pk
         /* They have already had the visit and named their pieces: lead with those. */
         ? ('<div class="herooffer pkoffer">'+
              '<span class="hoic" aria-hidden="true">\u2713</span>'+
@@ -1334,6 +1337,7 @@ function buildStore(){
   // guard keeps it to a single listener.
   wireDelegates();
   var ar=document.getElementById('addRec');if(ar)ar.addEventListener('click',addRecommended);
+  var shr=document.getElementById('shReview');if(shr)shr.addEventListener('click',openCart);
   ['addPicks','addPicksHero'].forEach(function(id){
     var b=document.getElementById(id);if(b)b.addEventListener('click',addPicks);});
   wireCards('pkgrid');
@@ -2216,11 +2220,31 @@ function quickAdd(key){
    The link carries key, quantity and colour, and every field is re-validated on the way in -- an
    edited or truncated URL degrades to fewer items, never to a broken store. */
 var SHARED=null;
+/* ---------- the shared link must carry what the sender actually chose -------------------------
+   It did not. The format was key~qty~colour, with no FIT -- and the colour was then validated
+   against BYKEY[k].cols, the mens run only. Colours are fit-aware (curColsOf returns item.wcols for
+   womens), so a womens colour was not found, was blanked, and silently fell back to cols[0] -- the
+   FIRST colour in the list. Sender picks womens Team Red, recipient opens Anthracite, nothing says a
+   word. 20 items in the catalogue have womens colours absent from their mens run.
+   Sizes were not carried either, so the recipient re-typed the split the sender had already entered.
+   Decoration deliberately still regenerates from the standard setup: there is exactly ONE
+   standardised decoration per product now, so it reproduces the sender's choice without bloating
+   the URL. Trailing empty fields are trimmed, and a 3-field legacy link still decodes. */
+function encSizes(sz){if(!sz)return '';var o=[];
+  for(var s in sz){if(sz[s]>0)o.push(s+'-'+sz[s]);}return o.join('.');}
+function decSizes(str){var out={},n=0;
+  String(str||'').split('.').forEach(function(p){var m=p.split('-');if(m.length!==2)return;
+    var v=parseInt(m[1],10);
+    if(ALLSIZES.indexOf(m[0])<0||!(v>0)||v>100000)return;out[m[0]]=v;n++;});
+  return n?out:null;}
+function sizeSum(sz){var t=0;for(var s in (sz||{}))t+=(parseInt(sz[s],10)||0);return t;}
 function encodeList(){
   var parts=[];
   Object.keys(CART).forEach(function(k){
     var c=CART[k];if(!BYKEY[k])return;
-    parts.push([k,(c.qty||moq()),(c.colour||'')].join('~'));});
+    var f=[k,(c.qty||moq()),(c.colour||''),(c.fit==='womens'?'w':''),encSizes(c.sizes)];
+    while(f.length>3&&!f[f.length-1])f.pop();      // keep links short; older readers ignore extras
+    parts.push(f.join('~'));});
   return parts.join('|');
 }
 function decodeList(str){
@@ -2230,10 +2254,15 @@ function decodeList(str){
     if(!k||!BYKEY[k])return;                                   // unknown/renamed product: drop it
     if(out.some(function(x){return x.k===k;}))return;          // no duplicates
     var q=parseInt(bits[1],10);if(!(q>0)||q>100000)q=moq();
+    var fit=(bits[3]==='w')?'womens':'mens';
+    var sizes=decSizes(bits[4]);
+    if(sizes)q=sizeSum(sizes)||q;                  // the split IS the quantity
     var col=bits[2]||'';
-    var cols=BYKEY[k].cols||[];
-    if(col&&!cols.some(function(c){return c.name===col;}))col='';   // colour retired since sharing
-    out.push({k:k,qty:q,colour:col||((cols[0]||{}).name||'')});});
+    // Validate against the run the sender was actually looking at, not always the mens list.
+    var cols=curColsOf(BYKEY[k],fit)||[];
+    var lost='';
+    if(col&&!cols.some(function(c){return c.name===col;})){lost=col;col='';}
+    out.push({k:k,qty:q,colour:col||((cols[0]||{}).name||''),fit:fit,sizes:sizes,lost:lost});});
   return out;
 }
 function readSharedList(){
@@ -2289,6 +2318,49 @@ function shareList(){
     return;
   }
   clipCopy(url);toast('Link copied — send it to your team');
+}
+/* A curated list should not need a click to be received. The recipient used to land with an EMPTY
+   kit -- "0 in your kit" on the mobile bar -- while the list sat on screen behind two different
+   buttons that called the same function. So we apply it on arrival. Never clobbers a kit the
+   recipient already built, and is guarded by a signature so a refresh never re-adds something they
+   deliberately removed. */
+var SHAPPLIED=0;
+function sharedSig(){return SHARED?SHARED.items.map(function(x){
+  return x.k+'~'+x.qty+'~'+x.colour+'~'+x.fit;}).join('|'):'';}
+function autoApplyShared(){
+  if(!SHARED)return;
+  var sig=sharedSig(),prev='';
+  try{prev=localStorage.getItem('jdp_applied_sig')||'';}catch(e){}
+  if(prev===sig)return;
+  var added=0;
+  SHARED.items.forEach(function(x){
+    if(!BYKEY[x.k]||CART[x.k])return;
+    var entry={qty:x.qty,colour:x.colour,decos:recCartDecos(x.k),fit:x.fit};
+    if(x.sizes)entry.sizes=x.sizes;
+    CART[x.k]=entry;added++;});
+  try{localStorage.setItem('jdp_applied_sig',sig);}catch(e){}
+  if(added)saveCart();
+  SHAPPLIED=added;
+}
+function sharedStripHtml(){
+  var n=SHARED.items.length,who=SHARED.from||'';
+  var lost=SHARED.items.filter(function(x){return x.lost;});
+  var sub=cartSubtotal();
+  return '<div class="herooffer pkoffer">'+
+      '<span class="hoic" aria-hidden="true">\u2713</span>'+
+      '<span class="hotx"><b>'+(who?(esc(who)+'\u2019s '+n+' pieces are in your kit'):
+                                    (n+' piece'+(n===1?'':'s')+' \u2014 already in your kit'))+'</b>'+
+        '<i>Colours, sizes and quantities exactly as '+(who?esc(who):'they')+' set them. '+
+        'Review and get your exact quote \u2014 nothing is ordered yet.</i></span>'+
+      '<button type="button" class="reccta hobtn" id="shReview">Review kit'+
+        (sub?(' \u00b7 '+money(sub)):'')+' <span class="ar">\u2192</span></button>'+
+    '</div>'+
+    (lost.length?('<div class="shlost">'+lost.map(function(x){
+        return esc(BYKEY[x.k].name)+' in '+esc(x.lost);}).join(', ')+
+      ' \u2014 no longer available in that colour, so the closest one is shown. '+
+      'Say the word on your quote and we\u2019ll source it.</div>'):'')+
+    '<button type="button" class="herosecond" data-samp="">Or see &amp; feel them in person first '+
+      '<span>we bring samples to you</span></button>';
 }
 function picksOf(){
   /* Store-level list wins; otherwise the GLOBAL list from the shared catalogue. That fallback is
@@ -2469,6 +2541,9 @@ function curToggleHtml(key){
   return '<button type="button" class="curtog" data-curk="'+esc(key)+'">+ Shortlist</button>';
 }
 function picksSectionHtml(){
+  // A shared list is already in the kit and confirmed in the hero; repeating it as a second section
+  // with its own "Add all" button was the redundancy. Recommendations still get this section.
+  if(SHARED)return '';
   var p=picksOf();if(!p)return '';
   var cards=p.keys.map(function(x){
     var why=x.why?('<div class="pkwhy">'+esc(x.why)+'</div>'):'';
@@ -2801,7 +2876,7 @@ function go(cfg){
     // Learn each logo's ink BEFORE first paint so garments render a thread colour that actually reads.
     Promise.all((cfg.logos||[]).map(probeInk)).then(function(){
       assignColourways();
-      SHARED=readSharedList();curateInit();loadCart();buildStore();refreshCartUI();if(curateOn())markCurCards();
+      SHARED=readSharedList();curateInit();loadCart();autoApplyShared();buildStore();refreshCartUI();if(curateOn())markCurCards();
       // Deep link: /kits/<slug>/?item=<key> (or #item=<key>) opens straight to that product. This MUST
       // run AFTER buildStore(). It used to fire synchronously, before the async ink probe resolved, so
       // the sheet opened against an unbuilt store and was wiped by the first render -- every ?item=
