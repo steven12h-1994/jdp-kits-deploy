@@ -2413,6 +2413,7 @@ function curateInit(){
   CURATE=true;
   var cur=picksOf();
   CPICKS=cur?cur.keys.map(function(x){return {k:x.k,why:x.why||''};}):[];
+  CBASE=curKeys().join('|');
   document.body.classList.add('curating');
   var bar=document.createElement('div');bar.className='curbar';bar.id='curbar';
   document.body.appendChild(bar);
@@ -2451,16 +2452,31 @@ function renderCurBar(){
       '<button type="button" class="curbtn rm" data-rmk="'+esc(x.k)+'" aria-label="Remove">\u2715</button></div>';}).join('');
   var cur=picksOf();
   el.innerHTML='<div class="curin">'+
-    '<div class="curhd"><b>Curator mode</b><span>'+CPICKS.length+' selected</span>'+
+    '<div class="curhd"><b>Curator mode</b><span>'+CPICKS.length+' selected'+
+      (CPICKS.length?(' \u00b7 '+CPICKS.filter(function(x){return (x.why||'').trim();}).length+
+        '/'+CPICKS.length+' with a reason'):'')+
+      (curDirty()?' \u00b7 unpublished':'')+'</span>'+
       '<button type="button" class="curx" id="curExit">Exit</button></div>'+
     (CPICKS.length?('<div class="currows">'+rows+'</div>'):'<div class="curempty">Tap <b>+ Shortlist</b> on any product to build the list.</div>')+
+    '<div class="curwhich">'+
+      (picksSource()==='store'
+        ? 'This store has its <b>own</b> list \u2014 it overrides the global one here.'
+        : picksSource()==='global'
+        ? 'Showing the <b>global</b> list (this store has none of its own).'
+        : 'No shortlist published yet.')+
+      '<span class="curtok">Token: <b>'+(ghToken()?'saved':'not saved')+'</b>'+
+        '<button type="button" class="curbtn" id="curTok">'+(ghToken()?'Replace':'Add')+'</button>'+
+        (ghToken()?'<button type="button" class="curbtn rm" id="curTokX">Clear</button>':'')+
+      '</span></div>'+
     '<div class="curmeta">'+
       '<input id="curBy" placeholder="Picked out with… (optional name)" value="'+esc((cur&&cur.by)||'')+'">'+
       '<input id="curNote" placeholder="One line of context (optional)" value="'+esc((cur&&cur.note)||'')+'">'+
     '</div>'+
     '<div class="curacts">'+
-      '<button type="button" class="curpub" id="curPubAll">Publish to <b>all stores</b></button>'+
-      '<button type="button" class="curpub alt" id="curPubOne">This store only</button>'+
+      '<button type="button" class="curpub" id="curPubAll">Publish to <b>all stores</b>'+
+        curDelta('all')+'</button>'+
+      '<button type="button" class="curpub alt" id="curPubOne">This store only'+
+        curDelta('one')+'</button>'+
       '<button type="button" class="curpub warn" id="curClear">Clear list</button>'+
       '<span class="curstat" id="curStat"></span>'+
     '</div></div>';
@@ -2469,7 +2485,15 @@ function renderCurBar(){
   el.querySelectorAll('[data-rmk]').forEach(function(b){b.addEventListener('click',function(){curToggle(b.dataset.rmk);});});
   el.querySelectorAll('.curwhy').forEach(function(inp){inp.addEventListener('input',function(){
     var i=curHas(inp.dataset.k);if(i>=0)CPICKS[i].why=inp.value;});});
+  var ctk=document.getElementById('curTok');
+  if(ctk)ctk.addEventListener('click',function(){
+    var t=window.prompt('Paste a GitHub token (fine-grained, jdp-kits-deploy only, Contents read/write). '+
+      'Stored in this browser only.');
+    if(t&&t.trim()){setGhToken(t.trim());curStat('Token saved in this browser');renderCurBar();}});
+  var ctx=document.getElementById('curTokX');
+  if(ctx)ctx.addEventListener('click',function(){setGhToken('');curStat('Token cleared');renderCurBar();});
   document.getElementById('curExit').addEventListener('click',function(){
+    if(curDirty()&&!window.confirm('This list has changes you have not published. Leave anyway?'))return;
     location.href=location.pathname;});
   document.getElementById('curPubAll').addEventListener('click',function(){curPublish('all');});
   document.getElementById('curPubOne').addEventListener('click',function(){curPublish('one');});
@@ -2499,9 +2523,59 @@ function unb64(str){
   for(var i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
   return new TextDecoder().decode(bytes);
 }
+/* What is actually LIVE, so the curator can see what a publish will change.
+   CPICKS is seeded from picksOf(), which prefers a store's OWN list over the global one. That means
+   "publish to all" may be comparing against a completely different list than the one on screen --
+   so the diff is always computed against the scope being published, never against what was loaded. */
+var CBASE='';
+function nameOf(k){return (BYKEY[k]||{}).name||k;}
+function picksSource(){
+  if(CFG&&CFG.picks)return 'store';
+  if(CAT&&CAT.picks)return 'global';
+  return 'none';}
+function livePicks(scope){
+  var p=(scope==='one')?((CFG&&CFG.picks)||null):((CAT&&CAT.picks)||null);
+  if(!p)return [];
+  return (p.keys||p.items||[]).map(function(x){
+    return (typeof x==='string')?x:(x.k||x.key);}).filter(Boolean);}
+function curKeys(){return CPICKS.map(function(x){return x.k;});}
+function curDiff(scope){
+  var live=livePicks(scope),now=curKeys();
+  return {live:live,now:now,
+    added:now.filter(function(k){return live.indexOf(k)<0;}),
+    removed:live.filter(function(k){return now.indexOf(k)<0;}),
+    reordered:live.length===now.length&&live.join('|')!==now.join('|')};}
+function curDirty(){return curKeys().join('|')!==CBASE;}
+function curDelta(scope){
+  var d=curDiff(scope);
+  if(!d.added.length&&!d.removed.length)return d.reordered?' (reordered)':'';
+  return ' ('+(d.added.length?'+'+d.added.length:'')+
+         (d.added.length&&d.removed.length?' ':'')+
+         (d.removed.length?'\u2212'+d.removed.length:'')+')';}
+/* Every publish here is a write to live customer-facing pages, and the fleet-wide one touches every
+   store at once. It used to fire on a single click with NO confirmation -- and worse, an EMPTY list
+   was explicitly allowed through for scope 'all', so one stray click silently deleted the global
+   shortlist from all 378 stores. Both are now gated, and the destructive case is named plainly. */
+function curConfirm(scope){
+  var d=curDiff(scope),n=CPICKS.length;
+  var lines=[];
+  if(d.added.length)lines.push('ADDING: '+d.added.map(nameOf).join(', '));
+  if(d.removed.length)lines.push('REMOVING: '+d.removed.map(nameOf).join(', '));
+  if(scope==='all'){
+    if(!n)return window.confirm('REMOVE the global shortlist from EVERY store?\n\n'+
+      'No store without its own list will recommend anything until you publish a new one.');
+    return window.confirm('Publish these '+n+' piece'+(n===1?'':'s')+' as the shortlist for EVERY store.\n\n'+
+      (lines.length?lines.join('\n')+'\n\n':'')+'This changes live customer-facing pages. Continue?');
+  }
+  if(!n)return window.confirm('Remove this store\u2019s own shortlist?\n\n'+
+    'It will fall back to the global list.');
+  return true;   // one store, easily reverted -- no need to nag
+}
 function curPublish(scope){
   var p=curPayload();
-  if(!p.keys.length&&scope!=='all'){curStat('Nothing selected',1);return;}
+  if(!p.keys.length&&scope==='one'&&picksSource()!=='store'){
+    curStat('Nothing selected \u2014 and this store has no own list to remove',1);return;}
+  if(!curConfirm(scope)){curStat('Cancelled');return;}
   var tok=ghToken();
   if(!tok){
     tok=window.prompt('Paste your GitHub token to publish (stored in this browser only)');
@@ -2530,8 +2604,27 @@ function curPublish(scope){
       ' ('+p.keys.length+' items)',content:b64(out),sha:sha,branch:'main'});
   }).then(function(r){
     if(!r.ok)throw new Error('write failed ('+r.status+')');
-    curStat(scope==='all'?'Published to every store \u2014 live in a few minutes'
-                         :'Published to this store \u2014 live in a few minutes');
+    curStat('Written \u2014 verifying\u2026');
+    // "The PUT returned 200" is not the same as "the file says what I meant". Read it back.
+    return ghApi('GET',path+'?ref=main&cb='+Date.now());
+  }).then(function(r2){
+    var got=null;
+    try{
+      var txt=unb64(r2.body.content);
+      if(scope==='all'){got=(JSON.parse(txt).picks||{}).keys||[];}
+      else{var m2=txt.match(/(<script id="?jdpcfg"?[^>]*>)([\s\S]*?)(<\/script>)/);
+           got=((m2?JSON.parse(m2[2]):{}).picks||{}).keys||[];}
+    }catch(e){got=null;}
+    var want=p.keys.map(function(x){return x.k;}).join('|');
+    var have=got?got.map(function(x){return x.k||x;}).join('|'):null;
+    if(have===want){
+      CBASE=curKeys().join('|');
+      curStat((scope==='all'?'Verified for every store':'Verified for this store')+
+        ' \u2014 live on the site within ~5 min');
+      renderCurBar();
+    }else{
+      curStat('Write reported success but the read-back does not match \u2014 do not rely on it yet',1);
+    }
   }).catch(function(e){
     if(/401|403/.test(String(e.message)))setGhToken('');
     curStat(String(e.message||e),1);});

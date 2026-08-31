@@ -1082,6 +1082,15 @@ body.curating{padding-bottom:340px}
 /* ---- one-tap reuse of the last size split ---
    Reads as a helpful shortcut, not a competing action: dashed, accent-tinted, full width under the
    grid it fills in. It only ever renders on an item with no sizes entered yet. */
+/* Curator mode state. Internal tooling, so it is dense and plain -- the job is to make the
+   consequences of a click visible before it is clicked, not to look pretty. */
+.curwhich{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;
+  padding:7px 10px;margin:0 0 7px;border-radius:8px;font-size:11.5px;line-height:1.5;
+  background:rgba(0,0,0,.045);color:#333}
+.curwhich b{font-weight:800}
+.curtok{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.curbar .curpub{white-space:nowrap}
+
 /* A colour that genuinely retired since the link was sent. Stated plainly rather than swapped in
    silence -- and framed as something we will source, not a dead end. */
 .shlost{margin:9px 0 0;padding:9px 12px;border-radius:10px;font-size:12px;line-height:1.5;
