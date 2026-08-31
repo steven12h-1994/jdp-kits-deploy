@@ -35,10 +35,22 @@ function hexRelLum(hex){var h=String(hex||'').replace('#','');if(h.length!==6)re
   return relLum(parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16));}
 function autoInkFor(method,rgb,logo){
   if(method!=='embroidery')return autoInk(rgb);
-  var k=logo&&INK[logo.id];
-  if(!k)return 'brand';
+  if(!logo||!logo.inks)return 'brand';
   var gl=hexRelLum(rgb);
-  if(k.sat<=INK_MAXSAT&&contrast(k.lum,gl)<INK_MINRATIO)return gl<0.18?'white':'dark';
+  var k=INK[logo.id];
+  /* TWO bugs lived here. The saturation gate vetoed the contrast check, so a vivid brand mark was
+     never swapped however badly it washed out. And underneath that, INK[logo.id] is not populated
+     for these kits at all -- so the function returned 'brand' on the very first line and no
+     contrast logic has ever run. Farm Girl's coral lockup sat on maroon fleece, unreadable.
+
+     When a measured brand-ink luminance exists, use it. When it does not, decide from the garment
+     alone: white on a dark garment. 0.18 relative luminance is the standard crossover below which
+     white beats dark. */
+  if(k&&typeof k.lum==='number'){
+    if(contrast(k.lum,gl)<INK_MINRATIO)return gl<0.18?'white':'dark';
+    return 'brand';
+  }
+  if(gl<0.18&&logo.inks.white)return 'white';
   return 'brand';
 }
 /* ---- Vibrant, brand-aware colourways -------------------------------------------------------
@@ -3202,8 +3214,20 @@ function boardCardHtml(ck){
          -- state the basis explicitly rather than leaving the buyer to reconcile it. */
       '<div class="bprice"><b>'+money(line)+'</b>'+
         '<span>'+q+' pcs \u00b7 '+money(unit)+'/pc</span></div>'+
-      ((_tq>q)?('<div class="btier">Priced at your '+_tq+
-        '-piece total for this garment (both cuts)</div>'):'')+
+      /* The buyer's whole question is "what does another 50 pieces cost me". Show the ladder with
+         their current tier marked, rather than a single number they have to take on trust. */
+      (function(){
+        if(isPromo)return '';
+        var cols=(CFG.pricing&&CFG.pricing.cols)||[12,48,144];
+        var here=-1;
+        for(var i=0;i<cols.length;i++){if(_tq>=cols[i])here=i;}
+        var rows=cols.map(function(t,i){
+          var u=unitPrice(ck,c.decos,t);
+          return '<span class="btr'+(i===here?' on':'')+'"><i>'+t+'+</i><b>'+money(u)+'</b></span>';
+        }).join('');
+        return '<div class="btiers">'+rows+'</div>'+
+          ((_tq>q)?('<div class="btier">Tier set by '+_tq+' pcs of this garment across both cuts</div>'):'');
+      })()+
       '<label class="bnote"><span>Note</span>'+
         '<textarea data-note="'+esc(ck)+'" rows="2" maxlength="160" '+
         'placeholder="Why this piece \u2014 who it\u2019s for, anything to flag\u2026">'+
@@ -3285,8 +3309,8 @@ function boardSummaryHtml(){
           '<i>Issued against these quantities. Nothing is ordered until you approve it.</i></span></div>'+
       (ready
         ? '<button type="button" class="bpcta" id="bProforma">Request proforma invoice <span class="ar">\u2192</span></button>'
-        : '<button type="button" class="bpcta soft" id="bFinish">'+s.missing.length+' style'+(s.missing.length===1?'':'s')+
-            ' need sizes <span class="ar">\u2193</span></button>')+
+        : '<button type="button" class="bpcta soft" id="bFinish">'+s.missing.length+' style'+(s.missing.length===1?' needs':'s need')+
+            ' sizes <span class="ar">\u2193</span></button>')+
     '</div></section>';
 }
 function renderBoard(){
