@@ -1393,6 +1393,7 @@ function buildStore(){
    railHtml()+
    topSearchHtml()+
    '<section class="hero"><div class="w heroin">'+
+     heroMarkHtml()+
      '<h1>'+esc(poss(CFG.client))+" team store</h1>"+
      '<p class="herosub">'+(demo?'This is a live sample. Every item shows exactly where your logo goes — swap in your brand and it becomes your team’s store. Live pricing, exact quote, no obligation.':'One premium store for the jobsite and the front office — CSA hi-vis and rugged workwear to sharp branded polos and client gifts, every piece ready with your logo.')+'</p>'+
      heroCta+
@@ -3207,6 +3208,16 @@ function wireRail(){
    magnifier and categories as a chip strip below a hero, a trust row and a category panel. The
    search is now always visible at the top; it PROXIES the existing #kitSearch input so every
    filter, count and no-results path keeps working untouched. */
+/* The header bar is gone, but the client's brand presence should not be. A small mark inside the
+   hero, sitting above the H1 that already names them, gives the store its owner without spending a
+   whole horizontal band on it. Renders nothing when a kit has no logo asset, rather than a gap. */
+function heroMarkHtml(){
+  var L=(CFG.logos&&CFG.logos[0])||null;
+  var f=L&&L.inks&&(L.inks.brand||L.inks.full||L.inks.dark);
+  if(!f)return '';
+  return '<img class="heromark" src="'+kurl(f)+'" alt="'+esc(CFG.client||'')+'" '+
+    'onerror="this.style.display=\'none\'">';
+}
 function topSearchHtml(){
   return '<section class="exsearch"><div class="w exsin">'+
     '<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" '+

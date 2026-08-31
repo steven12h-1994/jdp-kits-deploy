@@ -1093,6 +1093,9 @@ body.curating{padding-bottom:340px}
 #filterbar.show{display:block;position:sticky;top:0;z-index:60;background:rgba(255,255,255,.96);
   backdrop-filter:blur(8px);border-bottom:1px solid var(--ln);animation:fbin .18s ease-out}
 @keyframes fbin{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:none}}
+.heromark{display:block;max-height:40px;max-width:190px;width:auto;height:auto;
+  object-fit:contain;object-position:left center;margin:0 0 12px}
+@media (max-width:820px){.heromark{max-height:32px;max-width:150px;margin-bottom:9px}}
 /* Hero: one statement and one offer, nothing else. */
 .hero{padding:14px 0 6px}
 .hero h1{margin:0;letter-spacing:-.02em}
