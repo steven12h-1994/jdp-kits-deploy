@@ -407,6 +407,42 @@ function loadLists(){
   }
   if(!LISTS[ALID])ALID=Object.keys(LISTS)[0];
 }
+/* Walking the live flow turned up the real hazard: a save goes to whatever list happened to be
+   active, with nothing on screen naming it. Switch to the JDP starter list to look at it, close the
+   panel, heart one product -- and that product silently joins OUR recommendation set, which then
+   goes out on a quote request titled "JDP starter list". Measured it live: 9 items became 10.
+   So the starter list is a TEMPLATE. It is never a save target; a save redirects into the buyer's
+   own list and the toast says where it went. No mode to learn, nothing to undo. */
+function personalListId(){
+  if(!LISTS)loadLists();
+  var ids=listIds().filter(function(id){return !LISTS[id].starter;});
+  if(ids.length)return ids[0];                       // most recently touched personal list
+  var id=newListId();
+  LISTS[id]={name:'My list',items:{},updated:Date.now()};
+  persistLists();
+  return id;
+}
+function isTemplate(id){return !!((LISTS||{})[id]||{}).starter;}
+/* Returns true when it had to move the buyer off the template. */
+function ensureWritable(){
+  if(!LISTS)loadLists();
+  if(!isTemplate(ALID))return false;
+  var id=personalListId();
+  if(id===ALID)return false;
+  ALID=id;CART=LISTS[id].items;persistLists();
+  return true;
+}
+function copyStarterToMine(){
+  var s=starterId();if(!s)return;
+  var src=LISTS[s].items||{},tid=personalListId(),n=0;
+  Object.keys(src).forEach(function(ck){
+    if(LISTS[tid].items[ck])return;
+    try{LISTS[tid].items[ck]=JSON.parse(JSON.stringify(src[ck]));n++;}catch(e){}});
+  ALID=tid;CART=LISTS[tid].items;LISTS[tid].updated=Date.now();persistLists();
+  renderCart();refreshCartUI();
+  toast(n?('Copied '+n+' piece'+(n===1?'':'s')+' into '+activeName())
+         :('Already in '+activeName()));
+}
 function starterId(){for(var id in (LISTS||{})){if(LISTS[id].starter)return id;}return '';}
 function listIds(){
   return Object.keys(LISTS||{}).sort(function(a,b){
@@ -439,7 +475,8 @@ function listBarHtml(){
   var ids=listIds();
   var opts=ids.map(function(id){
     return '<option value="'+esc(id)+'"'+(id===ALID?' selected':'')+'>'+
-      esc(listName(id))+' \u00b7 '+listLen(id)+'</option>';}).join('');
+      esc(listName(id))+' \u00b7 '+listLen(id)+(LISTS[id].starter?' \u00b7 template':'')+
+      '</option>';}).join('');
   return '<div class="lbar">'+
     '<select class="lsel" id="lsel" aria-label="Choose a list">'+opts+'</select>'+
     '<button type="button" class="lbtn" id="lNew">+ New</button>'+
@@ -1356,7 +1393,7 @@ function buildStore(){
    '<header class="hdr"><div class="w hdrin">'+
      '<span class="brand"><img src="'+kurl(((CFG.logos&&CFG.logos[0]&&CFG.logos[0].inks&&CFG.logos[0].inks.dark))||CFG.cover_logo||'img/logo-white.png')+'" onerror="this.style.display=\'none\'" alt=""><b>'+esc(CFG.client)+'</b><i>× Just Deals</i></span>'+
      '<button class="cartbtn" id="openCart"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2 3h3l2.4 12.2a1.5 1.5 0 0 0 1.5 1.2h8.2a1.5 1.5 0 0 0 1.5-1.2L22 7H6"/></svg>'+
-       '<span class="lbl">Your kit</span><span class="n" id="cartN">0</span></button></div></header>'+
+       '<span class="lbl" id="cartLbl">My list</span><span class="n" id="cartN">0</span></button></div></header>'+
    '<section class="hero"><div class="w heroin">'+
      '<div class="eyb">'+(demo?'Sample store · your logo goes here':'Premium branded workwear &amp; apparel')+'</div>'+
      '<h1>'+esc(poss(CFG.client))+" team store</h1>"+
@@ -2265,6 +2302,7 @@ function swapPreview(){var im=document.getElementById('shimg');if(im){im.classLi
 function addFromSheet(){
   var q=effQty();
   if(q<moq()){toast('Add at least '+moq()+' pieces');return;}
+  var _moved=ensureWritable();
   var _ck=ckey(SH.key,SH.fit);
   var was=!!CART[_ck],decos=[];
   Object.keys(SH.D).forEach(function(pl){var d=SH.D[pl];if(d.on)decos.push({pl:pl,lg:d.lg,ink:d.ink,method:d.method,colours:d.colours||1,on:true});});
@@ -2284,14 +2322,21 @@ function recCartDecos(key){key=bkey(key);
 function quickAdd(key){
   if(!BYKEY[key])return;var it=BYKEY[key],vm=vmOf(key),ex=CART[key];
   if(it.layer==='promo'){CART[key]={qty:(ex&&ex.qty)||it.moq||1,colour:(ex&&ex.colour)||(it.cols[0]||{}).name,mi:(ex&&ex.mi)||0,locs:(ex&&ex.locs)||1,promo:true};saveCart();refreshCartUI();toast('Added · '+it.name);return;}
+  var _moved=ensureWritable();
+  if(_moved)ex=CART[key];                       // different list -- re-read any existing line
   CART[key]={qty:(ex&&ex.qty)||moq(),colour:(ex&&ex.colour)||vm.colour,decos:recCartDecos(key)};
   saveCart();refreshCartUI();
+  if(_moved){toast('Added to '+activeName()+' \u2014 the JDP starter list stays as a template');return;}
   // First item ever: say what the kit is FOR. After that, stay out of the way.
   var taught=false;try{taught=!!localStorage.getItem('jdp_taught_share');}catch(e){}
   if(!taught&&cartCount()===1){
     try{localStorage.setItem('jdp_taught_share','1');}catch(e){}
     toast('Added \u2014 build your list, then Share it with your team');
-  }else{toast('Added \u00b7 '+BYKEY[key].name);}
+  }else{
+    // Name the destination on every save. When there is only one list this reads naturally; when
+    // there are several it is the difference between confidence and "where did that go?".
+    toast(listIds().length>1?('Added to '+activeName()+' \u00b7 '+BYKEY[key].name)
+                            :('Added \u00b7 '+BYKEY[key].name));}
 }
 // The curated "top picks" set = items flagged rec across every category (not the whole catalogue — a
 // full dump overwhelms and inflates the quote). Falls back to the first few office items if none flagged.
@@ -2786,7 +2831,7 @@ function addRecommended(){
   keys.forEach(function(k){if(CART[k]||!BYKEY[k])return;
     CART[k]={qty:moq(),colour:vmOf(k).colour,decos:recCartDecos(k)};n++;});
   saveCart();refreshCartUI();openCart();
-  toast(n?('Added '+n+' essential'+(n===1?'':'s')+' — edit or add more anytime'):'Your kit already has the essentials');
+  toast(n?('Added '+n+' essential'+(n===1?'':'s')+' to '+activeName()):(activeName()+' already has the essentials'));
 }
 
 /* ---------- cart ---------- */
@@ -2813,6 +2858,9 @@ function decoSummary(it,c){return (c.decos||[]).map(function(d){var p=placeOf(it
 function refreshCartUI(){
   var n=cartCount(),sub=cartSubtotal();
   var cn=document.getElementById('cartN');if(cn){cn.textContent=n;cn.classList.toggle('has',n>0);}
+  // The single most common confusion was "which list did that just go into?". Name it, always.
+  var cl=document.getElementById('cartLbl');
+  if(cl){var nm=activeName();cl.textContent=nm.length>17?(nm.slice(0,16)+'\u2026'):nm;}
   var bar=document.getElementById('cbar');if(bar)bar.classList.toggle('on',n>0&&!CFG.demo);
   var bn=document.getElementById('cbarN');if(bn)bn.textContent=n;
   var bp=document.getElementById('cbarP');if(bp)bp.textContent=money0(sub);
@@ -2847,7 +2895,11 @@ function cartLineHtml(k){var it=BYKEY[bkey(k)];if(!it)return '';var c=CART[k];
 function renderCart(){
   var keys=Object.keys(CART),sub=cartSubtotal();
   var items=keys.map(function(k){return cartLineHtml(k);}).join('');
-  var body=keys.length?items:('<div class="cempty"><div class="ce-ic">🛒</div><b>This list is empty</b><span>Add a few pieces to get your exact quote \u2014 or to send your team a list.</span>'+((starterId()&&starterId()!==ALID)
+  var tmpl=isTemplate(ALID)?('<div class="tmplnote"><b>This is our starter template.</b> '+
+    'Anything you save goes to your own list \u2014 this one stays as it is.'+
+    '<button type="button" class="tmplcopy" id="tmplCopy">Copy these '+keys.length+
+    ' into my list</button></div>'):'';
+  var body=keys.length?(tmpl+items):('<div class="cempty"><div class="ce-ic">🛒</div><b>This list is empty</b><span>Add a few pieces to get your exact quote \u2014 or to send your team a list.</span>'+((starterId()&&starterId()!==ALID)
       ?('<button class="ceadd" id="emptyAddRec">Start from our JDP starter list \u00b7 '+
         listLen(starterId())+' pieces</button>'):'')+'</div>');
   var setupRows=setupBreakdown(),setup=setupRows.reduce(function(t,x){return t+x.amount;},0);
@@ -2879,6 +2931,8 @@ function renderCart(){
 
   var ea=document.getElementById('emptyAddRec');
   if(ea)ea.addEventListener('click',function(){var s=starterId();if(s)switchList(s);});
+  var tc=document.getElementById('tmplCopy');
+  if(tc)tc.addEventListener('click',copyStarterToMine);
   var lsl=document.getElementById('lsel');
   if(lsl)lsl.addEventListener('change',function(){switchList(lsl.value);});
   var lnw=document.getElementById('lNew');
@@ -3055,7 +3109,7 @@ function submitKit(){
 function mailtoFallback(c,body,subj){
   clipCopy(body);
   var btn=document.getElementById('emailKit');if(btn){btn.disabled=false;btn.innerHTML=btn.dataset.lbl||'Send my list — get my quote <span class="ar">→</span>';}
-  var hint=document.getElementById('copyHint');if(hint)hint.innerHTML='<span>Opening your email — just hit send ✓</span><span>Didn’t open? Your kit is copied — email '+JDP_EMAIL+'</span>';
+  var hint=document.getElementById('copyHint');if(hint)hint.innerHTML='<span>Opening your email — just hit send ✓</span><span>Didn’t open? Your list is copied — email '+JDP_EMAIL+'</span>';
   window.location.href='mailto:'+JDP_EMAIL+'?subject='+encodeURIComponent(subj)+'&body='+encodeURIComponent(body);
 }
 function checkoutSuccess(c){
@@ -3063,7 +3117,7 @@ function checkoutSuccess(c){
   document.getElementById('cart').innerHTML=
     '<div class="carth"><h2>Request sent</h2><button class="cartx" id="cartx" aria-label="Close">✕</button></div>'+
     '<div class="citems"><div class="cosent"><div class="csent-ic">✓</div>'+
-      '<h3>Your kit is on its way'+(first?', '+first:'')+'!</h3>'+
+      '<h3>Your list is on its way'+(first?', '+first:'')+'!</h3>'+
       '<p>We’ve got your picks and will reply to <b>'+esc(c.email)+'</b> with your exact quote. No payment now — no obligation.</p>'+
       '<button class="checkout" id="sentdone">Keep browsing</button></div></div>';
   document.getElementById('cartx').addEventListener('click',closeAll);

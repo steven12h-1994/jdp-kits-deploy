@@ -1082,6 +1082,17 @@ body.curating{padding-bottom:340px}
 /* ---- one-tap reuse of the last size split ---
    Reads as a helpful shortcut, not a competing action: dashed, accent-tinted, full width under the
    grid it fills in. It only ever renders on an item with no sizes entered yet. */
+/* The starter template, explained in the one place a buyer meets it. Framed as "yours stays
+   separate", not as a restriction. */
+.tmplnote{margin:0 0 10px;padding:11px 12px;border-radius:11px;font-size:12.5px;line-height:1.5;
+  background:rgba(0,0,0,.035);border:1px solid var(--ln);color:var(--ink)}
+.tmplnote b{font-weight:800}
+.tmplcopy{display:block;width:100%;margin:9px 0 0;padding:10px 12px;border:0;border-radius:9px;
+  background:var(--ac);color:#fff;font:inherit;font-size:13px;font-weight:800;cursor:pointer}
+.tmplcopy:hover{filter:brightness(1.07)}
+/* The header button now carries the list name, so it needs room to breathe. */
+.cartbtn .lbl{max-width:15ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
 /* ---- Lists ------------------------------------------------------------------------------------
    The picker sits directly under the list's own name, so "which list am I looking at" and "switch
    list" are the same glance. Native select: familiar, reliable on mobile, impossible to get stuck. */
