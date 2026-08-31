@@ -2925,6 +2925,67 @@ function boardTotals(){
     var it=BYKEY[bkey(k)];if(!it)return;
     n+=(it.layer==='promo')?promoQuote(it,CART[k]).qty:(CART[k].qty||0);});
   return {pieces:n,lines:Object.keys(CART).length,sub:cartSubtotal(),setup:cartSetup()};}
+/* ---------- size entry, ON the board -----------------------------------------------------------
+   Headcount is decided on the board -- that is the surface someone reviews with their team. But
+   changing it meant tapping Edit, waiting for the product sheet, adjusting, then re-saving to the
+   list: four steps to change one number. So the size split is editable in place, it writes on every
+   keystroke, and the line total, piece count and board estimate update live.
+   Deliberately NOT re-rendering the card on input -- that would blow away focus mid-typing. The few
+   affected numbers are patched in place instead. */
+function sizesForFit(fit){return (fit==='womens')?WOMENS_SIZES:MENS_SIZES;}
+function bSizeRowHtml(ck){
+  var c=CART[ck];if(!c)return '';
+  var it=BYKEY[bkey(ck)];
+  if(!it||it.layer==='promo')return '';          // promo carries its own quantity model
+  var szs=sizesForFit(c.fit),tot=sizeSum(c.sizes)||c.qty||0;
+  return '<div class="bszed">'+
+    '<div class="bszhd"><span>How many of each size?</span>'+
+      '<i data-sztot="'+esc(ck)+'">'+tot+' pcs</i></div>'+
+    '<div class="bszcells">'+szs.map(function(s){
+        var v=(c.sizes&&c.sizes[s])||0;
+        return '<label class="bszc'+(v?' on':'')+'"><span>'+esc(s)+'</span>'+
+          '<input type="number" inputmode="numeric" min="0" step="1" value="'+v+'" '+
+          'data-szk="'+esc(ck)+'" data-szs="'+esc(s)+'" aria-label="'+esc(s)+' quantity"></label>';
+      }).join('')+'</div>'+
+    '<div class="bszmoq'+((tot>0&&tot<moq())?' on':'')+'" data-szmoq="'+esc(ck)+'">'+
+      ((tot>0&&tot<moq())?('Add '+(moq()-tot)+' more to reach the '+moq()+'-piece minimum'):'')+
+    '</div></div>';
+}
+function bSetSize(ck,size,val){
+  var c=CART[ck];if(!c)return;
+  var n=Math.max(0,Math.min(100000,parseInt(val,10)||0));
+  c.sizes=c.sizes||{};
+  if(n)c.sizes[size]=n;else delete c.sizes[size];
+  if(!Object.keys(c.sizes).length)delete c.sizes;
+  var tot=sizeSum(c.sizes);
+  if(tot>0)c.qty=tot;                            // the split IS the quantity
+  saveCart();
+  bRefreshLine(ck);
+}
+function bRefreshLine(ck){
+  var c=CART[ck];if(!c)return;
+  var q=sizeSum(c.sizes)||c.qty||0;
+  var unit=unitPrice(ck,c.decos,q),line=unit*q;
+  var t=document.querySelector('[data-sztot="'+ck+'"]');
+  if(t)t.textContent=q+' pcs';
+  var card=document.querySelector('.bcard[data-bk="'+ck+'"]');
+  if(card){
+    var pb=card.querySelector('.bprice b');if(pb)pb.textContent=money(line);
+    var ps=card.querySelector('.bprice span');
+    if(ps)ps.textContent=q+' pcs \u00b7 '+money(unit)+'/pc';
+  }
+  var mo=document.querySelector('[data-szmoq="'+ck+'"]');
+  if(mo){
+    var need=moq()-q,show=(q>0&&need>0);
+    mo.textContent=show?('Add '+need+' more to reach the '+moq()+'-piece minimum'):'';
+    mo.className='bszmoq'+(show?' on':'');
+  }
+  var hd=document.querySelector('.bsum');
+  if(hd){var tt=boardTotals();
+    hd.textContent=tt.lines+' item'+(tt.lines===1?'':'s')+' \u00b7 '+tt.pieces+
+      ' pieces \u00b7 est. '+money(tt.sub)+(tt.setup>0?(' + '+money(tt.setup)+' setup'):'');}
+  refreshCartUI();
+}
 function boardCardHtml(ck){
   var it=BYKEY[bkey(ck)];if(!it)return '';
   var c=CART[ck];
@@ -2958,7 +3019,7 @@ function boardCardHtml(ck){
       '</div>'+
       (cmiss?('<div class="bmiss">'+esc(cmiss)+' is no longer available \u2014 showing '+
         esc(cname)+'. Tell us on the quote and we\u2019ll source it.</div>'):'')+
-      (szs?'<div class="bsz">'+esc(szs)+'</div>':'')+
+      bSizeRowHtml(ck)+
       '<div class="bprice"><b>'+money(line)+'</b>'+
         '<span>'+q+' pcs \u00b7 '+money(unit)+'/pc</span></div>'+
       '<label class="bnote"><span>Note</span>'+
@@ -3012,6 +3073,15 @@ function wireBoard(){
   var el=document.getElementById('board');if(!el)return;
   el.querySelectorAll('[data-bsw]').forEach(function(b){b.addEventListener('click',function(){
     switchList(b.dataset.bsw);renderBoard();});});
+  el.querySelectorAll('[data-szk]').forEach(function(inp){
+    var apply=function(){
+      bSetSize(inp.dataset.szk,inp.dataset.szs,inp.value);
+      var cell=inp.parentNode;
+      if(cell&&cell.classList)cell.classList.toggle('on',(parseInt(inp.value,10)||0)>0);};
+    inp.addEventListener('input',apply);
+    inp.addEventListener('change',apply);
+    // Select-on-focus: tapping a cell that reads 0 and typing 8 should give 8, not 08.
+    inp.addEventListener('focus',function(){try{inp.select();}catch(e){}});});
   el.querySelectorAll('[data-note]').forEach(function(t){
     var save=function(){setNote(t.dataset.note,t.value);};
     t.addEventListener('change',save);t.addEventListener('blur',save);});

@@ -1325,6 +1325,35 @@ body{padding-left:74px}
 .bsep{opacity:.45}
 .bmiss{font-size:11px;line-height:1.45;padding:7px 9px;border-radius:7px;
   background:rgba(180,120,0,.1);border:1px solid rgba(180,120,0,.26);color:#7a5200}
+/* Size entry on the board. Six thumb-sized cells, no steppers -- a stepper needs 12 taps to reach
+   12, a keypad needs two. Filled cells darken so a split reads at a glance. */
+.bszed{margin:2px 0 0}
+.bszhd{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin:0 0 6px}
+.bszhd span{font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--mut)}
+.bszhd i{font-style:normal;font-size:12px;font-weight:800;color:var(--ink)}
+.bszcells{display:grid;grid-template-columns:repeat(6,1fr);gap:4px}
+.bszc{display:flex;flex-direction:column;align-items:center;gap:2px;padding:5px 2px 4px;
+  border:1px solid var(--ln);border-radius:8px;background:#fff;cursor:text;transition:.13s}
+.bszc:hover{border-color:var(--mut)}
+.bszc.on{border-color:var(--ac);background:rgba(0,0,0,.02)}
+.bszc:focus-within{border-color:var(--ac);box-shadow:0 0 0 2px rgba(0,0,0,.05)}
+.bszc span{font-size:9.5px;font-weight:800;letter-spacing:.04em;color:var(--mut)}
+.bszc.on span{color:var(--ac)}
+.bszc input{width:100%;min-width:0;border:0;background:transparent;font:inherit;font-size:15px;
+  font-weight:800;text-align:center;color:var(--ink);outline:0;padding:0;
+  -moz-appearance:textfield;appearance:textfield}
+.bszc input::-webkit-outer-spin-button,.bszc input::-webkit-inner-spin-button{
+  -webkit-appearance:none;margin:0}
+.bszmoq{display:none;margin:6px 0 0;font-size:11px;font-weight:700;line-height:1.4;
+  padding:6px 8px;border-radius:7px;background:rgba(180,120,0,.1);color:#7a5200}
+.bszmoq.on{display:block}
+@media (max-width:600px){
+  .bszcells{gap:3px}
+  .bszc{padding:5px 1px 4px}
+  .bszc input{font-size:14px}
+  .bszc span{font-size:9px}
+}
+
 .bsz{font-size:11.5px;font-weight:600;color:var(--mut);padding:5px 8px;border-radius:7px;
   background:rgba(0,0,0,.035)}
 .bprice{display:flex;align-items:baseline;justify-content:space-between;gap:8px;
