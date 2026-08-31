@@ -2441,19 +2441,35 @@ function decodeList(str){
               note:noteClean(bits[5])});});
   return out;
 }
+/* Query strings legitimately encode a space as EITHER %20 or +, and mail clients, link shorteners
+   and chat apps rewrite between them freely. decodeURIComponent does NOT treat + as a space, so a
+   board called "Autumn rollout" arrived as "Autumn+rollout" -- and far worse, a colour like
+   "Campus Orange" would arrive as "Campus+Orange", fail the colour check, and silently fall back to
+   the first colour in the run. That is the exact wrong-colour bug from before, reachable through a
+   different door. Normalise + to %20 before decoding every shared parameter. */
+function qdec(s){try{return decodeURIComponent(String(s).replace(/\+/g,'%20'));}catch(e){
+  try{return decodeURIComponent(s);}catch(e2){return '';}}}
 function readSharedList(){
   var m=location.search.match(/[?&]list=([^&#]+)/);if(!m)return null;
-  var items;try{items=decodeList(decodeURIComponent(m[1]));}catch(e){return null;}
+  var items;try{items=decodeList(qdec(m[1]));}catch(e){return null;}
   if(!items.length)return null;
   var f=location.search.match(/[?&]from=([^&#]+)/),from='';
-  try{from=f?decodeURIComponent(f[1]).slice(0,40):'';}catch(e){from='';}
-  return {items:items,from:from};
+  from=f?qdec(f[1]).slice(0,40):'';
+  var bn=location.search.match(/[?&]b=([^&#]+)/),bname='';
+  bname=bn?qdec(bn[1]).slice(0,40):'';
+  return {items:items,from:from,bname:bname};
 }
 function shareListUrl(){
+  /* A board id only exists in the browser that made it, so ?board=<id> was never shareable -- which
+     is why copying the address bar handed people a dead link. This URL carries the board's NAME and
+     its full contents, so it works on any device, and it is what now sits in the address bar while a
+     board is open. Copying what you are looking at finally does the right thing. */
   var base=location.origin+location.pathname;
   var c={};try{c=JSON.parse(localStorage.getItem('jdpkit_contact')||'{}');}catch(e){}
   var who=(c.name||'').trim().split(' ')[0];
-  return base+'?list='+encodeURIComponent(encodeList())+(who?('&from='+encodeURIComponent(who)):'');
+  return base+'?b='+encodeURIComponent(activeName())+
+    '&list='+encodeURIComponent(encodeList())+
+    (who?('&from='+encodeURIComponent(who)):'');
 }
 /* Sharing a list is the strongest buying signal this store produces, and until now it was invisible
    to us -- the list lived in one browser and we only ever learned about it if that person went on to
@@ -2468,8 +2484,9 @@ function notifyShared(url){
   try{localStorage.setItem('jdp_shared_sig',now);}catch(e){}
   var lines=[CFG.client+' \u2014 a list was shared from their store',''];
   Object.keys(CART).forEach(function(k){
-    var it=BYKEY[k];if(!it)return;var c=CART[k];
-    lines.push('  \u2022 '+it.name+(it.sku?(' ('+it.sku+')'):'')+' \u2014 '+(c.colour||'')+' \u00d7 '+(c.qty||moq()));});
+    var it=BYKEY[bkey(k)];if(!it)return;var c=CART[k];
+    lines.push('  \u2022 '+it.name+(it.sku?(' ('+it.sku+')'):'')+
+      ((c.fit==='womens')?' [Women\u2019s]':'')+' \u2014 '+(c.colour||'')+' \u00d7 '+(c.qty||moq()));});
   lines.push('');
   lines.push('Open their list:  '+url);
   lines.push('Pin it to this store (opens curator mode, ready to publish):');
@@ -2482,6 +2499,44 @@ function notifyShared(url){
       name:c2.name||'(not given)',email:c2.email||'(not given)',
       company:c2.company||CFG.client||'',store:CFG.client||'',
       list:lines.join('\n')})}).catch(function(){});
+}
+/* A toast saying "copied" is unverifiable, and if the browser refuses the clipboard write the user is
+   left with nothing at all. Show the actual URL, selectable, with a Copy button that reports success
+   -- so sharing works even when the clipboard API does not. */
+function openSharePanel(){
+  if(!Object.keys(CART).length){toast('Add a few pieces first');return;}
+  var url=shareListUrl();
+  notifyShared(url);
+  var el=document.getElementById('sharepanel');
+  if(!el){el=document.createElement('div');el.id='sharepanel';el.className='bpickov';document.body.appendChild(el);}
+  var touch=false;try{touch=!!(navigator.share&&matchMedia('(hover:none)').matches);}catch(e){}
+  el.innerHTML='<div class="bpick sharep"><div class="bpickhd">Share \u201c'+esc(activeName())+'\u201d'+
+      '<button type="button" class="bpx" id="spX" aria-label="Close">\u2715</button></div>'+
+    '<p class="spnote">Anyone with this link sees this board exactly as it is \u2014 same colours, '+
+      'sizes and quantities. Works on any phone or computer.</p>'+
+    '<input class="spurl" id="spUrl" readonly value="'+esc(url)+'">'+
+    '<div class="spacts">'+
+      '<button type="button" class="bcta" id="spCopy">Copy link</button>'+
+      (touch?'<button type="button" class="bghost" id="spNative">Share\u2026</button>':'')+
+      '<a class="bghost spmail" target="_blank" rel="noopener noreferrer" href="'+
+        esc('mailto:?subject='+encodeURIComponent(CFG.client+' \u2014 '+activeName())+
+        '&body='+encodeURIComponent(url))+'">Email it</a>'+
+    '</div></div>';
+  el.classList.add('on');
+  el.onclick=function(e){if(e.target===el)el.classList.remove('on');};
+  var x=document.getElementById('spX');if(x)x.addEventListener('click',function(){el.classList.remove('on');});
+  var inp=document.getElementById('spUrl');
+  if(inp)inp.addEventListener('click',function(){inp.select();});
+  var cp=document.getElementById('spCopy');
+  if(cp)cp.addEventListener('click',function(){
+    var done=false;
+    try{if(inp){inp.select();done=document.execCommand('copy');}}catch(e){}
+    if(!done)clipCopy(url);
+    cp.textContent='\u2713 Copied';
+    setTimeout(function(){cp.textContent='Copy link';},2200);});
+  var nb=document.getElementById('spNative');
+  if(nb)nb.addEventListener('click',function(){
+    try{navigator.share({title:CFG.client+' \u2014 '+activeName(),url:url});}catch(e){clipCopy(url);}});
 }
 function shareList(){
   if(!Object.keys(CART).length){toast('Add a few pieces first');return;}
@@ -2521,7 +2576,7 @@ function autoApplyShared(){
   if(!added)return;
   if(!LISTS)loadLists();
   var id=newListId();
-  LISTS[id]={name:(SHARED.from?(SHARED.from+'\u2019s list'):'Shared list'),
+  LISTS[id]={name:(SHARED.bname||(SHARED.from?(SHARED.from+'\u2019s board'):'Shared board')),
              items:items,updated:Date.now()};
   ALID=id;CART=items;persistLists();
   try{localStorage.setItem('jdp_applied_sig',sig);}catch(e){}
@@ -3179,10 +3234,11 @@ function wireBoard(){
   var bt=document.getElementById('bTitle');
   if(bt){var ren=function(){
       var n=window.prompt('Rename this board',activeName());
-      if(n===null)return;renameList(ALID,n);renderBoard();refreshCartUI();};
+      if(n===null)return;renameList(ALID,n);renderBoard();refreshCartUI();
+      try{if(history.replaceState)history.replaceState({},'',shareListUrl());}catch(e){}};
     bt.addEventListener('click',ren);
     bt.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();ren();}});}
-  var sh=document.getElementById('bShare');if(sh)sh.addEventListener('click',shareList);
+  var sh=document.getElementById('bShare');if(sh)sh.addEventListener('click',openSharePanel);
   var qt=document.getElementById('bQuote');if(qt)qt.addEventListener('click',function(){
     closeBoard();
     document.getElementById('ov').classList.add('on');
@@ -3205,6 +3261,9 @@ function openBoard(id){
   renderBoard();
   el.classList.add('on');document.body.style.overflow='hidden';
   setRail('boards');
+  // So copying the address bar shares the board -- the thing everyone tries first.
+  try{if(history.replaceState&&Object.keys(CART).length)
+    history.replaceState({},'',shareListUrl());}catch(e){}
 }
 function closeBoard(){
   var el=document.getElementById('board');if(el)el.classList.remove('on');
