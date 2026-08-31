@@ -3218,7 +3218,18 @@ function heroMarkHtml(cls){
      and read as a broken image. A mark must contrast with what it sits on. */
   var f=L&&L.inks&&(L.inks.dark||L.inks.brand||L.inks.full);
   if(!f)return '';
+  /* INLINE size limits, deliberately duplicating the stylesheet.
+     Steven opened the store and got a 1150px-tall logo filling the whole viewport with the bar
+     rendered as plain text. The deployed CSS was byte-correct; the host had served a captcha HTML
+     page (HTTP 202, 209 bytes) in place of store.css, so the page rendered against a stylesheet
+     that never arrived. A ?v= pin cannot help with that -- it busts caches, it does not make the
+     file exist. A logo is the one element whose natural size is catastrophic when unstyled, so its
+     constraint lives on the element itself and survives with zero CSS. */
+  var big=(cls==='tbmark')?[30,120]:[40,190];
+  if(!f)return '';
   return '<img class="'+(cls||'heromark')+'" src="'+kurl(f)+'" alt="'+esc(CFG.client||'')+'" '+
+    'height="'+big[0]+'" style="max-height:'+big[0]+'px;max-width:'+big[1]+
+    'px;width:auto;height:auto;object-fit:contain" '+
     'onerror="this.style.display=\'none\'">';
 }
 /* 4imprint's scrolling behaviour is one slim persistent bar: mark, Categories, a search field, and
@@ -3232,7 +3243,8 @@ function catMenuHtml(){
   return '<div class="catmenu" id="catmenu"><div class="cmin">'+cats.map(function(c){
       var img=catTileImg(c);
       return '<button type="button" class="cmrow" data-catgo="'+esc(c)+'">'+
-        '<span class="cmimg">'+(img?('<img src="'+img+'" alt="" loading="lazy">'):'')+'</span>'+
+        '<span class="cmimg">'+(img?('<img src="'+img+'" alt="" loading="lazy" '+
+          'style="max-width:40px;max-height:40px;width:auto;height:auto;object-fit:contain">'):'')+'</span>'+
         '<b>'+esc(shortCat(c))+'</b><i>'+((TOTALS&&TOTALS[c])||0)+'</i></button>';}).join('')+
     '</div></div>';
 }
@@ -3297,7 +3309,8 @@ function catTilesHtml(){
     '<div class="cattiles">'+cats.map(function(c){
       var img=catTileImg(c);
       return '<button type="button" class="cattile" data-catgo="'+esc(c)+'">'+
-        '<span class="ctimg">'+(img?('<img src="'+img+'" alt="" loading="lazy">'):'')+'</span>'+
+        '<span class="ctimg">'+(img?('<img src="'+img+'" alt="" loading="lazy" '+
+          'style="max-width:56px;max-height:56px;width:auto;height:auto;object-fit:contain">'):'')+'</span>'+
         '<span class="ctlab"><b>'+esc(shortCat(c))+'</b><i>'+((TOTALS&&TOTALS[c])||0)+'</i></span>'+
         '</button>';}).join('')+
     '</div></div></section>';
