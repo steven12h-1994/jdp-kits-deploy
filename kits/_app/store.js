@@ -1100,7 +1100,7 @@ function wireCards(rootId){
       if(e.target&&e.target.closest&&e.target.closest('[data-curk]'))return;
       openSheet(card.dataset.key);});
     card.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();openSheet(card.dataset.key);}});});
-  g.querySelectorAll('.madd').forEach(function(b){b.addEventListener('click',function(e){e.stopPropagation();var k=b.dataset.key;if(cartHasAny(k)){openSheet(cartAnyKey(k));}else{quickAdd(k);}});});
+  g.querySelectorAll('.madd').forEach(function(b){b.addEventListener('click',function(e){e.stopPropagation();var k=b.dataset.key;if(cartHasAny(k)){openSheet(cartAnyKey(k));}else{openSavePicker(k);}});});
   // Swatch on the CARD: swap the photo in place. No re-render of the whole grid, so the shopper keeps
   // their scroll position while flicking through colours.
   g.querySelectorAll('.cdot').forEach(function(d){d.addEventListener('click',function(e){
@@ -1460,9 +1460,9 @@ function buildStore(){
      '<button class="cbarbtn" id="openCart2">View list <span class="p" id="cbarP"></span> <span class="ar">→</span></button></div></div>'+
    '<div class="toast" id="toast"><span class="tk">✓</span><span class="tm" id="toastM">Added</span><button class="tview" id="toastView">View list →</button></div>';
   document.getElementById('app').innerHTML=html;
-  document.getElementById('openCart').addEventListener('click',openCart);
+  document.getElementById('openCart').addEventListener('click',function(){openBoard();});
   var cbs=document.getElementById('cbarShare');if(cbs)cbs.addEventListener('click',shareList);
-  document.getElementById('openCart2').addEventListener('click',openCart);
+  document.getElementById('openCart2').addEventListener('click',function(){openBoard();});
   document.getElementById('ov').addEventListener('click',closeAll);
   // The delegated click handler was only ever attached when a product sheet first opened, because
   // that is the one place that needed it. The hero's sample-visit CTA is on the page before any
@@ -2388,7 +2388,8 @@ function encodeList(){
   var parts=[];
   Object.keys(CART).forEach(function(k){
     var c=CART[k];if(!BYKEY[bkey(k)])return;
-    var f=[bkey(k),(c.qty||moq()),(c.colour||''),(c.fit==='womens'?'w':''),encSizes(c.sizes)];
+    var f=[bkey(k),(c.qty||moq()),(c.colour||''),(c.fit==='womens'?'w':''),encSizes(c.sizes),
+           noteClean(c.note)];
     while(f.length>3&&!f[f.length-1])f.pop();      // keep links short; older readers ignore extras
     parts.push(f.join('~'));});
   return parts.join('|');
@@ -2409,7 +2410,8 @@ function decodeList(str){
     var cols=curColsOf(BYKEY[k],fit)||[];
     var lost='';
     if(col&&!cols.some(function(c){return c.name===col;})){lost=col;col='';}
-    out.push({k:k,qty:q,colour:col||((cols[0]||{}).name||''),fit:fit,sizes:sizes,lost:lost});});
+    out.push({k:k,qty:q,colour:col||((cols[0]||{}).name||''),fit:fit,sizes:sizes,lost:lost,
+              note:noteClean(bits[5])});});
   return out;
 }
 function readSharedList(){
@@ -2486,6 +2488,7 @@ function autoApplyShared(){
     if(!BYKEY[x.k])return;
     var entry={qty:x.qty,colour:x.colour,decos:recCartDecos(x.k),fit:x.fit};
     if(x.sizes)entry.sizes=x.sizes;
+    if(x.note)entry.note=x.note;
     items[ckey(x.k,x.fit)]=entry;});
   var added=Object.keys(items).length;
   if(!added)return;
@@ -2892,6 +2895,161 @@ function cartLineHtml(k){var it=BYKEY[bkey(k)];if(!it)return '';var c=CART[k];
       (nud?'<div class="cinudge">＋'+nud.need+' to reach '+nud.tier+'+ · save '+nud.pct+'%</div>':'')+
       '<div class="row">'+ctrl+'<div class="lp">'+money(unit*c.qty)+'</div></div></div>'+
       '<button class="rm" data-rm="'+k+'" aria-label="Remove">✕</button></div>';}
+/* ---------- BOARDS: the presentation surface ---------------------------------------------------
+   A list in a narrow side panel is a receipt. What actually gets shown to an enterprise buyer is a
+   BOARD -- Pinterest's model, which Steven is right about: large product imagery, the detail that
+   matters beside each piece, and a note the buyer's own team can read. So the board opens full
+   screen, reuses every existing pricing/quote path, and each board is deep-linkable.
+   The side panel is kept ONLY for the quote steps, which already work. */
+function boardUrl(id){return location.origin+location.pathname+'?board='+encodeURIComponent(id||ALID);}
+function noteClean(s){return String(s||'').replace(/[~|]/g,' ').replace(/\s+/g,' ').trim().slice(0,160);}
+function setNote(ck,v){
+  if(!CART[ck])return;
+  var t=noteClean(v);
+  if(t)CART[ck].note=t;else delete CART[ck].note;
+  saveCart();}
+function boardTotals(){
+  var n=0;Object.keys(CART).forEach(function(k){
+    var it=BYKEY[bkey(k)];if(!it)return;
+    n+=(it.layer==='promo')?promoQuote(it,CART[k]).qty:(CART[k].qty||0);});
+  return {pieces:n,lines:Object.keys(CART).length,sub:cartSubtotal(),setup:cartSetup()};}
+function boardCardHtml(ck){
+  var it=BYKEY[bkey(ck)];if(!it)return '';
+  var c=CART[ck];
+  var isPromo=it.layer==='promo';
+  var cols=isPromo?(it.cols||[]):curColsOf(it,c.fit);
+  var col=colInList(cols,c.colour)||cols[0]||{};
+  var q,line,unit;
+  if(isPromo){var pq=promoQuote(it,c);q=pq.qty;line=pq.goods+pq.decoRun;unit=pq.perPiece;}
+  else{q=c.qty||0;unit=unitPrice(ck,c.decos,q);line=unit*q;}
+  var both=!!(CART[bkey(ck)]&&CART[bkey(ck)+'#w']);
+  var ftl=(both&&c.fit!=='womens')?'Men\u2019s':fitTag(it,c);
+  var szs=sizesSummary(c);
+  var std=(typeof stdOf==='function')?stdOf(it):null;
+  var deco=isPromo?'':(std&&std.label?std.label:decoSummary(it,c));
+  return '<article class="bcard" data-bk="'+esc(ck)+'">'+
+    '<div class="bimgwrap"><img class="bimg" src="'+gurl(col.front)+'" alt="'+esc(it.name)+'" loading="lazy">'+
+      (ftl?'<span class="bfit">'+esc(ftl)+'</span>':'')+'</div>'+
+    '<div class="bbody">'+
+      '<h3 class="bname">'+esc(it.name)+'</h3>'+
+      '<div class="bmeta">'+
+        (col.rgb?'<span class="bdot" style="background:'+esc(col.rgb)+'"></span>':'')+
+        '<span>'+esc(c.colour||'')+'</span>'+
+        (deco?'<span class="bsep">\u00b7</span><span>'+esc(deco)+'</span>':'')+
+      '</div>'+
+      (szs?'<div class="bsz">'+esc(szs)+'</div>':'')+
+      '<div class="bprice"><b>'+money(line)+'</b>'+
+        '<span>'+q+' pcs \u00b7 '+money(unit)+'/pc</span></div>'+
+      '<label class="bnote"><span>Note</span>'+
+        '<textarea data-note="'+esc(ck)+'" rows="2" maxlength="160" '+
+        'placeholder="Why this piece \u2014 who it\u2019s for, anything to flag\u2026">'+
+        esc(c.note||'')+'</textarea></label>'+
+      '<div class="bacts">'+
+        '<button type="button" class="bbtn" data-bedit="'+esc(ck)+'">Edit</button>'+
+        '<button type="button" class="bbtn rm" data-brm="'+esc(ck)+'">Remove</button>'+
+      '</div>'+
+    '</div></article>';
+}
+function renderBoard(){
+  var el=document.getElementById('board');if(!el)return;
+  var t=boardTotals();
+  var ids=listIds();
+  var chips=ids.map(function(id){
+    return '<button type="button" class="bchip'+(id===ALID?' on':'')+'" data-bsw="'+esc(id)+'">'+
+      esc(listName(id))+' <i>'+listLen(id)+'</i>'+(isTemplate(id)?'<em>template</em>':'')+'</button>';}).join('');
+  var cards=Object.keys(CART).map(boardCardHtml).join('');
+  var tmpl=isTemplate(ALID)?('<div class="btmpl"><b>This is our starter template.</b> Anything you save '+
+      'goes to your own board \u2014 this one stays as it is.'+
+      '<button type="button" class="tmplcopy" id="bTmplCopy">Copy these '+t.lines+' into my board</button></div>'):'';
+  el.innerHTML='<div class="bwrap">'+
+    '<header class="bhd"><div class="bhdin">'+
+      '<div class="bhdL">'+
+        '<div class="beyb">'+esc(CFG.client)+' \u00b7 board</div>'+
+        '<h1 class="btitle" id="bTitle">'+esc(activeName())+'</h1>'+
+        '<div class="bsum">'+(t.lines?(t.lines+' item'+(t.lines===1?'':'s')+' \u00b7 '+t.pieces+
+          ' pieces \u00b7 est. '+money(t.sub)+(t.setup>0?(' + '+money(t.setup)+' setup'):'')):'Nothing saved yet')+'</div>'+
+      '</div>'+
+      '<div class="bhdR">'+
+        '<button type="button" class="bghost" id="bRename">Rename</button>'+
+        '<button type="button" class="bghost" id="bNew">+ New board</button>'+
+        '<button type="button" class="bghost" id="bShare">Share board</button>'+
+        (t.lines?'<button type="button" class="bcta" id="bQuote">Request exact quote <span class="ar">\u2192</span></button>':'')+
+        '<button type="button" class="bx" id="bClose" aria-label="Close">\u2715</button>'+
+      '</div>'+
+    '</div>'+
+    '<div class="bchips">'+chips+'</div></header>'+
+    tmpl+
+    (t.lines?('<div class="bgrid">'+cards+'</div>')
+      :('<div class="bempty"><b>This board is empty</b><span>Tap the heart on any product to save it here.</span>'+
+        ((starterId()&&starterId()!==ALID)?('<button type="button" class="bcta" data-bsw="'+esc(starterId())+'">'+
+          'Open our starter board \u00b7 '+listLen(starterId())+' pieces</button>'):'')+'</div>'))+
+    '</div>';
+  wireBoard();
+}
+function wireBoard(){
+  var el=document.getElementById('board');if(!el)return;
+  el.querySelectorAll('[data-bsw]').forEach(function(b){b.addEventListener('click',function(){
+    switchList(b.dataset.bsw);renderBoard();});});
+  el.querySelectorAll('[data-note]').forEach(function(t){
+    var save=function(){setNote(t.dataset.note,t.value);};
+    t.addEventListener('change',save);t.addEventListener('blur',save);});
+  el.querySelectorAll('[data-bedit]').forEach(function(b){b.addEventListener('click',function(){
+    closeBoard();openSheet(b.dataset.bedit);});});
+  el.querySelectorAll('[data-brm]').forEach(function(b){b.addEventListener('click',function(){
+    delete CART[b.dataset.brm];saveCart();refreshCartUI();renderBoard();});});
+  var x=document.getElementById('bClose');if(x)x.addEventListener('click',closeBoard);
+  var rn=document.getElementById('bRename');if(rn)rn.addEventListener('click',function(){
+    var n=window.prompt('Rename this board',activeName());
+    if(n===null)return;renameList(ALID,n);renderBoard();refreshCartUI();});
+  var nw=document.getElementById('bNew');if(nw)nw.addEventListener('click',function(){
+    var n=window.prompt('Name this board','Board '+(listIds().length+1));
+    if(n===null)return;newList(n);renderBoard();refreshCartUI();});
+  var sh=document.getElementById('bShare');if(sh)sh.addEventListener('click',shareList);
+  var qt=document.getElementById('bQuote');if(qt)qt.addEventListener('click',function(){
+    closeBoard();
+    document.getElementById('ov').classList.add('on');
+    document.getElementById('cart').classList.add('on');
+    document.body.style.overflow='hidden';
+    openCheckout();});
+  var tc=document.getElementById('bTmplCopy');
+  if(tc)tc.addEventListener('click',function(){copyStarterToMine();renderBoard();});
+}
+function openBoard(id){
+  if(id&&LISTS&&LISTS[id])switchList(id);
+  var el=document.getElementById('board');
+  if(!el){el=document.createElement('div');el.id='board';el.className='boardov';document.body.appendChild(el);}
+  renderBoard();
+  el.classList.add('on');document.body.style.overflow='hidden';
+  try{if(history.replaceState)history.replaceState({},'',boardUrl(ALID));}catch(e){}
+}
+function closeBoard(){
+  var el=document.getElementById('board');if(el)el.classList.remove('on');
+  document.body.style.overflow='';
+  try{if(history.replaceState)history.replaceState({},'',location.pathname);}catch(e){}
+}
+/* Pinterest's actual gesture: choose the board. Shown only when there is a real choice -- with one
+   personal board a picker would be pure friction, so it saves straight away. */
+function openSavePicker(key){
+  var personal=listIds().filter(function(id){return !isTemplate(id);});
+  if(personal.length<2){quickAdd(key);return;}
+  var el=document.getElementById('bpick');
+  if(!el){el=document.createElement('div');el.id='bpick';el.className='bpickov';document.body.appendChild(el);}
+  el.innerHTML='<div class="bpick"><div class="bpickhd">Save to board'+
+      '<button type="button" class="bpx" id="bpX" aria-label="Close">\u2715</button></div>'+
+    personal.map(function(id){
+      return '<button type="button" class="bprow" data-bpid="'+esc(id)+'">'+
+        '<span>'+esc(listName(id))+'</span><i>'+listLen(id)+'</i></button>';}).join('')+
+    '<button type="button" class="bprow new" id="bpNew">+ New board</button></div>';
+  el.classList.add('on');
+  el.onclick=function(e){if(e.target===el)el.classList.remove('on');};
+  var x=document.getElementById('bpX');if(x)x.addEventListener('click',function(){el.classList.remove('on');});
+  el.querySelectorAll('[data-bpid]').forEach(function(b){b.addEventListener('click',function(){
+    switchList(b.dataset.bpid);quickAdd(key);el.classList.remove('on');});});
+  var nn=document.getElementById('bpNew');
+  if(nn)nn.addEventListener('click',function(){
+    var n=window.prompt('Name this board','Board '+(listIds().length+1));
+    if(n===null)return;newList(n);quickAdd(key);el.classList.remove('on');});
+}
 function renderCart(){
   var keys=Object.keys(CART),sub=cartSubtotal();
   var items=keys.map(function(k){return cartLineHtml(k);}).join('');
@@ -3010,6 +3168,10 @@ function orderText(c){c=c||{};
   if(sb.length){lines.push('One-time setup: '+money(cartSetup())+'  (once per design, shared across the kit)');
     sb.forEach(function(x){lines.push('   - '+x.label+': '+money(x.amount));});}
   lines.push('(Decoration priced in; exact quote to be confirmed.)');
+  var _nt=Object.keys(CART).filter(function(k){return (CART[k]||{}).note;});
+  if(_nt.length){lines.push('','NOTES FROM THE BUYER:');
+    _nt.forEach(function(k){var it=BYKEY[bkey(k)];
+      lines.push('  - '+((it&&it.name)||k)+': '+CART[k].note);});}
   if(c.note)lines.push('','Notes: '+c.note);
   lines.push('','Kit link: '+location.href.split('#')[0].split('?')[0]);
   return lines.join('\n');
@@ -3172,7 +3334,9 @@ function go(cfg){
     // Learn each logo's ink BEFORE first paint so garments render a thread colour that actually reads.
     Promise.all((cfg.logos||[]).map(probeInk)).then(function(){
       assignColourways();
-      SHARED=readSharedList();curateInit();loadCart();autoApplyShared();buildStore();refreshCartUI();if(curateOn())markCurCards();
+      SHARED=readSharedList();curateInit();loadCart();autoApplyShared();buildStore();
+      var _bm=location.search.match(/[?&]board=([^&#]+)/);
+      if(_bm){try{openBoard(decodeURIComponent(_bm[1]));}catch(e){}}refreshCartUI();if(curateOn())markCurCards();
       // Deep link: /kits/<slug>/?item=<key> (or #item=<key>) opens straight to that product. This MUST
       // run AFTER buildStore(). It used to fire synchronously, before the async ink probe resolved, so
       // the sheet opened against an unbuilt store and was wiped by the first render -- every ?item=

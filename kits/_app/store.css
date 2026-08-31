@@ -1082,6 +1082,118 @@ body.curating{padding-bottom:340px}
 /* ---- one-tap reuse of the last size split ---
    Reads as a helpful shortcut, not a competing action: dashed, accent-tinted, full width under the
    grid it fills in. It only ever renders on an item with no sizes entered yet. */
+/* ---- BOARDS ------------------------------------------------------------------------------------
+   This is the surface a buyer forwards to a CFO, so it is built as a document, not a cart: white
+   canvas, product photography given real room, one accent, and typography tight enough to read as
+   a considered proposal. Deliberately NOT the warm-magazine register -- enterprise procurement
+   reads restraint as competence. */
+.boardov{position:fixed;inset:0;z-index:1400;background:#fff;overflow-y:auto;overscroll-behavior:contain;
+  opacity:0;visibility:hidden;transition:opacity .2s}
+.boardov.on{opacity:1;visibility:visible}
+.bwrap{max-width:1240px;margin:0 auto;padding:0 24px 72px}
+.bhd{position:sticky;top:0;z-index:2;background:rgba(255,255,255,.94);backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--ln);margin:0 -24px;padding:0 24px}
+.bhdin{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;padding:20px 0 14px;flex-wrap:wrap}
+.beyb{font-size:10.5px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--mut)}
+.btitle{margin:5px 0 4px;font-size:31px;line-height:1.12;font-weight:800;letter-spacing:-.02em;color:var(--ink)}
+.bsum{font-size:13px;font-weight:600;color:var(--mut)}
+.bhdR{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.bghost{padding:9px 13px;border:1px solid var(--ln);border-radius:9px;background:#fff;font:inherit;
+  font-size:12.5px;font-weight:700;color:var(--mut);cursor:pointer;transition:.14s;white-space:nowrap}
+.bghost:hover{border-color:var(--ac);color:var(--ac)}
+.bcta{padding:11px 17px;border:0;border-radius:10px;background:var(--ac);color:#fff;font:inherit;
+  font-size:13.5px;font-weight:800;cursor:pointer;white-space:nowrap}
+.bcta:hover{filter:brightness(1.07)}
+.bcta .ar{margin-left:3px}
+.bx{width:36px;height:36px;border:1px solid var(--ln);border-radius:9px;background:#fff;color:var(--mut);
+  font-size:15px;cursor:pointer}
+.bx:hover{border-color:var(--ink);color:var(--ink)}
+/* Board tabs: switching boards is a first-class move here, not buried in a select. */
+.bchips{display:flex;gap:7px;overflow-x:auto;padding:0 0 13px;scrollbar-width:none}
+.bchips::-webkit-scrollbar{display:none}
+.bchip{display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border:1px solid var(--ln);
+  border-radius:999px;background:#fff;font:inherit;font-size:12.5px;font-weight:700;color:var(--mut);
+  cursor:pointer;white-space:nowrap;transition:.14s}
+.bchip:hover{border-color:var(--ac);color:var(--ac)}
+.bchip.on{background:var(--ink);border-color:var(--ink);color:#fff}
+.bchip i{font-style:normal;opacity:.65;font-size:11.5px}
+.bchip em{font-style:normal;font-size:10px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;
+  opacity:.6;margin-left:2px}
+.btmpl{margin:18px 0 0;padding:13px 15px;border:1px solid var(--ln);border-radius:12px;
+  background:rgba(0,0,0,.03);font-size:13px;line-height:1.55}
+.btmpl b{font-weight:800}
+/* The grid. Large imagery is the whole point -- these are garments a buyer is judging. */
+.bgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(288px,1fr));gap:22px;padding:24px 0 0}
+.bcard{border:1px solid var(--ln);border-radius:15px;overflow:hidden;background:#fff;
+  display:flex;flex-direction:column;transition:box-shadow .18s,transform .18s}
+.bcard:hover{box-shadow:0 12px 34px rgba(0,0,0,.09);transform:translateY(-2px)}
+.bimgwrap{position:relative;background:linear-gradient(170deg,#fafafa,#f1f1ef);aspect-ratio:1/1}
+.bimg{width:100%;height:100%;object-fit:contain;display:block;padding:16px;box-sizing:border-box}
+.bfit{position:absolute;top:11px;left:11px;padding:4px 9px;border-radius:999px;background:rgba(255,255,255,.95);
+  font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--ink);
+  box-shadow:0 1px 5px rgba(0,0,0,.1)}
+.bbody{padding:15px 16px 16px;display:flex;flex-direction:column;gap:8px;flex:1}
+.bname{margin:0;font-size:15.5px;font-weight:800;line-height:1.3;letter-spacing:-.01em;color:var(--ink)}
+.bmeta{display:flex;align-items:center;flex-wrap:wrap;gap:6px;font-size:12px;font-weight:600;color:var(--mut)}
+.bdot{width:12px;height:12px;border-radius:50%;border:1px solid rgba(0,0,0,.16);flex:0 0 auto}
+.bsep{opacity:.45}
+.bsz{font-size:11.5px;font-weight:600;color:var(--mut);padding:5px 8px;border-radius:7px;
+  background:rgba(0,0,0,.035)}
+.bprice{display:flex;align-items:baseline;justify-content:space-between;gap:8px;
+  padding-top:3px;border-top:1px solid var(--ln);margin-top:2px}
+.bprice b{font-size:17px;font-weight:800;letter-spacing:-.01em;color:var(--ink)}
+.bprice span{font-size:11.5px;font-weight:600;color:var(--mut)}
+/* Notes: the buyer's own words next to the garment. Looks like part of the document, not a form. */
+.bnote{display:block;margin-top:2px}
+.bnote span{display:block;font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--mut);margin-bottom:4px}
+.bnote textarea{width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid var(--ln);
+  border-radius:8px;background:rgba(0,0,0,.015);font:inherit;font-size:12.5px;line-height:1.5;
+  color:var(--ink);resize:vertical;min-height:44px}
+.bnote textarea:focus{outline:0;border-color:var(--ac);background:#fff}
+.bacts{display:flex;gap:6px;margin-top:auto;padding-top:4px}
+.bbtn{flex:1;padding:8px 10px;border:1px solid var(--ln);border-radius:8px;background:#fff;font:inherit;
+  font-size:12px;font-weight:700;color:var(--mut);cursor:pointer;transition:.14s}
+.bbtn:hover{border-color:var(--ac);color:var(--ac)}
+.bbtn.rm:hover{border-color:#c0392b;color:#c0392b}
+.bempty{padding:78px 20px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:9px}
+.bempty b{font-size:19px;font-weight:800;color:var(--ink)}
+.bempty span{font-size:13.5px;color:var(--mut)}
+.bempty .bcta{margin-top:9px}
+/* Save-to-board picker */
+.bpickov{position:fixed;inset:0;z-index:1500;background:rgba(15,15,15,.42);backdrop-filter:blur(3px);
+  display:flex;align-items:flex-end;justify-content:center;opacity:0;visibility:hidden;transition:.18s}
+.bpickov.on{opacity:1;visibility:visible}
+.bpick{width:100%;max-width:430px;background:#fff;border-radius:18px 18px 0 0;padding:8px 8px 16px;
+  max-height:76vh;overflow-y:auto}
+.bpickhd{display:flex;align-items:center;justify-content:space-between;padding:11px 12px 9px;
+  font-size:14.5px;font-weight:800;color:var(--ink)}
+.bpx{width:30px;height:30px;border:0;border-radius:8px;background:rgba(0,0,0,.05);color:var(--mut);
+  font-size:14px;cursor:pointer}
+.bprow{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;
+  padding:13px 12px;border:0;border-radius:10px;background:transparent;font:inherit;font-size:14px;
+  font-weight:700;color:var(--ink);cursor:pointer;text-align:left}
+.bprow:hover{background:rgba(0,0,0,.045)}
+.bprow i{font-style:normal;font-size:12px;font-weight:700;color:var(--mut)}
+.bprow.new{color:var(--ac);font-weight:800}
+@media (min-width:700px){
+  .bpickov{align-items:center}
+  .bpick{border-radius:16px;padding:8px}
+}
+@media (max-width:600px){
+  .bwrap{padding:0 14px 64px}
+  .bhd{margin:0 -14px;padding:0 14px}
+  .bhdin{padding:15px 0 11px;align-items:flex-start}
+  .btitle{font-size:24px}
+  .bhdR{width:100%}
+  .bhdR .bcta{flex:1}
+  .bgrid{grid-template-columns:repeat(auto-fill,minmax(158px,1fr));gap:13px;padding:17px 0 0}
+  .bbody{padding:11px 12px 12px;gap:6px}
+  .bname{font-size:13.5px}
+  .bprice b{font-size:15px}
+  .bnote textarea{font-size:12px;min-height:40px}
+}
+
 /* The starter template, explained in the one place a buyer meets it. Framed as "yours stays
    separate", not as a restriction. */
 .tmplnote{margin:0 0 10px;padding:11px 12px;border-radius:11px;font-size:12.5px;line-height:1.5;
