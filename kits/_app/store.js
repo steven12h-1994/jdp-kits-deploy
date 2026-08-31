@@ -509,7 +509,8 @@ function saveCart(){
   // CART is normally an alias for the active list's items, but some paths reassign it wholesale --
   // re-link on every save so a reassignment can never silently orphan the list.
   if(LISTS[ALID]){LISTS[ALID].items=CART;LISTS[ALID].updated=Date.now();}
-  persistLists();}
+  persistLists();
+  pushBoardSoon();}
 
 /* ---------- overlay (garment photo + logo at a placement) ---------- */
 function placeInList(places,pid){for(var i=0;i<places.length;i++)if(places[i].id===pid)return places[i];return null;}
@@ -2459,17 +2460,86 @@ function readSharedList(){
   bname=bn?qdec(bn[1]).slice(0,40):'';
   return {items:items,from:from,bname:bname};
 }
+/* ---------- LIVE BOARDS -------------------------------------------------------------------------
+   A board is now one document on the server, not a per-browser cache. localStorage is kept as the
+   local mirror so the store is instant and still works with no network -- the server is the shared
+   truth, the browser is the fast copy. Every network call is fire-and-forget: nothing in the UI ever
+   waits on it. */
+function apiBase(){return String((CFG&&CFG.catalog_base)||CATALOG_BASE).replace('_catalog','_api');}
+function boardsApi(){return apiBase()+'/boards.php';}
+function bslug(s){return String(s||'').toLowerCase()
+  .replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,60);}
+var SYNC='';
+function markSync(state){
+  SYNC=state;
+  var el=document.getElementById('bsync');if(!el)return;
+  var m={saving:['Saving\u2026','sv'],saved:['Live \u00b7 saved','ok'],
+         merged:['Updated from another device','ok'],
+         offline:['Offline \u2014 saved on this device','off']}[state]||['','' ];
+  el.textContent=m[0];el.className='bsync '+m[1];
+}
+var _pushT=null;
+function pushBoardSoon(){
+  if(!LISTS||!LISTS[ALID]||isTemplate(ALID))return;   // our starter template is not a customer board
+  markSync('saving');
+  clearTimeout(_pushT);_pushT=setTimeout(pushBoardNow,1100);
+}
+function pushBoardNow(){
+  var L=LISTS&&LISTS[ALID];if(!L||isTemplate(ALID))return;
+  var b=L.slug||bslug(L.name);if(!b)return;
+  L.slug=b;
+  var who='';try{who=(JSON.parse(localStorage.getItem('jdpkit_contact')||'{}').name||'');}catch(e){}
+  var body={kit:SLUG,b:b,name:L.name,items:L.items,by:who};
+  if(L.rev)body.rev=L.rev;
+  fetch(boardsApi(),{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(body)})
+    .then(function(r){return r.json();})
+    .then(function(j){
+      if(j&&j.ok){L.rev=j.rev;L.slug=j.b;persistLists();markSync('saved');return;}
+      /* Someone edited the same board elsewhere. Their version wins and we adopt it rather than
+         silently clobbering a colleague -- the whole point of a shared document. */
+      if(j&&j.error==='stale'&&j.board){
+        L.items=j.board.items||{};L.rev=j.board.rev;L.name=j.board.name||L.name;
+        if(LISTS[ALID]===L)CART=L.items;
+        persistLists();syncBoardIfOpen();refreshCartUI();markSync('merged');return;}
+      markSync('offline');
+    })
+    .catch(function(){markSync('offline');});
+}
+function pullBoard(b){
+  return fetch(boardsApi()+'?kit='+encodeURIComponent(SLUG)+'&b='+encodeURIComponent(b),
+      {cache:'no-store'})
+    .then(function(r){return r.ok?r.json():null;})
+    .then(function(j){return (j&&j.ok&&j.board)?j.board:null;})
+    .catch(function(){return null;});
+}
+/* Opening ?b=<slug>: adopt the server's copy as a real local board, then show it. */
+function openSharedBoard(b){
+  return pullBoard(b).then(function(sb){
+    if(!sb)return false;
+    if(!LISTS)loadLists();
+    var id=null;
+    for(var k in LISTS){if(LISTS[k].slug===b){id=k;break;}}
+    if(!id){id=newListId();LISTS[id]={name:sb.name||b,items:{},updated:Date.now()};}
+    LISTS[id].name=sb.name||LISTS[id].name;
+    LISTS[id].items=sb.items||{};
+    LISTS[id].slug=b;LISTS[id].rev=sb.rev||0;LISTS[id].updated=Date.now();
+    ALID=id;CART=LISTS[id].items;persistLists();
+    refreshCartUI();
+    return true;
+  });
+}
 function shareListUrl(){
   /* A board id only exists in the browser that made it, so ?board=<id> was never shareable -- which
      is why copying the address bar handed people a dead link. This URL carries the board's NAME and
      its full contents, so it works on any device, and it is what now sits in the address bar while a
      board is open. Copying what you are looking at finally does the right thing. */
-  var base=location.origin+location.pathname;
-  var c={};try{c=JSON.parse(localStorage.getItem('jdpkit_contact')||'{}');}catch(e){}
-  var who=(c.name||'').trim().split(' ')[0];
-  return base+'?b='+encodeURIComponent(activeName())+
-    '&list='+encodeURIComponent(encodeList())+
-    (who?('&from='+encodeURIComponent(who)):'');
+  /* Short and PERMANENT. The board lives on the server now, so the link no longer carries the
+     products -- it stays identical as the board changes, which is what makes it safe to email to an
+     account before the board is finished. */
+  var L=LISTS&&LISTS[ALID];
+  var b=(L&&L.slug)||bslug(activeName());
+  return location.origin+location.pathname+'?b='+encodeURIComponent(b);
 }
 /* Sharing a list is the strongest buying signal this store produces, and until now it was invisible
    to us -- the list lived in one browser and we only ever learned about it if that person went on to
@@ -2505,6 +2575,7 @@ function notifyShared(url){
    -- so sharing works even when the clipboard API does not. */
 function openSharePanel(){
   if(!Object.keys(CART).length){toast('Add a few pieces first');return;}
+  pushBoardNow();                       // make sure the server has it before the link is handed out
   var url=shareListUrl();
   notifyShared(url);
   var el=document.getElementById('sharepanel');
@@ -3071,6 +3142,7 @@ function bRefreshLine(ck){
       mo.className='bszmoq soft on';}
     else{mo.textContent='';mo.className='bszmoq';}
   }
+  refreshProposal();
   var hd=document.querySelector('.bsum');
   if(hd){var tt=boardTotals();
     hd.textContent=tt.lines+' item'+(tt.lines===1?'':'s')+' \u00b7 '+tt.pieces+
@@ -3142,6 +3214,81 @@ function boardCardHtml(ck){
       '</div>'+
     '</div></article>';
 }
+/* ---------- the board as a proposal ------------------------------------------------------------
+   This page goes to accounts worth six figures, and the next step is explicit: the buyer enters
+   quantities and sizes, then we issue a proforma invoice. So the board has to do three things a
+   grid of cards does not -- present the money with confidence, make it obvious what still needs
+   filling in, and name the actual next step. */
+function boardSizing(){
+  var total=0,sized=0,missing=[];
+  Object.keys(CART).forEach(function(ck){
+    var it=BYKEY[bkey(ck)];if(!it||it.layer==='promo')return;
+    total++;
+    if(sizeSum(CART[ck].sizes)>0)sized++; else missing.push(ck);});
+  return {total:total,sized:sized,missing:missing};
+}
+/* The proposal block holds no inputs, so it can be re-rendered wholesale on every keystroke without
+   disturbing the size cell being typed into -- which is why the rest of the card is patched in place
+   but this is not. Without it the summary froze at "0 of 3 styles sized" while the buyer filled the
+   grid in, and the CTA never unlocked. */
+function refreshProposal(){
+  var host=document.querySelector('#board .bprop');
+  if(!host)return;
+  var tmp=document.createElement('div');
+  tmp.innerHTML=boardSummaryHtml();
+  var fresh=tmp.firstChild;
+  host.parentNode.replaceChild(fresh,host);
+  wireProposal();
+  markSync(SYNC||'saved');
+}
+function wireProposal(){
+  var el=document.getElementById('board');if(!el)return;
+  var bf=document.getElementById('bFinish');
+  if(bf)bf.addEventListener('click',function(){
+    var s=boardSizing();if(!s.missing.length)return;
+    var card=el.querySelector('.bcard[data-bk="'+s.missing[0]+'"]');
+    if(card){card.scrollIntoView({behavior:'smooth',block:'center'});
+      card.classList.add('needsize');
+      setTimeout(function(){var i=card.querySelector('.bszc input');
+        if(i){i.focus();try{i.select();}catch(e){}}},420);
+      setTimeout(function(){card.classList.remove('needsize');},2600);}});
+  var bp=document.getElementById('bProforma');
+  if(bp)bp.addEventListener('click',function(){
+    closeBoard();
+    document.getElementById('ov').classList.add('on');
+    document.getElementById('cart').classList.add('on');
+    document.body.style.overflow='hidden';
+    openCheckout();});
+}
+function boardSummaryHtml(){
+  var t=boardTotals(),s=boardSizing();
+  var allIn=t.sub+t.setup;
+  var ready=s.total>0&&s.missing.length===0;
+  return '<section class="bprop">'+
+    '<div class="bpgrid">'+
+      '<div class="bpcell"><i>Pieces</i><b>'+t.pieces+'</b></div>'+
+      '<div class="bpcell"><i>Styles</i><b>'+t.lines+'</b></div>'+
+      '<div class="bpcell"><i>Apparel</i><b>'+money(t.sub)+'</b></div>'+
+      (t.setup>0?'<div class="bpcell"><i>One-time setup</i><b>'+money(t.setup)+'</b></div>':'')+
+      '<div class="bpcell tot"><i>Estimated total</i><b>'+money(allIn)+'</b></div>'+
+    '</div>'+
+    '<div class="bpnext">'+
+      '<div class="bpstep">'+
+        '<span class="bpsn'+(ready?' done':'')+'">'+(ready?'\u2713':'1')+'</span>'+
+        '<span class="bpst"><b>Quantities &amp; sizes</b>'+
+          '<i>'+(ready
+            ? ('All '+s.total+' style'+(s.total===1?'':'s')+' sized \u2014 ready to invoice')
+            : (s.sized+' of '+s.total+' styles sized \u2014 '+s.missing.length+' still to go'))+'</i></span>'+
+      '</div>'+
+      '<div class="bpstep"><span class="bpsn">2</span>'+
+        '<span class="bpst"><b>Proforma invoice</b>'+
+          '<i>We issue it against these exact quantities \u2014 nothing is ordered until you approve it</i></span></div>'+
+      (ready
+        ? '<button type="button" class="bpcta" id="bProforma">Request my proforma invoice <span class="ar">\u2192</span></button>'
+        : '<button type="button" class="bpcta soft" id="bFinish">Finish sizing \u00b7 '+
+            s.missing.length+' left <span class="ar">\u2193</span></button>')+
+    '</div></section>';
+}
 function renderBoard(){
   var el=document.getElementById('board');if(!el)return;
   var t=boardTotals();
@@ -3159,6 +3306,7 @@ function renderBoard(){
         '<div class="beyb">'+esc(CFG.client)+' \u00b7 board</div>'+
         '<h1 class="btitle edit" id="bTitle" title="Click to rename" '+
           'role="button" tabindex="0">'+esc(activeName())+'</h1>'+
+        '<div class="bsync" id="bsync"></div>'+
         '<div class="bsum">'+(t.lines?(t.lines+' item'+(t.lines===1?'':'s')+' \u00b7 '+t.pieces+
           ' pieces \u00b7 est. '+money(t.sub)+(t.setup>0?(' + '+money(t.setup)+' setup'):'')):'Nothing saved yet')+'</div>'+
         /* Whoever this link is forwarded to arrives with no context. Three facts, stated once. */
@@ -3172,12 +3320,13 @@ function renderBoard(){
         '<button type="button" class="bghost" id="bMore">+ Add more gear</button>'+
 
         '<button type="button" class="bghost bshare" id="bShare">Share board \u2197</button>'+
-        (t.lines?'<button type="button" class="bcta" id="bQuote">Request exact quote <span class="ar">\u2192</span></button>':'')+
+        (t.lines?'<button type="button" class="bghost" id="bPrint">Print / PDF</button>':'')+
         '<button type="button" class="bx" id="bClose" aria-label="Close">\u2715</button>'+
       '</div>'+
     '</div>'+
     '<div class="bchips">'+chips+'</div></header>'+
     tmpl+
+    (t.lines?boardSummaryHtml():'')+
     (t.lines?('<div class="bgrid">'+cards+'</div>')
       :('<div class="bempty"><b>This board is empty</b><span>Tap the heart on any product to save it here.</span>'+
         ((starterId()&&starterId()!==ALID)?('<button type="button" class="bcta" data-bsw="'+esc(starterId())+'">'+
@@ -3223,6 +3372,7 @@ function wireBoard(){
     closeBoard();openBoards();});
   /* The board is a review surface; the natural next move is "add another piece". Without this you
      have to close the board and find your way back to the catalogue yourself. */
+  wireProposal();
   var bd=document.getElementById('bDel');
   if(bd)bd.addEventListener('click',function(){
     var nm=activeName(),n=listLen(ALID),last=listIds().length<2;
@@ -3244,12 +3394,8 @@ function wireBoard(){
     bt.addEventListener('click',ren);
     bt.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();ren();}});}
   var sh=document.getElementById('bShare');if(sh)sh.addEventListener('click',openSharePanel);
-  var qt=document.getElementById('bQuote');if(qt)qt.addEventListener('click',function(){
-    closeBoard();
-    document.getElementById('ov').classList.add('on');
-    document.getElementById('cart').classList.add('on');
-    document.body.style.overflow='hidden';
-    openCheckout();});
+  var pr=document.getElementById('bPrint');
+  if(pr)pr.addEventListener('click',function(){try{window.print();}catch(e){}});
   var tc=document.getElementById('bTmplCopy');
   if(tc)tc.addEventListener('click',function(){copyStarterToMine();renderBoard();});
 }
@@ -3847,7 +3993,14 @@ function go(cfg){
       assignColourways();
       SHARED=readSharedList();curateInit();loadCart();autoApplyShared();buildStore();
       var _bm=location.search.match(/[?&]board=([^&#]+)/);
-      if(_bm){try{openBoard(decodeURIComponent(_bm[1]));}catch(e){}}refreshCartUI();if(curateOn())markCurCards();
+      if(_bm){try{openBoard(decodeURIComponent(_bm[1]));}catch(e){}}
+      /* ?b=<slug> is the live-board link. The legacy ?list=... links stay working via SHARED, so
+         anything already emailed to a customer keeps opening. */
+      var _lb=location.search.match(/[?&]b=([^&#]+)/);
+      if(_lb&&!/[?&]list=/.test(location.search)){
+        openSharedBoard(qdec(_lb[1])).then(function(found){
+          if(found)openBoard(ALID);
+          else toast('That board isn\u2019t available \u2014 it may have been renamed');});}refreshCartUI();if(curateOn())markCurCards();
       // Deep link: /kits/<slug>/?item=<key> (or #item=<key>) opens straight to that product. This MUST
       // run AFTER buildStore(). It used to fire synchronously, before the async ink probe resolved, so
       // the sheet opened against an unbuilt store and was wiped by the first render -- every ?item=
