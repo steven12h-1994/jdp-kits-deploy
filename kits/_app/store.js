@@ -50,7 +50,13 @@ function autoInkFor(method,rgb,logo){
     if(contrast(k.lum,gl)<INK_MINRATIO)return gl<0.18?'white':'dark';
     return 'brand';
   }
-  if(gl<0.18&&logo.inks.white)return 'white';
+  /* On a dark garment prefer the HYBRID ink when the kit has one: the wordmark reversed to white,
+     the brand accents left in their own colour. Flat white is the fallback -- it reads, but it
+     flattens two brand colours into one and loses the identity. */
+  if(gl<0.18){
+    if(logo.inks.ondark)return 'ondark';
+    if(logo.inks.white)return 'white';
+  }
   return 'brand';
 }
 /* ---- Vibrant, brand-aware colourways -------------------------------------------------------
