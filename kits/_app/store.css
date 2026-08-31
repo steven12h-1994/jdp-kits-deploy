@@ -123,6 +123,21 @@ main{padding:26px 0 10px}
 .shworn .swgo{font-size:18px;font-weight:800;color:var(--a);flex:none;padding-right:4px}
 .vwatch{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:9px 16px;background:var(--ink);color:#fff;border:0;border-radius:14px;font:inherit;font-weight:800;font-size:13.5px;cursor:pointer;transition:filter .12s}
 .vwatch:hover{filter:brightness(1.1)}
+/* The lightbox container had NO base rule -- only .vmodal .vscenic existed, so "See it worn" had
+   nothing to position, nothing to show and no stacking context. It must also sit ABOVE the product
+   sheet (1580), because it opens from inside it. */
+.vmodal{position:fixed;inset:0;z-index:1620;display:none;align-items:center;justify-content:center;
+  padding:24px;background:rgba(8,10,14,.9);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
+.vmodal.on{display:flex}
+.vmodal .vwrap{position:relative;max-width:min(1100px,94vw);display:flex;flex-direction:column;
+  align-items:center;gap:12px}
+.vmodal .vx{position:absolute;top:-40px;right:0;padding:7px 13px;border:1px solid rgba(255,255,255,.3);
+  border-radius:9px;background:rgba(255,255,255,.1);color:#fff;font:inherit;font-size:12.5px;
+  font-weight:700;cursor:pointer}
+.vmodal .vx:hover{background:rgba(255,255,255,.2)}
+.vmodal video{max-width:min(1100px,94vw);max-height:80vh;border-radius:14px;display:block;background:#000}
+.vmodal .vcap{color:rgba(255,255,255,.85);font-size:13px;font-weight:600;text-align:center}
+@media (max-width:600px){.vmodal{padding:14px}.vmodal .vx{top:-36px}}
 .vmodal .vscenic{width:auto;max-width:min(1100px,94vw);max-height:80vh;border-radius:14px;box-shadow:0 30px 80px rgba(0,0,0,.6);display:block;object-fit:contain;background:#0b0d11}
 @media(max-width:600px){.shmedia{padding:12px 16px 0}.shworn{min-width:0}}
 
