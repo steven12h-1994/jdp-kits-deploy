@@ -247,6 +247,19 @@ function cartQtyOf(k){
 function cartHasAny(k){return !!(CART[k]||CART[k+'#w']);}
 function cartAnyKey(k){return CART[k]?k:(CART[k+'#w']?(k+'#w'):k);}
 function vmOf(key){key=bkey(key);return (CFG.items||{})[key]||{colour:(BYKEY[key].cols[0]||{}).name,decos:[]};}
+/* Volume tiers are set by how many of a GARMENT you order, not by how many of one cut. 30 men's
+   plus 30 women's Avalante fleece is a 60-piece run on one blank with one decoration setup, so it
+   prices at 48+. Each fit was being tiered on its own 30 and quoted at 12+ -- overcharging the
+   customer and understating our own competitiveness on exactly the orders that matter most.
+   q is used ONLY for tier selection inside unitPrice (decoration is per piece), so feeding it the
+   combined quantity is both safe and correct. */
+function tierQty(ck){
+  var base=bkey(ck),t=0;
+  var a=CART[base],b=CART[base+'#w'];
+  if(a)t+=(a.qty||0);
+  if(b)t+=(b.qty||0);
+  return t||(((CART[ck]||{}).qty)||0);
+}
 function unitAt(item,q){var cs=CFG.pricing.cols,pr=item.prices,i=0;for(var k=0;k<cs.length;k++){if(q>=cs[k])i=k;}return pr[i];}
 function moq(){return (CFG.pricing.cols&&CFG.pricing.cols[0])||12;}
 /* ---- decoration-aware pricing (mirrors the server rate card) ---- */
@@ -2855,7 +2868,7 @@ function addRecommended(){
 function cartCount(){return Object.keys(CART).length;}
 function cartSubtotal(){var t=0;Object.keys(CART).forEach(function(k){var it=BYKEY[bkey(k)];if(!it)return;var c=CART[k];
   if(it.layer==='promo'){var q=promoQuote(it,c);t+=q.goods+q.decoRun;}   // product + decoration (setup shown separately)
-  else t+=unitPrice(k,c.decos,c.qty)*c.qty;});return t;}
+  else t+=unitPrice(k,c.decos,tierQty(k))*c.qty;});return t;}
 function setupBreakdown(){var r=CFG.rates||{},s=r.setup||{},seen={},out=[];
   Object.keys(CART).forEach(function(k){var it=BYKEY[bkey(k)];if(!it)return;(CART[k].decos||[]).forEach(function(d){if(!d.on)return;
     var key=setupKey(d);if(seen[key])return;seen[key]=1;
@@ -2907,7 +2920,7 @@ function cartLineHtml(k){var it=BYKEY[bkey(k)];if(!it)return '';var c=CART[k];
         '<div class="row"><button class="editln" data-edit="'+k+'">'+pq.qty+' '+uP+' · '+money(pq.perPiece)+'/'+uP+' ✎</button><div class="lp">'+money(pline)+'</div></div></div>'+
         '<button class="rm" data-rm="'+k+'" aria-label="Remove">✕</button></div>';}
     var col=colInList(curColsOf(it,c.fit),c.colour);
-    var unit=unitPrice(k,c.decos,c.qty);var szsum=sizesSummary(c);var nud=savingsNudge(k,c.decos,c.qty);
+    var unit=unitPrice(k,c.decos,tierQty(k));var szsum=sizesSummary(c);var nud=savingsNudge(k,c.decos,tierQty(k));
     var _ftl=(_both&&c.fit!=='womens')?'Men\u2019s':fitTag(it,c);
     var fitb=_ftl?'<span class="fitbadge">'+esc(_ftl)+'</span> ':'';
     var ctrl='<button class="editln" data-edit="'+k+'">'+c.qty+' pcs · '+(c.sizes?'by size':'add sizes')+' ✎</button>';
@@ -2985,7 +2998,7 @@ function bSetSize(ck,size,val){
 function bRefreshLine(ck){
   var c=CART[ck];if(!c)return;
   var q=sizeSum(c.sizes)||c.qty||0;
-  var unit=unitPrice(ck,c.decos,q),line=unit*q;
+  var unit=unitPrice(ck,c.decos,tierQty(ck)),line=unit*q;
   var t=document.querySelector('[data-sztot="'+ck+'"]');
   if(t)t.textContent=q+' pcs';
   var card=document.querySelector('.bcard[data-bk="'+ck+'"]');
@@ -3023,7 +3036,7 @@ function boardCardHtml(ck){
   var cmiss=(c.colour&&col&&col.name&&col.name!==c.colour)?c.colour:'';
   var q,line,unit;
   if(isPromo){var pq=promoQuote(it,c);q=pq.qty;line=pq.goods+pq.decoRun;unit=pq.perPiece;}
-  else{q=c.qty||0;unit=unitPrice(ck,c.decos,q);line=unit*q;}
+  else{q=c.qty||0;unit=unitPrice(ck,c.decos,tierQty(ck));line=unit*q;}
   var both=!!(CART[bkey(ck)]&&CART[bkey(ck)+'#w']);
   var ftl=(both&&c.fit!=='womens')?'Men\u2019s':fitTag(it,c);
   var szs=sizesSummary(c);
@@ -3065,7 +3078,7 @@ function boardCardHtml(ck){
         esc(c.note||'')+'</textarea></label>'+
       '<div class="bacts">'+
         '<button type="button" class="bbtn" data-bedit="'+esc(ck)+'">Edit</button>'+
-        '<button type="button" class="bbtn rm" data-brm="'+esc(ck)+'">Remove</button>'+
+        '<button type="button" class="bbtn bbtnrm" data-brm="'+esc(ck)+'">Remove</button>'+
       '</div>'+
     '</div></article>';
 }
@@ -3118,6 +3131,13 @@ function wireBoard(){
   var el=document.getElementById('board');if(!el)return;
   el.querySelectorAll('[data-bsw]').forEach(function(b){b.addEventListener('click',function(){
     switchList(b.dataset.bsw);renderBoard();});});
+  /* Only the small Edit button opened a product; clicking the garment, its name or its price -- the
+     obvious targets -- did nothing at all. The whole card is now the target, minus the controls
+     that live on it. */
+  el.querySelectorAll('.bcard').forEach(function(card){
+    card.addEventListener('click',function(e){
+      if(e.target.closest('button,input,textarea,label,a,select'))return;
+      openSheet(card.dataset.bk);});});
   el.querySelectorAll('[data-szk]').forEach(function(inp){
     var apply=function(){
       bSetSize(inp.dataset.szk,inp.dataset.szs,inp.value);
@@ -3228,7 +3248,7 @@ function boardValue(id){
     var it=BYKEY[bkey(ck)];if(!it)return;
     var c=items[ck];
     if(it.layer==='promo'){var q=promoQuote(it,c);pieces+=q.qty;sub+=q.goods+q.decoRun;}
-    else{var qq=c.qty||0;pieces+=qq;sub+=unitPrice(ck,c.decos,qq)*qq;}});
+    else{var qq=c.qty||0;pieces+=qq;sub+=unitPrice(ck,c.decos,tierQty(ck))*qq;}});
   return {pieces:pieces,sub:sub};
 }
 function boardThumbs(id,n){
@@ -3587,7 +3607,7 @@ function orderText(c){c=c||{};
     if(c.company)lines.push('  Company/team: '+c.company);
     if(c.email)lines.push('  Email: '+c.email);
     lines.push('');}
-  Object.keys(CART).forEach(function(k){var it=BYKEY[bkey(k)];if(!it)return;var cc=CART[k];var u=unitPrice(k,cc.decos,cc.qty);
+  Object.keys(CART).forEach(function(k){var it=BYKEY[bkey(k)];if(!it)return;var cc=CART[k];var u=unitPrice(k,cc.decos,tierQty(k));
     lines.push('• '+it.name+(fitSku(it,cc)?' '+fitSku(it,cc):'')+' ('+it.sku+') — '+(fitTag(it,cc)?fitTag(it,cc)+' · ':'')+cc.colour+' · '+decoSummary(it,cc)+' · qty '+cc.qty+' @ '+money(u)+' ea = '+money(u*cc.qty));
     var ss=sizesSummary(cc);if(ss)lines.push('    sizes: '+ss);});
   lines.push('','Estimated subtotal: '+money(cartSubtotal()));
