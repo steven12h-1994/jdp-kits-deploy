@@ -104,11 +104,13 @@ function read_board(string $kit, string $b): ?array {
 }
 
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
-$kit    = slug($_GET['kit'] ?? ($_POST['kit'] ?? ''));
-if ($kit === '') out(400, ['ok' => false, 'error' => 'kit required']);
 
 /* ---------------------------------- READ ---------------------------------- */
 if ($method === 'GET') {
+    /* Only the GET path can take the kit from the query string. A JSON POST leaves $_POST empty, so
+       reading it here rejected every save with "kit required" before the body was ever parsed. */
+    $kit = slug($_GET['kit'] ?? '');
+    if ($kit === '') out(400, ['ok' => false, 'error' => 'kit required']);
     if (!empty($_GET['list'])) {
         $dir = kit_dir($kit);
         $boards = [];
