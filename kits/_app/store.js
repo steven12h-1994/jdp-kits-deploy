@@ -2348,7 +2348,7 @@ function sharedStripHtml(){
   var sub=cartSubtotal();
   return '<div class="herooffer pkoffer">'+
       '<span class="hoic" aria-hidden="true">\u2713</span>'+
-      '<span class="hotx"><b>'+(who?(esc(who)+'\u2019s '+n+' pieces are in your kit'):
+      '<span class="hotx"><b>'+(who?(esc(who)+'\u2019s '+n+' piece'+(n===1?' is':'s are')+' in your kit'):
                                     (n+' piece'+(n===1?'':'s')+' \u2014 already in your kit'))+'</b>'+
         '<i>Colours, sizes and quantities exactly as '+(who?esc(who):'they')+' set them. '+
         'Review and get your exact quote \u2014 nothing is ordered yet.</i></span>'+
