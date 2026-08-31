@@ -3030,8 +3030,22 @@ function boardCardHtml(ck){
   // Prefer the STANDARDISED decoration label from the catalogue -- it is what actually gets
   // produced and quoted, which is the language a board shown to a buyer should be in.
   var deco=isPromo?'':((it.std&&it.std.label)?it.std.label:decoSummary(it,c));
+  /* THE BOARD IS THE THING SENT TO THE ACCOUNT. It was rendering the bare supplier photo, so a
+     buyer opened a page of unbranded garments -- the single most important thing to show is their
+     own logo on the gear, composited at the exact placement that will be produced. overlayHtml
+     returns the garment plus the positioned logo layer; promo items have no placement model and
+     keep the plain photo. */
+  var _o=null;
+  if(!isPromo){
+    var _pl=(c.fit==='womens'&&it.wplaces&&it.wplaces.length)?it.wplaces:it.places;
+    try{_o=overlayHtml(it,{decos:(c.decos||[])},c.colour,'front',cols,_pl);}catch(e){_o=null;}
+  }
+  var _stage=_o
+    ? ('<div class="bstage"><img class="g" src="'+_o.g+'" alt="'+esc(it.name)+
+       '" loading="lazy" decoding="async">'+_o.lg+'</div>')
+    : ('<img class="bimg" src="'+gurl(col.front)+'" alt="'+esc(it.name)+'" loading="lazy">');
   return '<article class="bcard" data-bk="'+esc(ck)+'">'+
-    '<div class="bimgwrap"><img class="bimg" src="'+gurl(col.front)+'" alt="'+esc(it.name)+'" loading="lazy">'+
+    '<div class="bimgwrap">'+_stage+
       (ftl?'<span class="bfit">'+esc(ftl)+'</span>':'')+'</div>'+
     '<div class="bbody">'+
       '<h3 class="bname">'+esc(it.name)+'</h3>'+
@@ -3074,6 +3088,11 @@ function renderBoard(){
           'role="button" tabindex="0">'+esc(activeName())+'</h1>'+
         '<div class="bsum">'+(t.lines?(t.lines+' item'+(t.lines===1?'':'s')+' \u00b7 '+t.pieces+
           ' pieces \u00b7 est. '+money(t.sub)+(t.setup>0?(' + '+money(t.setup)+' setup'):'')):'Nothing saved yet')+'</div>'+
+        /* Whoever this link is forwarded to arrives with no context. Three facts, stated once. */
+        (t.lines?('<div class="bassure">'+
+          '<span>Shown with your logo at the exact print placement</span>'+
+          '<span>Prices include decoration</span>'+
+          '<span>Nothing ordered \u2014 no obligation</span></div>'):'')+
       '</div>'+
       '<div class="bhdR">'+
         '<button type="button" class="bghost" id="bAll">\u2039 All boards</button>'+
