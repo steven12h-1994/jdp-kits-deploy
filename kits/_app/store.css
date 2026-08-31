@@ -76,7 +76,7 @@ main{padding:26px 0 10px}
 .mvol b{color:#0a7d3c;font-weight:800}
 
 /* overlay + generic drawer/sheet mechanics */
-.ov{position:fixed;inset:0;background:rgba(16,18,29,.5);opacity:0;visibility:hidden;transition:opacity .25s;z-index:15600}
+.ov{position:fixed;inset:0;background:rgba(16,18,29,.5);opacity:0;visibility:hidden;transition:opacity .25s;z-index:1560}
 .ov.on{opacity:1;visibility:visible}
 
 /* item customiser sheet */
@@ -1350,6 +1350,7 @@ body{padding-left:74px}
 .bszmoq{display:none;margin:6px 0 0;font-size:11px;font-weight:700;line-height:1.4;
   padding:6px 8px;border-radius:7px;background:rgba(180,120,0,.1);color:#7a5200}
 .bszmoq.on{display:block}
+.bszmoq.soft{background:rgba(0,0,0,.045);color:var(--mut);font-weight:600}
 @media (max-width:600px){
   .bszcells{gap:3px}
   .bszc{padding:5px 1px 4px}
@@ -1376,6 +1377,11 @@ body{padding-left:74px}
   font-size:12px;font-weight:700;color:var(--mut);cursor:pointer;transition:.14s}
 .bbtn:hover{border-color:var(--ac);color:var(--ac)}
 .bbtn.rm:hover{border-color:#c0392b;color:#c0392b}
+.bfoot{display:flex;justify-content:center;padding:34px 0 8px;margin-top:14px;
+  border-top:1px solid var(--ln)}
+.bdel{padding:9px 15px;border:1px solid transparent;border-radius:9px;background:transparent;
+  font:inherit;font-size:12.5px;font-weight:700;color:var(--mut);cursor:pointer;transition:.14s}
+.bdel:hover{border-color:#c0392b;color:#c0392b;background:rgba(192,57,43,.05)}
 .bempty{padding:78px 20px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:9px}
 .bempty b{font-size:19px;font-weight:800;color:var(--ink)}
 .bempty span{font-size:13.5px;color:var(--mut)}

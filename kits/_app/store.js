@@ -2956,9 +2956,20 @@ function bSizeRowHtml(ck){
           '<input type="number" inputmode="numeric" min="0" step="1" value="'+v+'" '+
           'data-szk="'+esc(ck)+'" data-szs="'+esc(s)+'" aria-label="'+esc(s)+' quantity"></label>';
       }).join('')+'</div>'+
-    '<div class="bszmoq'+((tot>0&&tot<moq())?' on':'')+'" data-szmoq="'+esc(ck)+'">'+
-      ((tot>0&&tot<moq())?('Add '+(moq()-tot)+' more to reach the '+moq()+'-piece minimum'):'')+
-    '</div></div>';
+    /* A quick-added line carries a quantity but no split, so every cell reads 0 while the line says
+       "12 pcs" -- which looks like a bug. Say plainly that the total is set and the split is
+       optional, instead of leaving the two numbers contradicting each other. */
+    (function(){
+      var split=sizeSum(c.sizes);
+      if(tot>0&&tot<moq())
+        return '<div class="bszmoq on" data-szmoq="'+esc(ck)+'">Add '+(moq()-tot)+
+          ' more to reach the '+moq()+'-piece minimum</div>';
+      if(!split&&tot>0)
+        return '<div class="bszmoq soft on" data-szmoq="'+esc(ck)+'">'+tot+
+          ' pcs total \u2014 add your split above whenever you know it</div>';
+      return '<div class="bszmoq" data-szmoq="'+esc(ck)+'"></div>';
+    })()+
+    '</div>';
 }
 function bSetSize(ck,size,val){
   var c=CART[ck];if(!c)return;
@@ -2985,9 +2996,12 @@ function bRefreshLine(ck){
   }
   var mo=document.querySelector('[data-szmoq="'+ck+'"]');
   if(mo){
-    var need=moq()-q,show=(q>0&&need>0);
-    mo.textContent=show?('Add '+need+' more to reach the '+moq()+'-piece minimum'):'';
-    mo.className='bszmoq'+(show?' on':'');
+    var need=moq()-q,split=sizeSum(c.sizes);
+    if(q>0&&need>0){mo.textContent='Add '+need+' more to reach the '+moq()+'-piece minimum';
+      mo.className='bszmoq on';}
+    else if(!split&&q>0){mo.textContent=q+' pcs total \u2014 add your split above whenever you know it';
+      mo.className='bszmoq soft on';}
+    else{mo.textContent='';mo.className='bszmoq';}
   }
   var hd=document.querySelector('.bsum');
   if(hd){var tt=boardTotals();
@@ -3076,6 +3090,8 @@ function renderBoard(){
       :('<div class="bempty"><b>This board is empty</b><span>Tap the heart on any product to save it here.</span>'+
         ((starterId()&&starterId()!==ALID)?('<button type="button" class="bcta" data-bsw="'+esc(starterId())+'">'+
           'Open our starter board \u00b7 '+listLen(starterId())+' pieces</button>'):'')+'</div>'))+
+    /* Destructive action, kept deliberately away from the four primary ones in the header. */
+    '<div class="bfoot"><button type="button" class="bdel" id="bDel">Delete this board</button></div>'+
     '</div>';
   wireBoard();
 }
@@ -3108,6 +3124,15 @@ function wireBoard(){
     closeBoard();openBoards();});
   /* The board is a review surface; the natural next move is "add another piece". Without this you
      have to close the board and find your way back to the catalogue yourself. */
+  var bd=document.getElementById('bDel');
+  if(bd)bd.addEventListener('click',function(){
+    var nm=activeName(),n=listLen(ALID),last=listIds().length<2;
+    if(!window.confirm('Delete \u201c'+nm+'\u201d'+
+        (n?(' and the '+n+' item'+(n===1?'':'s')+' in it'):'')+'?\n\nThis cannot be undone.'))return;
+    deleteList(ALID);refreshCartUI();
+    // deleteList empties rather than orphans the final board, so say what actually happened.
+    if(last){renderBoard();toast('\u201c'+nm+'\u201d emptied');}
+    else{closeBoard();openBoards();toast('\u201c'+nm+'\u201d deleted');}});
   var bm=document.getElementById('bMore');if(bm)bm.addEventListener('click',function(){
     closeBoard();closeBoards();setRail('explore');
     var g=document.getElementById('gridhd')||document.getElementById('grid');
