@@ -1380,6 +1380,8 @@ body{padding-left:74px}
 .bprice b{font-size:17px;font-weight:800;letter-spacing:-.01em;color:var(--ink)}
 .bprice span{font-size:11.5px;font-weight:600;color:var(--mut)}
 /* Notes: the buyer's own words next to the garment. Looks like part of the document, not a form. */
+.btier{margin:5px 0 0;font-size:11px;font-weight:700;line-height:1.4;padding:5px 8px;
+  border-radius:7px;background:rgba(0,0,0,.045);color:var(--mut)}
 .bnote{display:block;margin-top:2px}
 .bnote span{display:block;font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;
   color:var(--mut);margin-bottom:4px}

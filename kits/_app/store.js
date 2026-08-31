@@ -3089,9 +3089,9 @@ function boardCardHtml(ck){
      requested one, and a genuine mismatch is surfaced rather than hidden. */
   var cname=(col&&col.name)||c.colour||'';
   var cmiss=(c.colour&&col&&col.name&&col.name!==c.colour)?c.colour:'';
-  var q,line,unit;
+  var q,line,unit,_tq=0;
   if(isPromo){var pq=promoQuote(it,c);q=pq.qty;line=pq.goods+pq.decoRun;unit=pq.perPiece;}
-  else{q=c.qty||0;unit=unitPrice(ck,c.decos,tierQty(ck));line=unit*q;}
+  else{q=c.qty||0;_tq=tierQty(ck);unit=unitPrice(ck,c.decos,_tq);line=unit*q;}
   var both=!!(CART[bkey(ck)]&&CART[bkey(ck)+'#w']);
   var ftl=(both&&c.fit!=='womens')?'Men\u2019s':fitTag(it,c);
   var szs=sizesSummary(c);
@@ -3125,8 +3125,13 @@ function boardCardHtml(ck){
       (cmiss?('<div class="bmiss">'+esc(cmiss)+' is no longer available \u2014 showing '+
         esc(cname)+'. Tell us on the quote and we\u2019ll source it.</div>'):'')+
       bSizeRowHtml(ck)+
+      /* When both cuts of a garment are on the board they share one volume tier, so the men's line
+         can be 40 pieces yet priced at a 240-piece rate. Without saying so, the number looks wrong
+         -- state the basis explicitly rather than leaving the buyer to reconcile it. */
       '<div class="bprice"><b>'+money(line)+'</b>'+
         '<span>'+q+' pcs \u00b7 '+money(unit)+'/pc</span></div>'+
+      ((_tq>q)?('<div class="btier">Priced at your '+_tq+
+        '-piece total for this garment (both cuts)</div>'):'')+
       '<label class="bnote"><span>Note</span>'+
         '<textarea data-note="'+esc(ck)+'" rows="2" maxlength="160" '+
         'placeholder="Why this piece \u2014 who it\u2019s for, anything to flag\u2026">'+
