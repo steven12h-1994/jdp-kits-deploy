@@ -1137,6 +1137,8 @@ body.curating{padding-bottom:340px}
 .bmeta{display:flex;align-items:center;flex-wrap:wrap;gap:6px;font-size:12px;font-weight:600;color:var(--mut)}
 .bdot{width:12px;height:12px;border-radius:50%;border:1px solid rgba(0,0,0,.16);flex:0 0 auto}
 .bsep{opacity:.45}
+.bmiss{font-size:11px;line-height:1.45;padding:7px 9px;border-radius:7px;
+  background:rgba(180,120,0,.1);border:1px solid rgba(180,120,0,.26);color:#7a5200}
 .bsz{font-size:11.5px;font-weight:600;color:var(--mut);padding:5px 8px;border-radius:7px;
   background:rgba(0,0,0,.035)}
 .bprice{display:flex;align-items:baseline;justify-content:space-between;gap:8px;

@@ -2919,14 +2919,21 @@ function boardCardHtml(ck){
   var isPromo=it.layer==='promo';
   var cols=isPromo?(it.cols||[]):curColsOf(it,c.fit);
   var col=colInList(cols,c.colour)||cols[0]||{};
+  /* colInList falls back to cols[0] when the requested colour is not in this run, so c.colour and
+     the photo can disagree -- the preview rendered an acid-green polo captioned "Navy". A board is
+     shown to a buyer, so the caption is taken from the colour we ACTUALLY rendered, never from the
+     requested one, and a genuine mismatch is surfaced rather than hidden. */
+  var cname=(col&&col.name)||c.colour||'';
+  var cmiss=(c.colour&&col&&col.name&&col.name!==c.colour)?c.colour:'';
   var q,line,unit;
   if(isPromo){var pq=promoQuote(it,c);q=pq.qty;line=pq.goods+pq.decoRun;unit=pq.perPiece;}
   else{q=c.qty||0;unit=unitPrice(ck,c.decos,q);line=unit*q;}
   var both=!!(CART[bkey(ck)]&&CART[bkey(ck)+'#w']);
   var ftl=(both&&c.fit!=='womens')?'Men\u2019s':fitTag(it,c);
   var szs=sizesSummary(c);
-  var std=(typeof stdOf==='function')?stdOf(it):null;
-  var deco=isPromo?'':(std&&std.label?std.label:decoSummary(it,c));
+  // Prefer the STANDARDISED decoration label from the catalogue -- it is what actually gets
+  // produced and quoted, which is the language a board shown to a buyer should be in.
+  var deco=isPromo?'':((it.std&&it.std.label)?it.std.label:decoSummary(it,c));
   return '<article class="bcard" data-bk="'+esc(ck)+'">'+
     '<div class="bimgwrap"><img class="bimg" src="'+gurl(col.front)+'" alt="'+esc(it.name)+'" loading="lazy">'+
       (ftl?'<span class="bfit">'+esc(ftl)+'</span>':'')+'</div>'+
@@ -2934,9 +2941,11 @@ function boardCardHtml(ck){
       '<h3 class="bname">'+esc(it.name)+'</h3>'+
       '<div class="bmeta">'+
         (col.rgb?'<span class="bdot" style="background:'+esc(col.rgb)+'"></span>':'')+
-        '<span>'+esc(c.colour||'')+'</span>'+
+        '<span>'+esc(cname)+'</span>'+
         (deco?'<span class="bsep">\u00b7</span><span>'+esc(deco)+'</span>':'')+
       '</div>'+
+      (cmiss?('<div class="bmiss">'+esc(cmiss)+' is no longer available \u2014 showing '+
+        esc(cname)+'. Tell us on the quote and we\u2019ll source it.</div>'):'')+
       (szs?'<div class="bsz">'+esc(szs)+'</div>':'')+
       '<div class="bprice"><b>'+money(line)+'</b>'+
         '<span>'+q+' pcs \u00b7 '+money(unit)+'/pc</span></div>'+
