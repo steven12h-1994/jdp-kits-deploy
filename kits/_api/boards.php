@@ -137,6 +137,23 @@ if ($method === 'GET') {
     out(200, ['ok' => true, 'board' => $board]);
 }
 
+/* --------------------------------- DELETE --------------------------------- */
+/* Originally omitted "for safety", which made every board permanent: the client removed it locally
+   and the next reconcile pulled it straight back off the server. A board you cannot delete is not
+   safe, it is broken. This is a SOFT delete -- the file is renamed out of the *.json glob, so the
+   data still exists on disk and can be restored by hand if someone deletes the wrong thing. */
+if ($method === 'DELETE' || ($method === 'POST' && !empty($_GET['delete']))) {
+    $kit = slug($_GET['kit'] ?? '');
+    $b   = slug($_GET['b'] ?? '');
+    if ($kit === '' || $b === '') out(400, ['ok' => false, 'error' => 'kit and b required']);
+    if (!rate_ok($kit)) out(429, ['ok' => false, 'error' => 'too many requests, try shortly']);
+    $f = board_file($kit, $b);
+    if (!is_file($f)) out(200, ['ok' => true, 'deleted' => false, 'note' => 'already gone']);
+    $archive = $f . '.deleted-' . gmdate('Ymd-His');   // no longer matches *.json
+    if (!@rename($f, $archive)) out(500, ['ok' => false, 'error' => 'could not delete']);
+    out(200, ['ok' => true, 'deleted' => true]);
+}
+
 /* ---------------------------------- WRITE --------------------------------- */
 if ($method !== 'POST') out(405, ['ok' => false, 'error' => 'method not allowed']);
 
