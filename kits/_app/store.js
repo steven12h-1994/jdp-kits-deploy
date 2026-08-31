@@ -2473,9 +2473,9 @@ var SYNC='';
 function markSync(state){
   SYNC=state;
   var el=document.getElementById('bsync');if(!el)return;
-  var m={saving:['Saving\u2026','sv'],saved:['Live \u00b7 saved','ok'],
+  var m={saving:['Saving\u2026','sv'],saved:['Saved','ok'],
          merged:['Updated from another device','ok'],
-         offline:['Offline \u2014 saved on this device','off']}[state]||['','' ];
+         offline:['Saved on this device only','off']}[state]||['','' ];
   el.textContent=m[0];el.className='bsync '+m[1];
 }
 var _pushT=null;
@@ -3277,16 +3277,16 @@ function boardSummaryHtml(){
         '<span class="bpsn'+(ready?' done':'')+'">'+(ready?'\u2713':'1')+'</span>'+
         '<span class="bpst"><b>Quantities &amp; sizes</b>'+
           '<i>'+(ready
-            ? ('All '+s.total+' style'+(s.total===1?'':'s')+' sized \u2014 ready to invoice')
+            ? ('All '+s.total+' style'+(s.total===1?'':'s')+' sized')
             : (s.sized+' of '+s.total+' styles sized \u2014 '+s.missing.length+' still to go'))+'</i></span>'+
       '</div>'+
       '<div class="bpstep"><span class="bpsn">2</span>'+
         '<span class="bpst"><b>Proforma invoice</b>'+
-          '<i>We issue it against these exact quantities \u2014 nothing is ordered until you approve it</i></span></div>'+
+          '<i>Issued against these quantities. Nothing is ordered until you approve it.</i></span></div>'+
       (ready
-        ? '<button type="button" class="bpcta" id="bProforma">Request my proforma invoice <span class="ar">\u2192</span></button>'
-        : '<button type="button" class="bpcta soft" id="bFinish">Finish sizing \u00b7 '+
-            s.missing.length+' left <span class="ar">\u2193</span></button>')+
+        ? '<button type="button" class="bpcta" id="bProforma">Request proforma invoice <span class="ar">\u2192</span></button>'
+        : '<button type="button" class="bpcta soft" id="bFinish">'+s.missing.length+' style'+(s.missing.length===1?'':'s')+
+            ' need sizes <span class="ar">\u2193</span></button>')+
     '</div></section>';
 }
 function renderBoard(){
@@ -3310,10 +3310,6 @@ function renderBoard(){
         '<div class="bsum">'+(t.lines?(t.lines+' item'+(t.lines===1?'':'s')+' \u00b7 '+t.pieces+
           ' pieces \u00b7 est. '+money(t.sub)+(t.setup>0?(' + '+money(t.setup)+' setup'):'')):'Nothing saved yet')+'</div>'+
         /* Whoever this link is forwarded to arrives with no context. Three facts, stated once. */
-        (t.lines?('<div class="bassure">'+
-          '<span>Shown with your logo at the exact print placement</span>'+
-          '<span>Prices include decoration</span>'+
-          '<span>Nothing ordered \u2014 no obligation</span></div>'):'')+
       '</div>'+
       '<div class="bhdR">'+
         '<button type="button" class="bghost" id="bAll">\u2039 All boards</button>'+
@@ -3378,10 +3374,18 @@ function wireBoard(){
     var nm=activeName(),n=listLen(ALID),last=listIds().length<2;
     if(!window.confirm('Delete \u201c'+nm+'\u201d'+
         (n?(' and the '+n+' item'+(n===1?'':'s')+' in it'):'')+'?\n\nThis cannot be undone.'))return;
-    deleteList(ALID);refreshCartUI();
-    // deleteList empties rather than orphans the final board, so say what actually happened.
-    if(last){renderBoard();toast('\u201c'+nm+'\u201d emptied');}
-    else{closeBoard();openBoards();toast('\u201c'+nm+'\u201d deleted');}});
+    /* Local removal alone was pointless: syncBoardsFromServer() pulled the board straight back on
+       the next reconcile. Delete server-side FIRST, and only then locally -- and wait for it, so the
+       boards index cannot re-list what we just removed. */
+    var sl=(LISTS[ALID]||{}).slug;
+    var finish=function(){
+      deleteList(ALID);refreshCartUI();
+      if(last){renderBoard();toast('\u201c'+nm+'\u201d emptied');}
+      else{closeBoard();openBoards();toast('\u201c'+nm+'\u201d deleted');}};
+    if(sl){
+      fetch(boardsApi()+'?kit='+encodeURIComponent(SLUG)+'&b='+encodeURIComponent(sl)+'&delete=1',
+        {method:'POST'}).then(finish,finish);
+    }else finish();});
   var bm=document.getElementById('bMore');if(bm)bm.addEventListener('click',function(){
     closeBoard();closeBoards();setRail('explore');
     var g=document.getElementById('gridhd')||document.getElementById('grid');
