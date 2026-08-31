@@ -1391,12 +1391,10 @@ function buildStore(){
            '</div>')));
   var html=''+
    railHtml()+
-   topSearchHtml()+
+   tbarHtml()+
    '<section class="hero"><div class="w heroin">'+
-     heroMarkHtml()+
      '<h1>'+esc(poss(CFG.client))+" team store</h1>"+
      '<p class="herosub">'+(demo?'This is a live sample. Every item shows exactly where your logo goes — swap in your brand and it becomes your team’s store. Live pricing, exact quote, no obligation.':'One premium store for the jobsite and the front office — CSA hi-vis and rugged workwear to sharp branded polos and client gifts, every piece ready with your logo.')+'</p>'+
-     heroCta+
    '</div></section>'+
    /* The value strip is gone. It stacked three more claims directly beneath a hero that already
       carries three trust chips AND the sample offer -- six competing assertions above the fold, which
@@ -1406,6 +1404,7 @@ function buildStore(){
       with outfitting staff. Removing the band makes the in-person offer the unambiguous focal point
       and lifts the catalogue up the page. */
    catTilesHtml()+
+   '<section class="offerstrip"><div class="w">'+heroCta+'</div></section>'+
    '<div class="navwrap" id="navwrap">'+
      '<div class="fscrim" id="fscrim"></div>'+
      '<div class="fpanel" id="fpanel" role="dialog" aria-label="Filter products">'+
@@ -1463,16 +1462,17 @@ function buildStore(){
   document.getElementById('openCart2').addEventListener('click',function(){openBoard();});
   wireRail();
   wireExplore();
-  /* The tiles and the chip bar are the same navigation. Showing both at rest is the duplication
-     Steven is pointing at -- so the chip bar stays hidden until the tiles have scrolled away, at
-     which point it becomes the only way to change category and earns its space. */
-  (function(){
-    var tiles=document.querySelector('.excats'),bar=document.getElementById('filterbar');
-    if(!tiles||!bar||!window.IntersectionObserver){if(bar)bar.classList.add('show');return;}
-    new IntersectionObserver(function(es){
-      bar.classList.toggle('show',!es[0].isIntersecting);
-    },{rootMargin:'-70px 0px 0px 0px'}).observe(tiles);
-  })();
+  /* Categories now lives in the persistent bar, so the scroll-revealed chip strip is retired
+     outright rather than swapped between states. One control, always in the same place. */
+  var _tc=document.getElementById('tbCats');
+  if(_tc)_tc.addEventListener('click',function(e){e.stopPropagation();toggleCatMenu();});
+  var _tb=document.getElementById('tbBoards');
+  if(_tb)_tb.addEventListener('click',function(){openBoards();});
+  document.addEventListener('click',function(e){
+    var m=document.getElementById('catmenu');
+    if(m&&m.classList.contains('on')&&!m.contains(e.target))toggleCatMenu(false);});
+  document.querySelectorAll('.cmrow').forEach(function(b){
+    b.addEventListener('click',function(){toggleCatMenu(false);});});
   document.getElementById('ov').addEventListener('click',closeAll);
   // The delegated click handler was only ever attached when a product sheet first opened, because
   // that is the one place that needed it. The hero's sample-visit CTA is on the page before any
@@ -3211,12 +3211,54 @@ function wireRail(){
 /* The header bar is gone, but the client's brand presence should not be. A small mark inside the
    hero, sitting above the H1 that already names them, gives the store its owner without spending a
    whole horizontal band on it. Renders nothing when a kit has no logo asset, rather than a gap. */
-function heroMarkHtml(){
+function heroMarkHtml(cls){
   var L=(CFG.logos&&CFG.logos[0])||null;
-  var f=L&&L.inks&&(L.inks.brand||L.inks.full||L.inks.dark);
+  /* DARK first, deliberately. The bar and hero are light, and inks.brand is whatever the brand's
+     own mark is -- for Mowi that is a white/light lockup, which rendered nearly invisible on cream
+     and read as a broken image. A mark must contrast with what it sits on. */
+  var f=L&&L.inks&&(L.inks.dark||L.inks.brand||L.inks.full);
   if(!f)return '';
-  return '<img class="heromark" src="'+kurl(f)+'" alt="'+esc(CFG.client||'')+'" '+
+  return '<img class="'+(cls||'heromark')+'" src="'+kurl(f)+'" alt="'+esc(CFG.client||'')+'" '+
     'onerror="this.style.display=\'none\'">';
+}
+/* 4imprint's scrolling behaviour is one slim persistent bar: mark, Categories, a search field, and
+   the account/cart. No chip strips, no sub-rows floating mid-page. Ours previously had .navwrap
+   sticky at top:60px -- pinned to a header that no longer exists, so it hovered in mid-air over the
+   products, which is the "floating navigation" Steven is describing. This bar replaces the separate
+   search section AND the scroll-revealed chip bar, and Categories carries what the chips did. */
+function catMenuHtml(){
+  var cats=(typeof CATS!=='undefined'&&CATS.length)?CATS:[];
+  if(!cats.length)return '';
+  return '<div class="catmenu" id="catmenu"><div class="cmin">'+cats.map(function(c){
+      var img=catTileImg(c);
+      return '<button type="button" class="cmrow" data-catgo="'+esc(c)+'">'+
+        '<span class="cmimg">'+(img?('<img src="'+img+'" alt="" loading="lazy">'):'')+'</span>'+
+        '<b>'+esc(shortCat(c))+'</b><i>'+((TOTALS&&TOTALS[c])||0)+'</i></button>';}).join('')+
+    '</div></div>';
+}
+function tbarHtml(){
+  return '<div class="tbar" id="tbar"><div class="tbin">'+
+      heroMarkHtml('tbmark')+
+      '<button type="button" class="tbcats" id="tbCats" aria-expanded="false">'+
+        '<span class="tbbg"><i></i><i></i><i></i></span>Categories</button>'+
+      '<div class="tbsearch">'+
+        '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" '+
+        'stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/>'+
+        '<path d="M21 21l-4.3-4.3"/></svg>'+
+        '<input id="topSearch" type="search" autocomplete="off" aria-label="Search products" '+
+        'placeholder="What can we help you find?">'+
+        '<button type="button" class="exsx" id="topSearchX" aria-label="Clear">\u2715</button>'+
+      '</div>'+
+      '<button type="button" class="tbboards" id="tbBoards">'+railIcon('boards')+
+        '<span>Boards</span></button>'+
+    '</div>'+catMenuHtml()+'</div>';
+}
+function toggleCatMenu(force){
+  var m=document.getElementById('catmenu'),b=document.getElementById('tbCats');
+  if(!m)return;
+  var on=(typeof force==='boolean')?force:!m.classList.contains('on');
+  m.classList.toggle('on',on);
+  if(b)b.setAttribute('aria-expanded',on?'true':'false');
 }
 function topSearchHtml(){
   return '<section class="exsearch"><div class="w exsin">'+
