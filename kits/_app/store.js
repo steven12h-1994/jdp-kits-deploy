@@ -386,10 +386,28 @@ function loadLists(){
     var old={};try{old=JSON.parse(localStorage.getItem(LSKEY)||'{}')||{};}catch(e){old={};}
     var id=newListId();LISTS={};
     LISTS[id]={name:'My list',items:old,updated:Date.now()};
-    ALID=id;persistLists();
+    ALID=id;
+    /* Our recommendations, as a List -- not a section, not a hero button. Seeded once on first
+       visit and left as a SEPARATE list so a first-timer's own list is never silently pre-filled
+       with items they did not choose (which would quietly end up on a quote request). */
+    // Guarded: this reads BYKEY/CFG, and a starter list is a nicety. If anything here throws, the
+    // customer must still get their own list -- never a store that fails to load a saved list.
+    try{
+      var ess=(typeof essKeysAll==='function')?essKeysAll():[];
+      if(ess.length){
+        var sid=newListId(),sitems={};
+        ess.forEach(function(k){
+          if(!BYKEY[k])return;
+          sitems[k]={qty:moq(),colour:vmOf(k).colour,decos:recCartDecos(k)};});
+        if(Object.keys(sitems).length){
+          LISTS[sid]={name:'JDP starter list',items:sitems,updated:Date.now()-1,starter:true};}
+      }
+    }catch(e){}
+    persistLists();
   }
   if(!LISTS[ALID])ALID=Object.keys(LISTS)[0];
 }
+function starterId(){for(var id in (LISTS||{})){if(LISTS[id].starter)return id;}return '';}
 function listIds(){
   return Object.keys(LISTS||{}).sort(function(a,b){
     return (LISTS[b].updated||0)-(LISTS[a].updated||0);});}
@@ -1322,33 +1340,18 @@ function buildStore(){
          happens in one line. Second, top picks is demoted rather than deleted -- a visitor sent
          here to pick their gear still needs the fast path, and a shortlist built first makes the
          sample request far more useful to the rep who packs the bag. */
+      /* One concept only. Curated recommendations used to get their own page section AND a hero
+         button AND an "or start with the essentials" line -- three surfaces competing with the
+         catalogue for the same job. They are now simply a starter List in the list picker, so the
+         hero carries the one offer that actually unblocks a company-wide order. */
       (SHARED
-        /* Already applied on arrival -- confirm it, do not ask for it again. */
         ? sharedStripHtml()
-        : _pk
-        /* They have already had the visit and named their pieces: lead with those. */
-        ? ('<div class="herooffer pkoffer">'+
-             '<span class="hoic" aria-hidden="true">\u2713</span>'+
-             '<span class="hotx"><b>'+(_pk.shared
-                 ? (_pk.by?(esc(_pk.by)+'\u2019s list is ready'):'A list was shared with you')
-                 : 'Your shortlist is ready')+'</b>'+
-               '<i>'+(_pk.shared
-                 ? ('The '+_pk.keys.length+' pieces'+(_pk.by?(' '+esc(_pk.by)+' chose'):'')+
-                    ' \u2014 same colours and quantities. Add them and get your exact quote.')
-                 : ('The '+_pk.keys.length+' pieces you picked out are waiting \u2014 add them and get your exact quote.'))+
-               '</i></span>'+
-             '<button type="button" class="reccta hobtn" id="addPicksHero">Add my '+_pk.keys.length+
-               ' pieces <span class="ar">\u2192</span></button>'+
-           '</div>'+
-           '<button type="button" class="herosecond" data-samp="">Or see &amp; feel them in person first '+
-             '<span>we bring samples to you</span></button>')
         : ('<div class="herooffer">'+
              '<span class="hoic" aria-hidden="true">\u270B</span>'+
              '<span class="hotx"><b>Feel it before you commit</b>'+
                '<i>We bring the actual garments to your workplace \u2014 fabric, fit and colours side by side. No obligation.</i></span>'+
              '<button type="button" class="reccta hobtn" data-samp="">See &amp; feel it first <span class="ar">\u2192</span></button>'+
-           '</div>'+
-           (recN?'<button type="button" class="herosecond" id="addRec">Or start with the '+recN+' essentials <span>every team needs</span></button>':''))));
+           '</div>')));
   var html=''+
    '<header class="hdr"><div class="w hdrin">'+
      '<span class="brand"><img src="'+kurl(((CFG.logos&&CFG.logos[0]&&CFG.logos[0].inks&&CFG.logos[0].inks.dark))||CFG.cover_logo||'img/logo-white.png')+'" onerror="this.style.display=\'none\'" alt=""><b>'+esc(CFG.client)+'</b><i>× Just Deals</i></span>'+
@@ -1368,7 +1371,6 @@ function buildStore(){
       the cart, and "3,400+ impressions per shirt" is promo-industry trivia that has nothing to do
       with outfitting staff. Removing the band makes the in-person offer the unambiguous focal point
       and lifts the catalogue up the page. */
-   picksSectionHtml()+
    shopCatsHtml()+
    '<div class="navwrap" id="navwrap">'+
      '<div class="fscrim" id="fscrim"></div>'+
@@ -1432,9 +1434,6 @@ function buildStore(){
   wireDelegates();
   var ar=document.getElementById('addRec');if(ar)ar.addEventListener('click',addRecommended);
   var shr=document.getElementById('shReview');if(shr)shr.addEventListener('click',openCart);
-  ['addPicks','addPicksHero'].forEach(function(id){
-    var b=document.getElementById(id);if(b)b.addEventListener('click',addPicks);});
-  wireCards('pkgrid');
   if(curateOn())markCurCards();
   var wc=document.getElementById('whyCta');if(wc)wc.addEventListener('click',function(){
     if(cartCount()>0){openCart();}else{VIEW.sub='all';renderGrid();scrollToResults();}});
@@ -2451,6 +2450,9 @@ function autoApplyShared(){
              items:items,updated:Date.now()};
   ALID=id;CART=items;persistLists();
   try{localStorage.setItem('jdp_applied_sig',sig);}catch(e){}
+  /* The list is now SAVED against this store, so the long ?list=... URL has done its job. Strip it,
+     so the address bar, a reload and a bookmark are all just the store's own clean URL. */
+  try{if(window.history&&history.replaceState)history.replaceState({},'',location.pathname);}catch(e){}
   SHAPPLIED=added;
 }
 function sharedStripHtml(){
@@ -2750,10 +2752,12 @@ function curToggleHtml(key){
   if(!CURATE)return '';
   return '<button type="button" class="curtog" data-curk="'+esc(key)+'">+ Shortlist</button>';
 }
+/* RETIRED. Curated recommendations are a starter List now (see loadLists), not a page section.
+   Kept as a no-op rather than deleted so a future edit cannot accidentally revive the competing
+   surface by re-adding a call site. */
 function picksSectionHtml(){
-  // A shared list is already in the kit and confirmed in the hero; repeating it as a second section
-  // with its own "Add all" button was the redundancy. Recommendations still get this section.
-  if(SHARED)return '';
+  return '';
+  /* eslint-disable no-unreachable */
   var p=picksOf();if(!p)return '';
   var cards=p.keys.map(function(x){
     var why=x.why?('<div class="pkwhy">'+esc(x.why)+'</div>'):'';
@@ -2843,7 +2847,9 @@ function cartLineHtml(k){var it=BYKEY[bkey(k)];if(!it)return '';var c=CART[k];
 function renderCart(){
   var keys=Object.keys(CART),sub=cartSubtotal();
   var items=keys.map(function(k){return cartLineHtml(k);}).join('');
-  var body=keys.length?items:('<div class="cempty"><div class="ce-ic">🛒</div><b>This list is empty</b><span>Add a few pieces to get your exact quote \u2014 or to send your team a list.</span>'+(recKeysAll().length?'<button class="ceadd" id="emptyAddRec">Add the '+essKeysAll().length+' essentials</button>':'')+'</div>');
+  var body=keys.length?items:('<div class="cempty"><div class="ce-ic">🛒</div><b>This list is empty</b><span>Add a few pieces to get your exact quote \u2014 or to send your team a list.</span>'+((starterId()&&starterId()!==ALID)
+      ?('<button class="ceadd" id="emptyAddRec">Start from our JDP starter list \u00b7 '+
+        listLen(starterId())+' pieces</button>'):'')+'</div>');
   var setupRows=setupBreakdown(),setup=setupRows.reduce(function(t,x){return t+x.amount;},0);
   var brk=setupRows.length?('<details class="setupbrk"><summary>One-time setup '+money(setup)+' <i>· once per design, shared across the kit</i></summary>'+setupRows.map(function(x){return '<div class="sbk"><span>'+esc(x.label)+'</span><span>'+money(x.amount)+'</span></div>';}).join('')+'</details>'):'';
   document.getElementById('cart').innerHTML=
@@ -2871,7 +2877,8 @@ function renderCart(){
   var ck=document.getElementById('checkout');if(ck)ck.addEventListener('click',openCheckout);
   var sl=document.getElementById('shareList');if(sl)sl.addEventListener('click',shareList);
 
-  var ea=document.getElementById('emptyAddRec');if(ea)ea.addEventListener('click',function(){addRecommended();});
+  var ea=document.getElementById('emptyAddRec');
+  if(ea)ea.addEventListener('click',function(){var s=starterId();if(s)switchList(s);});
   var lsl=document.getElementById('lsel');
   if(lsl)lsl.addEventListener('change',function(){switchList(lsl.value);});
   var lnw=document.getElementById('lNew');
