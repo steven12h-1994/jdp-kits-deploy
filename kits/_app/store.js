@@ -230,7 +230,23 @@ function colInList(cols,name){for(var i=0;i<cols.length;i++)if(cols[i].name===na
 function hasCol(cols,name){for(var i=0;i<(cols||[]).length;i++)if(cols[i].name===name)return true;return false;}
 function curColsOf(item,fit){return (fit==='womens'&&item.wcols&&item.wcols.length)?item.wcols:item.cols;}
 function placeOf(item,pid){for(var i=0;i<item.places.length;i++)if(item.places[i].id===pid)return item.places[i];return null;}
-function vmOf(key){return (CFG.items||{})[key]||{colour:(BYKEY[key].cols[0]||{}).name,decos:[]};}
+/* ---------- one cart line PER FIT ------------------------------------------------------------
+   CART was keyed by product alone, so adding the ladies' cut of a polo OVERWROTE the mens line --
+   you could have one or the other, never both. For company apparel that is the normal order: the
+   same polo in both cuts. So a cart key is now product + fit, and the ladies' line carries a "#w"
+   suffix. "#" cannot appear in a product key, and the share link still transmits the BASE key plus
+   its own fit field, so link format and old saved carts both keep working.
+   vmOf / unitPrice / recCartDecos are made tolerant of either kind of key, which keeps every
+   existing call site correct instead of relying on catching all of them. */
+function ckey(k,fit){return (fit==='womens')?(k+'#w'):k;}
+function bkey(ck){return String(ck).replace(/#w$/,'');}
+function cartQtyOf(k){
+  var a=CART[k],b=CART[k+'#w'],t=0;
+  if(a)t+=(a.qty||0); if(b)t+=(b.qty||0);
+  return t;}
+function cartHasAny(k){return !!(CART[k]||CART[k+'#w']);}
+function cartAnyKey(k){return CART[k]?k:(CART[k+'#w']?(k+'#w'):k);}
+function vmOf(key){key=bkey(key);return (CFG.items||{})[key]||{colour:(BYKEY[key].cols[0]||{}).name,decos:[]};}
 function unitAt(item,q){var cs=CFG.pricing.cols,pr=item.prices,i=0;for(var k=0;k<cs.length;k++){if(q>=cs[k])i=k;}return pr[i];}
 function moq(){return (CFG.pricing.cols&&CFG.pricing.cols[0])||12;}
 /* ---- decoration-aware pricing (mirrors the server rate card) ---- */
@@ -251,7 +267,7 @@ function costMultCarh(c){if(c<=15)return 1.72;if(c<=30)return 1.60;if(c<=60)retu
 function volFactorCarh(q){if(q<24)return 1.03;if(q<100)return 1.00;if(q<250)return 0.96;return 0.93;}
 function activeDecos(decos){return (decos||[]).filter(function(d){return d.on;});}
 function hasDecoPlace(item){return !!((item.places||[]).some(function(p){return p.logo;}));}
-function unitPrice(key,decos,q){var r=CFG.rates;
+function unitPrice(key,decos,q){key=bkey(key);var r=CFG.rates;
   var _it=BYKEY[key]; if(_it&&_it.layer==='promo')return _it.price_cad||0;   // promo: flat Debco CAD price (customer price)
   if(!r||r.blank==null){return unitAt(BYKEY[key],q);}
   var item=BYKEY[key],c=blankOf(key),dec=0;
@@ -385,7 +401,7 @@ function menuCard(key){
   // emoji pill it shared with the CSA rating read as clip-art on a B2B storefront.
   var _fl=fabCardLine(item);
   var fab=_fl?'<div class="mfab" title="Fabric content as published by the maker">'+esc(_fl)+'</div>':'';
-  var q=CART[key]?CART[key].qty:0;
+  var q=cartQtyOf(key);
   var inkit=q?' inkit':'';
   var addlbl=q?('<b>'+q+'</b>'):'+';
   return '<article class="mcard'+inkit+'" data-key="'+key+'" data-name="'+esc(searchText(item).replace(/"/g,''))+'" tabindex="0" role="button" aria-label="'+esc(item.name)+'">'+
@@ -951,7 +967,7 @@ function wireCards(rootId){
       if(e.target&&e.target.closest&&e.target.closest('[data-curk]'))return;
       openSheet(card.dataset.key);});
     card.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();openSheet(card.dataset.key);}});});
-  g.querySelectorAll('.madd').forEach(function(b){b.addEventListener('click',function(e){e.stopPropagation();var k=b.dataset.key;if(CART[k]){openSheet(k);}else{quickAdd(k);}});});
+  g.querySelectorAll('.madd').forEach(function(b){b.addEventListener('click',function(e){e.stopPropagation();var k=b.dataset.key;if(cartHasAny(k)){openSheet(cartAnyKey(k));}else{quickAdd(k);}});});
   // Swatch on the CARD: swap the photo in place. No re-render of the whole grid, so the shopper keeps
   // their scroll position while flicking through colours.
   g.querySelectorAll('.cdot').forEach(function(d){d.addEventListener('click',function(e){
@@ -1663,7 +1679,7 @@ var _DELEG=false;
 var SAMPKEYS=null;
 function sampShortlist(){
   if(SAMPKEYS&&SAMPKEYS.length)return SAMPKEYS.slice();
-  var ck=Object.keys(CART);
+  var ck=Object.keys(CART).map(bkey);
   return ck.length?ck:(SHEETKEY?[SHEETKEY]:[]);
 }
 function sampCtaHtml(key){
@@ -1680,7 +1696,7 @@ function openSampleVisit(key){
   var saved={};try{saved=JSON.parse(localStorage.getItem('jdpkit_contact')||'{}');}catch(e){}
   var list=keys.length
     ? '<ul class="svlist">'+keys.map(function(k){var it=BYKEY[k];if(!it)return '';
-        var c=(CART[k]&&CART[k].colour)||(SH&&SH.key===k?SH.colour:'')||'';
+        var c=((CART[k]||CART[k+'#w'])||{}).colour||(SH&&SH.key===k?SH.colour:'')||'';
         return '<li><span>'+esc(it.name)+'</span>'+(c?'<i>'+esc(c)+'</i>':'')+'</li>';}).join('')+'</ul>'
     : '<p class="svnone">Add a few pieces to your kit and we\u2019ll bring those \u2014 or just tell us below what you want to see.</p>';
   el.innerHTML='<button class="shx" id="sampX" aria-label="Close">\u2715</button><div class="leadb">'+
@@ -1727,7 +1743,7 @@ function sampText(c){
   var keys=sampShortlist();
   if(keys.length){lines.push('Wants to see in person:');
     keys.forEach(function(k){var it=BYKEY[k];if(!it)return;
-      var c2=(CART[k]&&CART[k].colour)||'';
+      var c2=((CART[k]||CART[k+'#w'])||{}).colour||'';
       lines.push('  \u2022 '+it.name+(it.sku?(' ('+it.sku+')'):'')+(c2?(' \u2014 '+c2):'')+
         (it.msku?('  [item '+it.msku+']'):''));});
     lines.push('');}
@@ -1804,9 +1820,11 @@ function backChipHtml(){
 }
 function wireBack(root){wireDelegates();}
 function openSheet(key,wantCol,fromKey){
+  // Accepts a CART key (so the kit's edit pencil reopens that exact fit) or a plain product key.
+  var _ck=key;key=bkey(key);
   FROMKEY=(fromKey&&fromKey!==key)?fromKey:'';
   SHEETKEY=key;
-  var item=BYKEY[key],vm=vmOf(key),ex=CART[key],exmap={};
+  var item=BYKEY[key],vm=vmOf(key),ex=CART[_ck]||null,exmap={};
   // A shared link carries the colour the sender was looking at, so the recipient sees the same thing.
   // A shared link may name a colour that only exists in the ladies' cut, so check both sets.
   if(item&&wantCol&&!hasCol(item.cols,wantCol)&&!hasCol(item.wcols,wantCol))wantCol=null;
@@ -2036,6 +2054,11 @@ function renderSheet(){
     '<button class="fitb'+(SH.fit==='mens'?' on':'')+'" data-fit="mens">Men’s</button>'+
     '<button class="fitb'+(SH.fit==='womens'?' on':'')+'" data-fit="womens">Women’s</button>'+
     (SH.fit==='womens'&&!(item.wcols&&item.wcols.length)?'<span class="fitnote">Ladies’ cut confirmed with your quote</span>':'')+
+    /* Both cuts are separate kit lines now, and companies usually want both. Saying the other one is
+       already in there removes the "did I just overwrite it?" doubt, and nudges the second add. */
+    (function(){var other=ckey(SH.key,SH.fit==='womens'?'mens':'womens');var o=CART[other];
+      return o?('<span class="fitboth">\u2713 '+(SH.fit==='womens'?'Men\u2019s':'Women\u2019s')+
+        ' cut already in your kit \u2014 '+(o.qty||0)+' pcs</span>'):'';})()+
     '</div>'):(item.unisex?'<div class="fittog"><span class="fitl">Fit</span><span class="unitag">Unisex</span><span class="fitnote">One unisex cut — fits everyone</span></div>':'');
   var faceTog=hasBack?'<div class="ftog"><button class="pchip'+(SH.face==='front'?' on':'')+'" data-face="front">Front</button><button class="pchip'+(SH.face==='back'?' on':'')+'" data-face="back">Back</button></div>':'';
   var logoPlaces=(item.places||[]).filter(function(p){return p.logo;});
@@ -2101,7 +2124,7 @@ function renderSheet(){
       '<div class="shnote">'+(hasDecoPlace(item)?'Prices are per piece, decorated — your logo (embroidery / print) is included. One-time setup shows once in your kit summary. ':'Prices are per piece (blank garment — no decoration on this item). ')+'Exact quote confirmed before anything runs.</div>'+
     '</div></div>'+
     '<div class="shfoot">'+priceClar+
-      '<button class="shaddbtn" id="shAdd"'+(canAdd?'':' disabled')+'><span>'+(canAdd?(CART[SH.key]?'Update kit':'Add to kit'):('Add '+moq()+'+ pieces'))+'</span><span class="p">'+money(line)+'</span></button>'+
+      '<button class="shaddbtn" id="shAdd"'+(canAdd?'':' disabled')+'><span>'+(canAdd?(CART[ckey(SH.key,SH.fit)]?'Update kit':'Add to kit'):('Add '+moq()+'+ pieces'))+'</span><span class="p">'+money(line)+'</span></button>'+
       '<div class="shtrust">✓ Live pricing · exact quote · no obligation · no payment now</div></div>';
   var sh=document.getElementById('sheet');
   // Re-render replaces this markup, so the sheet chrome must be re-bound every time, not just
@@ -2165,17 +2188,18 @@ function swapPreview(){var im=document.getElementById('shimg');if(im){im.classLi
 function addFromSheet(){
   var q=effQty();
   if(q<moq()){toast('Add at least '+moq()+' pieces');return;}
-  var was=!!CART[SH.key],decos=[];
+  var _ck=ckey(SH.key,SH.fit);
+  var was=!!CART[_ck],decos=[];
   Object.keys(SH.D).forEach(function(pl){var d=SH.D[pl];if(d.on)decos.push({pl:pl,lg:d.lg,ink:d.ink,method:d.method,colours:d.colours||1,on:true});});
   var entry={qty:q,colour:SH.colour,decos:decos,fit:SH.fit};
   var sz={};sheetSizes().forEach(function(s){if(SH.sizes[s])sz[s]=SH.sizes[s];});
   if(Object.keys(sz).length)entry.sizes=sz;   // else keep the plain qty (a quick-started item reopened & saved as-is)
   if(Object.keys(sz).length)saveSpread(sz,SH.fit,BYKEY[SH.key].name);
-  CART[SH.key]=entry;
+  CART[_ck]=entry;
   saveCart();closeAll();refreshCartUI();
   toast((was?'Updated · ':'Added · ')+BYKEY[SH.key].name);
 }
-function recCartDecos(key){
+function recCartDecos(key){key=bkey(key);
   var vm=vmOf(key),decos=activeDecos(vm.decos).map(function(d){return {pl:d.pl,lg:d.lg,ink:d.ink||'auto',method:d.method||'embroidery',colours:d.colours||1,on:true};});
   if(!decos.length){var p=(BYKEY[key].places||[]).filter(function(x){return x.logo;})[0];if(p)decos=[{pl:p.id,lg:(CFG.logos[0]||{}).id,ink:'auto',method:(recDecos(key)[0]||{}).method||'embroidery',colours:1,on:true}];}
   return decos;
@@ -2241,8 +2265,8 @@ function sizeSum(sz){var t=0;for(var s in (sz||{}))t+=(parseInt(sz[s],10)||0);re
 function encodeList(){
   var parts=[];
   Object.keys(CART).forEach(function(k){
-    var c=CART[k];if(!BYKEY[k])return;
-    var f=[k,(c.qty||moq()),(c.colour||''),(c.fit==='womens'?'w':''),encSizes(c.sizes)];
+    var c=CART[k];if(!BYKEY[bkey(k)])return;
+    var f=[bkey(k),(c.qty||moq()),(c.colour||''),(c.fit==='womens'?'w':''),encSizes(c.sizes)];
     while(f.length>3&&!f[f.length-1])f.pop();      // keep links short; older readers ignore extras
     parts.push(f.join('~'));});
   return parts.join('|');
@@ -2252,9 +2276,10 @@ function decodeList(str){
   String(str||'').split('|').forEach(function(chunk){
     var bits=chunk.split('~'),k=bits[0];
     if(!k||!BYKEY[k])return;                                   // unknown/renamed product: drop it
-    if(out.some(function(x){return x.k===k;}))return;          // no duplicates
-    var q=parseInt(bits[1],10);if(!(q>0)||q>100000)q=moq();
     var fit=(bits[3]==='w')?'womens':'mens';
+    // Dedupe on product AND fit -- the same polo in both cuts is two legitimate lines.
+    if(out.some(function(x){return x.k===k&&x.fit===fit;}))return;
+    var q=parseInt(bits[1],10);if(!(q>0)||q>100000)q=moq();
     var sizes=decSizes(bits[4]);
     if(sizes)q=sizeSum(sizes)||q;                  // the split IS the quantity
     var col=bits[2]||'';
@@ -2334,23 +2359,30 @@ function autoApplyShared(){
   if(prev===sig)return;
   var added=0;
   SHARED.items.forEach(function(x){
-    if(!BYKEY[x.k]||CART[x.k])return;
+    var ck=ckey(x.k,x.fit);
+    if(!BYKEY[x.k]||CART[ck])return;
     var entry={qty:x.qty,colour:x.colour,decos:recCartDecos(x.k),fit:x.fit};
     if(x.sizes)entry.sizes=x.sizes;
-    CART[x.k]=entry;added++;});
+    CART[ck]=entry;added++;});
   try{localStorage.setItem('jdp_applied_sig',sig);}catch(e){}
   if(added)saveCart();
   SHAPPLIED=added;
 }
 function sharedStripHtml(){
   var n=SHARED.items.length,who=SHARED.from||'';
+  // They are free to add and remove -- so state what is actually in the kit, not what was sent.
+  var still=SHARED.items.filter(function(x){return CART[ckey(x.k,x.fit)];}).length;
   var lost=SHARED.items.filter(function(x){return x.lost;});
   var sub=cartSubtotal();
   return '<div class="herooffer pkoffer">'+
       '<span class="hoic" aria-hidden="true">\u2713</span>'+
-      '<span class="hotx"><b>'+(who?(esc(who)+'\u2019s '+n+' piece'+(n===1?' is':'s are')+' in your kit'):
-                                    (n+' piece'+(n===1?'':'s')+' \u2014 already in your kit'))+'</b>'+
-        '<i>Colours, sizes and quantities exactly as '+(who?esc(who):'they')+' set them. '+
+      '<span class="hotx"><b>'+(still<n
+          ? (still+' of '+(who?(esc(who)+'\u2019s '):'')+n+' pieces are in your kit')
+          : (who?(esc(who)+'\u2019s '+n+' piece'+(n===1?' is':'s are')+' in your kit')
+               :(n+' piece'+(n===1?'':'s')+' \u2014 already in your kit')))+'</b>'+
+        '<i>'+(still<n
+          ? 'You\u2019ve changed the list \u2014 that\u2019s fine, add or remove anything you like. '
+          : ('Colours, sizes and quantities exactly as '+(who?esc(who):'they')+' set them. '))+
         'Review and get your exact quote \u2014 nothing is ordered yet.</i></span>'+
       '<button type="button" class="reccta hobtn" id="shReview">Review kit'+
         (sub?(' \u00b7 '+money(sub)):'')+' <span class="ar">\u2192</span></button>'+
@@ -2670,18 +2702,18 @@ function addRecommended(){
 
 /* ---------- cart ---------- */
 function cartCount(){return Object.keys(CART).length;}
-function cartSubtotal(){var t=0;Object.keys(CART).forEach(function(k){var it=BYKEY[k];if(!it)return;var c=CART[k];
+function cartSubtotal(){var t=0;Object.keys(CART).forEach(function(k){var it=BYKEY[bkey(k)];if(!it)return;var c=CART[k];
   if(it.layer==='promo'){var q=promoQuote(it,c);t+=q.goods+q.decoRun;}   // product + decoration (setup shown separately)
   else t+=unitPrice(k,c.decos,c.qty)*c.qty;});return t;}
 function setupBreakdown(){var r=CFG.rates||{},s=r.setup||{},seen={},out=[];
-  Object.keys(CART).forEach(function(k){var it=BYKEY[k];if(!it)return;(CART[k].decos||[]).forEach(function(d){if(!d.on)return;
+  Object.keys(CART).forEach(function(k){var it=BYKEY[bkey(k)];if(!it)return;(CART[k].decos||[]).forEach(function(d){if(!d.on)return;
     var key=setupKey(d);if(seen[key])return;seen[key]=1;
     var L=logoOf(d.lg),p=placeOf(it,d.pl),plab=p?p.label:d.pl,lname=(L&&L.label)||'Logo',amt,lab;
     if(d.method==='screen'){var c=d.colours||1;amt=(s.screen||0)*c;lab=lname+' · '+plab+' · screen ('+c+'-colour)';}
     else if(d.method==='heat_transfer'){amt=s.heat_transfer||0;lab=lname+' · '+plab+' · heat-transfer artwork';}
     else{amt=s.embroidery||0;lab=lname+' · '+plab+' · embroidery digitizing';}
     out.push({label:lab,amount:Math.round(amt*100)/100});});});
-  Object.keys(CART).forEach(function(k){var it=BYKEY[k];if(!it||it.layer!=='promo')return;var q=promoQuote(it,CART[k]);
+  Object.keys(CART).forEach(function(k){var it=BYKEY[bkey(k)];if(!it||it.layer!=='promo')return;var q=promoQuote(it,CART[k]);
     if(q.setup>0)out.push({label:it.name+' · '+q.method.n+(q.locs>1?' · '+q.locs+' locations':'')+' setup',amount:q.setup});});
   return out;}
 function cartSetup(){return Math.round(setupBreakdown().reduce(function(t,x){return t+x.amount;},0)*100)/100;}
@@ -2695,10 +2727,15 @@ function refreshCartUI(){
   var bar=document.getElementById('cbar');if(bar)bar.classList.toggle('on',n>0&&!CFG.demo);
   var bn=document.getElementById('cbarN');if(bn)bn.textContent=n;
   var bp=document.getElementById('cbarP');if(bp)bp.textContent=money0(sub);
-  document.querySelectorAll('.mcard').forEach(function(card){var k=card.dataset.key;var on=!!CART[k];card.classList.toggle('inkit',on);var b=card.querySelector('.madd');if(b){b.classList.toggle('has',on);b.innerHTML=on?('<b>'+CART[k].qty+'</b>'):'+';}});
+  document.querySelectorAll('.mcard').forEach(function(card){var k=card.dataset.key;
+    var qn=cartQtyOf(k),on=qn>0;card.classList.toggle('inkit',on);
+    var b=card.querySelector('.madd');
+    if(b){b.classList.toggle('has',on);b.innerHTML=on?('<b>'+qn+'</b>'):'+';}});
 }
 function openCart(){renderCart();document.getElementById('ov').classList.add('on');document.getElementById('cart').classList.add('on');document.body.style.overflow='hidden';}
-function cartLineHtml(k){var it=BYKEY[k];if(!it)return '';var c=CART[k];
+function cartLineHtml(k){var it=BYKEY[bkey(k)];if(!it)return '';var c=CART[k];
+  // With both cuts in the kit the two lines are otherwise near-identical, so label the mens one too.
+  var _both=!!(CART[bkey(k)]&&CART[bkey(k)+'#w']);
     if(it.layer==='promo'){var pq=promoQuote(it,c);var pcol=colInList(it.cols,c.colour)||it.cols[0]||{};
       var pline=pq.goods+pq.decoRun;var uP=(pq.unit==='dozen'?'dozen':'pc');
       var psub2=pq.decoquote?(esc(c.colour||'')+' · logo confirmed on quote'):(esc(c.colour||'')+' · '+esc(pq.method.n)+(pq.locs>1?' · 2 spots':'')+' · +'+money(pq.setup)+' setup');
@@ -2708,7 +2745,8 @@ function cartLineHtml(k){var it=BYKEY[k];if(!it)return '';var c=CART[k];
         '<button class="rm" data-rm="'+k+'" aria-label="Remove">✕</button></div>';}
     var col=colInList(curColsOf(it,c.fit),c.colour);
     var unit=unitPrice(k,c.decos,c.qty);var szsum=sizesSummary(c);var nud=savingsNudge(k,c.decos,c.qty);
-    var fitb=fitTag(it,c)?'<span class="fitbadge">'+fitTag(it,c)+'</span> ':'';
+    var _ftl=(_both&&c.fit!=='womens')?'Men\u2019s':fitTag(it,c);
+    var fitb=_ftl?'<span class="fitbadge">'+esc(_ftl)+'</span> ':'';
     var ctrl='<button class="editln" data-edit="'+k+'">'+c.qty+' pcs · '+(c.sizes?'by size':'add sizes')+' ✎</button>';
     return '<div class="ci" data-key="'+k+'"><div class="t" style="background-image:url('+gurl(col.front)+')"></div>'+
       '<div class="d"><h4>'+esc(it.name)+'</h4><div class="sub">'+fitb+esc(c.colour)+' · '+esc(decoSummary(it,c))+(szsum?'<br><span class="szln">Sizes: '+esc(szsum)+'</span>':'')+'</div>'+
@@ -2799,7 +2837,7 @@ function orderText(c){c=c||{};
     if(c.company)lines.push('  Company/team: '+c.company);
     if(c.email)lines.push('  Email: '+c.email);
     lines.push('');}
-  Object.keys(CART).forEach(function(k){var it=BYKEY[k];if(!it)return;var cc=CART[k];var u=unitPrice(k,cc.decos,cc.qty);
+  Object.keys(CART).forEach(function(k){var it=BYKEY[bkey(k)];if(!it)return;var cc=CART[k];var u=unitPrice(k,cc.decos,cc.qty);
     lines.push('• '+it.name+(fitSku(it,cc)?' '+fitSku(it,cc):'')+' ('+it.sku+') — '+(fitTag(it,cc)?fitTag(it,cc)+' · ':'')+cc.colour+' · '+decoSummary(it,cc)+' · qty '+cc.qty+' @ '+money(u)+' ea = '+money(u*cc.qty));
     var ss=sizesSummary(cc);if(ss)lines.push('    sizes: '+ss);});
   lines.push('','Estimated subtotal: '+money(cartSubtotal()));

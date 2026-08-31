@@ -1082,6 +1082,9 @@ body.curating{padding-bottom:340px}
 /* ---- one-tap reuse of the last size split ---
    Reads as a helpful shortcut, not a competing action: dashed, accent-tinted, full width under the
    grid it fills in. It only ever renders on an item with no sizes entered yet. */
+.fitboth{display:block;width:100%;margin:5px 0 0;font-size:11.5px;font-weight:700;
+  line-height:1.45;color:var(--ac)}
+
 /* Curator mode state. Internal tooling, so it is dense and plain -- the job is to make the
    consequences of a click visible before it is clicked, not to look pretty. */
 .curwhich{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;
