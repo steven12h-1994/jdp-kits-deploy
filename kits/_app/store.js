@@ -1390,6 +1390,7 @@ function buildStore(){
              '<button type="button" class="reccta hobtn" data-samp="">See &amp; feel it first <span class="ar">\u2192</span></button>'+
            '</div>')));
   var html=''+
+   railHtml()+
    '<header class="hdr"><div class="w hdrin">'+
      '<span class="brand"><img src="'+kurl(((CFG.logos&&CFG.logos[0]&&CFG.logos[0].inks&&CFG.logos[0].inks.dark))||CFG.cover_logo||'img/logo-white.png')+'" onerror="this.style.display=\'none\'" alt=""><b>'+esc(CFG.client)+'</b><i>× Just Deals</i></span>'+
      '<button class="cartbtn" id="openCart"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2 3h3l2.4 12.2a1.5 1.5 0 0 0 1.5 1.2h8.2a1.5 1.5 0 0 0 1.5-1.2L22 7H6"/></svg>'+
@@ -1463,6 +1464,7 @@ function buildStore(){
   document.getElementById('openCart').addEventListener('click',function(){openBoard();});
   var cbs=document.getElementById('cbarShare');if(cbs)cbs.addEventListener('click',shareList);
   document.getElementById('openCart2').addEventListener('click',function(){openBoard();});
+  wireRail();
   document.getElementById('ov').addEventListener('click',closeAll);
   // The delegated click handler was only ever attached when a product sheet first opened, because
   // that is the one place that needed it. The hero's sample-visit CTA is on the page before any
@@ -2862,6 +2864,8 @@ function refreshCartUI(){
   var n=cartCount(),sub=cartSubtotal();
   var cn=document.getElementById('cartN');if(cn){cn.textContent=n;cn.classList.toggle('has',n>0);}
   // The single most common confusion was "which list did that just go into?". Name it, always.
+  var rn=document.getElementById('railN');
+  if(rn){var bn=listIds().length;rn.textContent=bn>1?bn:'';rn.style.display=bn>1?'':'none';}
   var cl=document.getElementById('cartLbl');
   if(cl){var nm=activeName();cl.textContent=nm.length>17?(nm.slice(0,16)+'\u2026'):nm;}
   var bar=document.getElementById('cbar');if(bar)bar.classList.toggle('on',n>0&&!CFG.demo);
@@ -2979,6 +2983,7 @@ function renderBoard(){
           ' pieces \u00b7 est. '+money(t.sub)+(t.setup>0?(' + '+money(t.setup)+' setup'):'')):'Nothing saved yet')+'</div>'+
       '</div>'+
       '<div class="bhdR">'+
+        '<button type="button" class="bghost" id="bAll">\u2039 All boards</button>'+
         '<button type="button" class="bghost" id="bRename">Rename</button>'+
         '<button type="button" class="bghost" id="bNew">+ New board</button>'+
         '<button type="button" class="bghost" id="bShare">Share board</button>'+
@@ -3007,6 +3012,8 @@ function wireBoard(){
   el.querySelectorAll('[data-brm]').forEach(function(b){b.addEventListener('click',function(){
     delete CART[b.dataset.brm];saveCart();refreshCartUI();renderBoard();});});
   var x=document.getElementById('bClose');if(x)x.addEventListener('click',closeBoard);
+  var ba=document.getElementById('bAll');if(ba)ba.addEventListener('click',function(){
+    closeBoard();openBoards();});
   var rn=document.getElementById('bRename');if(rn)rn.addEventListener('click',function(){
     var n=window.prompt('Rename this board',activeName());
     if(n===null)return;renameList(ALID,n);renderBoard();refreshCartUI();});
@@ -3058,6 +3065,130 @@ function openSavePicker(key){
   if(nn)nn.addEventListener('click',function(){
     var n=window.prompt('Name this board','Board '+(listIds().length+1));
     if(n===null)return;newList(n);quickAdd(key);el.classList.remove('on');});
+}
+/* ---------- EXPLORE / YOUR BOARDS: the two things this store does -------------------------------
+   The store had accumulated a header of brand + cart + hero + trust chips + category panel + fit bar
+   + colour bar + search + sub-chips + filters, all above the first product. Steven's reference is
+   Pinterest, and its whole information architecture is two destinations in a quiet icon rail:
+   Explore, and Your boards. Everything else is subordinate to those.
+   So: a fixed rail on desktop, a bottom tab bar on phones, and a real BOARDS INDEX -- board cards
+   with a collage of their own product photography, the way Pinterest shows a board. */
+function boardValue(id){
+  var L=(LISTS||{})[id];if(!L)return {pieces:0,sub:0};
+  var items=L.items||{},pieces=0,sub=0;
+  Object.keys(items).forEach(function(ck){
+    var it=BYKEY[bkey(ck)];if(!it)return;
+    var c=items[ck];
+    if(it.layer==='promo'){var q=promoQuote(it,c);pieces+=q.qty;sub+=q.goods+q.decoRun;}
+    else{var qq=c.qty||0;pieces+=qq;sub+=unitPrice(ck,c.decos,qq)*qq;}});
+  return {pieces:pieces,sub:sub};
+}
+function boardThumbs(id,n){
+  var L=(LISTS||{})[id];if(!L)return [];
+  var out=[];
+  Object.keys(L.items||{}).slice(0,n||4).forEach(function(ck){
+    var it=BYKEY[bkey(ck)];if(!it)return;
+    var c=L.items[ck];
+    var cols=(it.layer==='promo')?(it.cols||[]):curColsOf(it,c.fit);
+    var col=colInList(cols,c.colour)||cols[0]||{};
+    if(col.front)out.push(gurl(col.front));});
+  return out;
+}
+function boardTileHtml(id){
+  /* Pinterest's board thumbnail is ONE large tile plus two small -- exactly three cells. Emitting a
+     fourth into a 2fr+1fr / 1fr+1fr grid created an implicit third row and collapsed the first three
+     cells to 22px, 9px and 9px while the fourth took the whole large slot. Three cells, placed
+     explicitly by nth-child, cannot do that. */
+  var t=boardValue(id),th=boardThumbs(id,3),n=listLen(id);
+  var cells='';
+  for(var i=0;i<3;i++){
+    cells+=th[i]?('<div class="btc"><img src="'+th[i]+'" alt="" loading="lazy"></div>')
+                :'<div class="btc empty"></div>';}
+  return '<button type="button" class="btile" data-bopen="'+esc(id)+'">'+
+    '<div class="btcollage'+(th.length?'':' blank')+'">'+cells+
+      (isTemplate(id)?'<span class="bttag">Template</span>':'')+'</div>'+
+    '<div class="btmeta"><b>'+esc(listName(id))+'</b>'+
+      '<span>'+n+' item'+(n===1?'':'s')+(t.pieces?(' \u00b7 '+t.pieces+' pcs'):'')+
+      (t.sub?(' \u00b7 est. '+money(t.sub)):'')+'</span></div></button>';
+}
+function renderBoardsIndex(){
+  var el=document.getElementById('boards');if(!el)return;
+  if(!LISTS)loadLists();
+  var ids=listIds();
+  el.innerHTML='<div class="bwrap">'+
+    '<header class="bhd"><div class="bhdin">'+
+      '<div class="bhdL"><div class="beyb">'+esc(CFG.client)+'</div>'+
+        '<h1 class="btitle">Your boards</h1>'+
+        '<div class="bsum">'+ids.length+' board'+(ids.length===1?'':'s')+
+          ' \u00b7 saved on this device</div></div>'+
+      '<div class="bhdR">'+
+        '<button type="button" class="bcta" id="biNew">+ Create board</button>'+
+        '<button type="button" class="bx" id="biClose" aria-label="Close">\u2715</button>'+
+      '</div></div></header>'+
+    '<div class="btiles">'+ids.map(boardTileHtml).join('')+
+      '<button type="button" class="btile new" id="biNew2">'+
+        '<div class="btcollage blank"><span class="btplus">+</span></div>'+
+        '<div class="btmeta"><b>Create a board</b><span>Group gear by team, site or season</span></div>'+
+      '</button></div></div>';
+  el.querySelectorAll('[data-bopen]').forEach(function(b){b.addEventListener('click',function(){
+    closeBoards();openBoard(b.dataset.bopen);});});
+  ['biNew','biNew2'].forEach(function(idb){
+    var e=document.getElementById(idb);
+    if(e)e.addEventListener('click',function(){
+      var nm=window.prompt('Name this board','Board '+(listIds().length+1));
+      if(nm===null)return;newList(nm);refreshCartUI();closeBoards();openBoard(ALID);});});
+  var x=document.getElementById('biClose');if(x)x.addEventListener('click',closeBoards);
+}
+function openBoards(){
+  var el=document.getElementById('boards');
+  if(!el){el=document.createElement('div');el.id='boards';el.className='boardov';document.body.appendChild(el);}
+  renderBoardsIndex();
+  el.classList.add('on');document.body.style.overflow='hidden';
+  setRail('boards');
+}
+function closeBoards(){
+  var el=document.getElementById('boards');if(el)el.classList.remove('on');
+  document.body.style.overflow='';setRail('explore');
+}
+function setRail(which){
+  document.querySelectorAll('.railb').forEach(function(b){
+    b.classList.toggle('on',b.dataset.rail===which);});
+}
+function railIcon(n){
+  var p={
+    explore:'<circle cx="12" cy="12" r="9"/><path d="M14.5 9.5l-2 5-5 2 2-5z"/>',
+    boards:'<rect x="3" y="4" width="7.5" height="16" rx="1.6"/><rect x="13.5" y="4" width="7.5" height="7" rx="1.6"/><rect x="13.5" y="13" width="7.5" height="7" rx="1.6"/>',
+    share:'<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/>',
+    quote:'<path d="M4 4h11l5 5v11H4z"/><path d="M14 4v5h5M8 13h8M8 17h5"/>'
+  }[n]||'';
+  return '<svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" '+
+    'stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">'+p+'</svg>';
+}
+function railHtml(){
+  return '<nav class="rail" id="rail" aria-label="Store sections">'+
+    '<button type="button" class="railb on" data-rail="explore">'+railIcon('explore')+
+      '<span>Explore</span></button>'+
+    '<button type="button" class="railb" data-rail="boards">'+railIcon('boards')+
+      '<span>Boards</span><i class="railn" id="railN"></i></button>'+
+    '<button type="button" class="railb" data-rail="share">'+railIcon('share')+
+      '<span>Share</span></button>'+
+    '<button type="button" class="railb" data-rail="quote">'+railIcon('quote')+
+      '<span>Quote</span></button>'+
+    '</nav>';
+}
+function wireRail(){
+  document.querySelectorAll('.railb').forEach(function(b){
+    b.addEventListener('click',function(){
+      var w=b.dataset.rail;
+      if(w==='explore'){closeBoards();closeBoard();closeAll();
+        window.scrollTo({top:0,behavior:'smooth'});setRail('explore');return;}
+      if(w==='boards'){closeBoard();openBoards();return;}
+      if(w==='share'){shareList();return;}
+      if(w==='quote'){closeBoards();closeBoard();
+        document.getElementById('ov').classList.add('on');
+        document.getElementById('cart').classList.add('on');
+        document.body.style.overflow='hidden';openCheckout();return;}
+    });});
 }
 function renderCart(){
   var keys=Object.keys(CART),sub=cartSubtotal();

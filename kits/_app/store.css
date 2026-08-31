@@ -1082,6 +1082,66 @@ body.curating{padding-bottom:340px}
 /* ---- one-tap reuse of the last size split ---
    Reads as a helpful shortcut, not a competing action: dashed, accent-tinted, full width under the
    grid it fills in. It only ever renders on an item with no sizes entered yet. */
+/* ---- THE RAIL: two destinations, quietly ------------------------------------------------------
+   Pinterest's rail works because it is icon-first, always present, and holds almost nothing. Ours
+   holds Explore and Boards (the two things this store does) plus the two actions a buyer takes from
+   either (Share, Quote). Desktop: fixed left. Phone: bottom tab bar, which is where a thumb is. */
+.rail{position:fixed;left:0;top:0;bottom:0;width:74px;z-index:1200;display:flex;flex-direction:column;
+  align-items:center;gap:4px;padding:16px 0;background:#fff;border-right:1px solid var(--ln)}
+.railb{position:relative;width:58px;padding:9px 2px 7px;border:0;border-radius:13px;background:transparent;
+  color:var(--mut);font:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;
+  gap:3px;transition:.15s}
+.railb span{font-size:10px;font-weight:800;letter-spacing:.01em}
+.railb:hover{background:rgba(0,0,0,.05);color:var(--ink)}
+.railb.on{background:var(--ink);color:#fff}
+.railn{display:none;position:absolute;top:3px;right:5px;min-width:15px;height:15px;border-radius:999px;
+  background:var(--ac);color:#fff;font-size:9.5px;font-weight:800;font-style:normal;line-height:15px;
+  text-align:center;padding:0 3px}
+body{padding-left:74px}
+.rail+.hdr,.hdr{}
+/* ---- BOARDS INDEX ---------------------------------------------------------------------------- */
+.btiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(258px,1fr));gap:24px;padding:26px 0 0}
+.btile{border:0;background:transparent;padding:0;font:inherit;cursor:pointer;text-align:left;
+  display:flex;flex-direction:column;gap:11px}
+/* The collage is the board's identity -- its own garments, not an icon. */
+.btcollage{position:relative;display:grid;grid-template-columns:2fr 1fr;grid-template-rows:1fr 1fr;
+  gap:3px;aspect-ratio:4/3;border-radius:15px;overflow:hidden;background:#f1f1ef;
+  transition:box-shadow .18s,transform .18s}
+.btile:hover .btcollage{box-shadow:0 12px 30px rgba(0,0,0,.11);transform:translateY(-2px)}
+.btcollage .btc:nth-child(1){grid-column:1;grid-row:1/span 2}
+.btcollage .btc:nth-child(2){grid-column:2;grid-row:1}
+.btcollage .btc:nth-child(3){grid-column:2;grid-row:2}
+.btc{background:linear-gradient(170deg,#fafafa,#eeeeec);overflow:hidden;display:flex;
+  align-items:center;justify-content:center}
+.btc img{width:100%;height:100%;object-fit:contain;padding:8px;box-sizing:border-box}
+.btc.empty{background:#f4f4f2}
+.btcollage.blank{display:flex;align-items:center;justify-content:center;
+  border:1px dashed var(--ln);background:#fbfbfa}
+.btplus{font-size:34px;font-weight:300;color:var(--mut);line-height:1}
+.bttag{position:absolute;top:10px;left:10px;padding:4px 9px;border-radius:999px;
+  background:rgba(255,255,255,.95);font-size:10px;font-weight:800;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--ink);box-shadow:0 1px 5px rgba(0,0,0,.1)}
+.btmeta{display:flex;flex-direction:column;gap:2px;padding:0 2px}
+.btmeta b{font-size:15px;font-weight:800;letter-spacing:-.01em;color:var(--ink)}
+.btmeta span{font-size:12.5px;font-weight:600;color:var(--mut)}
+.btile.new .btmeta b{color:var(--ac)}
+
+@media (max-width:820px){
+  /* Thumb reach beats convention: the rail becomes the bottom tab bar. */
+  body{padding-left:0;padding-bottom:64px}
+  .rail{left:0;right:0;top:auto;bottom:0;width:auto;height:60px;flex-direction:row;
+    justify-content:space-around;gap:0;padding:0 4px;border-right:0;border-top:1px solid var(--ln);
+    box-shadow:0 -2px 14px rgba(0,0,0,.05)}
+  .railb{width:auto;flex:1;max-width:96px;padding:7px 2px 5px;border-radius:11px}
+  .railb span{font-size:10px}
+  .railn{top:3px;right:calc(50% - 22px)}
+  /* the old floating list bar would sit on top of the tab bar */
+  .cbar{bottom:64px}
+  .btiles{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:15px;padding:18px 0 0}
+  .btmeta b{font-size:13.5px}
+  .btmeta span{font-size:11.5px}
+}
+
 /* ---- BOARDS ------------------------------------------------------------------------------------
    This is the surface a buyer forwards to a CFO, so it is built as a document, not a cart: white
    canvas, product photography given real room, one accent, and typography tight enough to read as
