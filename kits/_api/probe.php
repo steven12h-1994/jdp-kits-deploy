@@ -70,4 +70,5 @@ echo json_encode([
     'docroot_guess'  => $docroot,
     'candidates'     => $res,
     'server_time'    => gmdate('c'),
+    'build'          => 'r2-php-allowed-under-api',
 ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
