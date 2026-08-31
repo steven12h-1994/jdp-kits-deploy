@@ -362,8 +362,86 @@ function recDecos(key){
 }
 
 /* ---------- persistence ---------- */
-function loadCart(){try{CART=JSON.parse(localStorage.getItem(LSKEY))||{};}catch(e){CART={};}}
-function saveCart(){try{localStorage.setItem(LSKEY,JSON.stringify(CART));}catch(e){}}
+/* ---------- LISTS ---------------------------------------------------------------------------
+   Consolidation. The store had grown four overlapping ideas for "things the customer picked": the
+   kit, our curated shortlist, a shared link that merged into the kit, and per-store picks. Steven
+   asked for the Amazon Business pattern instead, which is one idea: you save a product to a List,
+   Lists persist, you can have several, and you add to whichever you like.
+
+   Implemented as a LAYER OVER the existing cart rather than a rewrite. CART stays the live object
+   that every pricing, quote, share and render path already reads -- it is now simply an alias for
+   the active List's items. That keeps ~25 working call sites correct instead of re-touching them.
+   An existing single cart is migrated into the first List on load, so nobody loses a kit. */
+var LISTS=null,ALID='';
+function LKEY(){return LSKEY+'_lists';}
+function persistLists(){
+  try{localStorage.setItem(LKEY(),JSON.stringify({lists:LISTS,active:ALID}));}catch(e){}}
+function newListId(){return 'l'+Date.now().toString(36)+Math.floor(Math.random()*1e4).toString(36);}
+function loadLists(){
+  var raw=null;try{raw=JSON.parse(localStorage.getItem(LKEY())||'null');}catch(e){}
+  if(raw&&raw.lists&&Object.keys(raw.lists).length){
+    LISTS=raw.lists;ALID=raw.active||Object.keys(raw.lists)[0];
+  }else{
+    // First run under Lists: adopt whatever single cart already exists so no work is lost.
+    var old={};try{old=JSON.parse(localStorage.getItem(LSKEY)||'{}')||{};}catch(e){old={};}
+    var id=newListId();LISTS={};
+    LISTS[id]={name:'My list',items:old,updated:Date.now()};
+    ALID=id;persistLists();
+  }
+  if(!LISTS[ALID])ALID=Object.keys(LISTS)[0];
+}
+function listIds(){
+  return Object.keys(LISTS||{}).sort(function(a,b){
+    return (LISTS[b].updated||0)-(LISTS[a].updated||0);});}
+function listName(id){return ((LISTS||{})[id]||{}).name||'My list';}
+function listLen(id){return Object.keys((((LISTS||{})[id])||{}).items||{}).length;}
+function activeName(){return listName(ALID);}
+function newList(name){
+  var id=newListId();
+  LISTS[id]={name:(name||'').trim()||('List '+(listIds().length+1)),items:{},updated:Date.now()};
+  ALID=id;CART=LISTS[id].items;persistLists();return id;}
+function switchList(id){
+  if(!LISTS[id])return;
+  ALID=id;CART=LISTS[id].items;persistLists();
+  renderCart();refreshCartUI();}
+function renameList(id,name){
+  name=(name||'').trim();if(!LISTS[id]||!name)return;
+  LISTS[id].name=name.slice(0,40);persistLists();}
+function deleteList(id){
+  if(!LISTS[id])return;
+  if(listIds().length<2){LISTS[id].items={};CART=LISTS[id].items;persistLists();return;}
+  delete LISTS[id];
+  if(ALID===id){ALID=listIds()[0];CART=LISTS[ALID].items;}
+  persistLists();}
+/* The list picker. A native <select> on purpose: it is the most familiar, most reliable control on
+   a phone, needs no custom popover, and cannot get stuck open. Counts are shown inline so switching
+   is an informed choice rather than a guess. */
+function listBarHtml(){
+  if(!LISTS)loadLists();
+  var ids=listIds();
+  var opts=ids.map(function(id){
+    return '<option value="'+esc(id)+'"'+(id===ALID?' selected':'')+'>'+
+      esc(listName(id))+' \u00b7 '+listLen(id)+'</option>';}).join('');
+  return '<div class="lbar">'+
+    '<select class="lsel" id="lsel" aria-label="Choose a list">'+opts+'</select>'+
+    '<button type="button" class="lbtn" id="lNew">+ New</button>'+
+    '<button type="button" class="lbtn" id="lRen">Rename</button>'+
+    (ids.length>1?'<button type="button" class="lbtn rm" id="lDel">Delete</button>':'')+
+    '</div>';
+}
+function heartSvg(filled){
+  return '<svg class="hrt" viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" fill="'+
+    (filled?'currentColor':'none')+'" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" '+
+    'stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8'+
+    'L12 21.1l8.8-8.7a5.5 5.5 0 0 0 0-7.8z"/></svg>';
+}
+function loadCart(){loadLists();CART=(LISTS[ALID]&&LISTS[ALID].items)||{};}
+function saveCart(){
+  if(!LISTS)loadLists();
+  // CART is normally an alias for the active list's items, but some paths reassign it wholesale --
+  // re-link on every save so a reassignment can never silently orphan the list.
+  if(LISTS[ALID]){LISTS[ALID].items=CART;LISTS[ALID].updated=Date.now();}
+  persistLists();}
 
 /* ---------- overlay (garment photo + logo at a placement) ---------- */
 function placeInList(places,pid){for(var i=0;i<places.length;i++)if(places[i].id===pid)return places[i];return null;}
@@ -403,7 +481,7 @@ function menuCard(key){
   var fab=_fl?'<div class="mfab" title="Fabric content as published by the maker">'+esc(_fl)+'</div>':'';
   var q=cartQtyOf(key);
   var inkit=q?' inkit':'';
-  var addlbl=q?('<b>'+q+'</b>'):'+';
+  var addlbl=q?(heartSvg(1)+'<b>'+q+'</b>'):heartSvg(0);
   return '<article class="mcard'+inkit+'" data-key="'+key+'" data-name="'+esc(searchText(item).replace(/"/g,''))+'" tabindex="0" role="button" aria-label="'+esc(item.name)+'">'+
     '<div class="mstage">'+curToggleHtml(key)+rec+(item.video?'<button class="mvid" data-vid="'+esc(item.video)+'" data-vname="'+esc(item.name)+'" aria-label="Play product video">▶ Video</button>':'')+'<img class="g" src="'+o.g+'" alt="'+esc(item.name)+'" loading="lazy" decoding="async">'+o.lg+
       '<button class="madd'+(q?' has':'')+'" data-key="'+key+'" aria-label="'+(q?'Edit ':'Add ')+esc(item.name)+'">'+addlbl+'</button></div>'+
@@ -1112,7 +1190,7 @@ function whyJdpHtml(){
       return '<div class="rsn'+(i===0?' rsnhero':'')+'"><span class="rsnk">'+(i===0?'\u2605':'\u2713')+'</span>'+
         '<div><b>'+esc(r.t)+'</b><span>'+esc(r.d)+'</span></div></div>';
     }).join('')+'</div>'+
-    '<div class="whycta"><button class="reccta" id="whyCta">Build your kit — get an exact quote <span class="ar">\u2192</span></button>'+
+    '<div class="whycta"><button class="reccta" id="whyCta">Build your list — get an exact quote <span class="ar">\u2192</span></button>'+
       '<span class="whyctan">No payment now · no obligation</span></div>'+
   '</div></section>';}
 
@@ -1158,8 +1236,8 @@ function openKitSheet(kid){
     '<button class="shx" id="shx" aria-label="Close">✕</button>'+
     '<div class="shscroll"><div class="kithd"><span class="kittag">'+esc(kit.tag)+'</span><h2>'+esc(kit.name)+'</h2><p>'+esc(kit.blurb)+'</p></div>'+
     '<div class="krows">'+rows+'</div>'+
-    '<div class="pinc"><span class="pinci">✓</span> Add the set, then tweak sizes &amp; colours in your kit and send for your exact quote — no obligation.</div></div>'+
-    '<div class="shfoot"><button class="shaddbtn" id="kitAdd"><span>Add all '+items.length+' pieces to my kit</span></button>'+
+    '<div class="pinc"><span class="pinci">✓</span> Add the set, then tweak sizes &amp; colours in your list and send for your exact quote — no obligation.</div></div>'+
+    '<div class="shfoot"><button class="shaddbtn" id="kitAdd"><span>Add all '+items.length+' pieces to my list</span></button>'+
     '<div class="shtrust">Adjust any piece after adding · no payment now</div></div>';
   var sh=document.getElementById('sheet');
   document.getElementById('shx').addEventListener('click',closeAll);
@@ -1335,13 +1413,13 @@ function buildStore(){
       the footer" it was invisible: the person it is built for could not find it on his own store.
       The bar appears the moment the kit has something in it, which is exactly when sharing starts to
       mean anything, and it is the one piece of chrome always in reach on a phone. */
-   '<div class="cbar" id="cbar"><div class="cbarin w"><div class="cbarL"><span class="n" id="cbarN">0</span> in your kit</div>'+
+   '<div class="cbar" id="cbar"><div class="cbarin w"><div class="cbarL"><span class="n" id="cbarN">0</span> in this list</div>'+
      '<button class="cbarshare" id="cbarShare" aria-label="Send this list to your team" title="Send this list to your team">'+
        '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" '+
        'stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/>'+
        '<circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg><span>Share</span></button>'+
-     '<button class="cbarbtn" id="openCart2">View kit <span class="p" id="cbarP"></span> <span class="ar">→</span></button></div></div>'+
-   '<div class="toast" id="toast"><span class="tk">✓</span><span class="tm" id="toastM">Added</span><button class="tview" id="toastView">View kit →</button></div>';
+     '<button class="cbarbtn" id="openCart2">View list <span class="p" id="cbarP"></span> <span class="ar">→</span></button></div></div>'+
+   '<div class="toast" id="toast"><span class="tk">✓</span><span class="tm" id="toastM">Added</span><button class="tview" id="toastView">View list →</button></div>';
   document.getElementById('app').innerHTML=html;
   document.getElementById('openCart').addEventListener('click',openCart);
   var cbs=document.getElementById('cbarShare');if(cbs)cbs.addEventListener('click',shareList);
@@ -1406,7 +1484,7 @@ function openLead(){
   document.body.style.overflow='hidden';
 }
 var TT;
-function toast(msg){var t=document.getElementById('toast'),m=document.getElementById('toastM');if(!t)return;if(m)m.textContent=msg||'Added to your kit';t.classList.add('on');clearTimeout(TT);TT=setTimeout(function(){t.classList.remove('on');},3600);}
+function toast(msg){var t=document.getElementById('toast'),m=document.getElementById('toastM');if(!t)return;if(m)m.textContent=msg||'Added to your list';t.classList.add('on');clearTimeout(TT);TT=setTimeout(function(){t.classList.remove('on');},3600);}
 
 /* ---------- item customiser (one clean screen) ---------- */
 var SH={key:null,colour:null,face:'front',D:{},qty:12,showExtra:false,fit:'mens'};
@@ -1445,7 +1523,7 @@ function currentSheetColour(key){
 }
 /* NOTE: there used to be a SECOND toast() here that built a bare #jdptoast div. Function
    declarations hoist, so this later one silently overrode the designed toast above -- meaning the
-   real component (tick, message, and a "View kit \u2192" button) had never once rendered. Customers
+   real component (tick, message, and a "View list \u2192" button) had never once rendered. Customers
    were getting a plain text pill and, worse, losing the one-tap route to their kit right after
    adding something. Removed; the designed toast is the only toast. */
 function copyLink(url){
@@ -1698,7 +1776,7 @@ function openSampleVisit(key){
     ? '<ul class="svlist">'+keys.map(function(k){var it=BYKEY[k];if(!it)return '';
         var c=((CART[k]||CART[k+'#w'])||{}).colour||(SH&&SH.key===k?SH.colour:'')||'';
         return '<li><span>'+esc(it.name)+'</span>'+(c?'<i>'+esc(c)+'</i>':'')+'</li>';}).join('')+'</ul>'
-    : '<p class="svnone">Add a few pieces to your kit and we\u2019ll bring those \u2014 or just tell us below what you want to see.</p>';
+    : '<p class="svnone">Add a few pieces to your list and we\u2019ll bring those \u2014 or just tell us below what you want to see.</p>';
   el.innerHTML='<button class="shx" id="sampX" aria-label="Close">\u2715</button><div class="leadb">'+
     '<div class="eyb">No obligation</div><h2>See &amp; feel it in person</h2>'+
     '<p class="leadsub">We\u2019ll come to your workplace with the actual garments so your team can '+
@@ -1968,7 +2046,7 @@ function renderPromoSheet(){
       '<div class="psrow"><span>Your logo</span><span>confirmed on quote</span></div>'+
       '<div class="psrow pstot"><span>Estimated total</span><span>'+money(q.goods+(item.setup>0?item.setup:0))+'</span></div></div>';
     footHtml='<div class="pfrow"><span>'+q.qty+' '+unitP+' · '+money(q.perPiece)+'/'+unitP+'</span><b>'+money(q.goods)+'</b></div>'+
-      '<button class="shaddbtn" id="shAdd"><span>'+(CART[SH.key]?'Update kit':'Add to kit')+'</span><span class="p">'+money(q.goods)+'</span></button>'+
+      '<button class="shaddbtn" id="shAdd"><span>'+(CART[SH.key]?'Update list':'Add to list')+'</span><span class="p">'+money(q.goods)+'</span></button>'+
       '<div class="shtrust">Minimum '+min+' '+unitP+' · logo &amp; final price confirmed on your quote</div>';
   }else{
     var meth=methods.map(function(m,i){var up=m.r>0?('<small>+'+money(m.r)+'/pc</small>'):'<small>included</small>';
@@ -1982,7 +2060,7 @@ function renderPromoSheet(){
       '<div class="psrow"><span>One-time logo setup'+(q.locs>1?' · 2 spots':'')+'</span><span>'+money(q.setup)+'</span></div>'+
       '<div class="psrow pstot"><span>Estimated total</span><span>'+money(q.total)+' <em>≈'+money(q.allIn)+'/pc</em></span></div></div>';
     footHtml='<div class="pfrow"><span>'+q.qty+' pcs · '+money(q.perPiece)+'/pc + '+money(q.setup)+' setup</span><b>'+money(q.total)+'</b></div>'+
-      '<button class="shaddbtn" id="shAdd"><span>'+(CART[SH.key]?'Update kit':'Add to kit')+'</span><span class="p">'+money(q.total)+'</span></button>'+
+      '<button class="shaddbtn" id="shAdd"><span>'+(CART[SH.key]?'Update list':'Add to list')+'</span><span class="p">'+money(q.total)+'</span></button>'+
       '<div class="shtrust">Minimum '+min+' pcs · no payment now</div>';
   }
   document.getElementById('sheet').innerHTML=
@@ -2058,7 +2136,7 @@ function renderSheet(){
        already in there removes the "did I just overwrite it?" doubt, and nudges the second add. */
     (function(){var other=ckey(SH.key,SH.fit==='womens'?'mens':'womens');var o=CART[other];
       return o?('<span class="fitboth">\u2713 '+(SH.fit==='womens'?'Men\u2019s':'Women\u2019s')+
-        ' cut already in your kit \u2014 '+(o.qty||0)+' pcs</span>'):'';})()+
+        ' cut already in your list \u2014 '+(o.qty||0)+' pcs</span>'):'';})()+
     '</div>'):(item.unisex?'<div class="fittog"><span class="fitl">Fit</span><span class="unitag">Unisex</span><span class="fitnote">One unisex cut — fits everyone</span></div>':'');
   var faceTog=hasBack?'<div class="ftog"><button class="pchip'+(SH.face==='front'?' on':'')+'" data-face="front">Front</button><button class="pchip'+(SH.face==='back'?' on':'')+'" data-face="back">Back</button></div>':'';
   var logoPlaces=(item.places||[]).filter(function(p){return p.logo;});
@@ -2121,10 +2199,10 @@ function renderSheet(){
       (item.blurb?'<p class="shblurb">'+esc(item.blurb)+'</p>':'')+
       fabricHtml(item)+sampCtaHtml(SH.key)+
       fitTog+step1+qtyGrp+primaryHtml+extraHtml+
-      '<div class="shnote">'+(hasDecoPlace(item)?'Prices are per piece, decorated — your logo (embroidery / print) is included. One-time setup shows once in your kit summary. ':'Prices are per piece (blank garment — no decoration on this item). ')+'Exact quote confirmed before anything runs.</div>'+
+      '<div class="shnote">'+(hasDecoPlace(item)?'Prices are per piece, decorated — your logo (embroidery / print) is included. One-time setup shows once in your list summary. ':'Prices are per piece (blank garment — no decoration on this item). ')+'Exact quote confirmed before anything runs.</div>'+
     '</div></div>'+
     '<div class="shfoot">'+priceClar+
-      '<button class="shaddbtn" id="shAdd"'+(canAdd?'':' disabled')+'><span>'+(canAdd?(CART[ckey(SH.key,SH.fit)]?'Update kit':'Add to kit'):('Add '+moq()+'+ pieces'))+'</span><span class="p">'+money(line)+'</span></button>'+
+      '<button class="shaddbtn" id="shAdd"'+(canAdd?'':' disabled')+'><span>'+(canAdd?(CART[ckey(SH.key,SH.fit)]?'Update list':'Add to list'):('Add '+moq()+'+ pieces'))+'</span><span class="p">'+money(line)+'</span></button>'+
       '<div class="shtrust">✓ Live pricing · exact quote · no obligation · no payment now</div></div>';
   var sh=document.getElementById('sheet');
   // Re-render replaces this markup, so the sheet chrome must be re-bound every time, not just
@@ -2345,7 +2423,7 @@ function shareList(){
   clipCopy(url);toast('Link copied — send it to your team');
 }
 /* A curated list should not need a click to be received. The recipient used to land with an EMPTY
-   kit -- "0 in your kit" on the mobile bar -- while the list sat on screen behind two different
+   kit -- "0 in your list" on the mobile bar -- while the list sat on screen behind two different
    buttons that called the same function. So we apply it on arrival. Never clobbers a kit the
    recipient already built, and is guarded by a signature so a refresh never re-adds something they
    deliberately removed. */
@@ -2357,15 +2435,22 @@ function autoApplyShared(){
   var sig=sharedSig(),prev='';
   try{prev=localStorage.getItem('jdp_applied_sig')||'';}catch(e){}
   if(prev===sig)return;
-  var added=0;
+  // A shared list arrives as its OWN List -- it never merges into whatever the recipient was
+  // building, and it persists alongside their own lists exactly like every other one.
+  var items={};
   SHARED.items.forEach(function(x){
-    var ck=ckey(x.k,x.fit);
-    if(!BYKEY[x.k]||CART[ck])return;
+    if(!BYKEY[x.k])return;
     var entry={qty:x.qty,colour:x.colour,decos:recCartDecos(x.k),fit:x.fit};
     if(x.sizes)entry.sizes=x.sizes;
-    CART[ck]=entry;added++;});
+    items[ckey(x.k,x.fit)]=entry;});
+  var added=Object.keys(items).length;
+  if(!added)return;
+  if(!LISTS)loadLists();
+  var id=newListId();
+  LISTS[id]={name:(SHARED.from?(SHARED.from+'\u2019s list'):'Shared list'),
+             items:items,updated:Date.now()};
+  ALID=id;CART=items;persistLists();
   try{localStorage.setItem('jdp_applied_sig',sig);}catch(e){}
-  if(added)saveCart();
   SHAPPLIED=added;
 }
 function sharedStripHtml(){
@@ -2377,9 +2462,9 @@ function sharedStripHtml(){
   return '<div class="herooffer pkoffer">'+
       '<span class="hoic" aria-hidden="true">\u2713</span>'+
       '<span class="hotx"><b>'+(still<n
-          ? (still+' of '+(who?(esc(who)+'\u2019s '):'')+n+' pieces are in your kit')
-          : (who?(esc(who)+'\u2019s '+n+' piece'+(n===1?' is':'s are')+' in your kit')
-               :(n+' piece'+(n===1?'':'s')+' \u2014 already in your kit')))+'</b>'+
+          ? (still+' of '+(who?(esc(who)+'\u2019s '):'')+n+' pieces are in your list')
+          : (who?(esc(who)+'\u2019s '+n+' piece'+(n===1?' is':'s are')+' in your list')
+               :(n+' piece'+(n===1?'':'s')+' \u2014 already in your list')))+'</b>'+
         '<i>'+(still<n
           ? 'You\u2019ve changed the list \u2014 that\u2019s fine, add or remove anything you like. '
           : ('Colours, sizes and quantities exactly as '+(who?esc(who):'they')+' set them. '))+
@@ -2425,7 +2510,7 @@ function addPicks(){
     CART[x.k]={qty:(d&&d.qty)||moq(),colour:(d&&d.colour)||vmOf(x.k).colour,decos:recCartDecos(x.k)};
     n++;});
   saveCart();refreshCartUI();openCart();
-  toast(n?('Added '+n+' piece'+(n===1?'':'s')+' from your shortlist'):'Your shortlist is already in your kit');
+  toast(n?('Added '+n+' piece'+(n===1?'':'s')+' from your shortlist'):'Your shortlist is already in your list');
 }
 /* ---- Curator mode ----------------------------------------------------------------------------
    Steven was the bottleneck: every shortlist change meant describing a store and a list of products
@@ -2678,7 +2763,7 @@ function picksSectionHtml(){
       '<h2>'+picksTitle(p)+'</h2>'+
       (p.note?('<p class="pknote">'+esc(p.note)+'</p>'):'')+'</div>'+
       '<button type="button" class="pkadd" id="addPicks">Add all '+p.keys.length+
-        ' <span>to my kit</span></button></div>'+
+        ' <span>to my list</span></button></div>'+
     '<div class="menu pkmenu" id="pkgrid">'+cards+'</div></div></section>';
 }
 function essKeysAll(){
@@ -2730,7 +2815,9 @@ function refreshCartUI(){
   document.querySelectorAll('.mcard').forEach(function(card){var k=card.dataset.key;
     var qn=cartQtyOf(k),on=qn>0;card.classList.toggle('inkit',on);
     var b=card.querySelector('.madd');
-    if(b){b.classList.toggle('has',on);b.innerHTML=on?('<b>'+qn+'</b>'):'+';}});
+    if(b){b.classList.toggle('has',on);
+      b.innerHTML=on?(heartSvg(1)+'<b>'+qn+'</b>'):heartSvg(0);
+      b.setAttribute('aria-label',on?(qn+' in your list'):'Save to my list');}});
 }
 function openCart(){renderCart();document.getElementById('ov').classList.add('on');document.getElementById('cart').classList.add('on');document.body.style.overflow='hidden';}
 function cartLineHtml(k){var it=BYKEY[bkey(k)];if(!it)return '';var c=CART[k];
@@ -2756,11 +2843,13 @@ function cartLineHtml(k){var it=BYKEY[bkey(k)];if(!it)return '';var c=CART[k];
 function renderCart(){
   var keys=Object.keys(CART),sub=cartSubtotal();
   var items=keys.map(function(k){return cartLineHtml(k);}).join('');
-  var body=keys.length?items:('<div class="cempty"><div class="ce-ic">🛒</div><b>Your kit is empty</b><span>Add a few pieces to get your exact quote \u2014 or to send your team a list.</span>'+(recKeysAll().length?'<button class="ceadd" id="emptyAddRec">Add the '+essKeysAll().length+' essentials</button>':'')+'</div>');
+  var body=keys.length?items:('<div class="cempty"><div class="ce-ic">🛒</div><b>This list is empty</b><span>Add a few pieces to get your exact quote \u2014 or to send your team a list.</span>'+(recKeysAll().length?'<button class="ceadd" id="emptyAddRec">Add the '+essKeysAll().length+' essentials</button>':'')+'</div>');
   var setupRows=setupBreakdown(),setup=setupRows.reduce(function(t,x){return t+x.amount;},0);
   var brk=setupRows.length?('<details class="setupbrk"><summary>One-time setup '+money(setup)+' <i>· once per design, shared across the kit</i></summary>'+setupRows.map(function(x){return '<div class="sbk"><span>'+esc(x.label)+'</span><span>'+money(x.amount)+'</span></div>';}).join('')+'</details>'):'';
   document.getElementById('cart').innerHTML=
-    '<div class="carth"><h2>Your kit</h2><button class="cartx" id="cartx" aria-label="Close">✕</button></div>'+
+    '<div class="carth"><h2>'+esc(activeName())+'</h2>'+
+      '<button class="cartx" id="cartx" aria-label="Close">✕</button></div>'+
+    listBarHtml()+
     '<div class="citems" id="citems">'+body+'</div>'+
     (keys.length?('<div class="cartf">'+
       '<div class="crow"><span>Estimated subtotal</span><b>'+money(sub)+'</b></div>'+
@@ -2783,6 +2872,21 @@ function renderCart(){
   var sl=document.getElementById('shareList');if(sl)sl.addEventListener('click',shareList);
 
   var ea=document.getElementById('emptyAddRec');if(ea)ea.addEventListener('click',function(){addRecommended();});
+  var lsl=document.getElementById('lsel');
+  if(lsl)lsl.addEventListener('change',function(){switchList(lsl.value);});
+  var lnw=document.getElementById('lNew');
+  if(lnw)lnw.addEventListener('click',function(){
+    var n=window.prompt('Name this list','List '+(listIds().length+1));
+    if(n===null)return;newList(n);renderCart();refreshCartUI();
+    toast('Started \u201c'+listName(ALID)+'\u201d');});
+  var lrn=document.getElementById('lRen');
+  if(lrn)lrn.addEventListener('click',function(){
+    var n=window.prompt('Rename this list',activeName());
+    if(n===null)return;renameList(ALID,n);renderCart();refreshCartUI();});
+  var ldl=document.getElementById('lDel');
+  if(ldl)ldl.addEventListener('click',function(){
+    if(!window.confirm('Delete \u201c'+activeName()+'\u201d and everything in it?'))return;
+    deleteList(ALID);renderCart();refreshCartUI();});
   document.querySelectorAll('.ci').forEach(function(ci){var k=ci.dataset.key;
     var ed=ci.querySelector('[data-edit]');if(ed)ed.addEventListener('click',function(){editItem(k);});
     ci.querySelector('[data-rm]').addEventListener('click',function(){delete CART[k];saveCart();renderCart();refreshCartUI();});
@@ -2876,14 +2980,14 @@ function openCheckout(){
             'PNG you have, on a transparent background.</i></span>'+
         '</label>'+
         '<input id="coArt" type="file" class="artin" accept=".ai,.eps,.pdf,.svg,.png,.jpg,.jpeg">'+
-        '<div class="artnote">No logo file to hand? Send your kit anyway \u2014 we\u2019ll redraw your '+
+        '<div class="artnote">No logo file to hand? Send your list anyway \u2014 we\u2019ll redraw your '+
           'logo to production quality from the best image you have, at no charge.</div>'+
       '</div>'+
     '</div></div>'+
     '<div class="cartf">'+
-      '<button class="checkout" id="emailKit">Send my kit — get my quote <span class="ar">→</span></button>'+
-      '<button class="copyalt" id="copyKit">or copy my kit to paste into a reply</button>'+
-      '<div class="ckpm">\u2605 <b>Price-match guarantee</b> — found a lower written quote for the same job? Send it with your kit and we\u2019ll match it.</div>'+
+      '<button class="checkout" id="emailKit">Send my list — get my quote <span class="ar">→</span></button>'+
+      '<button class="copyalt" id="copyKit">or copy my list to paste into a reply</button>'+
+      '<div class="ckpm">\u2605 <b>Price-match guarantee</b> — found a lower written quote for the same job? Send it with your list and we\u2019ll match it.</div>'+
       '<button type="button" class="svalt" data-samp="">\u270B Rather see them in person first? We\u2019ll bring samples to you</button>'+
       '<div class="cktrust" id="copyHint"><span>No payment now</span><span>No obligation</span><span>No minimum beyond 12 pcs</span></div></div>';
   document.getElementById('cartx').addEventListener('click',closeAll);
@@ -2943,7 +3047,7 @@ function submitKit(){
 }
 function mailtoFallback(c,body,subj){
   clipCopy(body);
-  var btn=document.getElementById('emailKit');if(btn){btn.disabled=false;btn.innerHTML=btn.dataset.lbl||'Send my kit — get my quote <span class="ar">→</span>';}
+  var btn=document.getElementById('emailKit');if(btn){btn.disabled=false;btn.innerHTML=btn.dataset.lbl||'Send my list — get my quote <span class="ar">→</span>';}
   var hint=document.getElementById('copyHint');if(hint)hint.innerHTML='<span>Opening your email — just hit send ✓</span><span>Didn’t open? Your kit is copied — email '+JDP_EMAIL+'</span>';
   window.location.href='mailto:'+JDP_EMAIL+'?subject='+encodeURIComponent(subj)+'&body='+encodeURIComponent(body);
 }
@@ -2972,7 +3076,7 @@ function renderSkeleton(cfg){
     '<header class="hdr"><div class="w hdrin"><span class="brand"><b>'+esc((cfg&&cfg.client)||'')+'</b><i>× Just Deals</i></span></div></header>'+
     '<section class="hero"><div class="w heroin"><div class="eyb">Branded apparel · ready to order</div>'+
       '<h1>'+esc(poss((cfg&&cfg.client)||'Your'))+" team store</h1>"+
-      '<p class="herosub">Loading your kit…</p></div></section>'+
+      '<p class="herosub">Loading your list…</p></div></section>'+
     '<main class="w"><div class="menu">'+cards+'</div></main>';
 }
 // Keep the accent readable: a near-white / very light brand colour is invisible as text on the

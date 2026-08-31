@@ -1082,6 +1082,26 @@ body.curating{padding-bottom:340px}
 /* ---- one-tap reuse of the last size split ---
    Reads as a helpful shortcut, not a competing action: dashed, accent-tinted, full width under the
    grid it fills in. It only ever renders on an item with no sizes entered yet. */
+/* ---- Lists ------------------------------------------------------------------------------------
+   The picker sits directly under the list's own name, so "which list am I looking at" and "switch
+   list" are the same glance. Native select: familiar, reliable on mobile, impossible to get stuck. */
+.lbar{display:flex;align-items:center;gap:6px;padding:9px 16px 11px;border-bottom:1px solid var(--ln);
+  background:var(--bg2,#f7f7f5);flex-wrap:wrap}
+.lsel{flex:1 1 150px;min-width:0;padding:8px 10px;border:1px solid var(--ln);border-radius:9px;
+  background:#fff;font:inherit;font-size:13px;font-weight:700;color:var(--ink);cursor:pointer}
+.lbtn{padding:8px 10px;border:1px solid var(--ln);border-radius:9px;background:#fff;font:inherit;
+  font-size:12px;font-weight:700;color:var(--mut);cursor:pointer;white-space:nowrap;transition:.14s}
+.lbtn:hover{border-color:var(--ac);color:var(--ac)}
+.lbtn.rm:hover{border-color:#c0392b;color:#c0392b}
+/* The heart is the save gesture, so it must read as an icon first and a counter second. */
+.madd .hrt{display:block}
+.madd.has{display:inline-flex;align-items:center;gap:4px}
+.madd.has .hrt{width:15px;height:15px}
+@media (max-width:600px){
+  .lbar{padding:8px 12px 10px;gap:5px}
+  .lbtn{padding:8px 9px;font-size:12px}
+}
+
 .fitboth{display:block;width:100%;margin:5px 0 0;font-size:11.5px;font-weight:700;
   line-height:1.45;color:var(--ac)}
 
