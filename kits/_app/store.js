@@ -1391,17 +1391,11 @@ function buildStore(){
            '</div>')));
   var html=''+
    railHtml()+
-   '<header class="hdr"><div class="w hdrin">'+
-     '<span class="brand"><img src="'+kurl(((CFG.logos&&CFG.logos[0]&&CFG.logos[0].inks&&CFG.logos[0].inks.dark))||CFG.cover_logo||'img/logo-white.png')+'" onerror="this.style.display=\'none\'" alt=""><b>'+esc(CFG.client)+'</b><i>× Just Deals</i></span>'+
-     '<button class="cartbtn" id="openCart"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2 3h3l2.4 12.2a1.5 1.5 0 0 0 1.5 1.2h8.2a1.5 1.5 0 0 0 1.5-1.2L22 7H6"/></svg>'+
-       '<span class="lbl" id="cartLbl">My list</span><span class="n" id="cartN">0</span></button></div></header>'+
    topSearchHtml()+
    '<section class="hero"><div class="w heroin">'+
-     '<div class="eyb">'+(demo?'Sample store · your logo goes here':'Premium branded workwear &amp; apparel')+'</div>'+
      '<h1>'+esc(poss(CFG.client))+" team store</h1>"+
      '<p class="herosub">'+(demo?'This is a live sample. Every item shows exactly where your logo goes — swap in your brand and it becomes your team’s store. Live pricing, exact quote, no obligation.':'One premium store for the jobsite and the front office — CSA hi-vis and rugged workwear to sharp branded polos and client gifts, every piece ready with your logo.')+'</p>'+
      heroCta+
-     '<div class="herotrust"><span>Family-owned in Toronto since 1994</span><span>12,846+ teams outfitted</span><span>Ships across Canada &amp; the U.S.</span></div>'+
    '</div></section>'+
    /* The value strip is gone. It stacked three more claims directly beneath a hero that already
       carries three trust chips AND the sample offer -- six competing assertions above the fold, which
@@ -1422,7 +1416,7 @@ function buildStore(){
        '<div class="fpfoot"><button type="button" class="fclear" id="fclear">Clear all</button>'+
          '<button type="button" class="fdone" id="fdone">Show results</button></div>'+
      '</div>'+
-     '<div class="filterbar"><div class="ctabsrow">'+
+     '<div class="filterbar" id="filterbar"><div class="ctabsrow">'+
        '<div class="ctabs" id="ctabs"></div>'+
        '<button class="fsbtn" id="searchToggle" aria-label="Search products"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></button></div>'+
        '<div class="fsrow"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="#8a93a0" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>'+
@@ -1462,11 +1456,22 @@ function buildStore(){
      '<button class="cbarbtn" id="openCart2">View list <span class="p" id="cbarP"></span> <span class="ar">→</span></button></div></div>'+
    '<div class="toast" id="toast"><span class="tk">✓</span><span class="tm" id="toastM">Added</span><button class="tview" id="toastView">View list →</button></div>';
   document.getElementById('app').innerHTML=html;
-  document.getElementById('openCart').addEventListener('click',function(){openBoard();});
+  var _oc=document.getElementById('openCart');
+  if(_oc)_oc.addEventListener('click',function(){openBoard();});
   var cbs=document.getElementById('cbarShare');if(cbs)cbs.addEventListener('click',shareList);
   document.getElementById('openCart2').addEventListener('click',function(){openBoard();});
   wireRail();
   wireExplore();
+  /* The tiles and the chip bar are the same navigation. Showing both at rest is the duplication
+     Steven is pointing at -- so the chip bar stays hidden until the tiles have scrolled away, at
+     which point it becomes the only way to change category and earns its space. */
+  (function(){
+    var tiles=document.querySelector('.excats'),bar=document.getElementById('filterbar');
+    if(!tiles||!bar||!window.IntersectionObserver){if(bar)bar.classList.add('show');return;}
+    new IntersectionObserver(function(es){
+      bar.classList.toggle('show',!es[0].isIntersecting);
+    },{rootMargin:'-70px 0px 0px 0px'}).observe(tiles);
+  })();
   document.getElementById('ov').addEventListener('click',closeAll);
   // The delegated click handler was only ever attached when a product sheet first opened, because
   // that is the one place that needed it. The hero's sample-visit CTA is on the page before any
@@ -3213,10 +3218,15 @@ function topSearchHtml(){
     '</div></section>';
 }
 function catKeysOf(cat){
+  /* BUCKETS[mega] is an object of SUBCATEGORIES -- {polos:[keys], shirts:[keys]} -- not a flat key
+     list. The first version iterated it and collected the sub NAMES, which are not product keys, so
+     every tile resolved no photo and rendered as an empty grey square. Flatten properly. */
   var b=(typeof BUCKETS!=='undefined')?BUCKETS[cat]:null;
   if(!b)return [];
   if(Object.prototype.toString.call(b)==='[object Array]')return b;
-  var out=[];for(var k in b){if(b[k])out.push(k);}return out;
+  var out=[];
+  for(var s in b){var arr=b[s];if(arr&&arr.length)out=out.concat(arr);}
+  return out;
 }
 function catTileImg(cat){
   var keys=catKeysOf(cat);

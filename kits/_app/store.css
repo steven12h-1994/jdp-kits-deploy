@@ -1082,6 +1082,26 @@ body.curating{padding-bottom:340px}
 /* ---- one-tap reuse of the last size split ---
    Reads as a helpful shortcut, not a competing action: dashed, accent-tinted, full width under the
    grid it fills in. It only ever renders on an item with no sizes entered yet. */
+/* ---- After removing the header ----------------------------------------------------------------
+   The header held a logo strip and a "My list" button that duplicated the rail's Boards. With the
+   rail carrying navigation and the H1 already naming the client, it was pure weight -- so it is
+   gone and the search is now the first thing on the page. */
+.exsearch{padding:22px 0 4px}
+/* The chip bar and the category tiles are the same navigation. At rest only the tiles show; the bar
+   fades in once they leave the viewport, where it becomes the only way to change category. */
+#filterbar{display:none}
+#filterbar.show{display:block;position:sticky;top:0;z-index:60;background:rgba(255,255,255,.96);
+  backdrop-filter:blur(8px);border-bottom:1px solid var(--ln);animation:fbin .18s ease-out}
+@keyframes fbin{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:none}}
+/* Hero: one statement and one offer, nothing else. */
+.hero{padding:14px 0 6px}
+.hero h1{margin:0;letter-spacing:-.02em}
+.herosub{margin:8px 0 0;max-width:62ch}
+@media (max-width:820px){
+  .exsearch{padding:14px 0 2px}
+  .hero{padding:10px 0 4px}
+}
+
 /* ---- EXPLORE: one search field, then image tiles ----------------------------------------------
    The search was collapsed behind a magnifier inside a filter bar, three sections down. Pinterest
    puts it first and always open, because search IS the primary way into a big catalogue. */
