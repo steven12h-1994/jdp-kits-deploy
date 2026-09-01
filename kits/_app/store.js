@@ -3104,13 +3104,20 @@ function bSizeRowHtml(ck){
   var it=BYKEY[bkey(ck)];
   if(!it||it.layer==='promo')return '';          // promo carries its own quantity model
   var szs=sizesForFit(c.fit),tot=sizeSum(c.sizes)||c.qty||0;
-  return '<div class="bszed">'+
-    '<div class="bszhd"><span>How many of each size?</span>'+
+  var unsized=sizeSum(c.sizes)===0;
+  /* A grid of boxes each reading "0" looks like DATA, not like a form -- which is why nobody typed
+     in it. Three changes make the action unmistakable: an empty box instead of a zero (an empty
+     field invites input, a zero looks like an answer), an explicit instruction on any style still
+     needing sizes, and an accent tint on the whole block until it is filled. */
+  return '<div class="bszed'+(unsized?' need':'')+'" data-szblk="'+esc(ck)+'">'+
+    '<div class="bszhd"><span>'+(unsized?'Enter quantity by size':'Quantity by size')+'</span>'+
       '<i data-sztot="'+esc(ck)+'">'+tot+' pcs</i></div>'+
+    (unsized?'<div class="bszask">Tap a box and type how many you need</div>':'')+
     '<div class="bszcells">'+szs.map(function(s){
         var v=(c.sizes&&c.sizes[s])||0;
         return '<label class="bszc'+(v?' on':'')+'"><span>'+esc(s)+'</span>'+
-          '<input type="number" inputmode="numeric" min="0" step="1" value="'+v+'" '+
+          '<input type="number" inputmode="numeric" min="0" step="1" placeholder="0" '+
+          'value="'+(v?v:'')+'" '+
           'data-szk="'+esc(ck)+'" data-szs="'+esc(s)+'" aria-label="'+esc(s)+' quantity"></label>';
       }).join('')+'</div>'+
     /* A quick-added line carries a quantity but no split, so every cell reads 0 while the line says
@@ -3150,6 +3157,19 @@ function bRefreshLine(ck){
     var pb=card.querySelector('.bprice b');if(pb)pb.textContent=money(line);
     var ps=card.querySelector('.bprice span');
     if(ps)ps.textContent=q+' pcs \u00b7 '+money(unit)+'/pc';
+  }
+  /* Drop the prompt the moment they enter anything, and bring it back if they clear it. */
+  var blk=document.querySelector('[data-szblk="'+ck+'"]');
+  if(blk){
+    var need=sizeSum(c.sizes)===0;
+    blk.classList.toggle('need',need);
+    var hd=blk.querySelector('.bszhd span');
+    if(hd)hd.textContent=need?'Enter quantity by size':'Quantity by size';
+    var ask=blk.querySelector('.bszask');
+    if(need&&!ask){var d=document.createElement('div');d.className='bszask';
+      d.textContent='Tap a box and type how many you need';
+      blk.insertBefore(d,blk.querySelector('.bszcells'));}
+    else if(!need&&ask)ask.remove();
   }
   var mo=document.querySelector('[data-szmoq="'+ck+'"]');
   if(mo){
