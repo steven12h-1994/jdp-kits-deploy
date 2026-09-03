@@ -17,18 +17,7 @@ function hexSat(h){h=(h||'').replace('#','');if(h.length<6)return 0;var r=parseI
 // A single spot print must READ on the garment: crisp WHITE on dark garments AND on saturated hi-vis
 // (orange/lime — bright but vivid, where white pops); a very light garment would swallow white so use
 // a dark ink; otherwise the full-colour brand mark.
-// SATURATION ALONE MUST NOT FORCE WHITE INK. The original rule read `l<120||s>=70 -> white` on the
-// assumption that white "pops" on all saturated hi-vis. That holds for hi-vis ORANGE (#f2681c sits at
-// 0.29 relative luminance, so white measures 3.1:1 and still clears the bar) but inverts on hi-vis
-// LIME/YELLOW, which is just as saturated and yet very LIGHT: #e9e800 sits at 0.74, so white measures
-// 1.3:1 — far under this engine's own INK_MINRATIO of 3:1 — while a dark ink measures 13:1. The result
-// was an unreadable white print on every lime/yellow garment. So the saturated shortcut now defers to
-// dark ink whenever white would fail that ratio. Measured over the whole catalogue this re-inks 152 of
-// 2064 colourways (7.4%), every one of which was previously BELOW 3:1 on white and lands at 5.9-17.4:1
-// on dark; no colourway where white already read is affected.
-function autoInk(rgb){var l=hexLum(rgb),s=hexSat(rgb);
-  if(s>=70&&contrast(relLum(255,255,255),hexRelLum(rgb))<INK_MINRATIO)return 'dark';
-  if(l<120||s>=70)return 'white';if(l>210)return 'dark';return 'brand';}
+function autoInk(rgb){var l=hexLum(rgb),s=hexSat(rgb);if(l<120||s>=70)return 'white';if(l>210)return 'dark';return 'brand';}
 // EMBROIDERY = full-colour thread -> render the full-colour (brand) logo. Screen/heat-transfer default
 // to a contrast ink (white on dark/hi-vis, dark on very light, full colour otherwise).
 // EXCEPTION, and the reason INK exists: "always brand" fails whenever a NEUTRAL mark sits on a garment
@@ -46,10 +35,28 @@ function hexRelLum(hex){var h=String(hex||'').replace('#','');if(h.length!==6)re
   return relLum(parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16));}
 function autoInkFor(method,rgb,logo){
   if(method!=='embroidery')return autoInk(rgb);
-  var k=logo&&INK[logo.id];
-  if(!k)return 'brand';
+  if(!logo||!logo.inks)return 'brand';
   var gl=hexRelLum(rgb);
-  if(k.sat<=INK_MAXSAT&&contrast(k.lum,gl)<INK_MINRATIO)return gl<0.18?'white':'dark';
+  var k=INK[logo.id];
+  /* TWO bugs lived here. The saturation gate vetoed the contrast check, so a vivid brand mark was
+     never swapped however badly it washed out. And underneath that, INK[logo.id] is not populated
+     for these kits at all -- so the function returned 'brand' on the very first line and no
+     contrast logic has ever run. Farm Girl's coral lockup sat on maroon fleece, unreadable.
+
+     When a measured brand-ink luminance exists, use it. When it does not, decide from the garment
+     alone: white on a dark garment. 0.18 relative luminance is the standard crossover below which
+     white beats dark. */
+  if(k&&typeof k.lum==='number'){
+    if(contrast(k.lum,gl)<INK_MINRATIO)return gl<0.18?'white':'dark';
+    return 'brand';
+  }
+  /* On a dark garment prefer the HYBRID ink when the kit has one: the wordmark reversed to white,
+     the brand accents left in their own colour. Flat white is the fallback -- it reads, but it
+     flattens two brand colours into one and loses the identity. */
+  if(gl<0.18){
+    if(logo.inks.ondark)return 'ondark';
+    if(logo.inks.white)return 'white';
+  }
   return 'brand';
 }
 /* ---- Vibrant, brand-aware colourways -------------------------------------------------------
@@ -258,6 +265,19 @@ function cartQtyOf(k){
 function cartHasAny(k){return !!(CART[k]||CART[k+'#w']);}
 function cartAnyKey(k){return CART[k]?k:(CART[k+'#w']?(k+'#w'):k);}
 function vmOf(key){key=bkey(key);return (CFG.items||{})[key]||{colour:(BYKEY[key].cols[0]||{}).name,decos:[]};}
+/* Volume tiers are set by how many of a GARMENT you order, not by how many of one cut. 30 men's
+   plus 30 women's Avalante fleece is a 60-piece run on one blank with one decoration setup, so it
+   prices at 48+. Each fit was being tiered on its own 30 and quoted at 12+ -- overcharging the
+   customer and understating our own competitiveness on exactly the orders that matter most.
+   q is used ONLY for tier selection inside unitPrice (decoration is per piece), so feeding it the
+   combined quantity is both safe and correct. */
+function tierQty(ck){
+  var base=bkey(ck),t=0;
+  var a=CART[base],b=CART[base+'#w'];
+  if(a)t+=(a.qty||0);
+  if(b)t+=(b.qty||0);
+  return t||(((CART[ck]||{}).qty)||0);
+}
 function unitAt(item,q){var cs=CFG.pricing.cols,pr=item.prices,i=0;for(var k=0;k<cs.length;k++){if(q>=cs[k])i=k;}return pr[i];}
 function moq(){return (CFG.pricing.cols&&CFG.pricing.cols[0])||12;}
 /* ---- decoration-aware pricing (mirrors the server rate card) ---- */
@@ -507,7 +527,8 @@ function saveCart(){
   // CART is normally an alias for the active list's items, but some paths reassign it wholesale --
   // re-link on every save so a reassignment can never silently orphan the list.
   if(LISTS[ALID]){LISTS[ALID].items=CART;LISTS[ALID].updated=Date.now();}
-  persistLists();}
+  persistLists();
+  pushBoardSoon();}
 
 /* ---------- overlay (garment photo + logo at a placement) ---------- */
 function placeInList(places,pid){for(var i=0;i<places.length;i++)if(places[i].id===pid)return places[i];return null;}
@@ -2439,19 +2460,104 @@ function decodeList(str){
               note:noteClean(bits[5])});});
   return out;
 }
+/* Query strings legitimately encode a space as EITHER %20 or +, and mail clients, link shorteners
+   and chat apps rewrite between them freely. decodeURIComponent does NOT treat + as a space, so a
+   board called "Autumn rollout" arrived as "Autumn+rollout" -- and far worse, a colour like
+   "Campus Orange" would arrive as "Campus+Orange", fail the colour check, and silently fall back to
+   the first colour in the run. That is the exact wrong-colour bug from before, reachable through a
+   different door. Normalise + to %20 before decoding every shared parameter. */
+function qdec(s){try{return decodeURIComponent(String(s).replace(/\+/g,'%20'));}catch(e){
+  try{return decodeURIComponent(s);}catch(e2){return '';}}}
 function readSharedList(){
   var m=location.search.match(/[?&]list=([^&#]+)/);if(!m)return null;
-  var items;try{items=decodeList(decodeURIComponent(m[1]));}catch(e){return null;}
+  var items;try{items=decodeList(qdec(m[1]));}catch(e){return null;}
   if(!items.length)return null;
   var f=location.search.match(/[?&]from=([^&#]+)/),from='';
-  try{from=f?decodeURIComponent(f[1]).slice(0,40):'';}catch(e){from='';}
-  return {items:items,from:from};
+  from=f?qdec(f[1]).slice(0,40):'';
+  var bn=location.search.match(/[?&]b=([^&#]+)/),bname='';
+  bname=bn?qdec(bn[1]).slice(0,40):'';
+  return {items:items,from:from,bname:bname};
+}
+/* ---------- LIVE BOARDS -------------------------------------------------------------------------
+   A board is now one document on the server, not a per-browser cache. localStorage is kept as the
+   local mirror so the store is instant and still works with no network -- the server is the shared
+   truth, the browser is the fast copy. Every network call is fire-and-forget: nothing in the UI ever
+   waits on it. */
+function apiBase(){return String((CFG&&CFG.catalog_base)||CATALOG_BASE).replace('_catalog','_api');}
+function boardsApi(){return apiBase()+'/boards.php';}
+function bslug(s){return String(s||'').toLowerCase()
+  .replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,60);}
+var SYNC='';
+function markSync(state){
+  SYNC=state;
+  var el=document.getElementById('bsync');if(!el)return;
+  var m={saving:['Saving\u2026','sv'],saved:['Saved','ok'],
+         merged:['Updated from another device','ok'],
+         offline:['Saved on this device only','off']}[state]||['','' ];
+  el.textContent=m[0];el.className='bsync '+m[1];
+}
+var _pushT=null;
+function pushBoardSoon(){
+  if(!LISTS||!LISTS[ALID]||isTemplate(ALID))return;   // our starter template is not a customer board
+  markSync('saving');
+  clearTimeout(_pushT);_pushT=setTimeout(pushBoardNow,1100);
+}
+function pushBoardNow(){
+  var L=LISTS&&LISTS[ALID];if(!L||isTemplate(ALID))return;
+  var b=L.slug||bslug(L.name);if(!b)return;
+  L.slug=b;
+  var who='';try{who=(JSON.parse(localStorage.getItem('jdpkit_contact')||'{}').name||'');}catch(e){}
+  var body={kit:SLUG,b:b,name:L.name,items:L.items,by:who};
+  if(L.rev)body.rev=L.rev;
+  fetch(boardsApi(),{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(body)})
+    .then(function(r){return r.json();})
+    .then(function(j){
+      if(j&&j.ok){L.rev=j.rev;L.slug=j.b;persistLists();markSync('saved');return;}
+      /* Someone edited the same board elsewhere. Their version wins and we adopt it rather than
+         silently clobbering a colleague -- the whole point of a shared document. */
+      if(j&&j.error==='stale'&&j.board){
+        L.items=j.board.items||{};L.rev=j.board.rev;L.name=j.board.name||L.name;
+        if(LISTS[ALID]===L)CART=L.items;
+        persistLists();syncBoardIfOpen();refreshCartUI();markSync('merged');return;}
+      markSync('offline');
+    })
+    .catch(function(){markSync('offline');});
+}
+function pullBoard(b){
+  return fetch(boardsApi()+'?kit='+encodeURIComponent(SLUG)+'&b='+encodeURIComponent(b),
+      {cache:'no-store'})
+    .then(function(r){return r.ok?r.json():null;})
+    .then(function(j){return (j&&j.ok&&j.board)?j.board:null;})
+    .catch(function(){return null;});
+}
+/* Opening ?b=<slug>: adopt the server's copy as a real local board, then show it. */
+function openSharedBoard(b){
+  return pullBoard(b).then(function(sb){
+    if(!sb)return false;
+    if(!LISTS)loadLists();
+    var id=null;
+    for(var k in LISTS){if(LISTS[k].slug===b){id=k;break;}}
+    if(!id){id=newListId();LISTS[id]={name:sb.name||b,items:{},updated:Date.now()};}
+    LISTS[id].name=sb.name||LISTS[id].name;
+    LISTS[id].items=sb.items||{};
+    LISTS[id].slug=b;LISTS[id].rev=sb.rev||0;LISTS[id].updated=Date.now();
+    ALID=id;CART=LISTS[id].items;persistLists();
+    refreshCartUI();
+    return true;
+  });
 }
 function shareListUrl(){
-  var base=location.origin+location.pathname;
-  var c={};try{c=JSON.parse(localStorage.getItem('jdpkit_contact')||'{}');}catch(e){}
-  var who=(c.name||'').trim().split(' ')[0];
-  return base+'?list='+encodeURIComponent(encodeList())+(who?('&from='+encodeURIComponent(who)):'');
+  /* A board id only exists in the browser that made it, so ?board=<id> was never shareable -- which
+     is why copying the address bar handed people a dead link. This URL carries the board's NAME and
+     its full contents, so it works on any device, and it is what now sits in the address bar while a
+     board is open. Copying what you are looking at finally does the right thing. */
+  /* Short and PERMANENT. The board lives on the server now, so the link no longer carries the
+     products -- it stays identical as the board changes, which is what makes it safe to email to an
+     account before the board is finished. */
+  var L=LISTS&&LISTS[ALID];
+  var b=(L&&L.slug)||bslug(activeName());
+  return location.origin+location.pathname+'?b='+encodeURIComponent(b);
 }
 /* Sharing a list is the strongest buying signal this store produces, and until now it was invisible
    to us -- the list lived in one browser and we only ever learned about it if that person went on to
@@ -2466,8 +2572,9 @@ function notifyShared(url){
   try{localStorage.setItem('jdp_shared_sig',now);}catch(e){}
   var lines=[CFG.client+' \u2014 a list was shared from their store',''];
   Object.keys(CART).forEach(function(k){
-    var it=BYKEY[k];if(!it)return;var c=CART[k];
-    lines.push('  \u2022 '+it.name+(it.sku?(' ('+it.sku+')'):'')+' \u2014 '+(c.colour||'')+' \u00d7 '+(c.qty||moq()));});
+    var it=BYKEY[bkey(k)];if(!it)return;var c=CART[k];
+    lines.push('  \u2022 '+it.name+(it.sku?(' ('+it.sku+')'):'')+
+      ((c.fit==='womens')?' [Women\u2019s]':'')+' \u2014 '+(c.colour||'')+' \u00d7 '+(c.qty||moq()));});
   lines.push('');
   lines.push('Open their list:  '+url);
   lines.push('Pin it to this store (opens curator mode, ready to publish):');
@@ -2480,6 +2587,45 @@ function notifyShared(url){
       name:c2.name||'(not given)',email:c2.email||'(not given)',
       company:c2.company||CFG.client||'',store:CFG.client||'',
       list:lines.join('\n')})}).catch(function(){});
+}
+/* A toast saying "copied" is unverifiable, and if the browser refuses the clipboard write the user is
+   left with nothing at all. Show the actual URL, selectable, with a Copy button that reports success
+   -- so sharing works even when the clipboard API does not. */
+function openSharePanel(){
+  if(!Object.keys(CART).length){toast('Add a few pieces first');return;}
+  pushBoardNow();                       // make sure the server has it before the link is handed out
+  var url=shareListUrl();
+  notifyShared(url);
+  var el=document.getElementById('sharepanel');
+  if(!el){el=document.createElement('div');el.id='sharepanel';el.className='bpickov';document.body.appendChild(el);}
+  var touch=false;try{touch=!!(navigator.share&&matchMedia('(hover:none)').matches);}catch(e){}
+  el.innerHTML='<div class="bpick sharep"><div class="bpickhd">Share \u201c'+esc(activeName())+'\u201d'+
+      '<button type="button" class="bpx" id="spX" aria-label="Close">\u2715</button></div>'+
+    '<p class="spnote">Anyone with this link sees this board exactly as it is \u2014 same colours, '+
+      'sizes and quantities. Works on any phone or computer.</p>'+
+    '<input class="spurl" id="spUrl" readonly value="'+esc(url)+'">'+
+    '<div class="spacts">'+
+      '<button type="button" class="bcta" id="spCopy">Copy link</button>'+
+      (touch?'<button type="button" class="bghost" id="spNative">Share\u2026</button>':'')+
+      '<a class="bghost spmail" target="_blank" rel="noopener noreferrer" href="'+
+        esc('mailto:?subject='+encodeURIComponent(CFG.client+' \u2014 '+activeName())+
+        '&body='+encodeURIComponent(url))+'">Email it</a>'+
+    '</div></div>';
+  el.classList.add('on');
+  el.onclick=function(e){if(e.target===el)el.classList.remove('on');};
+  var x=document.getElementById('spX');if(x)x.addEventListener('click',function(){el.classList.remove('on');});
+  var inp=document.getElementById('spUrl');
+  if(inp)inp.addEventListener('click',function(){inp.select();});
+  var cp=document.getElementById('spCopy');
+  if(cp)cp.addEventListener('click',function(){
+    var done=false;
+    try{if(inp){inp.select();done=document.execCommand('copy');}}catch(e){}
+    if(!done)clipCopy(url);
+    cp.textContent='\u2713 Copied';
+    setTimeout(function(){cp.textContent='Copy link';},2200);});
+  var nb=document.getElementById('spNative');
+  if(nb)nb.addEventListener('click',function(){
+    try{navigator.share({title:CFG.client+' \u2014 '+activeName(),url:url});}catch(e){clipCopy(url);}});
 }
 function shareList(){
   if(!Object.keys(CART).length){toast('Add a few pieces first');return;}
@@ -2519,7 +2665,7 @@ function autoApplyShared(){
   if(!added)return;
   if(!LISTS)loadLists();
   var id=newListId();
-  LISTS[id]={name:(SHARED.from?(SHARED.from+'\u2019s list'):'Shared list'),
+  LISTS[id]={name:(SHARED.bname||(SHARED.from?(SHARED.from+'\u2019s board'):'Shared board')),
              items:items,updated:Date.now()};
   ALID=id;CART=items;persistLists();
   try{localStorage.setItem('jdp_applied_sig',sig);}catch(e){}
@@ -2866,7 +3012,7 @@ function addRecommended(){
 function cartCount(){return Object.keys(CART).length;}
 function cartSubtotal(){var t=0;Object.keys(CART).forEach(function(k){var it=BYKEY[bkey(k)];if(!it)return;var c=CART[k];
   if(it.layer==='promo'){var q=promoQuote(it,c);t+=q.goods+q.decoRun;}   // product + decoration (setup shown separately)
-  else t+=unitPrice(k,c.decos,c.qty)*c.qty;});return t;}
+  else t+=unitPrice(k,c.decos,tierQty(k))*c.qty;});return t;}
 function setupBreakdown(){var r=CFG.rates||{},s=r.setup||{},seen={},out=[];
   Object.keys(CART).forEach(function(k){var it=BYKEY[bkey(k)];if(!it)return;(CART[k].decos||[]).forEach(function(d){if(!d.on)return;
     var key=setupKey(d);if(seen[key])return;seen[key]=1;
@@ -2918,7 +3064,7 @@ function cartLineHtml(k){var it=BYKEY[bkey(k)];if(!it)return '';var c=CART[k];
         '<div class="row"><button class="editln" data-edit="'+k+'">'+pq.qty+' '+uP+' · '+money(pq.perPiece)+'/'+uP+' ✎</button><div class="lp">'+money(pline)+'</div></div></div>'+
         '<button class="rm" data-rm="'+k+'" aria-label="Remove">✕</button></div>';}
     var col=colInList(curColsOf(it,c.fit),c.colour);
-    var unit=unitPrice(k,c.decos,c.qty);var szsum=sizesSummary(c);var nud=savingsNudge(k,c.decos,c.qty);
+    var unit=unitPrice(k,c.decos,tierQty(k));var szsum=sizesSummary(c);var nud=savingsNudge(k,c.decos,tierQty(k));
     var _ftl=(_both&&c.fit!=='womens')?'Men\u2019s':fitTag(it,c);
     var fitb=_ftl?'<span class="fitbadge">'+esc(_ftl)+'</span> ':'';
     var ctrl='<button class="editln" data-edit="'+k+'">'+c.qty+' pcs · '+(c.sizes?'by size':'add sizes')+' ✎</button>';
@@ -2958,18 +3104,36 @@ function bSizeRowHtml(ck){
   var it=BYKEY[bkey(ck)];
   if(!it||it.layer==='promo')return '';          // promo carries its own quantity model
   var szs=sizesForFit(c.fit),tot=sizeSum(c.sizes)||c.qty||0;
-  return '<div class="bszed">'+
-    '<div class="bszhd"><span>How many of each size?</span>'+
+  var unsized=sizeSum(c.sizes)===0;
+  /* A grid of boxes each reading "0" looks like DATA, not like a form -- which is why nobody typed
+     in it. Three changes make the action unmistakable: an empty box instead of a zero (an empty
+     field invites input, a zero looks like an answer), an explicit instruction on any style still
+     needing sizes, and an accent tint on the whole block until it is filled. */
+  return '<div class="bszed'+(unsized?' need':'')+'" data-szblk="'+esc(ck)+'">'+
+    '<div class="bszhd"><span>'+(unsized?'Enter quantity by size':'Quantity by size')+'</span>'+
       '<i data-sztot="'+esc(ck)+'">'+tot+' pcs</i></div>'+
+    (unsized?'<div class="bszask">Tap a box and type how many you need</div>':'')+
     '<div class="bszcells">'+szs.map(function(s){
         var v=(c.sizes&&c.sizes[s])||0;
         return '<label class="bszc'+(v?' on':'')+'"><span>'+esc(s)+'</span>'+
-          '<input type="number" inputmode="numeric" min="0" step="1" value="'+v+'" '+
+          '<input type="number" inputmode="numeric" min="0" step="1" placeholder="0" '+
+          'value="'+(v?v:'')+'" '+
           'data-szk="'+esc(ck)+'" data-szs="'+esc(s)+'" aria-label="'+esc(s)+' quantity"></label>';
       }).join('')+'</div>'+
-    '<div class="bszmoq'+((tot>0&&tot<moq())?' on':'')+'" data-szmoq="'+esc(ck)+'">'+
-      ((tot>0&&tot<moq())?('Add '+(moq()-tot)+' more to reach the '+moq()+'-piece minimum'):'')+
-    '</div></div>';
+    /* A quick-added line carries a quantity but no split, so every cell reads 0 while the line says
+       "12 pcs" -- which looks like a bug. Say plainly that the total is set and the split is
+       optional, instead of leaving the two numbers contradicting each other. */
+    (function(){
+      var split=sizeSum(c.sizes);
+      if(tot>0&&tot<moq())
+        return '<div class="bszmoq on" data-szmoq="'+esc(ck)+'">Add '+(moq()-tot)+
+          ' more to reach the '+moq()+'-piece minimum</div>';
+      if(!split&&tot>0)
+        return '<div class="bszmoq soft on" data-szmoq="'+esc(ck)+'">'+tot+
+          ' pcs total \u2014 add your split above whenever you know it</div>';
+      return '<div class="bszmoq" data-szmoq="'+esc(ck)+'"></div>';
+    })()+
+    '</div>';
 }
 function bSetSize(ck,size,val){
   var c=CART[ck];if(!c)return;
@@ -2985,7 +3149,7 @@ function bSetSize(ck,size,val){
 function bRefreshLine(ck){
   var c=CART[ck];if(!c)return;
   var q=sizeSum(c.sizes)||c.qty||0;
-  var unit=unitPrice(ck,c.decos,q),line=unit*q;
+  var unit=unitPrice(ck,c.decos,tierQty(ck)),line=unit*q;
   var t=document.querySelector('[data-sztot="'+ck+'"]');
   if(t)t.textContent=q+' pcs';
   var card=document.querySelector('.bcard[data-bk="'+ck+'"]');
@@ -2994,12 +3158,29 @@ function bRefreshLine(ck){
     var ps=card.querySelector('.bprice span');
     if(ps)ps.textContent=q+' pcs \u00b7 '+money(unit)+'/pc';
   }
+  /* Drop the prompt the moment they enter anything, and bring it back if they clear it. */
+  var blk=document.querySelector('[data-szblk="'+ck+'"]');
+  if(blk){
+    var need=sizeSum(c.sizes)===0;
+    blk.classList.toggle('need',need);
+    var hd=blk.querySelector('.bszhd span');
+    if(hd)hd.textContent=need?'Enter quantity by size':'Quantity by size';
+    var ask=blk.querySelector('.bszask');
+    if(need&&!ask){var d=document.createElement('div');d.className='bszask';
+      d.textContent='Tap a box and type how many you need';
+      blk.insertBefore(d,blk.querySelector('.bszcells'));}
+    else if(!need&&ask)ask.remove();
+  }
   var mo=document.querySelector('[data-szmoq="'+ck+'"]');
   if(mo){
-    var need=moq()-q,show=(q>0&&need>0);
-    mo.textContent=show?('Add '+need+' more to reach the '+moq()+'-piece minimum'):'';
-    mo.className='bszmoq'+(show?' on':'');
+    var need=moq()-q,split=sizeSum(c.sizes);
+    if(q>0&&need>0){mo.textContent='Add '+need+' more to reach the '+moq()+'-piece minimum';
+      mo.className='bszmoq on';}
+    else if(!split&&q>0){mo.textContent=q+' pcs total \u2014 add your split above whenever you know it';
+      mo.className='bszmoq soft on';}
+    else{mo.textContent='';mo.className='bszmoq';}
   }
+  refreshProposal();
   var hd=document.querySelector('.bsum');
   if(hd){var tt=boardTotals();
     hd.textContent=tt.lines+' item'+(tt.lines===1?'':'s')+' \u00b7 '+tt.pieces+
@@ -3018,17 +3199,31 @@ function boardCardHtml(ck){
      requested one, and a genuine mismatch is surfaced rather than hidden. */
   var cname=(col&&col.name)||c.colour||'';
   var cmiss=(c.colour&&col&&col.name&&col.name!==c.colour)?c.colour:'';
-  var q,line,unit;
+  var q,line,unit,_tq=0;
   if(isPromo){var pq=promoQuote(it,c);q=pq.qty;line=pq.goods+pq.decoRun;unit=pq.perPiece;}
-  else{q=c.qty||0;unit=unitPrice(ck,c.decos,q);line=unit*q;}
+  else{q=c.qty||0;_tq=tierQty(ck);unit=unitPrice(ck,c.decos,_tq);line=unit*q;}
   var both=!!(CART[bkey(ck)]&&CART[bkey(ck)+'#w']);
   var ftl=(both&&c.fit!=='womens')?'Men\u2019s':fitTag(it,c);
   var szs=sizesSummary(c);
   // Prefer the STANDARDISED decoration label from the catalogue -- it is what actually gets
   // produced and quoted, which is the language a board shown to a buyer should be in.
   var deco=isPromo?'':((it.std&&it.std.label)?it.std.label:decoSummary(it,c));
+  /* THE BOARD IS THE THING SENT TO THE ACCOUNT. It was rendering the bare supplier photo, so a
+     buyer opened a page of unbranded garments -- the single most important thing to show is their
+     own logo on the gear, composited at the exact placement that will be produced. overlayHtml
+     returns the garment plus the positioned logo layer; promo items have no placement model and
+     keep the plain photo. */
+  var _o=null;
+  if(!isPromo){
+    var _pl=(c.fit==='womens'&&it.wplaces&&it.wplaces.length)?it.wplaces:it.places;
+    try{_o=overlayHtml(it,{decos:(c.decos||[])},c.colour,'front',cols,_pl);}catch(e){_o=null;}
+  }
+  var _stage=_o
+    ? ('<div class="bstage"><img class="g" src="'+_o.g+'" alt="'+esc(it.name)+
+       '" loading="lazy" decoding="async">'+_o.lg+'</div>')
+    : ('<img class="bimg" src="'+gurl(col.front)+'" alt="'+esc(it.name)+'" loading="lazy">');
   return '<article class="bcard" data-bk="'+esc(ck)+'">'+
-    '<div class="bimgwrap"><img class="bimg" src="'+gurl(col.front)+'" alt="'+esc(it.name)+'" loading="lazy">'+
+    '<div class="bimgwrap">'+_stage+
       (ftl?'<span class="bfit">'+esc(ftl)+'</span>':'')+'</div>'+
     '<div class="bbody">'+
       '<h3 class="bname">'+esc(it.name)+'</h3>'+
@@ -3040,17 +3235,109 @@ function boardCardHtml(ck){
       (cmiss?('<div class="bmiss">'+esc(cmiss)+' is no longer available \u2014 showing '+
         esc(cname)+'. Tell us on the quote and we\u2019ll source it.</div>'):'')+
       bSizeRowHtml(ck)+
+      /* When both cuts of a garment are on the board they share one volume tier, so the men's line
+         can be 40 pieces yet priced at a 240-piece rate. Without saying so, the number looks wrong
+         -- state the basis explicitly rather than leaving the buyer to reconcile it. */
       '<div class="bprice"><b>'+money(line)+'</b>'+
         '<span>'+q+' pcs \u00b7 '+money(unit)+'/pc</span></div>'+
+      /* The buyer's whole question is "what does another 50 pieces cost me". Show the ladder with
+         their current tier marked, rather than a single number they have to take on trust. */
+      (function(){
+        if(isPromo)return '';
+        var cols=(CFG.pricing&&CFG.pricing.cols)||[12,48,144];
+        var here=-1;
+        for(var i=0;i<cols.length;i++){if(_tq>=cols[i])here=i;}
+        var rows=cols.map(function(t,i){
+          var u=unitPrice(ck,c.decos,t);
+          return '<span class="btr'+(i===here?' on':'')+'"><i>'+t+'+</i><b>'+money(u)+'</b></span>';
+        }).join('');
+        return '<div class="btiers">'+rows+'</div>'+
+          ((_tq>q)?('<div class="btier">Tier set by '+_tq+' pcs of this garment across both cuts</div>'):'');
+      })()+
       '<label class="bnote"><span>Note</span>'+
         '<textarea data-note="'+esc(ck)+'" rows="2" maxlength="160" '+
         'placeholder="Why this piece \u2014 who it\u2019s for, anything to flag\u2026">'+
         esc(c.note||'')+'</textarea></label>'+
       '<div class="bacts">'+
         '<button type="button" class="bbtn" data-bedit="'+esc(ck)+'">Edit</button>'+
-        '<button type="button" class="bbtn rm" data-brm="'+esc(ck)+'">Remove</button>'+
+        '<button type="button" class="bbtn bbtnrm" data-brm="'+esc(ck)+'">Remove</button>'+
       '</div>'+
     '</div></article>';
+}
+/* ---------- the board as a proposal ------------------------------------------------------------
+   This page goes to accounts worth six figures, and the next step is explicit: the buyer enters
+   quantities and sizes, then we issue a proforma invoice. So the board has to do three things a
+   grid of cards does not -- present the money with confidence, make it obvious what still needs
+   filling in, and name the actual next step. */
+function boardSizing(){
+  var total=0,sized=0,missing=[];
+  Object.keys(CART).forEach(function(ck){
+    var it=BYKEY[bkey(ck)];if(!it||it.layer==='promo')return;
+    total++;
+    if(sizeSum(CART[ck].sizes)>0)sized++; else missing.push(ck);});
+  return {total:total,sized:sized,missing:missing};
+}
+/* The proposal block holds no inputs, so it can be re-rendered wholesale on every keystroke without
+   disturbing the size cell being typed into -- which is why the rest of the card is patched in place
+   but this is not. Without it the summary froze at "0 of 3 styles sized" while the buyer filled the
+   grid in, and the CTA never unlocked. */
+function refreshProposal(){
+  var host=document.querySelector('#board .bprop');
+  if(!host)return;
+  var tmp=document.createElement('div');
+  tmp.innerHTML=boardSummaryHtml();
+  var fresh=tmp.firstChild;
+  host.parentNode.replaceChild(fresh,host);
+  wireProposal();
+  markSync(SYNC||'saved');
+}
+function wireProposal(){
+  var el=document.getElementById('board');if(!el)return;
+  var bf=document.getElementById('bFinish');
+  if(bf)bf.addEventListener('click',function(){
+    var s=boardSizing();if(!s.missing.length)return;
+    var card=el.querySelector('.bcard[data-bk="'+s.missing[0]+'"]');
+    if(card){card.scrollIntoView({behavior:'smooth',block:'center'});
+      card.classList.add('needsize');
+      setTimeout(function(){var i=card.querySelector('.bszc input');
+        if(i){i.focus();try{i.select();}catch(e){}}},420);
+      setTimeout(function(){card.classList.remove('needsize');},2600);}});
+  var bp=document.getElementById('bProforma');
+  if(bp)bp.addEventListener('click',function(){
+    closeBoard();
+    document.getElementById('ov').classList.add('on');
+    document.getElementById('cart').classList.add('on');
+    document.body.style.overflow='hidden';
+    openCheckout();});
+}
+function boardSummaryHtml(){
+  var t=boardTotals(),s=boardSizing();
+  var allIn=t.sub+t.setup;
+  var ready=s.total>0&&s.missing.length===0;
+  return '<section class="bprop">'+
+    '<div class="bpgrid">'+
+      '<div class="bpcell"><i>Pieces</i><b>'+t.pieces+'</b></div>'+
+      '<div class="bpcell"><i>Styles</i><b>'+t.lines+'</b></div>'+
+      '<div class="bpcell"><i>Apparel</i><b>'+money(t.sub)+'</b></div>'+
+      (t.setup>0?'<div class="bpcell"><i>One-time setup</i><b>'+money(t.setup)+'</b></div>':'')+
+      '<div class="bpcell tot"><i>Estimated total</i><b>'+money(allIn)+'</b></div>'+
+    '</div>'+
+    '<div class="bpnext">'+
+      '<div class="bpstep">'+
+        '<span class="bpsn'+(ready?' done':'')+'">'+(ready?'\u2713':'1')+'</span>'+
+        '<span class="bpst"><b>Quantities &amp; sizes</b>'+
+          '<i>'+(ready
+            ? ('All '+s.total+' style'+(s.total===1?'':'s')+' sized')
+            : (s.sized+' of '+s.total+' styles sized \u2014 '+s.missing.length+' still to go'))+'</i></span>'+
+      '</div>'+
+      '<div class="bpstep"><span class="bpsn">2</span>'+
+        '<span class="bpst"><b>Proforma invoice</b>'+
+          '<i>Issued against these quantities. Nothing is ordered until you approve it.</i></span></div>'+
+      (ready
+        ? '<button type="button" class="bpcta" id="bProforma">Request proforma invoice <span class="ar">\u2192</span></button>'
+        : '<button type="button" class="bpcta soft" id="bFinish">'+s.missing.length+' style'+(s.missing.length===1?' needs':'s need')+
+            ' sizes <span class="ar">\u2193</span></button>')+
+    '</div></section>';
 }
 function renderBoard(){
   var el=document.getElementById('board');if(!el)return;
@@ -3069,24 +3356,29 @@ function renderBoard(){
         '<div class="beyb">'+esc(CFG.client)+' \u00b7 board</div>'+
         '<h1 class="btitle edit" id="bTitle" title="Click to rename" '+
           'role="button" tabindex="0">'+esc(activeName())+'</h1>'+
+        '<div class="bsync" id="bsync"></div>'+
         '<div class="bsum">'+(t.lines?(t.lines+' item'+(t.lines===1?'':'s')+' \u00b7 '+t.pieces+
           ' pieces \u00b7 est. '+money(t.sub)+(t.setup>0?(' + '+money(t.setup)+' setup'):'')):'Nothing saved yet')+'</div>'+
+        /* Whoever this link is forwarded to arrives with no context. Three facts, stated once. */
       '</div>'+
       '<div class="bhdR">'+
         '<button type="button" class="bghost" id="bAll">\u2039 All boards</button>'+
         '<button type="button" class="bghost" id="bMore">+ Add more gear</button>'+
 
         '<button type="button" class="bghost bshare" id="bShare">Share board \u2197</button>'+
-        (t.lines?'<button type="button" class="bcta" id="bQuote">Request exact quote <span class="ar">\u2192</span></button>':'')+
+        (t.lines?'<button type="button" class="bghost" id="bPrint">Print / PDF</button>':'')+
         '<button type="button" class="bx" id="bClose" aria-label="Close">\u2715</button>'+
       '</div>'+
     '</div>'+
     '<div class="bchips">'+chips+'</div></header>'+
     tmpl+
+    (t.lines?boardSummaryHtml():'')+
     (t.lines?('<div class="bgrid">'+cards+'</div>')
       :('<div class="bempty"><b>This board is empty</b><span>Tap the heart on any product to save it here.</span>'+
         ((starterId()&&starterId()!==ALID)?('<button type="button" class="bcta" data-bsw="'+esc(starterId())+'">'+
           'Open our starter board \u00b7 '+listLen(starterId())+' pieces</button>'):'')+'</div>'))+
+    /* Destructive action, kept deliberately away from the four primary ones in the header. */
+    '<div class="bfoot"><button type="button" class="bdel" id="bDel">Delete this board</button></div>'+
     '</div>';
   wireBoard();
 }
@@ -3094,6 +3386,13 @@ function wireBoard(){
   var el=document.getElementById('board');if(!el)return;
   el.querySelectorAll('[data-bsw]').forEach(function(b){b.addEventListener('click',function(){
     switchList(b.dataset.bsw);renderBoard();});});
+  /* Only the small Edit button opened a product; clicking the garment, its name or its price -- the
+     obvious targets -- did nothing at all. The whole card is now the target, minus the controls
+     that live on it. */
+  el.querySelectorAll('.bcard').forEach(function(card){
+    card.addEventListener('click',function(e){
+      if(e.target.closest('button,input,textarea,label,a,select'))return;
+      openSheet(card.dataset.bk);});});
   el.querySelectorAll('[data-szk]').forEach(function(inp){
     var apply=function(){
       bSetSize(inp.dataset.szk,inp.dataset.szs,inp.value);
@@ -3119,6 +3418,24 @@ function wireBoard(){
     closeBoard();openBoards();});
   /* The board is a review surface; the natural next move is "add another piece". Without this you
      have to close the board and find your way back to the catalogue yourself. */
+  wireProposal();
+  var bd=document.getElementById('bDel');
+  if(bd)bd.addEventListener('click',function(){
+    var nm=activeName(),n=listLen(ALID),last=listIds().length<2;
+    if(!window.confirm('Delete \u201c'+nm+'\u201d'+
+        (n?(' and the '+n+' item'+(n===1?'':'s')+' in it'):'')+'?\n\nThis cannot be undone.'))return;
+    /* Local removal alone was pointless: syncBoardsFromServer() pulled the board straight back on
+       the next reconcile. Delete server-side FIRST, and only then locally -- and wait for it, so the
+       boards index cannot re-list what we just removed. */
+    var sl=(LISTS[ALID]||{}).slug;
+    var finish=function(){
+      deleteList(ALID);refreshCartUI();
+      if(last){renderBoard();toast('\u201c'+nm+'\u201d emptied');}
+      else{closeBoard();openBoards();toast('\u201c'+nm+'\u201d deleted');}};
+    if(sl){
+      fetch(boardsApi()+'?kit='+encodeURIComponent(SLUG)+'&b='+encodeURIComponent(sl)+'&delete=1',
+        {method:'POST'}).then(finish,finish);
+    }else finish();});
   var bm=document.getElementById('bMore');if(bm)bm.addEventListener('click',function(){
     closeBoard();closeBoards();setRail('explore');
     var g=document.getElementById('gridhd')||document.getElementById('grid');
@@ -3126,16 +3443,13 @@ function wireBoard(){
   var bt=document.getElementById('bTitle');
   if(bt){var ren=function(){
       var n=window.prompt('Rename this board',activeName());
-      if(n===null)return;renameList(ALID,n);renderBoard();refreshCartUI();};
+      if(n===null)return;renameList(ALID,n);renderBoard();refreshCartUI();
+      try{if(history.replaceState)history.replaceState({},'',shareListUrl());}catch(e){}};
     bt.addEventListener('click',ren);
     bt.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();ren();}});}
-  var sh=document.getElementById('bShare');if(sh)sh.addEventListener('click',shareList);
-  var qt=document.getElementById('bQuote');if(qt)qt.addEventListener('click',function(){
-    closeBoard();
-    document.getElementById('ov').classList.add('on');
-    document.getElementById('cart').classList.add('on');
-    document.body.style.overflow='hidden';
-    openCheckout();});
+  var sh=document.getElementById('bShare');if(sh)sh.addEventListener('click',openSharePanel);
+  var pr=document.getElementById('bPrint');
+  if(pr)pr.addEventListener('click',function(){try{window.print();}catch(e){}});
   var tc=document.getElementById('bTmplCopy');
   if(tc)tc.addEventListener('click',function(){copyStarterToMine();renderBoard();});
 }
@@ -3152,6 +3466,9 @@ function openBoard(id){
   renderBoard();
   el.classList.add('on');document.body.style.overflow='hidden';
   setRail('boards');
+  // So copying the address bar shares the board -- the thing everyone tries first.
+  try{if(history.replaceState&&Object.keys(CART).length)
+    history.replaceState({},'',shareListUrl());}catch(e){}
 }
 function closeBoard(){
   var el=document.getElementById('board');if(el)el.classList.remove('on');
@@ -3195,7 +3512,7 @@ function boardValue(id){
     var it=BYKEY[bkey(ck)];if(!it)return;
     var c=items[ck];
     if(it.layer==='promo'){var q=promoQuote(it,c);pieces+=q.qty;sub+=q.goods+q.decoRun;}
-    else{var qq=c.qty||0;pieces+=qq;sub+=unitPrice(ck,c.decos,qq)*qq;}});
+    else{var qq=c.qty||0;pieces+=qq;sub+=unitPrice(ck,c.decos,tierQty(ck))*qq;}});
   return {pieces:pieces,sub:sub};
 }
 function boardThumbs(id,n){
@@ -3255,6 +3572,8 @@ function renderBoardsIndex(){
   var x=document.getElementById('biClose');if(x)x.addEventListener('click',closeBoards);
 }
 function openBoards(){
+  // Opening the index is exactly when a stale list is most visible -- reconcile, then re-render.
+  syncBoardsFromServer().then(function(changed){if(changed)renderBoardsIndex();});
   var el=document.getElementById('boards');
   if(!el){el=document.createElement('div');el.id='boards';el.className='boardov';document.body.appendChild(el);}
   renderBoardsIndex();
@@ -3532,6 +3851,47 @@ function openVideo(src,title){var m=document.getElementById('vmodal');if(!m||!sr
    the edit appears not to have taken. */
 function boardOpen(){var e=document.getElementById('board');return !!(e&&e.classList.contains('on'));}
 function boardsOpen(){var e=document.getElementById('boards');return !!(e&&e.classList.contains('on'));}
+/* THE MISSING HALF OF "LIVE".
+   Saving worked from the first deploy -- boards were reaching the server correctly. But a browser
+   only ever rendered its OWN localStorage, and asked the server for a board solely when the URL
+   carried ?b=<slug>. So a board created on one machine was stored perfectly and stayed invisible
+   everywhere else. A live document has to be read from the server, not just written to it.
+
+   Board slugs are whatever the customer names them -- nothing here assumes any particular board. */
+function syncBoardsFromServer(){
+  if(!boardsApi())return Promise.resolve(false);
+  return fetch(boardsApi()+'?kit='+encodeURIComponent(SLUG)+'&list=1',{cache:'no-store'})
+    .then(function(r){return r.ok?r.json():null;})
+    .then(function(j){
+      if(!j||!j.ok||!j.boards||!j.boards.length)return false;
+      if(!LISTS)loadLists();
+      var rows=j.boards.slice(0,40);          // bounded: never a request storm on a big store
+      return Promise.all(rows.map(function(row){
+        var localId=null;
+        for(var k in LISTS){if(LISTS[k].slug===row.b){localId=k;break;}}
+        var local=localId?LISTS[localId]:null;
+        /* Local edits newer than the server copy win -- they are mid-flight and will push on the
+           next save. Never overwrite what someone is typing right now. */
+        if(local&&(local.updated||0)>((row.updated||0)*1000))return false;
+        return pullBoard(row.b).then(function(sb){
+          if(!sb)return false;
+          var id=localId;
+          if(!id){id=newListId();LISTS[id]={name:sb.name||row.b,items:{},updated:0};}
+          LISTS[id].name=sb.name||LISTS[id].name;
+          LISTS[id].items=sb.items||{};
+          LISTS[id].slug=row.b;
+          LISTS[id].rev=sb.rev||0;
+          LISTS[id].updated=(sb.updated||0)*1000;
+          if(id===ALID)CART=LISTS[id].items;
+          return true;
+        });
+      })).then(function(res){
+        var changed=res.some(Boolean);
+        if(changed){persistLists();refreshCartUI();syncBoardIfOpen();markSync('saved');}
+        return changed;
+      });
+    }).catch(function(){return false;});
+}
 function syncBoardIfOpen(){
   if(boardOpen())renderBoard();
   else if(boardsOpen())renderBoardsIndex();
@@ -3554,7 +3914,7 @@ function orderText(c){c=c||{};
     if(c.company)lines.push('  Company/team: '+c.company);
     if(c.email)lines.push('  Email: '+c.email);
     lines.push('');}
-  Object.keys(CART).forEach(function(k){var it=BYKEY[bkey(k)];if(!it)return;var cc=CART[k];var u=unitPrice(k,cc.decos,cc.qty);
+  Object.keys(CART).forEach(function(k){var it=BYKEY[bkey(k)];if(!it)return;var cc=CART[k];var u=unitPrice(k,cc.decos,tierQty(k));
     lines.push('• '+it.name+(fitSku(it,cc)?' '+fitSku(it,cc):'')+' ('+it.sku+') — '+(fitTag(it,cc)?fitTag(it,cc)+' · ':'')+cc.colour+' · '+decoSummary(it,cc)+' · qty '+cc.qty+' @ '+money(u)+' ea = '+money(u*cc.qty));
     var ss=sizesSummary(cc);if(ss)lines.push('    sizes: '+ss);});
   lines.push('','Estimated subtotal: '+money(cartSubtotal()));
@@ -3730,7 +4090,17 @@ function go(cfg){
       assignColourways();
       SHARED=readSharedList();curateInit();loadCart();autoApplyShared();buildStore();
       var _bm=location.search.match(/[?&]board=([^&#]+)/);
-      if(_bm){try{openBoard(decodeURIComponent(_bm[1]));}catch(e){}}refreshCartUI();if(curateOn())markCurCards();
+      if(_bm){try{openBoard(decodeURIComponent(_bm[1]));}catch(e){}}
+      /* ?b=<slug> is the live-board link. The legacy ?list=... links stay working via SHARED, so
+         anything already emailed to a customer keeps opening. */
+      /* Every visit reconciles with the server, so a board made on any other device shows up here
+         without needing its link. */
+      syncBoardsFromServer();
+      var _lb=location.search.match(/[?&]b=([^&#]+)/);
+      if(_lb&&!/[?&]list=/.test(location.search)){
+        openSharedBoard(qdec(_lb[1])).then(function(found){
+          if(found)openBoard(ALID);
+          else toast('That board isn\u2019t available \u2014 it may have been renamed');});}refreshCartUI();if(curateOn())markCurCards();
       // Deep link: /kits/<slug>/?item=<key> (or #item=<key>) opens straight to that product. This MUST
       // run AFTER buildStore(). It used to fire synchronously, before the async ink probe resolved, so
       // the sheet opened against an unbuilt store and was wiped by the first render -- every ?item=
