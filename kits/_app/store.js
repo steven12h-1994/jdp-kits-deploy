@@ -3882,8 +3882,13 @@ function syncBoardsFromServer(){
         }
         var local=localId?LISTS[localId]:null;
         /* Local edits newer than the server copy win -- they are mid-flight and will push on the
-           next save. Never overwrite what someone is typing right now. */
-        if(local&&(local.updated||0)>((row.updated||0)*1000))return false;
+           next save. Never overwrite what someone is typing right now.
+           BUT an empty, never-synced board does not count as "work": every browser mints a default
+           board stamped Date.now(), which always beats the server's older timestamp. Combined with
+           the name-adoption above that silently blocked the pull, so a customer's real board never
+           arrived. Local only wins when it actually holds items. */
+        var localHasWork=!!(local&&Object.keys(local.items||{}).length);
+        if(local&&localHasWork&&(local.updated||0)>((row.updated||0)*1000))return false;
         return pullBoard(row.b).then(function(sb){
           if(!sb)return false;
           var id=localId;
