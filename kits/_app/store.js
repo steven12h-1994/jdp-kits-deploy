@@ -3869,6 +3869,17 @@ function syncBoardsFromServer(){
       return Promise.all(rows.map(function(row){
         var localId=null;
         for(var k in LISTS){if(LISTS[k].slug===row.b){localId=k;break;}}
+        /* Every browser creates a default "My board" before it has ever talked to the server. When
+           the server also has a board of that name, matching on slug alone produced TWO boards with
+           the same name -- the empty local one sorting first, so the customer opened a blank board
+           and concluded nothing had synced. A never-synced local board whose name resolves to the
+           same slug IS this board: adopt it rather than duplicating it. */
+        if(!localId){
+          for(var k2 in LISTS){
+            var L2=LISTS[k2];
+            if(!L2.slug&&!isTemplate(k2)&&bslug(L2.name||'')===row.b){localId=k2;break;}
+          }
+        }
         var local=localId?LISTS[localId]:null;
         /* Local edits newer than the server copy win -- they are mid-flight and will push on the
            next save. Never overwrite what someone is typing right now. */
