@@ -1,0 +1,16 @@
+{
+  "generator": "client-app",
+  "version": "1788448256",
+  "slug": "crt-construction",
+  "client": "CRT Construction",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_7f1733.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}
