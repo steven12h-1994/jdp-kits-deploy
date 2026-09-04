@@ -307,6 +307,17 @@ function volFactor(q){if(q<24)return 1.06;if(q<48)return 1.03;if(q<100)return 1.
    published market range of $5.25-$10.78, and it is what pays for the customer's volume break --
    so the garment can hold its multiple instead of being discounted into thin air. */
 var DECO_MK={embroidery:[2.02,1.61,1.31],screen:[3.67,3.00,2.33],heat_transfer:[2.17,1.75,1.42]};
+/* SUPPLIER QUANTITY BREAK on the blank. Our cost genuinely falls at volume, so the customer's
+   volume discount is funded by a real cost reduction rather than out of margin -- which is the only
+   honest way to be competitive at 144+.
+   Calibrated so the drop from 12 to 144 matches the market PER CATEGORY, which is what actually
+   matters: commodity tees and caps fall ~26% (market 25-30%) while premium parkas fall ~13%
+   (expensive goods always discount far less). A single blended number is misleading on a
+   premium-weighted catalogue.
+   ASSUMPTION TO KEEP HONEST: 3% at 48+, 6% at 144+. If a supplier gives less, gross margin at 144
+   lands near the 30% floor instead of ~34% -- it does not go below it. If a supplier gives more,
+   raise the figure here and the saving passes to the customer automatically. */
+function blankBreak(q){return (q<48)?1.00:((q<144)?0.97:0.94);}
 function decoMk(method,q){var t=DECO_MK[method]||DECO_MK.embroidery;return (q<48)?t[0]:((q<144)?t[1]:t[2]);}
 function decoCharge(d,item,q){return decoCost(d,item)*decoMk(d.method||'embroidery',q);}
 // Carhartt — transparent premium brand: leaner market-benchmarked markup (competitive with marks.com / carhartt.com).
@@ -318,19 +329,26 @@ function hasDecoPlace(item){return !!((item.places||[]).some(function(p){return 
 function unitPrice(key,decos,q){key=bkey(key);var r=CFG.rates;
   var _it=BYKEY[key]; if(_it&&_it.layer==='promo')return _it.price_cad||0;   // promo: flat Debco CAD price (customer price)
   if(!r||r.blank==null){return unitAt(BYKEY[key],q);}
-  var item=BYKEY[key],c=blankOf(key),dec=0,decc=0;
+  var item=BYKEY[key],c0=blankOf(key),c=c0*blankBreak(q),dec=0,decc=0;
   var vpl={};(item.places||[]).forEach(function(p){if(p.logo)vpl[p.id]=1;});   // only decorate on real logo places (pants have none -> no deco charge)
   var _ly=stdLayers(key);   // 3-in-1 systems carry the mark on shell AND liner: two runs, two charges
   activeDecos(decos).forEach(function(d){if(!vpl[d.pl])return;
     dec+=decoCost(d,item)*_ly;                    // what it costs us -- drives the margin floor
     decc+=decoCharge(d,item,q)*_ly;});            // what the customer pays
   var carh=isCarhartt(item);
-  var cm=carh?costMultCarh(c):costMult(c),vf=carh?volFactorCarh(q):volFactor(q);
+  /* The multiple is keyed to the LIST cost (c0), not the discounted cost -- otherwise a garment
+     could slide into a cheaper band at volume and get marked up harder, which is backwards. */
+  var cm=carh?costMultCarh(c0):costMult(c0),vf=carh?volFactorCarh(q):volFactor(q);
   /* Floor is measured on TRUE cost. 30% for the program range: PPAI reports 34-36% as the
      industry average and calls sub-30% operationally dangerous once overhead is applied.
      Brand-transparent goods run leaner ON PURPOSE -- a buyer can price a Carhartt jacket on
      carhartt.com, so the mix carries it rather than the single line. */
-  var price=c*cm*vf+decc,floor=(c+dec)/(carh?0.78:0.70);
+  /* The floor is measured on the FULL list blank (c0), never the volume-discounted one. The break
+     above is a forecast of supplier pricing; the floor is a guarantee. Measuring the guarantee
+     against the forecast would mean that if a supplier break came in smaller than expected we would
+     silently sell under 30% -- 113 items would have done exactly that. This way the worst case is
+     the floor, not a loss. */
+  var price=c*cm*vf+decc,floor=(c0+dec)/(carh?0.78:0.70);
   if(price<floor)price=floor; if(price<2.50)price=2.50;          // min piece price
   return Math.ceil(price/0.5)*0.5;}                              // round UP to nearest $0.50
 /* ---- PROMO pricing engine (Debco) — the correct all-in model ----
