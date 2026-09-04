@@ -1330,11 +1330,32 @@ function noResultsHtml(q,toks){
        '<button type="button" class="nrgo" data-nrq="'+esc(r.toks.join(' '))+'">'+
        'Show those '+r.n+' \u2192</button>';
   }
-  var chips=[],c,sub3;
-  for(c in BUCKETS){for(sub3 in BUCKETS[c]){
-    if((BUCKETS[c][sub3]||[]).length>=3&&chips.length<8)
-      chips.push('<button type="button" class="nrchip" data-nrcat="'+esc(c)+'" data-nrsub="'+esc(sub3)+'">'+
-        esc(sub3)+' <i>'+BUCKETS[c][sub3].length+'</i></button>');}}
+  /* The browse chips must be RELEVANT. Listing the first eight shelves in the catalogue offered
+     "Polos" and "Shirts" to someone asking for a glass water bottle. Instead, count where the
+     relaxed query's results actually live and offer those shelves, biggest first. */
+  var chips=[],c,sub3,tally={},order=[];
+  if(r){
+    for(var i2=0;i2<ALLKEYS.length;i2++){
+      var k2=ALLKEYS[i2];
+      if(searchScore(BYKEY[k2],r.toks)<=0)continue;
+      for(c in BUCKETS){for(sub3 in BUCKETS[c]){
+        if((BUCKETS[c][sub3]||[]).indexOf(k2)>=0){
+          var id=c+'\u0001'+sub3;
+          if(tally[id]==null){tally[id]=0;order.push(id);}
+          tally[id]++;
+        }}}
+    }
+    order.sort(function(a,b){return tally[b]-tally[a];});
+  }
+  if(!order.length){                                  // nothing to relax to: offer the biggest shelves
+    for(c in BUCKETS){for(sub3 in BUCKETS[c]){
+      if((BUCKETS[c][sub3]||[]).length>=3){var id2=c+'\u0001'+sub3;tally[id2]=BUCKETS[c][sub3].length;order.push(id2);}}}
+    order.sort(function(a,b){return tally[b]-tally[a];});
+  }
+  order.slice(0,6).forEach(function(id3){
+    var pr=id3.split('\u0001');
+    chips.push('<button type="button" class="nrchip" data-nrcat="'+esc(pr[0])+'" data-nrsub="'+esc(pr[1])+'">'+
+      esc(pr[1])+' <i>'+tally[id3]+'</i></button>');});
   h+='<p class="nrbl">Or browse:</p><div class="nrchips">'+chips.join('')+'</div>';
   h+='<p class="nrsrc"><b>Still not it?</b> We source well beyond what is shown here \u2014 tell us what '+
      'you need and we\u2019ll quote it.</p></div>';
