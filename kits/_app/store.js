@@ -876,7 +876,7 @@ function browseColour(key,item){
   var cols=browseCols(item),k=key+'|'+fitOf(item),want=BCOL[k]||vmOf(key).colour,hit=colInList(cols,want);
   return (hit&&hit.name===want)?want:(cols[0]||{}).name;
 }
-var BUCKETS={},TOTALS={},CATS=[];
+var BUCKETS={},TOTALS={},CATS=[],QURLT=null;
 var SHORTCAT={tops:'Polos & Shirts',layers:'Fleece & Sweaters',outerwear:'Jackets',vests:'Vests',ruggedwear:'Rugged Wear',hivis:'Hi-Vis & Safety',carhartt:'Carhartt',headwear:'Headwear',bottoms:'Pants & Joggers',fr:'Flame-Resistant',accessories:'Accessories'};
 // Two brand worlds — how JDP sells: the jobsite crew and the front office / client-facing team.
 var AUD=[{id:'field',name:'Field & Crews',short:'Field & Crews',blurb:'CSA hi-vis, rugged workwear & hard-hat-ready layers built for the jobsite.',cats:['hivis','ruggedwear','carhartt','fr','headwear','bottoms']},
@@ -1455,20 +1455,66 @@ function applyViewLink(){
   if(wantCat){for(c in BUCKETS){if(bslug(c)===wantCat){setCat(c,true);return true;}}}
   return false;
 }
+/* THE ADDRESS BAR MUST MATCH WHAT YOU ARE LOOKING AT.
+   Clicking "Water Bottles" changed the grid but not the URL, so copying the address bar handed
+   someone the bare store link and they landed back on the front page. That broke sharing in both
+   directions: ours to a customer, and a prospect's to their own team -- and the prospect case is the
+   one that spreads, because a buyer forwarding a shelf to three colleagues is free distribution we
+   were silently throwing away.
+   replaceState, not pushState: the address bar stays correct without stuffing the history with an
+   entry per chip click, so Back still leaves the store the way it always did. */
+function viewUrl(){
+  var b=location.origin+location.pathname;
+  if(VIEW.q)return b+'?q='+encodeURIComponent(VIEW.q).replace(/%20/g,'+');
+  if(VIEW.cat&&VIEW.sub&&VIEW.sub!=='all')return b+'?sub='+bslug(VIEW.sub);
+  if(VIEW.cat)return b+'?cat='+encodeURIComponent(VIEW.cat);
+  return b;
+}
+function viewLabel(){
+  if(VIEW.q)return '\u201c'+VIEW.q+'\u201d';
+  if(VIEW.cat&&VIEW.sub&&VIEW.sub!=='all')return VIEW.sub;
+  if(VIEW.cat)return megaName(VIEW.cat);
+  return CFG.client?(CFG.client+' team store'):'our team store';
+}
+function syncViewUrl(){
+  /* A board owns the address bar while it is open -- its link is the thing worth sharing then. */
+  if(/[?&](b|board|list)=/.test(location.search))return;
+  try{if(typeof boardOpen==='function'&&(boardOpen()||boardsOpen()))return;}catch(e){}
+  try{history.replaceState(null,'',viewUrl());}catch(e){}
+}
+function shareView(){
+  var url=viewUrl(),lab=viewLabel();
+  var title=lab+' \u2014 '+(CFG.client||'Team store');
+  var text=title+' \u00b7 branded with your logo, priced per piece';
+  /* Same rule as sharing an item: the OS sheet only where there is a touch pointer, and any failure
+     other than a deliberate cancel falls through to copying. A share control must never do nothing. */
+  var touch=!!(window.matchMedia&&window.matchMedia('(pointer:coarse)').matches);
+  var canNative=!!navigator.share&&touch&&(!navigator.canShare||navigator.canShare({url:url}));
+  if(canNative){
+    try{
+      var pr=navigator.share({title:title,text:text,url:url});
+      if(pr&&pr.catch)pr.catch(function(err){
+        if(err&&err.name==='AbortError')return;
+        copyLink(url,'Link copied \u2014 opens on '+lab);});
+    }catch(e){copyLink(url,'Link copied \u2014 opens on '+lab);}
+    return;
+  }
+  copyLink(url,'Link copied \u2014 opens on '+lab);
+}
 function scrollToResults(){
   var hd=document.getElementById('gridhd');if(!hd)return;
   var hdr=document.querySelector('.hdr'),nav=document.getElementById('navwrap');
   var sticky=(hdr?hdr.offsetHeight:60)+(nav?nav.offsetHeight:0)+8;
   var y=window.pageYOffset+hd.getBoundingClientRect().top-sticky;
   window.scrollTo({top:Math.max(0,y),behavior:'smooth'});}
-function setSub(sub){VIEW.sub=sub;document.querySelectorAll('.schip').forEach(function(b){b.classList.toggle('on',b.dataset.sub===sub);});renderGrid();scrollToResults();}
+function setSub(sub){VIEW.sub=sub;document.querySelectorAll('.schip').forEach(function(b){b.classList.toggle('on',b.dataset.sub===sub);});renderGrid();syncViewUrl();scrollToResults();}
 function setCat(cat,doScroll){
   VIEW.cat=cat;VIEW.sub='all';VIEW.q='';
   var nw=document.getElementById('navwrap');if(nw)nw.classList.remove('searching');
   var si=document.getElementById('kitSearch');if(si)si.value='';
   document.querySelectorAll('.ctab').forEach(function(t){var on=t.dataset.cat===cat;t.classList.toggle('on',on);
     if(on){var tr=t.closest('.ctabs');if(tr)tr.scrollTo({left:t.offsetLeft-tr.clientWidth/2+t.clientWidth/2,behavior:'smooth'});}});
-  renderSubchips();renderGrid();
+  renderSubchips();renderGrid();syncViewUrl();
   if(doScroll)scrollToResults();}
 // "Keep exploring" — after a category's grid, surface the OTHER major categories so shoppers don't stop
 // after the first one (e.g. Polos). Big reason customers weren't discovering jackets/fleece/etc.
@@ -1602,7 +1648,7 @@ function moreCatsHtml(){
       '<div class="mctx"><b>'+esc(shortCat(c))+'</b><i>'+TOTALS[c]+' styles →</i></div></div>';}).join('');
   return '<div class="morecats">'+banner+'</div>';}   // slim: one "Up next" nudge; the sticky tabs carry navigation
 function openSearch(){var nw=document.getElementById('navwrap');if(nw)nw.classList.add('searching');var si=document.getElementById('kitSearch');if(si){si.focus();}}
-function closeSearch(){var nw=document.getElementById('navwrap');if(nw)nw.classList.remove('searching');VIEW.q='';var si=document.getElementById('kitSearch');if(si)si.value='';renderGrid();}
+function closeSearch(){var nw=document.getElementById('navwrap');if(nw)nw.classList.remove('searching');VIEW.q='';var si=document.getElementById('kitSearch');if(si)si.value='';renderGrid();syncViewUrl();}
 /* ---------- build page ---------- */
 function buildStore(){
   var C=CFG.copy||{};
@@ -1709,6 +1755,11 @@ function buildStore(){
      '</div>'+
      '<div class="subbar">'+
        '<div class="subrow"><div class="subchips" id="subchips"></div>'+
+         '<button type="button" class="sharev" id="sharev" aria-label="Share this view">'+
+           '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" '+
+           'stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+
+           '<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>'+
+           '<path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg><span>Share</span></button>'+
          '<button type="button" class="fbtn" id="fbtn" aria-expanded="false">Filters<i id="fcount"></i></button></div>'+
        '<div class="fpills" id="fpills"></div>'+
        '</div>'+
@@ -1779,7 +1830,8 @@ function buildStore(){
   var st=document.getElementById('searchToggle');if(st)st.addEventListener('click',openSearch);
   var sc=document.getElementById('searchClose');if(sc)sc.addEventListener('click',closeSearch);
   var si=document.getElementById('kitSearch');
-  if(si){si.addEventListener('input',function(){VIEW.q=si.value;renderGrid();});
+  if(si){si.addEventListener('input',function(){VIEW.q=si.value;renderGrid();
+    clearTimeout(QURLT);QURLT=setTimeout(syncViewUrl,450);});
     si.addEventListener('keydown',function(e){if(e.key==='Escape')closeSearch();});}
   setCat(VIEW.cat,false);       // initial focused render
   document.addEventListener('keydown',function(e){if(e.key==='Escape'){if(mediaOpen())closeMedia();else closeAll();}});
@@ -1858,8 +1910,8 @@ function currentSheetColour(key){
    real component (tick, message, and a "View list \u2192" button) had never once rendered. Customers
    were getting a plain text pill and, worse, losing the one-tap route to their kit right after
    adding something. Removed; the designed toast is the only toast. */
-function copyLink(url){
-  var done=function(){toast('Link copied — opens straight to this item');};
+function copyLink(url,msg){
+  var done=function(){toast(msg||'Link copied — opens straight to this item');};
   if(navigator.clipboard&&navigator.clipboard.writeText){
     navigator.clipboard.writeText(url).then(done,function(){legacyCopy(url,done);});
   }else legacyCopy(url,done);
@@ -4040,6 +4092,8 @@ function wireExplore(){
     if(x){x.style.display='none';
       x.addEventListener('click',function(){ts.value='';push();ts.focus();});}
   }
+  var sv=document.getElementById('sharev');
+  if(sv&&!sv.dataset.wired){sv.dataset.wired='1';sv.addEventListener('click',shareView);}
   document.querySelectorAll('[data-catgo]').forEach(function(b){
     b.addEventListener('click',function(){
       setCat(b.dataset.catgo,true);

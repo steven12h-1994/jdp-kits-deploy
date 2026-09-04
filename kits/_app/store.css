@@ -1822,3 +1822,19 @@ body{padding-left:74px}
 .nrsrc{margin:20px 0 0;padding-top:16px;border-top:1px solid var(--line);font-size:13.5px;
   color:var(--mut);line-height:1.55}
 @media(max-width:640px){.nrin{margin:16px 0 34px;padding:20px 18px;border-radius:12px}}
+
+/* ---- Share this view -------------------------------------------------------------------------
+   Sits beside Filters and matches it, because they are the same kind of control: things you do TO
+   the current view. Clicking a shelf now also rewrites the address bar, so copying the URL works
+   even for someone who never notices this button -- this is the discoverable path for everyone
+   else, and the only workable one on a phone. */
+.sharev{flex:none;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;cursor:pointer;
+  font-size:12px;font-weight:800;letter-spacing:.02em;color:var(--ink);background:#fff;
+  border:1.5px solid var(--line);border-radius:999px;padding:7px 13px;line-height:1}
+.sharev:hover{border-color:color-mix(in srgb,var(--a) 40%,#fff);color:var(--a)}
+.sharev:active{transform:scale(.97)}
+.sharev svg{flex:none;opacity:.75}
+.sharev:hover svg{opacity:1}
+/* On a phone the label is the first thing to go -- the glyph is universally understood and the
+   chip strip needs the room far more than the word does. */
+@media(max-width:560px){.sharev span{display:none}.sharev{padding:7px 10px}}
