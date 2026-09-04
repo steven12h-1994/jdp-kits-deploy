@@ -3717,7 +3717,11 @@ function boardSizing(){
   Object.keys(CART).forEach(function(ck){
     var it=BYKEY[bkey(ck)];if(!it||it.layer==='promo')return;
     total++;
-    if(sizeSum(CART[ck].sizes)>0)sized++; else missing.push(ck);});
+    /* A one-size item is SIZED as soon as it has a quantity -- there is no split to give. Counting
+       it as outstanding left a fully-filled board stuck on "4 still to go" and refusing to unlock
+       the proforma, which is the whole point of the step. */
+    var done=oneSize(it)?((CART[ck].qty||0)>0):(sizeSum(CART[ck].sizes)>0);
+    if(done)sized++; else missing.push(ck);});
   return {total:total,sized:sized,missing:missing};
 }
 /* The proposal block holds no inputs, so it can be re-rendered wholesale on every keystroke without
