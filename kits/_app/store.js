@@ -4456,7 +4456,16 @@ function syncBoardsFromServer(){
         if(changed){persistLists();refreshCartUI();syncBoardIfOpen();markSync('saved');}
         /* Always repaint: the hero depends on what the SERVER holds, and on a first visit the
            boards arrive after the page has already painted. */
-        try{hideStaleStarter();renderRecoHero();}catch(e){}
+        try{
+          /* hideStaleStarter() DELETES a list, so every surface already painted from LISTS is now
+             stale -- and it necessarily runs after the repaint above, because it cannot know the
+             kit has curated boards until this fetch resolves. The starter list was therefore gone
+             from storage but still had a chip in the board strip. On desktop that chip merely
+             scrolled out of sight; once the strip wraps on a phone it ate a whole row above the
+             two boards that are the actual sales document. Repaint when it removes something. */
+          if(hideStaleStarter()){refreshCartUI();syncBoardIfOpen();}
+          renderRecoHero();
+        }catch(e){}
         return changed;
       });
     }).catch(function(){return false;});
