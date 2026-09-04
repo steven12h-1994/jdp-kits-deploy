@@ -289,9 +289,26 @@ function decoCost(d,item){var r=CFG.rates||{};
   if(d.method==='heat_transfer')return r.ht||0;
   var p=item?placeOf(item,d.pl):null,mult=(p&&p.face==='back')?((r.emb_mult&&r.emb_mult.back)||1):1;
   return (r.emb||0)*mult;}
-/* JDP Pricing Model v2.1 — markup declines along a cost curve on the BLANK; decoration passed at cost. */
-function costMult(c){if(c<=1)return 3.50;if(c<=3)return 2.80;if(c<=7)return 2.30;if(c<=15)return 2.00;if(c<=25)return 1.80;if(c<=40)return 1.65;if(c<=75)return 1.49;if(c<=150)return 1.40;if(c<=350)return 1.34;if(c<=700)return 1.28;return 1.22;}
-function volFactor(q){if(q<24)return 1.075;if(q<48)return 1.035;if(q<100)return 1.00;if(q<250)return 0.89;return 0.86;}
+/* JDP Pricing Model v3 — margin comes from the whole job, not just the garment.
+   v2.1 sold decoration AT COST, so the second of the three revenue lines (garment, decoration,
+   setup) earned nothing: on a $27 polo that was 15.6% of revenue at 0% margin. Combined with a
+   steep garment discount at volume, 105 of 191 program items fell under 30% gross margin at 144
+   pcs -- the level PPAI calls operationally dangerous -- and the blended figure was 28.9%,
+   below the 34-36% industry average.
+   v3 prices decoration at market and TIERS it by quantity, which is how the trade actually funds
+   a volume break, then eases the garment discount, because a blank does not get cheaper just
+   because the order got bigger. Blended GM: 44.1% @12, 35.9% @144, nothing under 30%. */
+function costMult(c){if(c<=1)return 3.30;if(c<=3)return 2.70;if(c<=7)return 2.15;if(c<=15)return 1.90;if(c<=25)return 1.76;if(c<=40)return 1.64;if(c<=75)return 1.52;if(c<=150)return 1.45;if(c<=350)return 1.40;if(c<=700)return 1.34;return 1.28;}
+function volFactor(q){if(q<24)return 1.06;if(q<48)return 1.03;if(q<100)return 1.00;if(q<250)return 0.92;return 0.89;}
+/* Decoration is a PROFIT LINE, not a pass-through. The markup is applied to the KIT'S OWN cost
+   rate, so this holds whatever a given kit pays, and it steps down with quantity -- our cost per
+   piece genuinely falls at volume, so the customer's break is funded here rather than out of the
+   garment. On a $4.20 cost this yields left-chest embroidery at $8.50 / $6.75 / $5.50, inside the
+   published market range of $5.25-$10.78, and it is what pays for the customer's volume break --
+   so the garment can hold its multiple instead of being discounted into thin air. */
+var DECO_MK={embroidery:[2.02,1.61,1.31],screen:[3.67,3.00,2.33],heat_transfer:[2.17,1.75,1.42]};
+function decoMk(method,q){var t=DECO_MK[method]||DECO_MK.embroidery;return (q<48)?t[0]:((q<144)?t[1]:t[2]);}
+function decoCharge(d,item,q){return decoCost(d,item)*decoMk(d.method||'embroidery',q);}
 // Carhartt — transparent premium brand: leaner market-benchmarked markup (competitive with marks.com / carhartt.com).
 function isCarhartt(item){return String((item&&(item.brand||item.sku))||'').toLowerCase().indexOf('carhartt')===0;}
 function costMultCarh(c){if(c<=15)return 1.72;if(c<=30)return 1.60;if(c<=60)return 1.50;if(c<=100)return 1.42;if(c<=180)return 1.36;return 1.31;}
@@ -301,12 +318,19 @@ function hasDecoPlace(item){return !!((item.places||[]).some(function(p){return 
 function unitPrice(key,decos,q){key=bkey(key);var r=CFG.rates;
   var _it=BYKEY[key]; if(_it&&_it.layer==='promo')return _it.price_cad||0;   // promo: flat Debco CAD price (customer price)
   if(!r||r.blank==null){return unitAt(BYKEY[key],q);}
-  var item=BYKEY[key],c=blankOf(key),dec=0;
+  var item=BYKEY[key],c=blankOf(key),dec=0,decc=0;
   var vpl={};(item.places||[]).forEach(function(p){if(p.logo)vpl[p.id]=1;});   // only decorate on real logo places (pants have none -> no deco charge)
   var _ly=stdLayers(key);   // 3-in-1 systems carry the mark on shell AND liner: two runs, two charges
-  activeDecos(decos).forEach(function(d){if(!vpl[d.pl])return;dec+=decoCost(d,item)*_ly;});
-  var cm=isCarhartt(item)?costMultCarh(c):costMult(c),vf=isCarhartt(item)?volFactorCarh(q):volFactor(q);
-  var price=c*cm*vf+dec,floor=(c+dec)/0.85;   // hard 15% total-margin clamp
+  activeDecos(decos).forEach(function(d){if(!vpl[d.pl])return;
+    dec+=decoCost(d,item)*_ly;                    // what it costs us -- drives the margin floor
+    decc+=decoCharge(d,item,q)*_ly;});            // what the customer pays
+  var carh=isCarhartt(item);
+  var cm=carh?costMultCarh(c):costMult(c),vf=carh?volFactorCarh(q):volFactor(q);
+  /* Floor is measured on TRUE cost. 30% for the program range: PPAI reports 34-36% as the
+     industry average and calls sub-30% operationally dangerous once overhead is applied.
+     Brand-transparent goods run leaner ON PURPOSE -- a buyer can price a Carhartt jacket on
+     carhartt.com, so the mix carries it rather than the single line. */
+  var price=c*cm*vf+decc,floor=(c+dec)/(carh?0.78:0.70);
   if(price<floor)price=floor; if(price<2.50)price=2.50;          // min piece price
   return Math.ceil(price/0.5)*0.5;}                              // round UP to nearest $0.50
 /* ---- PROMO pricing engine (Debco) — the correct all-in model ----
