@@ -1335,6 +1335,11 @@ body{padding-left:74px}
 .bx:hover{border-color:var(--ink);color:var(--ink)}
 /* Board tabs: switching boards is a first-class move here, not buried in a select. */
 .bchips{display:flex;gap:7px;overflow-x:auto;padding:0 0 13px;scrollbar-width:none}
+/* On a phone the board strip scrolled sideways with its scrollbar deliberately hidden, so a
+   prospect landing on ?b=<one board> saw ONE board and had no indication the second existed.
+   The whole point of the two-board protocol is showing two use cases, so hiding one of them
+   is a lost program, not a layout nit. Wrap instead: costs 38px, guarantees both are seen. */
+@media(max-width:560px){.bchips{flex-wrap:wrap;overflow-x:visible}}
 .bchips::-webkit-scrollbar{display:none}
 .bchip{display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border:1px solid var(--line);
   border-radius:999px;background:#fff;font:inherit;font-size:12.5px;font-weight:700;color:var(--mut);
