@@ -679,7 +679,11 @@ var MEGASUB={
   // never declared, so work pants and bibs were unreachable in the nav.
   bottoms:['Joggers & Sweatpants','Work Pants & Bibs','Work Pants','Bibs & Overalls'],
   fr:['FR Hoodies','FR Shirts','FR Tees','FR Pants','FR Jackets','FR Accessories'],
-  accessories:['Kits & Gift Sets','Drinkware','Notebooks & Pens','Tech','Lifestyle','Bags','Golf','Headwear'],
+  /* Drinkware split by what it IS. 32 items in one flat "Drinkware" grid, half of them named
+     "Easy Breezy" or "Shot Caller", is unnavigable -- a buyer looking for a water bottle had to open
+     products one by one to find out which ones were bottles. Buyers shop drinkware by type first,
+     then material and size. */
+  accessories:['Kits & Gift Sets','Water Bottles','Tumblers','Mugs','Drinkware','Notebooks & Pens','Tech','Lifestyle','Bags','Golf','Headwear'],
 };
 // Hi-vis by NAME (any layer). Organized how safety buyers actually shop — vests lead (the #1 entry
 // hi-vis item), then shirts, warm mid-layers, insulated jackets, winter parkas, and rain/gear last.
@@ -793,7 +797,17 @@ function classify(it){
   // rated head protection bought by a safety manager, so they belong beside hi-vis. Keys off pmega
   // so any future quote-mode item can pick its own home category.
   if(layer==='promo'&&it.pmega&&it.pmega!=='accessories')return {mega:it.pmega,sub:it.psub||'Bags'};
-  if(layer==='promo')return {mega:'accessories',sub:it.psub||'Bags'};   // all promo/golf/bag items -> one Accessories category (psub remapped at build)
+  if(layer==='promo'){
+    /* Route drinkware to a type sub when we know the type; anything not yet classified falls back to
+       the generic Drinkware shelf rather than disappearing. */
+    if(it.psub==='Drinkware'&&it.dwtype){
+      var _t=String(it.dwtype).toLowerCase();
+      if(_t==='bottle')return {mega:'accessories',sub:'Water Bottles'};
+      if(_t==='tumbler')return {mega:'accessories',sub:'Tumblers'};
+      if(_t==='mug'||_t==='cup')return {mega:'accessories',sub:'Mugs'};
+    }
+    return {mega:'accessories',sub:it.psub||'Bags'};   // all other promo/golf/bag items
+  }
   // Carhartt is a dedicated brand category — route ALL Carhartt items there (keeps the shared tabs uncluttered).
   var _brand=((it.sku||'')+' '+(it.brand||'')).toLowerCase();
   if(_brand.indexOf('carhartt')>=0)return classifyCarhartt(it,n,layer);
@@ -1201,13 +1215,85 @@ function wireCards(rootId){
 // (men's AND ladies', so "SP24" or "SP23" finds the shirt) and fabric, so "cotton" finds the cotton styles.
 function searchText(it){
   return ((it.name||'')+' '+(it.sku||'')+' '+(it.brand||'')+' '+
-          (it.msku||'')+' '+(it.wsku||'')+' '+(it.fabric||'')).toLowerCase();
+          (it.msku||'')+' '+(it.wsku||'')+' '+(it.fabric||'')+' '+
+          (it.tags||'')+' '+(it.psub||'')+' '+
+          (it.dwtype||'')+' '+(it.dwmat||'')+' '+(it.dwoz?it.dwoz+'oz '+it.dwoz+' oz':'')+' '+
+          (it.dwins?'insulated vacuum double-wall thermos':'')+' '+
+          (hasLadies(it)?' womens ladies women':'')+(it.unisex?' unisex':'')).toLowerCase();
+          // tags carry material / type / capacity; fit words make "ladies polo" work
+}
+/* WORDS, NOT ONE STRING.
+   The matcher used to be searchText(it).indexOf(wholeQuery), so a customer asking for
+   "stainless steel water bottles" got ZERO results -- not even the bottle literally named
+   "Eye Candy Double-Dip 20 Oz Stainless Steel Bottle", because "water" is not in its name and the
+   whole phrase had to appear contiguously. Real buyers type sentences, and half our drinkware is
+   named "Easy Breezy" or "Shot Caller", which describes nothing at all.
+   So: tokenise, drop filler words, expand synonyms, require EVERY token to be satisfied by some
+   alternative, and rank name hits above tag hits. */
+var SEARCH_STOP={a:1,an:1,the:1,for:1,with:1,and:1,or:1,of:1,in:1,on:1,to:1,is:1,are:1,me:1,my:1,we:1,
+  our:1,some:1,any:1,need:1,want:1,looking:1,look:1,have:1,has:1,do:1,you:1,got:1,get:1,please:1,
+  something:1,anything:1,options:1,option:1,style:1,styles:1,product:1,products:1,item:1,items:1,
+  friendly:1,nice:1,good:1,best:1,great:1,quality:1,cheap:1,affordable:1,branded:1,custom:1,logo:1};
+var SEARCH_SYN={
+  /* drinkware — the vocabulary customers actually use */
+  water:['bottle'],bottle:['bottle'],flask:['bottle'],canteen:['bottle'],hydration:['bottle'],
+  /* thermos gets NO expansion. Expanding to 'insulated' returned insulated JACKETS; expanding to
+     'bottle' returned single-wall bottles that keep nothing warm. Every insulated drinkware item
+     carries the word 'thermos' in its tags, so the bare token is already exactly right. */
+  vacuum:['insulated'],thermal:['insulated'],
+  steel:['stainless'],metal:['stainless','aluminum','aluminium'],ss:['stainless'],
+  travel:['tumbler'],coffee:['mug','tumbler'],tea:['mug'],cup:['cup','tumbler'],
+  drinkware:['bottle','tumbler','mug','cup'],glass:['glass'],
+  eco:['recycled','rpet'],sustainable:['recycled','rpet'],green:['recycled'],
+  /* general */
+  jacket:['jacket'],coat:['jacket','parka'],sweater:['fleece','sweatshirt'],hoodie:['hooded','hoodie'],
+  hivis:['hi-vis'],highvis:['hi-vis'],safety:['hi-vis','csa'],visibility:['hi-vis'],
+  hat:['cap','toque','beanie'],beanie:['toque','beanie'],winter:['insulated','toque','parka'],
+  backpack:['backpack'],bag:['bag','backpack','duffel','tote'],
+  ladies:['womens'],women:['womens'],womans:['womens'],mens:['mens']
+};
+function searchTokens(q){
+  return String(q||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').split(' ')
+    .filter(function(t){return t && t.length>1 && !SEARCH_STOP[t];});
+}
+function tokenAlts(t){
+  var a=[t];
+  if(SEARCH_SYN[t])a=a.concat(SEARCH_SYN[t]);
+  /* bottles -> bottle, mugs -> mug. But NOT thermos -> thermo, which matched ThermoBall Jacket and
+     Thermo Fleece. Words ending -ss/-us/-os/-is are not plurals. */
+  if(t.length>3&&t.charAt(t.length-1)==='s'&&!/(ss|us|os|is)$/.test(t)){
+    var sing=t.slice(0,-1);a.push(sing);
+    if(SEARCH_SYN[sing])a=a.concat(SEARCH_SYN[sing]);
+  }
+  return a;
+}
+/* 0 = no match; higher = better. */
+function searchScore(it,toks){
+  if(!toks.length)return 0;
+  var hay=searchText(it),nm=(it.name||'').toLowerCase(),score=1;
+  for(var i=0;i<toks.length;i++){
+    var alts=tokenAlts(toks[i]),hit=false;
+    for(var j=0;j<alts.length;j++){
+      if(hay.indexOf(alts[j])>=0){
+        hit=true;
+        if(nm.indexOf(alts[j])>=0)score+=3;                   // a hit in the product NAME counts most
+        if(toks[i]===alts[j])score+=1;                        // exact word beats a synonym
+        break;
+      }
+    }
+    if(!hit)return 0;                                          // every token must be satisfied
+  }
+  return score;
 }
 function renderGrid(){
   var grid=document.getElementById('grid'),hd=document.getElementById('gridhd'),nr=document.getElementById('noResults');
   if(!grid)return;var q=(VIEW.q||'').trim().toLowerCase();
   if(q){
-    var matches=ALLKEYS.filter(function(k){var it=BYKEY[k];return it&&searchText(it).indexOf(q)>=0;});
+    var _toks=searchTokens(q);
+    var matches=ALLKEYS.map(function(k){var it=BYKEY[k];return it?[k,searchScore(it,_toks)]:[k,0];})
+      .filter(function(r){return r[1]>0;})
+      .sort(function(a,b){return b[1]-a[1];})
+      .map(function(r){return r[0];});
     hd.innerHTML=matches.length?('<h2 class="glbl">Search results</h2><span class="gsub">'+matches.length+' match'+(matches.length===1?'':'es')+' for “'+esc(VIEW.q)+'”</span>'):'';
     grid.innerHTML='<div class="menu">'+matches.map(menuCard).join('')+'</div>';
     nr.style.display=matches.length?'none':'';wireCards();return;}
@@ -1728,9 +1814,22 @@ function fabLine(item){
 // identically and wear nothing alike. One unit only -- gsm when the maker gives it -- so the line
 // stays short enough for a card.
 function fabCardLine(item){
+  /* Drinkware reuses this spec-line slot. A card that reads "Easy Breezy / Drinkware / $9.50" tells
+     a buyer nothing about what the product IS -- half our drinkware is named "Shot Caller" or
+     "Daydreamer". Capacity, material and insulation are the three facts a buyer actually compares,
+     so they belong on the card, not three clicks deep. */
+  var d=dwSpecLine(item);if(d)return d;
   var l=fabLine(item);if(!l)return '';
   var w=(item.fab&&item.fab.weight)?String(item.fab.weight).split(' \u00b7 ')[0]:'';
   return w?(l+' \u00b7 '+w):l;
+}
+function dwSpecLine(item){
+  if(!item||!item.dwtype)return '';
+  var bits=[];
+  if(item.dwoz)bits.push(item.dwoz+' oz');
+  if(item.dwmat)bits.push(item.dwmat);
+  if(item.dwins)bits.push('Insulated');
+  return bits.join(' \u00b7 ');
 }
 function fabricHtml(item){
   var f=item.fab||{},mix=fabMix(item);
