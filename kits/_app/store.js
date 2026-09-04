@@ -2531,13 +2531,30 @@ function pullBoard(b){
     .then(function(j){return (j&&j.ok&&j.board)?j.board:null;})
     .catch(function(){return null;});
 }
+/* Resolve a server board slug to a local list id.
+   MUST be re-called INSIDE the async callback that creates a board. openSharedBoard(?b=) and
+   syncBoardsFromServer() both run on page load; each scanned LISTS, then awaited a fetch, then
+   created a list. Both scans ran before either write, so both found nothing and both minted one --
+   opening a shared link showed the SAME board twice, with the customer editing whichever tab they
+   happened to click. Re-resolving at creation time closes the window, because creation itself is
+   synchronous. */
+function listIdForSlug(b,allowNameMatch){
+  if(!LISTS)loadLists();
+  for(var k in LISTS){if(LISTS[k].slug===b)return k;}
+  if(allowNameMatch){
+    /* A never-synced local board whose name resolves to this slug IS this board. */
+    for(var k2 in LISTS){
+      var L2=LISTS[k2];
+      if(!L2.slug&&!isTemplate(k2)&&bslug(L2.name||'')===b)return k2;
+    }
+  }
+  return null;
+}
 /* Opening ?b=<slug>: adopt the server's copy as a real local board, then show it. */
 function openSharedBoard(b){
   return pullBoard(b).then(function(sb){
     if(!sb)return false;
-    if(!LISTS)loadLists();
-    var id=null;
-    for(var k in LISTS){if(LISTS[k].slug===b){id=k;break;}}
+    var id=listIdForSlug(b,true);
     if(!id){id=newListId();LISTS[id]={name:sb.name||b,items:{},updated:Date.now()};}
     LISTS[id].name=sb.name||LISTS[id].name;
     LISTS[id].items=sb.items||{};
@@ -3080,7 +3097,12 @@ function cartLineHtml(k){var it=BYKEY[bkey(k)];if(!it)return '';var c=CART[k];
    screen, reuses every existing pricing/quote path, and each board is deep-linkable.
    The side panel is kept ONLY for the quote steps, which already work. */
 function boardUrl(id){return location.origin+location.pathname+'?board='+encodeURIComponent(id||ALID);}
-function noteClean(s){return String(s||'').replace(/[~|]/g,' ').replace(/\s+/g,' ').trim().slice(0,160);}
+/* 320, not 160. A curated shortlist ships with a written reason per item -- why this piece, for
+   this company -- and a real reason does not fit in 160 characters. The cap was applied on SAVE, so
+   merely focusing and blurring a note truncated it mid-sentence, destroying the argument the board
+   exists to make. Keep a cap (public write endpoint) but size it for the job. */
+var NOTE_MAX=320;
+function noteClean(s){return String(s||'').replace(/[~|]/g,' ').replace(/\s+/g,' ').trim().slice(0,NOTE_MAX);}
 function setNote(ck,v){
   if(!CART[ck])return;
   var t=noteClean(v);
@@ -3255,7 +3277,7 @@ function boardCardHtml(ck){
           ((_tq>q)?('<div class="btier">Tier set by '+_tq+' pcs of this garment across both cuts</div>'):'');
       })()+
       '<label class="bnote"><span>Note</span>'+
-        '<textarea data-note="'+esc(ck)+'" rows="2" maxlength="160" '+
+        '<textarea data-note="'+esc(ck)+'" rows="2" maxlength="'+NOTE_MAX+'" '+
         'placeholder="Why this piece \u2014 who it\u2019s for, anything to flag\u2026">'+
         esc(c.note||'')+'</textarea></label>'+
       '<div class="bacts">'+
@@ -3404,7 +3426,13 @@ function wireBoard(){
     inp.addEventListener('focus',function(){try{inp.select();}catch(e){}});});
   el.querySelectorAll('[data-note]').forEach(function(t){
     var save=function(){setNote(t.dataset.note,t.value);};
-    t.addEventListener('change',save);t.addEventListener('blur',save);});
+    /* Grow to fit. A curated board is READ before it is edited: a fixed 2-row box hid the second
+       half of every recommendation behind an invisible scrollbar, so the reasoning that justifies
+       the pick never reached the person deciding. */
+    var grow=function(){t.style.height='auto';var h=t.scrollHeight;if(h>0)t.style.height=(h+2)+'px';};
+    t.addEventListener('change',save);t.addEventListener('blur',save);
+    t.addEventListener('input',grow);
+    grow();if(window.requestAnimationFrame)requestAnimationFrame(grow);});
   el.querySelectorAll('[data-bedit]').forEach(function(b){b.addEventListener('click',function(){
     /* The board STAYS OPEN underneath. It used to be closed first because the product sheet sits at
        z-index 70 and the board at 1400, so the sheet would have opened behind it -- which meant
@@ -3891,7 +3919,9 @@ function syncBoardsFromServer(){
         if(local&&localHasWork&&(local.updated||0)>((row.updated||0)*1000))return false;
         return pullBoard(row.b).then(function(sb){
           if(!sb)return false;
-          var id=localId;
+          /* Re-resolve: localId was computed BEFORE this fetch, so it is stale if ?b= adopted the
+             same board while we were in flight. This is the duplicate-board fix. */
+          var id=listIdForSlug(row.b,true);
           if(!id){id=newListId();LISTS[id]={name:sb.name||row.b,items:{},updated:0};}
           LISTS[id].name=sb.name||LISTS[id].name;
           LISTS[id].items=sb.items||{};

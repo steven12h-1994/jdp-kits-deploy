@@ -1486,7 +1486,7 @@ body{padding-left:74px}
   color:var(--mut);margin-bottom:4px}
 .bnote textarea{width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid var(--ln);
   border-radius:8px;background:rgba(0,0,0,.015);font:inherit;font-size:12.5px;line-height:1.5;
-  color:var(--ink);resize:vertical;min-height:44px}
+  color:var(--ink);resize:vertical;min-height:44px;overflow:hidden}
 .bnote textarea:focus{outline:0;border-color:var(--ac);background:#fff}
 .bacts{display:flex;gap:6px;margin-top:auto;padding-top:4px}
 .bbtn{flex:1;padding:8px 10px;border:1px solid var(--ln);border-radius:8px;background:#fff;font:inherit;
