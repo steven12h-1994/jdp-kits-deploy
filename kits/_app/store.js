@@ -1219,8 +1219,21 @@ function searchText(it){
           (it.tags||'')+' '+(it.psub||'')+' '+
           (it.dwtype||'')+' '+(it.dwmat||'')+' '+(it.dwoz?it.dwoz+'oz '+it.dwoz+' oz':'')+' '+
           (it.dwins?'insulated vacuum double-wall thermos':'')+' '+
-          (hasLadies(it)?' womens ladies women':'')+(it.unisex?' unisex':'')).toLowerCase();
+          (hasLadies(it)?' womens ladies women':'')+(it.unisex?' unisex':'')+' '+
+          colourWords(it)).toLowerCase();
           // tags carry material / type / capacity; fit words make "ladies polo" work
+}
+/* Colour names are searchable. "black water bottle" and "navy polo" are how buyers type, and the
+   colour was the one obvious attribute the haystack did not contain. Cached per item -- this runs
+   for every item on every keystroke. */
+function colourWords(it){
+  if(it._cw!=null)return it._cw;
+  var out=[],seen={},i,n;
+  var add=function(cs){for(i=0;i<(cs||[]).length;i++){n=cs[i]&&cs[i].name;
+    if(n&&!seen[n]){seen[n]=1;out.push(n);}}};
+  add(it.cols);add(it.wcols);
+  try{Object.defineProperty(it,'_cw',{value:out.join(' '),enumerable:false});}catch(e){it._cw=out.join(' ');}
+  return it._cw;
 }
 /* WORDS, NOT ONE STRING.
    The matcher used to be searchText(it).indexOf(wholeQuery), so a customer asking for
@@ -1244,7 +1257,15 @@ var SEARCH_SYN={
   steel:['stainless'],metal:['stainless','aluminum','aluminium'],ss:['stainless'],
   travel:['tumbler'],coffee:['mug','tumbler'],tea:['mug'],cup:['cup','tumbler'],
   drinkware:['bottle','tumbler','mug','cup'],glass:['glass'],
-  eco:['recycled','rpet'],sustainable:['recycled','rpet'],green:['recycled'],
+  eco:['recycled','rpet'],sustainable:['recycled','rpet'],
+  /* Size words map to the capacities we actually stock, so "large water bottle" returns the big
+     ones rather than nothing -- and never returns a small one dressed up as large. */
+  large:['26 oz','27 oz','32 oz','34 oz'],big:['26 oz','27 oz','32 oz','34 oz'],
+  xl:['32 oz','34 oz'],xxl:['32 oz','34 oz'],
+  small:['8.8 oz','12 oz'],mini:['8.8 oz','12 oz'],compact:['8.8 oz','12 oz'],
+  /* How people describe the job the bottle does. */
+  sport:['bottle'],sports:['bottle'],gym:['bottle'],hiking:['bottle'],outdoor:['bottle'],
+  jobsite:['bottle'],site:['bottle'],desk:['mug','tumbler'],office:['mug','tumbler'],
   /* general */
   jacket:['jacket'],coat:['jacket','parka'],sweater:['fleece','sweatshirt'],hoodie:['hooded','hoodie'],
   hivis:['hi-vis'],highvis:['hi-vis'],safety:['hi-vis','csa'],visibility:['hi-vis'],
@@ -1285,6 +1306,51 @@ function searchScore(it,toks){
   }
   return score;
 }
+/* RELAXED RETRY. "glass water bottle" fails on one word only -- we do not stock glass. Rather than
+   a dead end, find the largest subset of the query that DOES match and offer it explicitly, naming
+   the word we had to drop. That way we never quietly pretend to have what was asked for, and a buyer
+   still lands on the 22 bottles we really do carry. */
+function relaxSearch(toks){
+  if(!toks||toks.length<2)return null;
+  var best=null,i,j,sub2,n;
+  for(i=0;i<toks.length;i++){
+    sub2=toks.slice(0,i).concat(toks.slice(i+1));
+    n=0;
+    for(j=0;j<ALLKEYS.length;j++){if(searchScore(BYKEY[ALLKEYS[j]],sub2)>0)n++;}
+    if(n>0&&(!best||n>best.n))best={dropped:toks[i],toks:sub2,n:n};
+  }
+  return best;
+}
+function noResultsHtml(q,toks){
+  var r=relaxSearch(toks),h='<div class="nrin">';
+  h+='<h3>Nothing here matches \u201c'+esc(q)+'\u201d</h3>';
+  if(r){
+    h+='<p class="nrdrop">We don\u2019t stock <b>'+esc(r.dropped)+'</b> \u2014 but we do have '+
+       '<b>'+r.n+'</b> for \u201c'+esc(r.toks.join(' '))+'\u201d.</p>'+
+       '<button type="button" class="nrgo" data-nrq="'+esc(r.toks.join(' '))+'">'+
+       'Show those '+r.n+' \u2192</button>';
+  }
+  var chips=[],c,sub3;
+  for(c in BUCKETS){for(sub3 in BUCKETS[c]){
+    if((BUCKETS[c][sub3]||[]).length>=3&&chips.length<8)
+      chips.push('<button type="button" class="nrchip" data-nrcat="'+esc(c)+'" data-nrsub="'+esc(sub3)+'">'+
+        esc(sub3)+' <i>'+BUCKETS[c][sub3].length+'</i></button>');}}
+  h+='<p class="nrbl">Or browse:</p><div class="nrchips">'+chips.join('')+'</div>';
+  h+='<p class="nrsrc"><b>Still not it?</b> We source well beyond what is shown here \u2014 tell us what '+
+     'you need and we\u2019ll quote it.</p></div>';
+  return h;
+}
+function wireNoResults(el){
+  if(!el)return;
+  el.querySelectorAll('[data-nrq]').forEach(function(b){b.addEventListener('click',function(){
+    var ts=document.getElementById('topSearch');
+    if(ts){ts.value=b.dataset.nrq;try{ts.dispatchEvent(new Event('input',{bubbles:true}));}catch(e){}}
+    scrollToResults();});});
+  el.querySelectorAll('[data-nrsub]').forEach(function(b){b.addEventListener('click',function(){
+    var ts=document.getElementById('topSearch');
+    if(ts){ts.value='';try{ts.dispatchEvent(new Event('input',{bubbles:true}));}catch(e){}}
+    setCat(b.dataset.nrcat,false);setSub(b.dataset.nrsub);});});
+}
 function renderGrid(){
   var grid=document.getElementById('grid'),hd=document.getElementById('gridhd'),nr=document.getElementById('noResults');
   if(!grid)return;var q=(VIEW.q||'').trim().toLowerCase();
@@ -1296,7 +1362,9 @@ function renderGrid(){
       .map(function(r){return r[0];});
     hd.innerHTML=matches.length?('<h2 class="glbl">Search results</h2><span class="gsub">'+matches.length+' match'+(matches.length===1?'':'es')+' for “'+esc(VIEW.q)+'”</span>'):'';
     grid.innerHTML='<div class="menu">'+matches.map(menuCard).join('')+'</div>';
-    nr.style.display=matches.length?'none':'';wireCards();return;}
+    if(matches.length){nr.style.display='none';}
+    else{nr.style.display='';nr.innerHTML=noResultsHtml(VIEW.q,_toks);wireNoResults(nr);}
+    wireCards();return;}
   nr.style.display='none';
   // One place decides which keys the grid may show, so the Fit chip behaves identically in the flat,
   // grouped and single-sub layouts.
@@ -1331,6 +1399,41 @@ function hivisIntroHtml(){
 // Bring the START of the filtered results (the grid heading) to just below the sticky header+nav. Measured
 // live via getBoundingClientRect so it's accurate for any category length — fixes clicks landing at the
 // footer/Instagram feed when a category re-rendered shorter.
+/* SHAREABLE VIEW LINKS — the answer to "a customer asked X, what do I send them?"
+       ?q=stainless+steel+water+bottles   the search, already run
+       ?sub=water-bottles                 that shelf
+       ?cat=accessories                   a whole category
+   Permanent, paste-able, and nothing for anyone to assemble by hand: no board to build, no export,
+   no one in the loop. The sub match is on a SLUG of the real sub name, so "water-bottles",
+   "Water%20Bottles" and "WATER BOTTLES" all land in the same place, and renaming a shelf does not
+   silently 404 a link that is already in a customer's inbox -- it falls through to the category.
+   Runs after buildStore(), so the chips and grid exist to drive. */
+function applyViewLink(){
+  var s=location.search,c,sub2;
+  var qm=s.match(/[?&]q=([^&#]*)/);
+  if(qm){
+    var q=qdec(qm[1]);
+    if(q){
+      /* Drive the real search box rather than reimplementing it, so a shared link and a typed query
+         can never diverge. */
+      var ts=document.getElementById('topSearch');
+      if(ts){ts.value=q;try{ts.dispatchEvent(new Event('input',{bubbles:true}));}catch(e){}}
+      else{VIEW.q=q;renderGrid();}
+      scrollToResults();return true;
+    }
+  }
+  var sm=s.match(/[?&]sub=([^&#]*)/),cm=s.match(/[?&]cat=([^&#]*)/);
+  var wantCat=cm?bslug(qdec(cm[1])):null,wantSub=sm?bslug(qdec(sm[1])):null;
+  if(wantSub){
+    for(c in BUCKETS){
+      if(wantCat&&bslug(c)!==wantCat)continue;
+      for(sub2 in BUCKETS[c]){
+        if(bslug(sub2)===wantSub&&(BUCKETS[c][sub2]||[]).length){
+          setCat(c,false);setSub(sub2);return true;}}}
+  }
+  if(wantCat){for(c in BUCKETS){if(bslug(c)===wantCat){setCat(c,true);return true;}}}
+  return false;
+}
 function scrollToResults(){
   var hd=document.getElementById('gridhd');if(!hd)return;
   var hdr=document.querySelector('.hdr'),nav=document.getElementById('navwrap');
@@ -4288,6 +4391,8 @@ function go(cfg){
         openSharedBoard(qdec(_lb[1])).then(function(found){
           if(found)openBoard(ALID);
           else toast('That board isn\u2019t available \u2014 it may have been renamed');});}refreshCartUI();if(curateOn())markCurCards();
+      /* A view link only makes sense when a board is not already taking over the screen. */
+      if(!/[?&](b|board)=/.test(location.search)){try{applyViewLink();}catch(e){}}
       // Deep link: /kits/<slug>/?item=<key> (or #item=<key>) opens straight to that product. This MUST
       // run AFTER buildStore(). It used to fire synchronously, before the async ink probe resolved, so
       // the sheet opened against an unbuilt store and was wiped by the first render -- every ?item=

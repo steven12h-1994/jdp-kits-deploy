@@ -1800,3 +1800,25 @@ body{padding-left:74px}
   .btiers{flex-wrap:wrap}
   .btr{flex:1 1 30%}
 }
+
+/* ---- Search recovery state ----------------------------------------------------------------
+   A no-results screen used to say "Try another term.", which is exactly where a buyer leaves.
+   This turns it into a route back: the relaxed query, the shelves, and an offer to source it. */
+.noresults{padding:0}
+.nrin{max-width:760px;margin:26px auto 52px;padding:26px 28px;border:1px solid var(--ln);
+  border-radius:14px;background:#fff}
+.nrin h3{margin:0 0 8px;font-size:19px;font-weight:700;letter-spacing:-.01em}
+.nrdrop{margin:0 0 14px;font-size:14.5px;color:var(--ink)}
+.nrgo{border:0;background:var(--ac);color:#fff;font:inherit;font-weight:700;font-size:14px;
+  padding:11px 18px;border-radius:9px;cursor:pointer}
+.nrgo:hover{filter:brightness(.94)}
+.nrbl{margin:22px 0 9px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--mut);font-weight:700}
+.nrchips{display:flex;flex-wrap:wrap;gap:8px}
+.nrchip{border:1px solid var(--ln);background:#fff;border-radius:20px;padding:7px 13px;font:inherit;
+  font-size:13px;cursor:pointer;color:var(--ink)}
+.nrchip:hover{border-color:var(--ac);color:var(--ac)}
+.nrchip i{font-style:normal;color:var(--mut);font-size:11.5px;margin-left:3px}
+.nrsrc{margin:20px 0 0;padding-top:16px;border-top:1px solid var(--ln);font-size:13.5px;
+  color:var(--mut);line-height:1.55}
+@media(max-width:640px){.nrin{margin:16px 0 34px;padding:20px 18px;border-radius:12px}}
