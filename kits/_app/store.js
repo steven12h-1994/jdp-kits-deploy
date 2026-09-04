@@ -382,7 +382,27 @@ function promoQuote(it,c){
 function promoTiers(min){var out=[];[min,25,50,100,250,500].forEach(function(q){if(q>=min&&out.indexOf(q)<0)out.push(q);});return out.slice(0,5);}
 // A setup is charged ONCE per unique DESIGN+LOCATION+METHOD across the whole kit (a stitch file / set of
 // screens is reused on every garment & quantity). Screens also depend on ink colour, so screen keys include ink.
-function setupKey(d){return d.method==='screen' ? ('scr|'+d.lg+'|'+d.pl+'|'+(d.ink||'auto')) : (d.method+'|'+d.lg+'|'+d.pl);}
+function setupKey(d,it){
+  /* A setup is a STITCH FILE (or a screen), and what identifies one is the logo, the method, the
+     location and the width -- never the catalogue's internal placement id. Two items routinely call
+     the same physical slot by different ids while LABELLING it identically: the freezer jacket and
+     tear-away vest use pl='front', the Vault hoodie and Red Kap shirt use pl='chest', and all four
+     read "Embroidered - left chest - 3.5\" wide". Keying on the id charged one digitizing fee twice
+     and over-quoted the customer $60 on a single board.
+     The width matters and cannot be dropped: "embroidered / left chest" exists in this catalogue at
+     2.25", 3" and 3.5", so keying on the label alone would merge three different files into one and
+     under-charge instead. The item's spec string describes its DEFAULT placement, so its width is
+     only borrowed when the deco actually sits on that placement. */
+  var p=it?placeOf(it,d.pl):null;
+  var lab=String((p&&p.label)||d.pl||'').trim().toLowerCase();
+  var spec=String((it&&it.method)||''),w='';
+  if(lab&&spec.toLowerCase().indexOf(lab)>=0){
+    var m=spec.match(/([\d.]+)"\s*wide/);
+    if(m)w=m[1];
+  }
+  var head=(d.method==='screen')?('scr|'+(d.colours||1)+'|'+(d.ink||'auto')):d.method;
+  return head+'|'+d.lg+'|'+lab+'|'+w;
+}
 /* ONE standardized setup per product, read from the catalogue -- not from each kit's own config.
    Per-kit decos are why the same product was quoted differently store to store: a sample of 14 live
    kits had 16 hi-vis items carrying a second centre-back screen in most stores, 5 in one and none in
@@ -3368,7 +3388,7 @@ function cartSubtotal(){var t=0;Object.keys(CART).forEach(function(k){var it=BYK
   else t+=unitPrice(k,c.decos,tierQty(k))*c.qty;});return t;}
 function setupBreakdown(){var r=CFG.rates||{},s=r.setup||{},seen={},out=[];
   Object.keys(CART).forEach(function(k){var it=BYKEY[bkey(k)];if(!it)return;(CART[k].decos||[]).forEach(function(d){if(!d.on)return;
-    var key=setupKey(d);if(seen[key])return;seen[key]=1;
+    var key=setupKey(d,it);if(seen[key])return;seen[key]=1;
     var L=logoOf(d.lg),p=placeOf(it,d.pl),plab=p?p.label:d.pl,lname=(L&&L.label)||'Logo',amt,lab;
     if(d.method==='screen'){var c=d.colours||1;amt=(s.screen||0)*c;lab=lname+' · '+plab+' · screen ('+c+'-colour)';}
     else if(d.method==='heat_transfer'){amt=s.heat_transfer||0;lab=lname+' · '+plab+' · heat-transfer artwork';}
