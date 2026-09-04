@@ -876,7 +876,7 @@ function browseColour(key,item){
   var cols=browseCols(item),k=key+'|'+fitOf(item),want=BCOL[k]||vmOf(key).colour,hit=colInList(cols,want);
   return (hit&&hit.name===want)?want:(cols[0]||{}).name;
 }
-var BUCKETS={},TOTALS={},CATS=[],QURLT=null;
+var BUCKETS={},TOTALS={},CATS=[],QURLT=null,VURLOK=false;
 var SHORTCAT={tops:'Polos & Shirts',layers:'Fleece & Sweaters',outerwear:'Jackets',vests:'Vests',ruggedwear:'Rugged Wear',hivis:'Hi-Vis & Safety',carhartt:'Carhartt',headwear:'Headwear',bottoms:'Pants & Joggers',fr:'Flame-Resistant',accessories:'Accessories'};
 // Two brand worlds — how JDP sells: the jobsite crew and the front office / client-facing team.
 var AUD=[{id:'field',name:'Field & Crews',short:'Field & Crews',blurb:'CSA hi-vis, rugged workwear & hard-hat-ready layers built for the jobsite.',cats:['hivis','ruggedwear','carhartt','fr','headwear','bottoms']},
@@ -1477,6 +1477,11 @@ function viewLabel(){
   return CFG.client?(CFG.client+' team store'):'our team store';
 }
 function syncViewUrl(){
+  /* MUST stay silent until the incoming link has been read. buildStore() opens a default category,
+     which called this and rewrote the URL to ?cat=tops BEFORE applyViewLink() could look at it --
+     so every shared ?sub= / ?q= link landed on the front page instead. The flag is only raised once
+     the deep link has had its turn. */
+  if(!VURLOK)return;
   /* A board owns the address bar while it is open -- its link is the thing worth sharing then. */
   if(/[?&](b|board|list)=/.test(location.search))return;
   try{if(typeof boardOpen==='function'&&(boardOpen()||boardsOpen()))return;}catch(e){}
@@ -4468,6 +4473,8 @@ function go(cfg){
           else toast('That board isn\u2019t available \u2014 it may have been renamed');});}refreshCartUI();if(curateOn())markCurCards();
       /* A view link only makes sense when a board is not already taking over the screen. */
       if(!/[?&](b|board)=/.test(location.search)){try{applyViewLink();}catch(e){}}
+      /* From here on, the address bar tracks the view. Not before -- see syncViewUrl. */
+      VURLOK=true;
       // Deep link: /kits/<slug>/?item=<key> (or #item=<key>) opens straight to that product. This MUST
       // run AFTER buildStore(). It used to fire synchronously, before the async ink probe resolved, so
       // the sheet opened against an unbuilt store and was wiped by the first render -- every ?item=
