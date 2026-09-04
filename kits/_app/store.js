@@ -3457,10 +3457,94 @@ function boardTotals(){
    Deliberately NOT re-rendering the card on input -- that would blow away focus mid-typing. The few
    affected numbers are patched in place instead. */
 function sizesForFit(fit){return (fit==='womens')?WOMENS_SIZES:MENS_SIZES;}
+/* ---- ONE NUMBER INSTEAD OF A HUNDRED --------------------------------------------------------
+   An 18-line board asks for a six-cell size split on every style: 108 boxes, demanded BEFORE the
+   buyer has a price they trust. That is the wall the whole flow hits. Nobody fills in 108 boxes to
+   find out what something costs, so boards sat at "0 of 18 styles sized" and never reached a quote.
+   So ask the only question the buyer can actually answer off the top of their head -- how many
+   people -- and estimate the rest. Every number stays editable, and it is labelled an estimate,
+   because a size curve is a starting point and not a fact about their team. */
+var SIZE_CURVE={
+  mens:   {S:0.08, M:0.20, L:0.28, XL:0.24, '2XL':0.14, '3XL':0.06},
+  womens: {XS:0.05, S:0.18, M:0.27, L:0.25, XL:0.16, '2XL':0.09}
+};
+/* Not everyone gets a parka. Scaling every line to full headcount produces a total that frightens
+   people off a shortlist they were otherwise ready to send. */
+function hcFactor(it){
+  var n=(it&&it.name||'').toLowerCase();
+  if(/backpack|duffel|tote|\bbag\b|cooler/.test(n))return 0.35;
+  /* A hi-vis safety vest is not premium outerwear -- it is the thing EVERY person on the floor
+     needs, so it must not be scaled down with the parkas. */
+  if(/tear-?away|traffic vest|safety vest|hi-vis/.test(n))return 1;
+  if(/parka|3-in-1|6-in-1|freezer|\bshell\b|softshell|shacket|puffer|\bcoat\b|rain/.test(n))return 0.6;
+  if(/\bjacket\b|\bvest\b/.test(n))return 0.7;
+  return 1;                                        // tees, polos, layers, workshirts, headwear
+}
+/* Headwear and bags do not come in S-3XL. The board was already rendering a six-cell size grid on a
+   toque and a duffel, which is odd on its own; filling it with estimated numbers would have made it
+   look plainly broken. One size means one quantity box. */
+function oneSize(it){
+  return /beanie|toque|watch hat|\bcap\b|trucker|snapback|snap back|\bhat\b|backpack|duffel|tote|\bbag\b|cooler/i
+    .test((it&&it.name)||'');
+}
+function hcKey(){return 'jdphc_'+SLUG+'_'+(((LISTS||{})[ALID]||{}).slug||ALID||'');}
+function getHC(){var v=0;try{v=parseInt(localStorage.getItem(hcKey())||'0',10)||0;}catch(e){}return v;}
+function setHC(n){try{localStorage.setItem(hcKey(),String(n||0));}catch(e){}}
+/* Spread `total` across a size curve without losing or inventing pieces: floor everything, then
+   hand the remainder to the biggest buckets first so the parts always add back to the whole. */
+function spreadSizes(total,fit){
+  var curve=SIZE_CURVE[fit==='womens'?'womens':'mens'],out={},keys=Object.keys(curve),acc=0,i;
+  for(i=0;i<keys.length;i++){var v=Math.floor(total*curve[keys[i]]);out[keys[i]]=v;acc+=v;}
+  var left=total-acc;
+  var order=keys.slice().sort(function(a,b){return curve[b]-curve[a];});
+  i=0;while(left>0){out[order[i%order.length]]+=1;left--;i++;}
+  for(i=0;i<keys.length;i++)if(!out[keys[i]])delete out[keys[i]];
+  return out;
+}
+function applyHeadcount(n){
+  n=Math.max(1,Math.min(100000,parseInt(n,10)||0));
+  if(!n)return 0;
+  var touched=0;
+  /* A garment on the board in BOTH cuts is still one garment per person. Giving each cut the full
+     headcount ordered 80 polos for a team of 40. Split it across the two cuts -- an even split is a
+     guess, which is exactly why every box stays editable. */
+  var paired={};
+  Object.keys(CART).forEach(function(ck){
+    var b=bkey(ck);
+    if(CART[b]&&CART[b+'#w'])paired[b]=2;
+  });
+  Object.keys(CART).forEach(function(ck){
+    var it=BYKEY[bkey(ck)];if(!it)return;
+    var c=CART[ck];
+    if(it.layer==='promo'){                        // promo has its own quantity model, no size grid
+      c.qty=Math.max(it.moq||n,n);touched++;return;
+    }
+    var share=paired[bkey(ck)]||1;
+    var target=Math.max(moq(),Math.round(n*hcFactor(it)/share));
+    if(oneSize(it)){delete c.sizes;c.qty=target;}   // a toque has no size split to estimate
+    else{c.sizes=spreadSizes(target,c.fit);c.qty=sizeSum(c.sizes);}
+    touched++;
+  });
+  setHC(n);saveCart();
+  return touched;
+}
 function bSizeRowHtml(ck){
   var c=CART[ck];if(!c)return '';
   var it=BYKEY[bkey(ck)];
   if(!it||it.layer==='promo')return '';          // promo carries its own quantity model
+  if(oneSize(it)){
+    /* One quantity box, because there is no size to choose. Showing S-3XL on a toque made the board
+       look like it had been generated rather than assembled. */
+    var q1=c.qty||0;
+    return '<div class="bszed one'+(q1?'':' need')+'" data-szblk="'+esc(ck)+'">'+
+      '<div class="bszhd"><span>'+(q1?'Quantity':'How many?')+'</span>'+
+        '<i data-sztot="'+esc(ck)+'">'+q1+' pcs</i></div>'+
+      '<div class="bszcells one"><label class="bszc'+(q1?' on':'')+'"><span>One size</span>'+
+      '<input type="number" inputmode="numeric" min="0" step="1" placeholder="0" '+
+      'value="'+(q1?q1:'')+'" data-szk="'+esc(ck)+'" data-szs="__one" '+
+      'aria-label="Quantity"></label></div>'+
+      '<div class="bszmoq" data-szmoq="'+esc(ck)+'"></div></div>';
+  }
   var szs=sizesForFit(c.fit),tot=sizeSum(c.sizes)||c.qty||0;
   var unsized=sizeSum(c.sizes)===0;
   /* A grid of boxes each reading "0" looks like DATA, not like a form -- which is why nobody typed
@@ -3496,6 +3580,7 @@ function bSizeRowHtml(ck){
 function bSetSize(ck,size,val){
   var c=CART[ck];if(!c)return;
   var n=Math.max(0,Math.min(100000,parseInt(val,10)||0));
+  if(size==='__one'){delete c.sizes;c.qty=n;saveCart();bRefreshLine(ck);return;}
   c.sizes=c.sizes||{};
   if(n)c.sizes[size]=n;else delete c.sizes[size];
   if(!Object.keys(c.sizes).length)delete c.sizes;
@@ -3680,6 +3765,22 @@ function boardSummaryHtml(){
       (t.setup>0?'<div class="bpcell"><i>One-time setup</i><b>'+money(t.setup)+'</b></div>':'')+
       '<div class="bpcell tot"><i>Estimated total</i><b>'+money(allIn)+'</b></div>'+
     '</div>'+
+    /* The one question a buyer can answer without opening a spreadsheet. */
+    (function(){
+      var hc=getHC(),anySized=s.sized>0;
+      if(hc&&anySized)
+        return '<div class="bphc done"><span class="bphctick">\u2713</span>'+
+          '<span class="bphctx"><b>Sized for '+hc+' people</b>'+
+          '<i>Every box below is an estimate from a typical size split \u2014 change anything that is off.</i></span>'+
+          '<button type="button" class="bphcre" id="bHCre">Change</button></div>';
+      return '<div class="bphc"><div class="bphcq"><b>How many people are you outfitting?</b>'+
+        '<i>Give us one number and we will estimate the size split on every style, so you are not '+
+        'filling in a grid to find out what this costs.</i></div>'+
+        '<div class="bphcin"><input id="bHC" type="number" inputmode="numeric" min="1" '+
+        'placeholder="e.g. 40"'+(hc?(' value="'+hc+'"'):'')+' aria-label="Number of people">'+
+        '<button type="button" class="bphcgo" id="bHCgo">Estimate sizes <span class="ar">\u2192</span></button>'+
+        '</div></div>';
+    })()+
     '<div class="bpnext">'+
       '<div class="bpstep">'+
         '<span class="bpsn'+(ready?' done':'')+'">'+(ready?'\u2713':'1')+'</span>'+
@@ -3760,6 +3861,22 @@ function wireBoard(){
     inp.addEventListener('change',apply);
     // Select-on-focus: tapping a cell that reads 0 and typing 8 should give 8, not 08.
     inp.addEventListener('focus',function(){try{inp.select();}catch(e){}});});
+  (function(){
+    var go=document.getElementById('bHCgo'),inp=document.getElementById('bHC');
+    var run=function(){
+      var n=parseInt(inp&&inp.value,10)||0;
+      if(n<1){if(inp)inp.focus();toast('Tell us how many people and we will do the rest');return;}
+      var t=applyHeadcount(n);
+      pushBoardSoon();renderBoard();
+      toast('Sized '+t+' styles for '+n+' people \u2014 adjust anything that is off');
+    };
+    if(go)go.addEventListener('click',run);
+    if(inp)inp.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();run();}});
+    var re=document.getElementById('bHCre');
+    if(re)re.addEventListener('click',function(){
+      setHC(0);renderBoard();
+      var i2=document.getElementById('bHC');if(i2)i2.focus();});
+  })();
   el.querySelectorAll('[data-note]').forEach(function(t){
     var save=function(){setNote(t.dataset.note,t.value);};
     /* Grow to fit. A curated board is READ before it is edited: a fixed 2-row box hid the second

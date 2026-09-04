@@ -1867,3 +1867,38 @@ body{padding-left:74px}
   .rhsub{font-size:14px;margin-bottom:14px}
   .rhcard{padding:12px 13px;gap:11px}
 }
+
+/* ---- Headcount: one number instead of a hundred ----------------------------------------------
+   An 18-line board asked for a 6-cell split on every style — 108 boxes — before the buyer had a
+   price they trusted. This asks the one question they can answer from memory. */
+.bphc{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin:14px 0 4px;padding:16px 18px;
+  border:1.5px solid color-mix(in srgb,var(--a) 30%,var(--line));border-radius:var(--rad);
+  background:color-mix(in srgb,var(--a) 5%,#fff)}
+.bphcq{flex:1;min-width:240px}
+.bphcq b{display:block;font-size:16px;font-weight:700;letter-spacing:-.01em}
+.bphcq i{display:block;font-style:normal;font-size:13px;color:var(--mut);margin-top:3px;line-height:1.45}
+.bphcin{display:flex;align-items:center;gap:9px;flex:none}
+.bphcin input{width:118px;font:inherit;font-size:17px;font-weight:700;padding:11px 13px;
+  border:1.5px solid var(--line);border-radius:10px;background:#fff;color:var(--ink);text-align:center}
+.bphcin input:focus{outline:0;border-color:var(--a)}
+.bphcgo{border:0;background:var(--a);color:#fff;font:inherit;font-weight:800;font-size:14.5px;
+  padding:12px 18px;border-radius:10px;cursor:pointer;white-space:nowrap;display:inline-flex;
+  align-items:center;gap:7px}
+.bphcgo:hover{filter:brightness(1.06)}.bphcgo:active{transform:scale(.98)}
+.bphc.done{background:color-mix(in srgb,#0f7a41 6%,#fff);
+  border-color:color-mix(in srgb,#0f7a41 30%,var(--line))}
+.bphctick{flex:none;width:26px;height:26px;border-radius:50%;background:#0f7a41;color:#fff;
+  display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800}
+.bphctx{flex:1;min-width:200px}
+.bphctx b{display:block;font-size:15.5px;font-weight:700}
+.bphctx i{display:block;font-style:normal;font-size:13px;color:var(--mut);margin-top:2px;line-height:1.45}
+.bphcre{flex:none;border:1.5px solid var(--line);background:#fff;color:var(--ink);font:inherit;
+  font-weight:700;font-size:13px;padding:8px 14px;border-radius:9px;cursor:pointer}
+.bphcre:hover{border-color:var(--a);color:var(--a)}
+@media(max-width:640px){
+  .bphc{padding:14px;gap:12px}
+  .bphcin{width:100%}.bphcin input{flex:1;width:auto}.bphcgo{flex:1;justify-content:center}
+}
+/* one-size goods get a single quantity box, not a six-cell grid */
+.bszcells.one{grid-template-columns:minmax(0,1fr) !important}
+.bszcells.one .bszc span{font-size:10.5px;letter-spacing:.06em}
