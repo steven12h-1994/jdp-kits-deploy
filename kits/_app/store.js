@@ -473,7 +473,8 @@ function loadLists(){
           if(!BYKEY[k])return;
           sitems[k]={qty:moq(),colour:vmOf(k).colour,decos:recCartDecos(k)};});
         if(Object.keys(sitems).length){
-          LISTS[sid]={name:'JDP starter list',items:sitems,updated:Date.now()-1,starter:true};}
+          LISTS[sid]={name:'JDP starter list',items:sitems,updated:Date.now()-1,starter:true,
+                      seedn:Object.keys(sitems).length};}
       }
     }catch(e){}
     persistLists();
@@ -517,6 +518,18 @@ function copyStarterToMine(){
          :('Already in '+activeName()));
 }
 function starterId(){for(var id in (LISTS||{})){if(LISTS[id].starter)return id;}return '';}
+/* One clear concept. A generic 9-item "JDP starter list" sitting beside two boards curated for this
+   specific company is strictly worse than both and makes a third competing thing to click. Retire it
+   once curation exists -- but ONLY while it is untouched, so a customer who has actually put items
+   in it never loses their work. */
+function hideStaleStarter(){
+  var sid=starterId();if(!sid)return false;
+  if(!curatedBoardIds().length)return false;
+  var L=LISTS[sid];
+  if(L.seedn!=null&&Object.keys(L.items||{}).length!==L.seedn)return false;   // customer edited it
+  if(ALID===sid){var alt=curatedBoardIds()[0];if(alt){ALID=alt;CART=LISTS[alt].items;}}
+  delete LISTS[sid];persistLists();return true;
+}
 function listIds(){
   return Object.keys(LISTS||{}).sort(function(a,b){
     return (LISTS[b].updated||0)-(LISTS[a].updated||0);});}
@@ -1738,6 +1751,7 @@ function buildStore(){
       the cart, and "3,400+ impressions per shirt" is promo-industry trivia that has nothing to do
       with outfitting staff. Removing the band makes the in-person offer the unambiguous focal point
       and lifts the catalogue up the page. */
+   '<div id="recohero"></div>'+
    catTilesHtml()+
    '<section class="offerstrip"><div class="w">'+heroCta+'</div></section>'+
    '<div class="navwrap" id="navwrap">'+
@@ -4071,6 +4085,47 @@ function catTileImg(cat){
     if(c&&c.front)return gurl(c.front);}
   return '';
 }
+/* THE RECOMMENDATION HAS TO BE THE FIRST THING THEY SEE.
+   We curate two use-case boards per prospect, and a prospect opening the plain store link used to
+   see "Browse by category" and a product grid with ZERO mention that anything had been prepared for
+   them. The only hint was a "Boards 2" counter in the rail, whose two boards were an EMPTY "My
+   board" and a generic starter list. So the curation only ever landed when someone remembered to
+   send the ?b= link — which does not scale, and wastes the most expensive thing we make.
+   This renders only when the kit actually has curated boards on the server. */
+function curatedBoardIds(){
+  var out=[];
+  for(var id in (LISTS||{})){
+    var L=LISTS[id];
+    if(L&&L.slug&&!isTemplate(id)&&Object.keys(L.items||{}).length)out.push(id);
+  }
+  out.sort(function(a,b){return listLen(b)-listLen(a);});
+  return out;
+}
+function recoHeroHtml(){
+  var ids=curatedBoardIds();
+  if(!ids.length)return '';
+  var cards=ids.slice(0,3).map(function(id){
+    var L=LISTS[id];
+    var th=boardThumbs(id,4).map(function(u){
+      return '<span class="rhth"><img src="'+esc(u)+'" alt="" loading="lazy"></span>';}).join('');
+    return '<button type="button" class="rhcard" data-reco="'+esc(id)+'">'+
+      '<span class="rhthumbs">'+th+'</span>'+
+      '<span class="rhtx"><b>'+esc(L.name)+'</b>'+
+        '<i>'+listLen(id)+' pieces picked for you, each with a note on why</i></span>'+
+      '<span class="rharrow">\u2192</span></button>';}).join('');
+  return '<section class="recohero"><div class="w">'+
+    '<div class="rhlbl">Prepared for '+esc(CFG.client||'your team')+'</div>'+
+    '<h2 class="rhh">We\u2019ve already picked your shortlist</h2>'+
+    '<p class="rhsub">Two starting points, chosen for how your people actually work \u2014 open one, '+
+      'change anything you like, and send it back for a quote.</p>'+
+    '<div class="rhcards">'+cards+'</div></div></section>';
+}
+function renderRecoHero(){
+  var el=document.getElementById('recohero');if(!el)return;
+  el.innerHTML=recoHeroHtml();
+  el.querySelectorAll('[data-reco]').forEach(function(b){
+    b.addEventListener('click',function(){openBoard(b.dataset.reco);});});
+}
 function catTilesHtml(){
   var cats=(typeof CATS!=='undefined'&&CATS.length)?CATS:[];
   if(!cats.length)return '';
@@ -4258,6 +4313,9 @@ function syncBoardsFromServer(){
       })).then(function(res){
         var changed=res.some(Boolean);
         if(changed){persistLists();refreshCartUI();syncBoardIfOpen();markSync('saved');}
+        /* Always repaint: the hero depends on what the SERVER holds, and on a first visit the
+           boards arrive after the page has already painted. */
+        try{hideStaleStarter();renderRecoHero();}catch(e){}
         return changed;
       });
     }).catch(function(){return false;});
