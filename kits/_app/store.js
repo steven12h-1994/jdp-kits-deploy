@@ -4457,7 +4457,31 @@ function contactVals(){return {
   note:((document.getElementById('coNote')||{}).value||'').trim()};}
 function persistContact(c){try{localStorage.setItem('jdpkit_contact',JSON.stringify({name:c.name,email:c.email,company:c.company}));}catch(e){}}
 function orderText(c){c=c||{};
+  /* WHAT LANDS IN THE INBOX IS THE PRODUCT. Everything upstream — the curation, the notes, the
+     headcount sizing — exists to produce this one message, and it had two defects that the
+     shortlist work itself created:
+       1. The kit link was location.href with the query string STRIPPED, so a buyer who built a
+          $23k board sent a link to the front page. Whoever quotes it could not open what they
+          actually chose.
+       2. "NOTES FROM THE BUYER" was echoing back OUR curated sell copy — two thousand characters
+          of our own words attributed to the customer, with their real message ("need these before
+          the December shift ramp") buried underneath it.
+     A note is only the buyer's if they wrote it or changed it, so lines carry note0 (the note as we
+     shipped it) and only a DIFFERENCE is reported. A board with no note0 is the buyer's own list,
+     where every note is theirs. */
+  var pieces=0,styles=0;
+  Object.keys(CART).forEach(function(k){var it=BYKEY[bkey(k)];if(!it)return;styles++;
+    pieces+=(it.layer==='promo')?promoQuote(it,CART[k]).qty:(CART[k].qty||0);});
+  var sub=cartSubtotal(),setup=cartSetup();
+  var boardUrl=(typeof shareListUrl==='function')?shareListUrl():location.href.split('#')[0];
   var lines=['KIT REQUEST — '+CFG.client,''];
+  /* The money and the link first. Nobody should scroll six thousand characters to find the total. */
+  lines.push('SUMMARY');
+  lines.push('  '+styles+' styles · '+pieces+' pieces');
+  lines.push('  Apparel: '+money(sub)+(setup>0?('   One-time setup: '+money(setup)):''));
+  lines.push('  Estimated total: '+money(sub+setup));
+  lines.push('  Their board: '+boardUrl);
+  lines.push('');
   if(c.name||c.email||c.company){lines.push('From:');
     if(c.name)lines.push('  Name: '+c.name);
     if(c.company)lines.push('  Company/team: '+c.company);
@@ -4466,17 +4490,24 @@ function orderText(c){c=c||{};
   Object.keys(CART).forEach(function(k){var it=BYKEY[bkey(k)];if(!it)return;var cc=CART[k];var u=unitPrice(k,cc.decos,tierQty(k));
     lines.push('• '+it.name+(fitSku(it,cc)?' '+fitSku(it,cc):'')+' ('+it.sku+') — '+(fitTag(it,cc)?fitTag(it,cc)+' · ':'')+cc.colour+' · '+decoSummary(it,cc)+' · qty '+cc.qty+' @ '+money(u)+' ea = '+money(u*cc.qty));
     var ss=sizesSummary(cc);if(ss)lines.push('    sizes: '+ss);});
-  lines.push('','Estimated subtotal: '+money(cartSubtotal()));
+  lines.push('','Estimated subtotal: '+money(sub));
   var sb=setupBreakdown();
-  if(sb.length){lines.push('One-time setup: '+money(cartSetup())+'  (once per design, shared across the kit)');
+  if(sb.length){lines.push('One-time setup: '+money(setup)+'  (once per design, shared across the kit)');
     sb.forEach(function(x){lines.push('   - '+x.label+': '+money(x.amount));});}
   lines.push('(Decoration priced in; exact quote to be confirmed.)');
-  var _nt=Object.keys(CART).filter(function(k){return (CART[k]||{}).note;});
-  if(_nt.length){lines.push('','NOTES FROM THE BUYER:');
+  /* Only what the buyer actually wrote or changed. */
+  var _nt=Object.keys(CART).filter(function(k){
+    var cc=CART[k]||{};
+    if(!cc.note)return false;
+    if(cc.note0==null)return true;                 // their own list: the note is theirs
+    return String(cc.note).trim()!==String(cc.note0).trim();   // they edited ours
+  });
+  if(_nt.length){lines.push('','WHAT THEY CHANGED OR ADDED PER LINE:');
     _nt.forEach(function(k){var it=BYKEY[bkey(k)];
       lines.push('  - '+((it&&it.name)||k)+': '+CART[k].note);});}
-  if(c.note)lines.push('','Notes: '+c.note);
-  lines.push('','Kit link: '+location.href.split('#')[0].split('?')[0]);
+  if(c.note)lines.push('','MESSAGE FROM THE BUYER:','  '+c.note);
+  lines.push('','Their board: '+boardUrl);
+  lines.push('Store: '+location.href.split('#')[0].split('?')[0]);
   return lines.join('\n');
 }
 function openCheckout(){
