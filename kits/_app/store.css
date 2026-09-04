@@ -239,7 +239,7 @@ main{padding:26px 0 10px}
 .cbar.on{transform:translateY(0)}
 /* A floating action bar, not three loose controls. Without a backdrop the "N in your kit" label sat
    directly on top of whatever product card happened to be behind it -- legible only by luck. */
-.cbarin{display:flex;align-items:center;gap:9px;margin:0 12px;padding:9px 10px 9px 16px;
+.cbarin{display:flex;align-items:center;gap:9px;margin:0 12px;width:auto;max-width:none;padding:9px 10px 9px 16px;
   pointer-events:auto;background:rgba(255,255,255,.92);-webkit-backdrop-filter:blur(14px);
   backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:999px;
   box-shadow:0 12px 34px -12px rgba(28,22,12,.45)}
@@ -786,7 +786,19 @@ main{padding:0 0 22px}
   border:1.5px solid var(--line);border-radius:999px;padding:6px 12px;cursor:pointer;transition:.12s}
 .fchip:hover{color:var(--ink);border-color:color-mix(in srgb,var(--a) 35%,#fff)}
 .fchip.on{color:var(--ink);background:color-mix(in srgb,var(--a) 12%,#fff);border-color:color-mix(in srgb,var(--a) 55%,#fff)}
-@media (max-width:520px){.fitbar{padding:0 10px 9px}.cdot{width:17px;height:17px}}
+@media (max-width:520px){.fitbar{padding:0 10px 9px}
+  /* Choosing a colour is the most-used interaction on a product card, and on a phone it was a
+     17px circle with a 5px gap -- a 289px^2 target, well under half the 44px guidance. Cards are
+     2-up at 169px with a 143px swatch row, so a 44px target genuinely does not fit. Instead: grow
+     the dot to 22px and expand the HIT area with a pseudo-element sized exactly to the 30px pitch
+     so neighbouring targets touch but never overlap (an overlapping expander steals its
+     neighbour's taps, which is worse than a small one). 289px^2 -> 1080px^2, and because 7 dots
+     wrapped to two rows at the old pitch and still wrap at the new one, no card gets taller. */
+  .cdots{gap:8px}
+  .cdot{width:22px;height:22px;position:relative}
+  .cdot::after{content:"";position:absolute;left:50%;top:50%;
+    transform:translate(-50%,-50%);width:30px;height:36px;border-radius:8px}
+}
 
 /* ---------- Kits: colour-family filter + gift-set contents (2026-08-18) ---------- */
 .colbar{padding-top:0}
@@ -1837,7 +1849,17 @@ body{padding-left:74px}
 .sharev:hover svg{opacity:1}
 /* On a phone the label is the first thing to go -- the glyph is universally understood and the
    chip strip needs the room far more than the word does. */
-@media(max-width:560px){.sharev span{display:none}.sharev{padding:7px 10px}}
+@media(max-width:560px){.sharev span{display:none}
+  /* Dropping the word was right -- the chip strip needs the room -- but it left a 37x31 icon-only
+     pill as the entry point to the whole share-a-view loop. Keep it glyph-only, make it square
+     and thumb-sized. */
+  .sharev{padding:0;width:40px;height:40px;justify-content:center}
+  .fbtn{min-height:38px}
+  .schip{min-height:38px}
+  .mvid{min-height:32px}
+  /* Primary CTA on the recommendation hero -- 36px was under the floor. */
+  .reccta{min-height:46px}
+}
 
 /* ---- "Prepared for you" — the curated boards, made the first thing on the page ---------------
    Only rendered when the kit actually has curated boards on the server. Before this, a prospect
@@ -1897,7 +1919,16 @@ body{padding-left:74px}
 .bphcre:hover{border-color:var(--a);color:var(--a)}
 @media(max-width:640px){
   .bphc{padding:14px;gap:12px}
-  .bphcin{width:100%}.bphcin input{flex:1;width:auto}.bphcgo{flex:1;justify-content:center}
+  /* A number input's INTRINSIC minimum width (273px as rendered) is wider than the room the row
+     has on a phone, and a flex item will not shrink below its intrinsic minimum unless told to.
+     `flex:1` on both children therefore could not split the row: the input kept its 273px and
+     pushed "Estimate sizes" 141px off the right edge, reachable only by scrolling sideways.
+     Worse, the overflow CASCADED -- .bphcin 287->443 pushed .bphc 315->457, .bprop 345->472,
+     .bwrap 375->487, turning the entire board overview into a horizontal scroller. Stack the two
+     controls, and let the input shrink (min-width:0) so this can never recur. */
+  .bphcin{width:100%;flex-wrap:wrap}
+  .bphcin input{flex:1 1 100%;width:auto;min-width:0;font-size:18px;padding:13px}
+  .bphcgo{flex:1 1 100%;justify-content:center;padding:14px 18px;min-height:48px}
 }
 /* one-size goods get a single quantity box, not a six-cell grid */
 .bszcells.one{grid-template-columns:minmax(0,1fr) !important}
