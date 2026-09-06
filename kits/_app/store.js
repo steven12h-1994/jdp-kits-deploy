@@ -1712,10 +1712,21 @@ function buildStore(){
     ".bcell span strong{font-weight:800;color:#1c2431}"+
     ".mstage{position:relative}"+
     ".mvid{position:absolute;left:8px;bottom:8px;z-index:3;display:inline-flex;align-items:center;gap:5px;background:rgba(20,24,33,.82);color:#fff;border:0;border-radius:20px;padding:5px 11px;font:inherit;font-size:11.5px;font-weight:700;cursor:pointer}"+
-    ".vmodal{position:fixed;inset:0;z-index:120;display:none;align-items:center;justify-content:center;padding:5vw;background:rgba(8,10,14,.9);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);opacity:0;transition:opacity .2s}"+
+    /* z-index 1660, NOT 120. THIS block wins over the identical .vmodal rules in store.css --
+       same specificity, injected later -- so store.css saying 1620 was irrelevant and the modal
+       computed 120. The sheet is 1580 and its overlay 1560, so BOTH "Watch video" and "See it
+       worn" opened UNDERNEATH the product panel: elementFromPoint at the video centre returned
+       the "See it worn" button. The video really was playing, muted, behind a dimmed sheet.
+       Keep this above .sheet(1580) and .ov(1560). NOTE the duplication: store.css also defines
+       .vmodal; if you change modal styling, change it HERE -- that is the copy that applies. */
+    ".vmodal{position:fixed;inset:0;z-index:1660;display:none;align-items:center;justify-content:center;padding:5vw;background:rgba(8,10,14,.9);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);opacity:0;transition:opacity .2s}"+
     ".vmodal.on{display:flex;opacity:1}"+
     ".vmodal .vwrap{position:relative;display:flex;flex-direction:column;align-items:center;gap:14px;max-width:min(1000px,94vw)}"+
-    ".vmodal video{width:100%;max-width:min(1000px,94vw);max-height:78vh;border-radius:14px;box-shadow:0 30px 80px rgba(0,0,0,.6);background:#000;display:block}"+
+    /* width:auto, not 100%: four of the 42 videos are portrait 1080x1920, and forcing them to
+       full width made the player 1000px wide with the clip letterboxed into a thin band. */
+    ".vmodal video{width:auto;max-width:min(1000px,94vw);max-height:78vh;border-radius:14px;box-shadow:0 30px 80px rgba(0,0,0,.6);background:#000;display:block;object-fit:contain}"+
+    ".vunmute{position:absolute;top:-52px;left:0;display:inline-flex;align-items:center;gap:7px;background:#fff;color:#141821;border:0;border-radius:999px;padding:9px 17px;font:inherit;font-size:14px;font-weight:800;cursor:pointer;box-shadow:0 6px 20px rgba(0,0,0,.35);z-index:2}"+
+    ".vunmute[hidden]{display:none}"+
     ".vmodal .vcap{color:#fff;font-weight:700;font-size:15px;text-align:center;opacity:.92}"+
     ".vmodal .vx{position:absolute;top:-52px;right:0;display:inline-flex;align-items:center;gap:7px;background:#fff;color:#141821;border:0;border-radius:999px;padding:9px 17px;font:inherit;font-size:14px;font-weight:800;cursor:pointer;box-shadow:0 6px 20px rgba(0,0,0,.35);z-index:2}"+
     ".vmodal .vx:hover{filter:brightness(.95)}.vmodal .vx:active{transform:scale(.97)}"+
@@ -2648,19 +2659,23 @@ function renderSheet(){
   var priceClar=canAdd
     ? '<div class="shprice"><span>'+q+' pcs × '+money(unit)+'/pc</span><b>'+money(line)+' total</b></div>'
     : '<div class="shprice under"><span>Minimum '+moq()+' pieces</span><b>add '+(moq()-q)+' more</b></div>';
+  /* The media row used to sit between the hero photo and the product NAME, so a buyer met "See it
+     worn" and "Watch video" before they knew what they were looking at, or what it cost. Identify
+     the product first, then offer the deeper media. */
+  var mediaRow=(item.scenic||item.video)?('<div class="shmedia">'+
+    (item.scenic?'<button class="shworn" id="shworn" aria-label="See it worn"><img src="'+gurl(item.scenic)+'" alt="" loading="lazy"><span class="swt"><b>See it worn</b><i>real in-the-field photo</i></span><span class="swgo">\u2192</span></button>':'')+
+    (item.video?'<button class="vwatch" id="vwatch"><svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>Watch video<span class="vwdur"></span></button>':'')+
+  '</div>'):'';
   document.getElementById('sheet').innerHTML=
     '<button class="shx" id="shx" aria-label="Close">✕</button>'+backChipHtml()+
     '<div class="shscroll">'+
       '<div class="shimg" id="shimg"><div class="shstage"><img class="g" src="'+(SH.gimg?gurl(SH.gimg):o.g)+'" alt="">'+(SH.gimg?'':o.lg)+'</div>'+faceTog+'</div>'+
       galleryStrip(item)+
-      ((item.scenic||item.video)?('<div class="shmedia">'+
-        (item.scenic?'<button class="shworn" id="shworn" aria-label="See it worn"><img src="'+gurl(item.scenic)+'" alt="" loading="lazy"><span class="swt"><b>See it worn</b><i>real in-the-field photo</i></span><span class="swgo">→</span></button>':'')+
-        (item.video?'<button class="vwatch" id="vwatch"><svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>Watch video</button>':'')+
-      '</div>'):'')+
       '<div class="shb"><h2>'+esc(item.name)+'</h2><div class="shsku">'+esc(item.sku)+(hasLadies(item)?(SH.fit==='womens'?' · Ladies’':' · Men’s'):(item.unisex?' · Unisex':''))+(item.layer==='field'&&item.csa?' · CSA hi-vis':'')+shareBtnHtml(SHEETKEY)+'</div>'+
       '<div class="shfrom"><b>'+money(unit)+'</b> <small>/pc</small> <i>at '+(q||moq())+' pcs</i>'+(hasDecoPlace(item)?' · decorated':'')+
         (fromP<unit?('<span class="shvol">'+money(fromP)+'/pc at '+topcol+'+</span>'):'')+'</div>'+
       (item.blurb?'<p class="shblurb">'+esc(item.blurb)+'</p>':'')+
+      mediaRow+
       fabricHtml(item)+sampCtaHtml(SH.key)+
       fitTog+step1+qtyGrp+primaryHtml+extraHtml+
       '<div class="shnote">'+(hasDecoPlace(item)?'Prices are per piece, decorated — your logo (embroidery / print) is included. One-time setup shows once in your board summary. ':'Prices are per piece (blank garment — no decoration on this item). ')+'Exact quote confirmed before anything runs.</div>'+
@@ -2674,7 +2689,8 @@ function renderSheet(){
   // The panel is dismissed too, since the link it was showing is for the previous colour.
   closeShareMenu();wireShare(sh);wireBack(sh);
   document.getElementById('shx').addEventListener('click',closeAll);
-  var vw=document.getElementById('vwatch');if(vw)vw.addEventListener('click',function(){openVideo(item.video,item.name);});
+  var vw=document.getElementById('vwatch');if(vw){vw.addEventListener('click',function(){openVideo(item.video,item.name);});
+    stampVideoDuration(item.video,'vwatch');}
   var sw=document.getElementById('shworn');if(sw)sw.addEventListener('click',function(){openScenic(gurl(item.scenic),item.name);});
   sh.querySelectorAll('.cchip').forEach(function(b){b.addEventListener('click',function(){SH.colour=b.dataset.col;SH.gimg=null;swapPreview();renderSheet();});});
   sh.querySelectorAll('.shgthumb').forEach(function(b){b.addEventListener('click',function(){SH.gimg=b.dataset.img||null;renderSheet();
@@ -4401,7 +4417,10 @@ function closeMedia(){var m=document.getElementById('vmodal');if(!m)return;m.cla
 function openScenic(src,title){var m=document.getElementById('vmodal');if(!m||!src)return;
   m.innerHTML='<div class="vwrap"><button class="vx" id="vx" aria-label="Close">✕ Close</button>'+
     '<img class="vscenic" src="'+esc(src)+'" alt="'+esc(title||'')+'">'+
-    (title?'<div class="vcap">'+esc(title)+' — in the field</div>':'')+'</div>';
+    /* The scenic is ONE fixed lifestyle photo per style, so it does not track the colour the buyer
+       has selected -- pick Black Heather and the worn shot may show a pale jacket. We hold no data
+       on which colour it depicts, so say so plainly rather than imply it is their choice. */
+    (title?'<div class="vcap">'+esc(title)+' — in the field <em>· colour shown may differ from your selection</em></div>':'')+'</div>';
   m.classList.add('on');document.body.style.overflow='hidden';
   var vx=document.getElementById('vx');if(vx)vx.addEventListener('click',closeMedia);
   m.onclick=function(e){if(e.target===m)closeMedia();};
@@ -4409,15 +4428,59 @@ function openScenic(src,title){var m=document.getElementById('vmodal');if(!m||!s
 // Cloudinary on-the-fly transforms: cap to 720p, auto quality, force H.264 (hardware-decoded = smooth on
 // phones). Cuts the file ~60% vs the original and adds an instant first-frame poster. muted = autoplay is
 // actually allowed on mobile (unmuted autoplay is blocked, which made the player look broken).
+/* 36 of the 42 videos run 30-81 seconds: brand films, not a quick product spin, so a bare "Watch
+   video" hides how much time it asks for. Duration can only be had by asking the file, and these
+   Cloudinary streams report a PROVISIONAL duration on loadedmetadata that can be badly wrong -- one
+   clip reported 1.5s on a first read and 66.4s on a second -- so listen to durationchange as well
+   and keep taking the newest finite value rather than trusting the first. */
+function stampVideoDuration(url,btnId){
+  if(!url)return;
+  var btn=document.getElementById(btnId);if(!btn)return;
+  var lbl=btn.querySelector('.vwdur');if(!lbl)return;
+  var v=document.createElement('video');
+  v.preload='metadata';v.muted=true;
+  v.style.cssText='position:absolute;left:-9999px;width:1px;height:1px';
+  function put(){
+    var d=v.duration;
+    if(!isFinite(d)||d<2)return;
+    var mm=Math.floor(d/60),ss=Math.round(d%60);
+    if(ss===60){mm+=1;ss=0;}
+    lbl.textContent=' \u00b7 '+mm+':'+(ss<10?'0':'')+ss;
+  }
+  v.addEventListener('loadedmetadata',put);
+  v.addEventListener('durationchange',put);
+  v.addEventListener('error',function(){});
+  setTimeout(function(){try{v.removeAttribute('src');v.load();v.remove();}catch(e){}},12000);
+  v.src=vTransform(url,'q_auto,w_720,c_limit,vc_h264');
+  document.body.appendChild(v);
+}
 function vTransform(src,t){var i=src.indexOf('/video/upload/');return i<0?src:src.slice(0,i+14)+t+'/'+src.slice(i+14);}
 function openVideo(src,title){var m=document.getElementById('vmodal');if(!m||!src)return;
   var opt=vTransform(src,'q_auto,w_720,c_limit,vc_h264');
   var poster=/\.mp4($|\?)/i.test(src)?vTransform(src,'so_0,q_auto,w_720,c_limit').replace(/\.mp4/i,'.jpg'):'';
   m.innerHTML='<div class="vwrap"><button class="vx" id="vx" aria-label="Close video">✕ Close</button>'+
-    '<video src="'+esc(opt)+'"'+(poster?' poster="'+esc(poster)+'"':'')+' controls autoplay muted playsinline preload="auto" webkit-playsinline></video>'+
+    '<button class="vunmute" id="vunmute" hidden>\ud83d\udd08 Tap for sound</button>'+
+    '<video src="'+esc(opt)+'"'+(poster?' poster="'+esc(poster)+'"':'')+' controls autoplay playsinline preload="auto" webkit-playsinline></video>'+
     (title?'<div class="vcap">'+esc(title)+'</div>':'')+'</div>';
   m.classList.add('on');document.body.style.overflow='hidden';
-  var v=m.querySelector('video');if(v){var p=v.play();if(p&&p.catch)p.catch(function(){});}
+  /* These are Stormtech brand films and every one of them carries an audio track, but the player
+     was hard-coded `muted` (added so mobile autoplay would not be blocked) with no unmute cue --
+     so it always played silent and looked broken. We only ever open this from a click, which IS a
+     user gesture, so sound is permitted: try unmuted first and fall back to muted ONLY if the
+     browser refuses, surfacing a "Tap for sound" button in that case rather than failing quietly. */
+  var v=m.querySelector('video');
+  var un=document.getElementById('vunmute');
+  if(v){
+    v.muted=false;
+    var p=v.play();
+    if(p&&p.catch)p.catch(function(){
+      v.muted=true;
+      var p2=v.play();if(p2&&p2.catch)p2.catch(function(){});
+      if(un)un.hidden=false;
+    });
+  }
+  if(un)un.addEventListener('click',function(){
+    if(!v)return;v.muted=false;var p3=v.play();if(p3&&p3.catch)p3.catch(function(){});un.hidden=true;});
   var vx=document.getElementById('vx');if(vx)vx.addEventListener('click',closeMedia);
   // Click the dark backdrop (anywhere outside the player) to close; clicks on the player itself don't.
   m.onclick=function(e){if(e.target===m)closeMedia();};
