@@ -2490,7 +2490,7 @@ function renderPromoSheet(){
                  (x.sku?(' <small>'+esc(x.sku)+'</small>'):'')+'</li>';}).join('')+'</ul>'+
           (boxes.length?('<div class="pboxnote">Presented in a '+esc(boxName(boxes[0].desc))+'</div>'):'')+
           '</div>';}}
-    logoGrp=incHtml+'<div class="pgrp"><div class="pgl">Your logo</div><div class="qlogo"><span class="pinci">✓</span> Add your logo — we’ll confirm decoration &amp; setup on your quote.</div></div>';
+    logoGrp=incHtml+'<div class="pgrp"><div class="pgl">Your logo</div><div class="qlogo"><span class="pinci">✓</span> Add your logo — your branding is already included in this price.</div></div>';
     var tq=(q.tiers&&q.tiers.length)?q.tiers.map(function(t){return t.q;}):promoTiers(min);
     // Show the BREAK RANGE, not just its opening number: the vendor's own table reads "6 - 47" then
     // "48+", and a bare "6" next to a bare "48" makes a buyer guess where one price stops and the next
@@ -2498,11 +2498,17 @@ function renderPromoSheet(){
     picksHtml='<div class="ptiers">'+tq.map(function(t,ti){
       var lbl=(ti<tq.length-1)?(t+'\u2013'+(tq[ti+1]-1)):(t+'+');
       return '<button class="ptier'+(t===q.qty?' on':'')+'" data-q="'+t+'"><b>'+lbl+'</b><span>'+money(tierPrice(item,t))+'/'+unitP+'</span></button>';}).join('')+'</div>';
-    var setupLine=(item.setup>0)?('<div class="psrow"><span>One-time setup <small>charged once per logo</small></span><span>'+money(item.setup)+'</span></div>'):'';
+    /* NO SETUP ROW ON THIS PATH. Spector & Co list prices include their default branding and JDP
+       charges the Spector price as published, so promoQuote() correctly returns setup:0. This
+       summary used to ignore that and add item.setup straight from the catalogue -- 205 of the
+       234 promo items carry one ($40-$270), so the sheet showed e.g. 25 x $26.50 = $662.50 then
+       "+$120 one-time setup" and an "Estimated total" of $782.50, while the Add-to-board button
+       directly beneath it said $662.50. Two totals, 18% apart, on one screen -- and it sat two
+       lines above our own "Your logo: included in the price". The stored setup figure is kept in
+       the data because it is real for UPGRADE decoration methods; it just is not charged here. */
     sumHtml='<div class="psum"><div class="psrow"><span>'+q.qty+' '+unitP+' × '+money(q.perPiece)+'</span><span>'+money(q.goods)+'</span></div>'+
-      setupLine+
       '<div class="psrow"><span>Your logo</span><span>included in the price</span></div>'+
-      '<div class="psrow pstot"><span>Estimated total</span><span>'+money(q.goods+(item.setup>0?item.setup:0))+'</span></div></div>';
+      '<div class="psrow pstot"><span>Estimated total</span><span>'+money(q.goods)+'</span></div></div>';
     footHtml='<div class="pfrow"><span>'+q.qty+' '+unitP+' · '+money(q.perPiece)+'/'+unitP+'</span><b>'+money(q.goods)+'</b></div>'+
       '<button class="shaddbtn" id="shAdd"><span>'+(CART[SH.key]?'Update board':'Add to board')+'</span><span class="p">'+money(q.goods)+'</span></button>'+
       '<div class="shtrust">Minimum '+min+' '+unitP+' · your logo included in this price</div>';
