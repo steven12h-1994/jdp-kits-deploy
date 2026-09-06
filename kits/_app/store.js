@@ -4429,10 +4429,14 @@ function openScenic(src,title){var m=document.getElementById('vmodal');if(!m||!s
 // phones). Cuts the file ~60% vs the original and adds an instant first-frame poster. muted = autoplay is
 // actually allowed on mobile (unmuted autoplay is blocked, which made the player look broken).
 /* 36 of the 42 videos run 30-81 seconds: brand films, not a quick product spin, so a bare "Watch
-   video" hides how much time it asks for. Duration can only be had by asking the file, and these
-   Cloudinary streams report a PROVISIONAL duration on loadedmetadata that can be badly wrong -- one
-   clip reported 1.5s on a first read and 66.4s on a second -- so listen to durationchange as well
-   and keep taking the newest finite value rather than trusting the first. */
+   video" hides how much time it is asking for.
+   PROBE THE ORIGINAL URL, NOT THE TRANSFORMED ONE. Cloudinary builds a derived asset on its first
+   request and, while it does so, a metadata-only read of that derivative reports a stub length of
+   about 2-3 seconds. Measured cold: gbx-1s 48.9s original vs 2.50s derived, ks-3 35.6s vs 2.29s,
+   bhs-3 46.9s vs 2.79s. Probing the derivative therefore stamped "0:04" onto a 70-second film,
+   which is worse than saying nothing at all. The original is stored whole, so its duration is exact
+   and available at once. Playback still uses the transform -- streaming resolves the true length as
+   it arrives, so only the metadata-only probe was ever fooled. */
 function stampVideoDuration(url,btnId){
   if(!url)return;
   var btn=document.getElementById(btnId);if(!btn)return;
@@ -4442,7 +4446,7 @@ function stampVideoDuration(url,btnId){
   v.style.cssText='position:absolute;left:-9999px;width:1px;height:1px';
   function put(){
     var d=v.duration;
-    if(!isFinite(d)||d<2)return;
+    if(!isFinite(d)||d<3.5)return;   // 3.5s clears Cloudinary's ~2-3s cold-derivative stub
     var mm=Math.floor(d/60),ss=Math.round(d%60);
     if(ss===60){mm+=1;ss=0;}
     lbl.textContent=' \u00b7 '+mm+':'+(ss<10?'0':'')+ss;
@@ -4451,7 +4455,7 @@ function stampVideoDuration(url,btnId){
   v.addEventListener('durationchange',put);
   v.addEventListener('error',function(){});
   setTimeout(function(){try{v.removeAttribute('src');v.load();v.remove();}catch(e){}},12000);
-  v.src=vTransform(url,'q_auto,w_720,c_limit,vc_h264');
+  v.src=url;   // ORIGINAL, deliberately -- see above
   document.body.appendChild(v);
 }
 function vTransform(src,t){var i=src.indexOf('/video/upload/');return i<0?src:src.slice(0,i+14)+t+'/'+src.slice(i+14);}
