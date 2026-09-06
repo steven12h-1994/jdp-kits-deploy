@@ -4479,8 +4479,19 @@ function openVideo(src,title){var m=document.getElementById('vmodal');if(!m||!sr
       if(un)un.hidden=false;
     });
   }
+  /* If unmuting is refused (some environments block audible playback outright) the naive version
+     left the clip PAUSED and silent -- strictly worse than the muted playback it replaced. Put the
+     mute back and keep it running, leaving this button available, so the viewer never ends up worse
+     off for having asked for sound. */
   if(un)un.addEventListener('click',function(){
-    if(!v)return;v.muted=false;var p3=v.play();if(p3&&p3.catch)p3.catch(function(){});un.hidden=true;});
+    if(!v)return;
+    v.muted=false;
+    var p3=v.play();
+    if(p3&&p3.catch){
+      p3.catch(function(){v.muted=true;var p4=v.play();if(p4&&p4.catch)p4.catch(function(){});});
+      p3.then&&p3.then(function(){un.hidden=true;},function(){});
+    }else{un.hidden=true;}
+  });
   var vx=document.getElementById('vx');if(vx)vx.addEventListener('click',closeMedia);
   // Click the dark backdrop (anywhere outside the player) to close; clicks on the player itself don't.
   m.onclick=function(e){if(e.target===m)closeMedia();};
