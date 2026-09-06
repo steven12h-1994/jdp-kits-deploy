@@ -359,7 +359,11 @@ function promoMethods(it){return (it.methods&&it.methods.length)?it.methods:[{n:
 function tierPrice(it,qty){var t=it.tiers;if(!t||!t.length)return it.price_cad||0;var p=t[0].p;for(var i=0;i<t.length;i++){if(qty>=t[i].q)p=t[i].p;}return p;}
 function promoQuote(it,c){
   c=c||{}; var min=it.moq||((it.tiers&&it.tiers[0])?it.tiers[0].q:1);
-  // QUOTE-MODE (new suppliers): tiered blank product price; logo and decoration confirmed on your quote.
+  /* Spector & Co publish list prices that INCLUDE their default branding, and JDP charges the
+     Spector price exactly as published (Steven, 2026-09-06). So goods-only IS the whole price:
+     run:0 and setup:0 below are CORRECT, not an omission. Do not add a decoration charge here,
+     and do not run these items through unitPrice()'s garment ladder -- the margin is already in
+     the spread between Spector's list price and our net cost. */
   if(it.decoquote){
     var q2=Math.max(parseInt(c.qty,10)||min,min);
     var pp=tierPrice(it,q2), gd=Math.round(pp*q2*100)/100;
@@ -654,13 +658,12 @@ function menuCard(key){
       colourDots(item,key)+
       (item.layer==='promo'
         ? (kitContentsHtml(item)+
-           /* "· + your logo": promo goods are decoquote items, so this figure is the PRODUCT
-              only and the logo is confirmed on the quote. The apparel card sitting beside it in
-              the same grid says "· decorated", so a silent promo card was read as
-              decorated-inclusive by simple comparison. The product sheet already disclosed it
-              ("your logo confirmed on your quote") but only after a click, and the first number a
-              buyer sees is the one they anchor on. */
-           '<div class="mprice"><b>'+money(item.price_cad)+'</b> <small>/'+(item.unit==='dozen'?'dozen':'pc')+' · min '+item.moq+' · + your logo</small></div>'+
+           /* Spector & Co list prices INCLUDE their default branding, and JDP charges the Spector
+              price as published -- so the logo is included, not extra. An earlier version of this
+              line read "· + your logo", which was simply wrong: it invented a surcharge that does
+              not exist and made us look dearer than we are. Included branding is a genuine selling
+              point on a decorated-goods store, so say it on the card where the buyer anchors. */
+           '<div class="mprice"><b>'+money(item.price_cad)+'</b> <small>/'+(item.unit==='dozen'?'dozen':'pc')+' · min '+item.moq+' · logo included</small></div>'+
            promoVolLine(item))
         : '<div class="mprice"><b>'+money(startP)+'</b> <small>/pc'+(hasDecoPlace(item)?' · decorated':'')+'</small></div>'+
            '<div class="mvol">at '+moq()+' pcs'+(bestP<startP?(' · <b>'+money(bestP)+'</b>/pc at '+topcol+'+'):'')+'</div>')+
@@ -2466,7 +2469,7 @@ function renderPromoSheet(){
   var priceSub,logoGrp,picksHtml,sumHtml,footHtml,step=(min>=48?48:(min>=24?24:12));
   if(isDQ){
     var multi=(q.tiers&&q.tiers.length>1);
-    priceSub='<div class="pprice-sub">'+(multi?'Order more, pay less per '+unitP:'Your price per '+unitP)+' · your logo confirmed on your quote</div>';
+    priceSub='<div class="pprice-sub">'+(multi?'Order more, pay less per '+unitP:'Your price per '+unitP)+' · your logo included</div>';
     /* What's in the box. A gift set is bought on its CONTENTS, so list them and link each one.
        PACKAGING IS NOT A PRODUCT. The P-series gift box was previously listed as the first row of
        every set, where it was the one entry that could not be clicked -- Steven read that, quite
@@ -2498,11 +2501,11 @@ function renderPromoSheet(){
     var setupLine=(item.setup>0)?('<div class="psrow"><span>One-time setup <small>charged once per logo</small></span><span>'+money(item.setup)+'</span></div>'):'';
     sumHtml='<div class="psum"><div class="psrow"><span>'+q.qty+' '+unitP+' × '+money(q.perPiece)+'</span><span>'+money(q.goods)+'</span></div>'+
       setupLine+
-      '<div class="psrow"><span>Your logo</span><span>confirmed on quote</span></div>'+
+      '<div class="psrow"><span>Your logo</span><span>included in the price</span></div>'+
       '<div class="psrow pstot"><span>Estimated total</span><span>'+money(q.goods+(item.setup>0?item.setup:0))+'</span></div></div>';
     footHtml='<div class="pfrow"><span>'+q.qty+' '+unitP+' · '+money(q.perPiece)+'/'+unitP+'</span><b>'+money(q.goods)+'</b></div>'+
       '<button class="shaddbtn" id="shAdd"><span>'+(CART[SH.key]?'Update board':'Add to board')+'</span><span class="p">'+money(q.goods)+'</span></button>'+
-      '<div class="shtrust">Minimum '+min+' '+unitP+' · logo &amp; final price confirmed on your quote</div>';
+      '<div class="shtrust">Minimum '+min+' '+unitP+' · your logo included in this price</div>';
   }else{
     var meth=methods.map(function(m,i){var up=m.r>0?('<small>+'+money(m.r)+'/pc</small>'):'<small>included</small>';
       return '<button class="pmeth'+(i===q.mi?' on':'')+'" data-mi="'+i+'">'+esc(m.n)+' '+up+'</button>';}).join('');
@@ -3450,7 +3453,7 @@ function cartLineHtml(k){var it=BYKEY[bkey(k)];if(!it)return '';var c=CART[k];
   var _both=!!(CART[bkey(k)]&&CART[bkey(k)+'#w']);
     if(it.layer==='promo'){var pq=promoQuote(it,c);var pcol=colInList(it.cols,c.colour)||it.cols[0]||{};
       var pline=pq.goods+pq.decoRun;var uP=(pq.unit==='dozen'?'dozen':'pc');
-      var psub2=pq.decoquote?(esc(c.colour||'')+' · logo confirmed on quote'):(esc(c.colour||'')+' · '+esc(pq.method.n)+(pq.locs>1?' · 2 spots':'')+' · +'+money(pq.setup)+' setup');
+      var psub2=pq.decoquote?(esc(c.colour||'')+' · logo included'):(esc(c.colour||'')+' · '+esc(pq.method.n)+(pq.locs>1?' · 2 spots':'')+' · +'+money(pq.setup)+' setup');
       return '<div class="ci" data-key="'+k+'"><div class="t" style="background-image:url('+gurl(pcol.front)+')"></div>'+
         '<div class="d"><h4>'+esc(it.name)+'</h4><div class="sub">'+psub2+'</div>'+
         '<div class="row"><button class="editln" data-edit="'+k+'">'+pq.qty+' '+uP+' · '+money(pq.perPiece)+'/'+uP+' ✎</button><div class="lp">'+money(pline)+'</div></div></div>'+
