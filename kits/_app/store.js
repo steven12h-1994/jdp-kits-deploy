@@ -654,7 +654,14 @@ function menuCard(key){
       colourDots(item,key)+
       (item.layer==='promo'
         ? (kitContentsHtml(item)+
-           '<div class="mprice"><b>'+money(item.price_cad)+'</b> <small>/'+(item.unit==='dozen'?'dozen':'pc')+' · min '+item.moq+'</small></div>')
+           /* "· + your logo": promo goods are decoquote items, so this figure is the PRODUCT
+              only and the logo is confirmed on the quote. The apparel card sitting beside it in
+              the same grid says "· decorated", so a silent promo card was read as
+              decorated-inclusive by simple comparison. The product sheet already disclosed it
+              ("your logo confirmed on your quote") but only after a click, and the first number a
+              buyer sees is the one they anchor on. */
+           '<div class="mprice"><b>'+money(item.price_cad)+'</b> <small>/'+(item.unit==='dozen'?'dozen':'pc')+' · min '+item.moq+' · + your logo</small></div>'+
+           promoVolLine(item))
         : '<div class="mprice"><b>'+money(startP)+'</b> <small>/pc'+(hasDecoPlace(item)?' · decorated':'')+'</small></div>'+
            '<div class="mvol">at '+moq()+' pcs'+(bestP<startP?(' · <b>'+money(bestP)+'</b>/pc at '+topcol+'+'):'')+'</div>')+
       '</div></article>';
@@ -2037,6 +2044,18 @@ function fabCardLine(item){
   var l=fabLine(item);if(!l)return '';
   var w=(item.fab&&item.fab.weight)?String(item.fab.weight).split(' \u00b7 ')[0]:'';
   return w?(l+' \u00b7 '+w):l;
+}
+/* Every one of the 234 promo items carries a supplier quantity-break table (median 17.2% deep,
+   max 18.6%), and the card threw all of it away -- while the apparel card beside it advertised
+   its break on a .mvol line. Volume is the mechanic the entire pricing model runs on, so hiding
+   it on half the catalogue was a straight conversion loss. Mirrors the apparel markup exactly,
+   so it needs no new CSS. */
+function promoVolLine(item){
+  var t=item.tiers;if(!t||t.length<2)return '';
+  var lo=t[0],hi=t[t.length-1];
+  if(!(hi.p<lo.p))return '';
+  var u=(item.unit==='dozen')?'dozen':'pc',up=(item.unit==='dozen')?'dozen':'pcs';
+  return '<div class="mvol">at '+lo.q+' '+up+' · <b>'+money(hi.p)+'</b>/'+u+' at '+hi.q+'+</div>';
 }
 function dwSpecLine(item){
   if(!item||!item.dwtype)return '';
