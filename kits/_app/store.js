@@ -3110,6 +3110,16 @@ function pushBoardSoon(){
 function pushBoardNow(){
   var L=LISTS&&LISTS[ALID];if(!L||isTemplate(ALID))return;
   var b=L.slug||bslug(L.name);if(!b)return;
+  /* NEVER push an empty board we have never synced. The slug comes from the list NAME, and every
+     visitor's default list is called "My board" -> "my-board", so on a given kit all visitors
+     collide on one server board. A fresh visitor's empty list therefore used to overwrite a saved
+     one (eddy-group/my-board reached rev 23 with items:[]). The server now refuses an unrev'd
+     write, but there is no reason to even send this one: it has nothing to save and everything
+     to lose. */
+  if(!L.rev){
+    var _n=L.items?Object.keys(L.items).length:0;
+    if(!_n){markSync('saved');return;}
+  }
   L.slug=b;
   var who='';try{who=(JSON.parse(localStorage.getItem('jdpkit_contact')||'{}').name||'');}catch(e){}
   var body={kit:SLUG,b:b,name:L.name,items:L.items,by:who};
@@ -3119,12 +3129,24 @@ function pushBoardNow(){
     .then(function(r){return r.json();})
     .then(function(j){
       if(j&&j.ok){L.rev=j.rev;L.slug=j.b;persistLists();markSync('saved');return;}
-      /* Someone edited the same board elsewhere. Their version wins and we adopt it rather than
-         silently clobbering a colleague -- the whole point of a shared document. */
+      /* Someone edited the same board elsewhere. Adopt their version rather than clobbering a
+         colleague -- the whole point of a shared document.
+         MERGE, do not replace. Replacing was safe while only a rev MISMATCH could land here, but
+         the server now also rejects a write that names no rev at all, so a first-time visitor who
+         had genuinely picked things would have had their picks deleted by the very fix that stops
+         boards being wiped. Server entries win on conflict; anything only we hold is added and
+         pushed back with the correct rev, once. */
       if(j&&j.error==='stale'&&j.board){
-        L.items=j.board.items||{};L.rev=j.board.rev;L.name=j.board.name||L.name;
+        var srv=j.board.items||{},mine=L.items||{},merged={},addedLocal=0;
+        Object.keys(srv).forEach(function(k){merged[k]=srv[k];});
+        Object.keys(mine).forEach(function(k){if(!(k in merged)){merged[k]=mine[k];addedLocal++;}});
+        L.items=merged;L.rev=j.board.rev;L.name=j.board.name||L.name;
         if(LISTS[ALID]===L)CART=L.items;
-        persistLists();syncBoardIfOpen();refreshCartUI();markSync('merged');return;}
+        persistLists();syncBoardIfOpen();refreshCartUI();
+        markSync(addedLocal?'saving':'merged');
+        if(addedLocal&&!L._remerged){L._remerged=1;pushBoardNow();}
+        else{L._remerged=0;}
+        return;}
       markSync('offline');
     })
     .catch(function(){markSync('offline');});
