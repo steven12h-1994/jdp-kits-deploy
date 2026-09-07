@@ -1902,6 +1902,51 @@ body{padding-left:74px}
   .rhcard{padding:12px 13px;gap:11px}
 }
 
+/* ---- Priced logo configurations (Step 3) ----------------------------------------------------
+   A short list of complete, named setups with the per-piece price on each, so a buyer picks a
+   known-good configuration and we can quote and invoice from it directly. Selected state is a
+   filled tick plus an accent ring -- not colour alone. */
+.cfgwrap{display:grid;gap:9px;margin:2px 0 4px}
+.cfgc{display:flex;align-items:flex-start;gap:12px;width:100%;text-align:left;cursor:pointer;
+  padding:13px 14px;border:1.5px solid var(--line);border-radius:var(--rad);background:#fff;
+  font:inherit;color:var(--ink);transition:border-color .14s,box-shadow .14s,background .14s}
+.cfgc:hover{border-color:color-mix(in srgb,var(--a) 45%,var(--line))}
+.cfgc.on{border-color:var(--a);background:color-mix(in srgb,var(--a) 5%,#fff);
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--a) 14%,transparent)}
+.cfgtick{flex:none;width:20px;height:20px;margin-top:2px;border-radius:50%;
+  border:1.5px solid var(--line);background:#fff;position:relative}
+.cfgc.on .cfgtick{border-color:var(--a);background:var(--a)}
+.cfgc.on .cfgtick::after{content:"";position:absolute;left:6px;top:3px;width:5px;height:9px;
+  border:2px solid #fff;border-top:0;border-left:0;transform:rotate(42deg)}
+.cfgb{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.cfgn{font-size:15px;font-weight:800;letter-spacing:-.01em;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.cfgtag{font-style:normal;font-size:10px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;
+  color:var(--a);background:color-mix(in srgb,var(--a) 12%,#fff);border-radius:999px;padding:2px 8px}
+.cfgs{font-size:12.5px;color:var(--mut);line-height:1.45}
+/* Where the marks actually go, in the item's own placement language -- this is the line that gets
+   read back on the quote, so it is shown, not hidden behind the price. */
+.cfgw{font-size:11px;font-weight:700;color:color-mix(in srgb,var(--ink) 62%,#fff);
+  letter-spacing:.01em;margin-top:2px}
+.cfgp{flex:none;text-align:right;display:flex;flex-direction:column;align-items:flex-end;line-height:1.15}
+.cfgp b{font-size:17px;font-weight:850;font-variant-numeric:tabular-nums}
+.cfgp i{font-style:normal;font-size:11px;color:var(--mut);font-weight:600}
+.cfgp em{font-style:normal;font-size:11.5px;font-weight:800;margin-top:3px;color:var(--a);font-variant-numeric:tabular-nums}
+.cfgp em.inc{color:#0f7a41}
+.cfgp em.save{color:#0f7a41}
+.cfgnote{margin:10px 0 0;padding:10px 12px;border-radius:10px;font-size:11.5px;line-height:1.5;
+  color:var(--ink);background:color-mix(in srgb,#b8860b 9%,#fff);
+  border:1px solid color-mix(in srgb,#b8860b 26%,var(--line))}
+.cfgfoot{margin-top:10px;font-size:11.5px;color:var(--mut);line-height:1.5}
+@media(max-width:600px){
+  .cfgc{padding:12px;gap:10px}
+  /* Price under the text on a phone rather than a squeezed right rail. */
+  .cfgc{flex-wrap:wrap}
+  .cfgp{flex-direction:row;align-items:baseline;gap:6px;width:100%;text-align:left;
+    justify-content:flex-start;margin-top:6px;padding-left:32px}
+  .cfgp em{margin-top:0}
+  .cfgn{font-size:14.5px}
+}
+
 /* ---- Headcount: one number instead of a hundred ----------------------------------------------
    An 18-line board asked for a 6-cell split on every style — 108 boxes — before the buyer had a
    price they trusted. This asks the one question they can answer from memory. */

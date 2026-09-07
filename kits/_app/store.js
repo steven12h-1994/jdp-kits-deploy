@@ -618,6 +618,11 @@ function overlayHtml(item,vm,colName,faces,colsOverride,placesOverride){
   var lg='';
   if(item&&item.noov)return {g:gurl(photo),lg:'',hasBack:hasBack};   // decoration priced/selectable, but no logo drawn on photo (Carhartt)
   (vm.decos||[]).forEach(function(d){if(!d.on)return;var p=placeInList(places,d.pl);if(!p||(p.face||'front')!==face)return;
+    /* norender: the position is real for PRICING, setup keying and the invoice, but we hold no
+       tuned cx/cy/wf for it, so drawing it would paint the logo in the wrong place. Steven,
+       2026-09-07: "I am not concerned with mock ups now" -- the configurations exist to price
+       and invoice fast. Tune a position's geometry, drop its norender flag, and it draws. */
+    if(p.norender)return;
     if(face==='back'&&!hasBack)return;
     var L=logoOf(d.lg),src=inkUrl(L,d.ink,col,d.method);
     var wf=p.wf*(CFG.logo_scale||1);
@@ -2421,6 +2426,195 @@ function openSheet(key,wantCol,fromKey){
   document.getElementById('sheet').classList.add('on');
   document.body.style.overflow='hidden';
 }
+/* ---- PRICED LOGO CONFIGURATIONS -------------------------------------------------------------
+   Steven, 2026-09-07: "we should have the most popular design / logo placement configurations for
+   each item category ... it should not be overwhelming. we should show price for each
+   configuration ... so that we can price customers and build invoices super fast".
+
+   Deliberately a SHORT curated list per category, not a matrix. Step 3 was made read-only earlier
+   precisely because a free per-placement finish menu let a customer reach a state the quote never
+   matched; a fixed set of complete, named, priced setups fixes that without going back to a matrix.
+
+   Popularity ranking comes from placement research (2026-09-07). No published industry figures on
+   single vs multi-placement ordering exist, so "Most popular" reflects revealed preference --
+   decorator guides that list left chest first and label it "most common", and B2B configurators
+   that default to it -- not an invented statistic.
+   Sizes and methods follow that research: chest 3-3.5" on shirts / 4" on outerwear, sleeve 2.5",
+   full back 10-12" screen printed, hi-vis back yoke <=10"x2" above the upper reflective stripe. */
+function itemCategory(it){
+  var n=String((it&&it.name)||'').toLowerCase(),layer=(it&&it.layer)||'';
+  if(layer==='field'||(it&&it.csa))return 'hivis';
+  if(/beanie|toque|watch hat|\bcap\b|\bhat\b|trucker|snapback|visor/.test(n))return 'cap';
+  if(/backpack|duffel|tote|\bbag\b|cooler|pack\b/.test(n)||layer==='bags')return 'bag';
+  if(/\bpolo\b|sport shirt|knit shirt|piqu/.test(n))return 'polo';
+  if(/work shirt|woven|snap-front|button|twill shirt|flannel|plaid shirt/.test(n))return 'woven';
+  if(/\btee\b|t-shirt|tshirt/.test(n))return 'tee';
+  if(/hood|crewneck|sweatshirt|quarter|1\/4-zip|half-zip|pullover|fleece|midlayer/.test(n))return 'fleece';
+  if(/\bvest\b/.test(n))return 'vest';
+  if(/jacket|parka|shell|softshell|shacket|puffer|\bcoat\b|rain|3-in-1|6-in-1/.test(n))return 'outer';
+  return 'other';
+}
+var CFG_SHIRT=[
+  {id:'lc',  name:'{P} logo',     sub:'One embroidered logo. What most programs order.',            tag:'Most popular',
+   spots:[{pl:'PRIMARY',method:'embroidery'}]},
+  {id:'lcn', name:'Logo + name',         sub:'Logo left chest, employee name on the right — managed uniforms.',
+   spots:[{pl:'PRIMARY',method:'embroidery'},{pl:'rchest',method:'embroidery'}]},
+  {id:'lcs', name:'Logo + sleeve badge', sub:'A second mark on the left sleeve for a department or division.',
+   spots:[{pl:'PRIMARY',method:'embroidery'},{pl:'sleeve',method:'embroidery'}]}
+];
+var CONFIGS={
+  polo:CFG_SHIRT, woven:CFG_SHIRT,
+  tee:[
+    {id:'sp', name:'{P} print',  sub:'Screen printed in one ink — the best value on tees.',      tag:'Best value',
+     spots:[{pl:'PRIMARY',method:'screen',colours:1}]},
+    {id:'lc', name:'{P} logo',   sub:'Embroidered, to match your polo and jacket program.',           tag:'Most popular',
+     spots:[{pl:'PRIMARY',method:'embroidery'}]},
+    {id:'fb', name:'Chest + full back', sub:'Small logo on the chest, large print across the back.',
+     spots:[{pl:'PRIMARY',method:'screen',colours:1},{pl:'back',method:'screen',colours:1}]}
+  ],
+  fleece:[
+    {id:'lc',  name:'{P} logo',     sub:'One embroidered logo. What most programs order.',            tag:'Most popular',
+     spots:[{pl:'PRIMARY',method:'embroidery'}]},
+    {id:'fb',  name:'Chest + full back',   sub:'Embroidered chest, large screen print across the back.',
+     spots:[{pl:'PRIMARY',method:'embroidery'},{pl:'back',method:'screen',colours:1}]},
+    {id:'lcs', name:'Logo + sleeve badge', sub:'A second mark on the left sleeve.',
+     spots:[{pl:'PRIMARY',method:'embroidery'},{pl:'sleeve',method:'embroidery'}]}
+  ],
+  outer:[
+    {id:'lc',  name:'{P} logo',   sub:'One embroidered logo, 4" wide. The standard on outerwear.',    tag:'Most popular',
+     spots:[{pl:'PRIMARY',method:'embroidery'}]},
+    {id:'lcn', name:'Logo + name',       sub:'Logo left chest, name or location on the right.',
+     spots:[{pl:'PRIMARY',method:'embroidery'},{pl:'rchest',method:'embroidery'}]},
+    {id:'fb',  name:'Chest + full back', sub:'Adds a large back mark — crew recognition at distance.',
+     spots:[{pl:'PRIMARY',method:'embroidery'},{pl:'back',method:'screen',colours:1}]}
+  ],
+  vest:[
+    {id:'lc',  name:'{P} logo', sub:'One embroidered logo. What most programs order.',                tag:'Most popular',
+     spots:[{pl:'PRIMARY',method:'embroidery'}]},
+    {id:'lcn', name:'Logo + name',     sub:'Logo left chest, employee name on the right.',
+     spots:[{pl:'PRIMARY',method:'embroidery'},{pl:'rchest',method:'embroidery'}]}
+  ],
+  cap:[
+    {id:'fr',  name:'{P} embroidery',   sub:'Your logo on the front panel. Height is the limit, not width.', tag:'Most popular',
+     spots:[{pl:'PRIMARY',method:'embroidery'}]},
+    {id:'frs', name:'Front + side panel', sub:'Adds a small second mark on the side — year, division, initials.',
+     spots:[{pl:'PRIMARY',method:'embroidery'},{pl:'side',method:'embroidery'}]}
+  ],
+  hivis:[
+    {id:'lc',   name:'{P} logo',   sub:'Embroidered — thread is never mistaken for reflective tape.', tag:'Most popular',
+     spots:[{pl:'PRIMARY',method:'embroidery'}]},
+    {id:'lcn',  name:'Logo + name',       sub:'Logo left chest, employee name on the right.',
+     spots:[{pl:'PRIMARY',method:'embroidery'},{pl:'rchest',method:'embroidery'}]},
+    {id:'by',   name:'Logo + name on back', sub:'Company name screen printed across the back yoke, above the reflective tape.',
+     spots:[{pl:'PRIMARY',method:'embroidery'},{pl:'backyoke',method:'screen',colours:1}]},
+    {id:'crew', name:'Full crew ID',      sub:'Logo, employee name, and company name across the back.',
+     spots:[{pl:'PRIMARY',method:'embroidery'},{pl:'rchest',method:'embroidery'},{pl:'backyoke',method:'screen',colours:1}]}
+  ],
+  bag:[
+    {id:'fr',  name:'{P} logo',    sub:'Embroidered on the upper front panel.',                      tag:'Most popular',
+     spots:[{pl:'PRIMARY',method:'embroidery'}]},
+    {id:'frp', name:'Larger front print',  sub:'Screen printed and bigger — for event and giveaway bags.',
+     spots:[{pl:'PRIMARY',method:'screen',colours:1}]}
+  ],
+  other:[
+    {id:'lc', name:'Standard logo', sub:'Our standard setup for this product.', tag:'Most popular',
+     spots:[{pl:'PRIMARY',method:'embroidery'}]}
+  ]
+};
+/* Only offer a configuration whose every position actually exists on THIS item. A polo with no
+   sleeve position simply does not show the sleeve option, rather than showing one that prices at
+   zero because unitPrice() silently ignores decos on placements the garment does not have. */
+function configsFor(key){
+  var it=BYKEY[key];if(!it)return [];
+  var prim=(stdOf(key)||{}).pl||((it.places||[]).filter(function(p){return p.logo;})[0]||{}).id;
+  if(!prim)return [];
+  var avail={};(it.places||[]).forEach(function(p){if(p.logo)avail[p.id]=p;});
+  var list=CONFIGS[itemCategory(it)]||CONFIGS.other;
+  return list.map(function(c){
+    var ok=true;
+    var decos=c.spots.map(function(s){
+      var pl=(s.pl==='PRIMARY')?prim:s.pl;
+      if(!avail[pl])ok=false;
+      return {pl:pl,method:s.method,colours:s.colours||1};
+    });
+    if(!ok)return null;
+    /* {P} resolves to the item's OWN label for its primary position, so a beanie reads "Front
+       panel logo" and a traffic tee "Centre chest logo" -- never a card title that contradicts the
+       position printed directly beneath it. */
+    var plab=(avail[prim]&&avail[prim].label)||'Logo';
+    return {id:c.id,name:String(c.name).replace('{P}',plab),sub:c.sub,tag:c.tag,decos:decos};
+  }).filter(Boolean);
+}
+function configDecos(cfg){
+  var lg=(CFG.logos&&CFG.logos[0]&&CFG.logos[0].id)||null;
+  return cfg.decos.map(function(d){
+    return {pl:d.pl,on:true,lg:lg,ink:'auto',method:d.method,colours:d.colours||1};});
+}
+function configPrice(cfg){return unitPrice(SH.key,configDecos(cfg),effQty()||moq());}
+/* Which configuration the sheet is currently in — matched on the exact set of live positions and
+   their methods, so a hand-restored cart line lights up the right card or none of them. */
+function activeConfigId(){
+  var live=Object.keys(SH.D).filter(function(pl){return SH.D[pl].on;}).sort();
+  var cfgs=configsFor(SH.key);
+  for(var i=0;i<cfgs.length;i++){
+    var want=cfgs[i].decos.map(function(d){return d.pl;}).sort();
+    if(want.length!==live.length||want.join('|')!==live.join('|'))continue;
+    var same=cfgs[i].decos.every(function(d){
+      var s=SH.D[d.pl];
+      return s&&s.method===d.method&&(d.method!=='screen'||(s.colours||1)===(d.colours||1));});
+    if(same)return cfgs[i].id;
+  }
+  return null;
+}
+function applyConfig(id){
+  var cfg=configsFor(SH.key).filter(function(c){return c.id===id;})[0];if(!cfg)return;
+  Object.keys(SH.D).forEach(function(pl){SH.D[pl].on=false;});
+  cfg.decos.forEach(function(d){
+    if(!SH.D[d.pl])SH.D[d.pl]={lg:(CFG.logos&&CFG.logos[0]&&CFG.logos[0].id)||null,ink:'auto'};
+    SH.D[d.pl].on=true;SH.D[d.pl].method=d.method;SH.D[d.pl].colours=d.colours||1;
+    if(!SH.D[d.pl].lg)SH.D[d.pl].lg=(CFG.logos&&CFG.logos[0]&&CFG.logos[0].id)||null;
+    if(!SH.D[d.pl].ink)SH.D[d.pl].ink='auto';});
+}
+/* Plain-language description of where the marks go, built from the item's own labels. */
+function configWhere(cfg,it){
+  return cfg.decos.map(function(d){
+    var p=placeOf(it,d.pl),lab=(p&&p.label)||d.pl;
+    var sz=(p&&p.size)?(' '+p.size):'';
+    var m=(d.method==='screen')?('screen print'+((d.colours||1)>1?(' '+d.colours+'-colour'):'')):
+          (d.method==='heat_transfer'?'heat transfer':'embroidery');
+    return lab+sz+' · '+m;
+  }).join('   •   ');
+}
+function configCardsHtml(){
+  var cfgs=configsFor(SH.key);if(cfgs.length<2)return '';
+  var it=BYKEY[SH.key],act=activeConfigId();
+  var base=configPrice(cfgs[0]);
+  var cards=cfgs.map(function(c){
+    var p=configPrice(c),d=p-base;
+    return '<button type="button" class="cfgc'+(c.id===act?' on':'')+'" data-cfg="'+esc(c.id)+'">'+
+      '<span class="cfgtick" aria-hidden="true"></span>'+
+      '<span class="cfgb">'+
+        '<span class="cfgn">'+esc(c.name)+(c.tag?('<i class="cfgtag">'+esc(c.tag)+'</i>'):'')+'</span>'+
+        '<span class="cfgs">'+esc(c.sub||'')+'</span>'+
+        '<span class="cfgw">'+esc(configWhere(c,it))+'</span>'+
+      '</span>'+
+      '<span class="cfgp"><b>'+money(p)+'</b><i>/pc</i>'+
+        /* Screen print costs less than embroidery, so some non-default setups are genuinely
+           CHEAPER -- a bag's larger front print runs under its embroidered logo. Show that as a
+           saving, not as a negative surcharge. */
+        (Math.abs(d)<0.005?'<em class="inc">included</em>'
+          :(d>0?('<em>+'+money(d)+'</em>'):('<em class="save">'+money(-d)+' less</em>')))+
+      '</span></button>';
+  }).join('');
+  var note=(itemCategory(it)==='hivis')
+    ? '<div class="cfgnote">CSA / ANSI: nothing is placed over the reflective tape, and total '+
+      'decoration stays inside the Class 2 area limit. Back marks sit on the yoke, above the upper stripe.</div>'
+    : '';
+  return '<div class="cfgwrap">'+cards+'</div>'+note+
+    '<div class="cfgfoot">Prices are per piece at your current quantity and already include the '+
+    'decoration. Setup is charged once per design, per location — it shows in your board summary. '+
+    'Need a placement that is not here? Add it in the notes and we’ll price it.</div>';
+}
 function sheetDecos(){return Object.keys(SH.D).map(function(pl){var d=SH.D[pl];return {pl:pl,on:d.on,lg:d.lg,ink:d.ink,method:d.method,colours:d.colours};});}
 function decoIsSel(pl,opt){var d=SH.D[pl];if(!d||!d.on||d.method!==opt.m)return false;return opt.m!=='screen'||(d.colours||1)===opt.c;}
 // Per-piece price if placement `pl` used decoration `opt` (holding every other placement as-is).
@@ -2621,7 +2815,15 @@ function renderSheet(){
   // and made every order a bespoke production setup. Anything beyond the standard is a quoted
   // exception now, requested in the notes -- which is where variation belongs.
   var _st=stdOf(SH.key);
-  var primaryHtml=(_st&&_st.method)
+  /* Step 3 is the priced configuration chooser when this item has more than one offerable setup,
+     and falls back to the old read-only standard display when it has exactly one (caps with no
+     side panel, items with a single position). Either way the customer cannot invent a setup we
+     do not run -- which is what made this read-only in the first place. */
+  var _cfgCards=configCardsHtml();
+  var primaryHtml=_cfgCards
+    ? ('<section class="step"><div class="steph"><span class="stepn">3</span><span class="stept">Your logo</span>'+
+        '<i>choose a setup</i></div>'+_cfgCards+sysHtml(item)+'</section>')
+    : (_st&&_st.method)
     ? ('<section class="step"><div class="steph"><span class="stepn">3</span><span class="stept">Your logo</span>'+
         '<i>included</i></div><div class="decostd">'+
         '<span class="dsic" aria-hidden="true">\u25C6</span>'+
@@ -2693,6 +2895,8 @@ function renderSheet(){
     stampVideoDuration(item.video,'vwatch');}
   var sw=document.getElementById('shworn');if(sw)sw.addEventListener('click',function(){openScenic(gurl(item.scenic),item.name);});
   sh.querySelectorAll('.cchip').forEach(function(b){b.addEventListener('click',function(){SH.colour=b.dataset.col;SH.gimg=null;swapPreview();renderSheet();});});
+  sh.querySelectorAll('[data-cfg]').forEach(function(b){b.addEventListener('click',function(){
+    applyConfig(b.dataset.cfg);renderSheet();});});
   sh.querySelectorAll('.shgthumb').forEach(function(b){b.addEventListener('click',function(){SH.gimg=b.dataset.img||null;renderSheet();
     var st=document.querySelector('#sheet .shscroll');if(st)st.scrollTop=0;});});
   sh.querySelectorAll('[data-face]').forEach(function(b){b.addEventListener('click',function(){SH.face=b.dataset.face;renderSheet();});});
