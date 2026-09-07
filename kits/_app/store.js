@@ -2610,10 +2610,11 @@ function configCardsHtml(){
     ? '<div class="cfgnote">CSA / ANSI: nothing is placed over the reflective tape, and total '+
       'decoration stays inside the Class 2 area limit. Back marks sit on the yoke, above the upper stripe.</div>'
     : '';
+  /* Only the part .shnote does not already say. .shnote lives further down the same panel and
+     already covers "prices are per piece, decorated, setup shows once" -- printing that twice in
+     two paragraphs a few pixels apart just made both look like boilerplate. */
   return '<div class="cfgwrap">'+cards+'</div>'+note+
-    '<div class="cfgfoot">Prices are per piece at your current quantity and already include the '+
-    'decoration. Setup is charged once per design, per location — it shows in your board summary. '+
-    'Need a placement that is not here? Add it in the notes and we’ll price it.</div>';
+    '<div class="cfgfoot">Need a placement that is not here? Add it in the notes and we’ll price it.</div>';
 }
 function sheetDecos(){return Object.keys(SH.D).map(function(pl){var d=SH.D[pl];return {pl:pl,on:d.on,lg:d.lg,ink:d.ink,method:d.method,colours:d.colours};});}
 function decoIsSel(pl,opt){var d=SH.D[pl];if(!d||!d.on||d.method!==opt.m)return false;return opt.m!=='screen'||(d.colours||1)===opt.c;}
@@ -4818,6 +4819,23 @@ function docDate(){
   var d=new Date(),M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   return d.getDate()+' '+M[d.getMonth()]+' '+d.getFullYear();
 }
+/* Soft-wrap a detail string onto as many indented lines as it needs, breaking on the ' \u00b7 '
+   separators we already use so a position never splits across two lines. */
+function wrapInto(out,txt,width,indent){
+  txt=String(txt||'');if(!txt)return;
+  /* Break on the POSITION separator first. decoSummary() joins positions with a wide '  \u00b7  ' and
+     joins a position to its method with a narrow ' \u00b7 ', so splitting on the narrow one put
+     "Right chest" and "Embroidery" on different lines. Split wide when the string has wide
+     separators, and only fall back to narrow for plain lists like the size breakdown. */
+  var sep=(txt.indexOf('  \u00b7  ')>=0)?'  \u00b7  ':' \u00b7 ';
+  var parts=txt.split(sep),line='';
+  parts.forEach(function(p){
+    var add=line?(line+sep+p):p;
+    if(add.length>width&&line){out.push(indent+line);line=p;}
+    else line=add;
+  });
+  if(line)out.push(indent+line);
+}
 function pad(s,n){s=String(s);return s.length>=n?s:s+new Array(n-s.length+1).join(' ');}
 function lpad(s,n){s=String(s);return s.length>=n?s:new Array(n-s.length+1).join(' ')+s;}
 
@@ -4868,8 +4886,11 @@ function proformaText(c){
        is right for apparel but wrong for Spector goods: they carry no custom placement (Steven,
        2026-09-06) and their branding is already inside the price. */
     var det=[cc.colour, e.promo?'logo included':decoSummary(it,cc)].filter(Boolean).join(' · ');
-    if(det)L.push('   '+det.slice(0,66));
-    var ss=sizesSummary(cc);if(ss)L.push('   sizes: '+ss.slice(0,62));
+    /* WRAP, never truncate. A "Full crew ID" line carries three positions and slice(0,66) cut the
+       third one off entirely mid-word -- on an invoice the customer has to be able to see every
+       position they are being charged for. */
+    wrapInto(L,det,66,'   ');
+    var ss=sizesSummary(cc);if(ss)wrapInto(L,'sizes: '+ss,66,'   ');
     sub+=e.revenue;
   });
   L.push(new Array(73).join('-'));
