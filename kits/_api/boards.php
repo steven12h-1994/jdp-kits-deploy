@@ -94,6 +94,26 @@ function write_atomic(string $path, string $data): bool {
     return true;
 }
 
+const HISTORY_KEEP = 12;      // versions retained per board
+
+/* History files sit beside the board but deliberately do NOT match the *.json glob the list
+   endpoint uses, so they never show up as boards. */
+function history_dir(string $kit): string { return kit_dir($kit) . '/_history'; }
+
+function keep_history(string $kit, string $b, array $prev): void {
+    $dir = history_dir($kit);
+    if (!ensure_dir($dir)) return;                      // never fail a save over bookkeeping
+    $rev = (int)($prev['rev'] ?? 0);
+    $f = $dir . '/' . $b . '.r' . str_pad((string)$rev, 6, '0', STR_PAD_LEFT) . '.hist';
+    @file_put_contents($f, (string)json_encode($prev, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE), LOCK_EX);
+    // prune oldest
+    $all = glob($dir . '/' . $b . '.r*.hist') ?: [];
+    if (count($all) > HISTORY_KEEP) {
+        sort($all);
+        foreach (array_slice($all, 0, count($all) - HISTORY_KEEP) as $old) @unlink($old);
+    }
+}
+
 function read_board(string $kit, string $b): ?array {
     $f = board_file($kit, $b);
     if (!is_file($f)) return null;
@@ -132,6 +152,25 @@ if ($method === 'GET') {
 
     $b = slug($_GET['b'] ?? '');
     if ($b === '') out(400, ['ok' => false, 'error' => 'b required']);
+
+    /* ?history=1 lists the retained versions of a board, newest first, with the item count of each.
+       Read-only, and the reason it exists is that a blanked board previously left no trace at all. */
+    if (!empty($_GET['history'])) {
+        $out = [];
+        foreach ((glob(history_dir($kit) . '/' . $b . '.r*.hist') ?: []) as $f) {
+            $d = json_decode((string)@file_get_contents($f), true);
+            if (!is_array($d)) continue;
+            $out[] = [
+                'rev'     => (int)($d['rev'] ?? 0),
+                'n'       => is_array($d['items'] ?? null) ? count($d['items']) : 0,
+                'updated' => (int)($d['updated'] ?? 0),
+                'by'      => (string)($d['by'] ?? ''),
+            ];
+        }
+        usort($out, static fn($x, $y) => $y['rev'] <=> $x['rev']);
+        out(200, ['ok' => true, 'history' => $out]);
+    }
+
     $board = read_board($kit, $b);
     if ($board === null) out(404, ['ok' => false, 'error' => 'no such board']);
     out(200, ['ok' => true, 'board' => $board]);
@@ -189,11 +228,19 @@ if ($existing === null) {
 }
 
 /* Optimistic concurrency: if the caller names the revision it edited and the stored board has moved
-   on, tell it rather than silently overwriting a colleague's change. A caller that omits rev is
-   treated as authoritative (first save, or a deliberate overwrite). */
+   on, tell it rather than silently overwriting a colleague's change.
+ *
+ * AN OMITTED rev IS NOT AUTHORITATIVE. It used to be -- "first save, or a deliberate overwrite" --
+ * and that destroyed a real customer board. The client omits rev exactly when it has NEVER synced,
+ * i.e. when it knows LEAST about the board, and every visitor's default list is named "My board",
+ * which slugs to the same "my-board" for a given kit. So any fresh visitor who touched a board on
+ * eddy-group pushed their empty list over the saved one and it was accepted: the file ended up
+ * {"items":[], "rev":23} -- twenty-three silent overwrites. A write that cannot name the revision
+ * it is replacing is now told to reconcile first, which the client already handles by merging.
+ * A first save (no such board yet) still needs no rev. */
 $curRev = (int)($existing['rev'] ?? 0);
 $sentRev = array_key_exists('rev', $in) ? (int)$in['rev'] : null;
-if ($sentRev !== null && $existing !== null && $sentRev !== $curRev) {
+if ($existing !== null && ($sentRev === null || $sentRev !== $curRev)) {
     out(409, ['ok' => false, 'error' => 'stale', 'rev' => $curRev, 'board' => $existing]);
 }
 
@@ -204,6 +251,14 @@ $board = [
     'rev'     => $curRev + 1,
     'updated' => time(),
 ];
+
+/* Keep the version we are about to replace. DELETE has always archived a soft copy, but an
+   OVERWRITE kept nothing -- write_atomic renames straight over the file -- so when eddy-group's
+   board was blanked there was no history to restore from and the contents were simply gone. Cheap
+   insurance: snapshot the outgoing version alongside the board, newest kept, oldest pruned. */
+if ($existing !== null) {
+    keep_history($kit, $b, $existing);
+}
 
 if (!write_atomic(board_file($kit, $b), (string)json_encode($board, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE))) {
     out(500, ['ok' => false, 'error' => 'could not save']);
