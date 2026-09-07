@@ -283,7 +283,36 @@ function moq(){return (CFG.pricing.cols&&CFG.pricing.cols[0])||12;}
 /* ---- decoration-aware pricing (mirrors the server rate card) ---- */
 var MLAB={embroidery:'Embroidery',screen:'Screen print',heat_transfer:'Heat transfer'};
 function blankOf(key){var r=CFG.rates||{};return (r.blank&&r.blank[key]!=null)?r.blank[key]:((BYKEY[key]||{}).blank||0);}
-function screenPc(colours){var r=CFG.rates||{},sc=r.screenc||{};return sc[String(colours||1)]||r.screen||0.75;}
+/* Screen print cost per piece by INK COUNT.
+   Steven, 2026-09-07: "screen print pricing could be multiple colors if they want Original logo
+   Colors which could be 1,2,3 and sometimes 4 colors. sometimes the company will want to do 1
+   color. this effects cost."
+   THE BUG THIS REPLACES: the old one-liner was
+       return sc[String(colours||1)] || r.screen || 0.75;
+   and the kits' ladders only hold 1/2/3. So a FOUR-colour print fell through to r.screen, the
+   ONE-colour rate — priced per piece as if it were a single ink, while setup correctly charged
+   4 x $45. An unmapped ink count must never fall back DOWNWARD.
+   Now: use the ladder when it has the count; otherwise continue the kit's own arithmetic step
+   (0.75 / 1.00 / 1.25 is +0.25 per extra ink, so 4 inks = 1.50); and if there is no ladder at all,
+   scale the single rate by the ink count rather than ignoring the count. */
+function screenPc(colours){
+  var r=CFG.rates||{},sc=r.screenc||{},n=Math.max(1,parseInt(colours,10)||1);
+  if(sc[String(n)]!=null)return sc[String(n)];
+  var keys=Object.keys(sc).map(function(k){return parseInt(k,10);})
+             .filter(function(k){return k>0;}).sort(function(a,b){return a-b;});
+  if(keys.length>=2){
+    var lo=keys[0],hi=keys[keys.length-1];
+    var step=(sc[String(hi)]-sc[String(lo)])/(hi-lo);
+    if(n>hi)return Math.round((sc[String(hi)]+(n-hi)*step)*100)/100;
+    if(n<lo)return sc[String(lo)];
+  }
+  if(keys.length===1)return sc[String(keys[0])]*(n/keys[0]);
+  return (r.screen||0.75)*n;
+}
+// One screen is burned per ink, per location, so screens are the real cost of a multi-colour print
+// at low quantity: 4 inks is $180 of screens against $45 for one. Charged once, shared across the
+// whole order — which is why the UI shows it as a one-time figure and not a per-piece number.
+function screenSetupFor(colours){var s=(CFG.rates||{}).setup||{};return (s.screen||0)*Math.max(1,parseInt(colours,10)||1);}
 function decoCost(d,item){var r=CFG.rates||{};
   if(d.method==='screen')return screenPc(d.colours||1);
   if(d.method==='heat_transfer')return r.ht||0;
@@ -2585,6 +2614,55 @@ function configWhere(cfg,it){
     return lab+sz+' · '+m;
   }).join('   •   ');
 }
+/* ---- INK COUNT for screen print ------------------------------------------------------------
+   Steven, 2026-09-07: a screen print can be 1, 2, 3 or sometimes 4 inks depending on whether the
+   customer wants their logo's original colours, and sometimes they deliberately want one ink even
+   on a multi-colour mark. It changes cost in TWO places, and the second one is the big one:
+     - the run charge per piece  (0.75 / 1.00 / 1.25 / 1.50 of our cost, marked up by quantity)
+     - the SCREENS: one burned per ink per location, $45 each. Four inks is $180 of screens
+       against $45 for one, which at 24 pieces dwarfs the run-charge difference.
+   So this control shows both numbers and does not fabricate an "all-in per piece" — screens are
+   charged once and shared across the whole order, so dividing them into one line's unit price
+   would be a number that changes as the rest of the board changes.
+   It renders ONLY when the chosen configuration actually contains a screen print, which is what
+   keeps the setup from becoming a matrix: one contextual control, not four more preset cards. */
+function activeScreenPls(){
+  return Object.keys(SH.D).filter(function(pl){
+    var d=SH.D[pl];return d&&d.on&&d.method==='screen';});
+}
+function inkPickerHtml(){
+  var pls=activeScreenPls();if(!pls.length)return '';
+  var cur=Math.max(1,parseInt(SH.D[pls[0]].colours,10)||1);
+  var q=effQty()||moq();
+  var opts=[1,2,3,4].map(function(n){
+    /* Price the whole garment as if every screen position in this configuration used n inks, so
+       the figure shown is what the customer actually pays per piece — the same basis as the
+       configuration cards above and the footer below. */
+    var decos=sheetDecos().map(function(d){
+      return (d.on&&d.method==='screen')
+        ? {pl:d.pl,on:true,lg:d.lg,ink:d.ink,method:'screen',colours:n} : d;});
+    return {n:n,unit:unitPrice(SH.key,decos,q),screens:screenSetupFor(n)*pls.length,on:n===cur};
+  });
+  var base=opts[0].unit;
+  var chips=opts.map(function(o){
+    var d=o.unit-base;
+    return '<button type="button" class="inkc'+(o.on?' on':'')+'" data-ink="'+o.n+'">'+
+      '<span class="inkn">'+o.n+'</span>'+
+      '<span class="inkl">'+(o.n===1?'ink':'inks')+'</span>'+
+      '<span class="inkp">'+money(o.unit)+'<i>/pc</i></span>'+
+      '<span class="inks">'+money(o.screens)+' screens</span>'+
+      (o.n===1?'<span class="inkt">Best value</span>':'')+
+      '</button>';
+  }).join('');
+  return '<div class="inkwrap">'+
+    '<div class="inkhd"><b>Ink colours</b>'+
+      '<i>'+pls.length+' print location'+(pls.length===1?'':'s')+' · one screen per ink, per location</i></div>'+
+    '<div class="inkrow">'+chips+'</div>'+
+    '<div class="inkfoot">One ink is the best value and reads strongest on hi-vis. More inks bring '+
+    'the print closer to your logo’s original colours. Screens are a one-time charge, shared '+
+    'across your whole order — we confirm the exact ink count from your artwork on your quote.</div>'+
+    '</div>';
+}
 function configCardsHtml(){
   var cfgs=configsFor(SH.key);if(cfgs.length<2)return '';
   var it=BYKEY[SH.key],act=activeConfigId();
@@ -2613,7 +2691,7 @@ function configCardsHtml(){
   /* Only the part .shnote does not already say. .shnote lives further down the same panel and
      already covers "prices are per piece, decorated, setup shows once" -- printing that twice in
      two paragraphs a few pixels apart just made both look like boilerplate. */
-  return '<div class="cfgwrap">'+cards+'</div>'+note+
+  return '<div class="cfgwrap">'+cards+'</div>'+inkPickerHtml()+note+
     '<div class="cfgfoot">Need a placement that is not here? Add it in the notes and we’ll price it.</div>';
 }
 function sheetDecos(){return Object.keys(SH.D).map(function(pl){var d=SH.D[pl];return {pl:pl,on:d.on,lg:d.lg,ink:d.ink,method:d.method,colours:d.colours};});}
@@ -2898,6 +2976,10 @@ function renderSheet(){
   sh.querySelectorAll('.cchip').forEach(function(b){b.addEventListener('click',function(){SH.colour=b.dataset.col;SH.gimg=null;swapPreview();renderSheet();});});
   sh.querySelectorAll('[data-cfg]').forEach(function(b){b.addEventListener('click',function(){
     applyConfig(b.dataset.cfg);renderSheet();});});
+  sh.querySelectorAll('[data-ink]').forEach(function(b){b.addEventListener('click',function(){
+    var n=Math.max(1,parseInt(b.dataset.ink,10)||1);
+    activeScreenPls().forEach(function(pl){SH.D[pl].colours=n;});
+    renderSheet();});});
   sh.querySelectorAll('.shgthumb').forEach(function(b){b.addEventListener('click',function(){SH.gimg=b.dataset.img||null;renderSheet();
     var st=document.querySelector('#sheet .shscroll');if(st)st.scrollTop=0;});});
   sh.querySelectorAll('[data-face]').forEach(function(b){b.addEventListener('click',function(){SH.face=b.dataset.face;renderSheet();});});

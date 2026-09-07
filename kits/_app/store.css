@@ -1902,6 +1902,38 @@ body{padding-left:74px}
   .rhcard{padding:12px 13px;gap:11px}
 }
 
+/* ---- Ink count for screen print -------------------------------------------------------------
+   Four tiles, each carrying the two numbers that actually differ: the per-piece price and the
+   one-time screens. Shown only when the chosen configuration contains a screen print. */
+.inkwrap{margin:11px 0 2px;padding:12px 13px;border:1.5px solid var(--line);border-radius:var(--rad);
+  background:color-mix(in srgb,var(--a) 3%,#fff)}
+.inkhd{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;margin-bottom:9px}
+.inkhd b{font-size:13px;font-weight:850;letter-spacing:-.01em}
+.inkhd i{font-style:normal;font-size:11px;color:var(--mut);font-weight:600}
+.inkrow{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}
+.inkc{position:relative;display:flex;flex-direction:column;align-items:center;gap:1px;
+  padding:9px 4px 8px;border:1.5px solid var(--line);border-radius:11px;background:#fff;
+  font:inherit;color:var(--ink);cursor:pointer;transition:border-color .13s,box-shadow .13s,background .13s}
+.inkc:hover{border-color:color-mix(in srgb,var(--a) 45%,var(--line))}
+.inkc.on{border-color:var(--a);background:color-mix(in srgb,var(--a) 7%,#fff);
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--a) 13%,transparent)}
+.inkn{font-size:19px;font-weight:850;line-height:1;letter-spacing:-.02em}
+.inkc.on .inkn{color:var(--a)}
+.inkl{font-size:9.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--mut)}
+.inkp{margin-top:5px;font-size:13px;font-weight:850;font-variant-numeric:tabular-nums}
+.inkp i{font-style:normal;font-size:9.5px;font-weight:600;color:var(--mut)}
+/* The screens line is the one people miss, so it is stated on every tile rather than in a footnote. */
+.inks{font-size:10px;font-weight:700;color:var(--mut);font-variant-numeric:tabular-nums}
+.inkt{margin-top:4px;font-size:8.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;
+  color:#0f7a41;background:color-mix(in srgb,#0f7a41 11%,#fff);border-radius:999px;padding:1px 6px}
+.inkfoot{margin-top:9px;font-size:11px;line-height:1.5;color:var(--mut)}
+@media(max-width:600px){
+  /* Two-up rather than four squeezed tiles: at 390px four columns leaves 78px each, and the price
+     and the screens figure both have to stay on one line to be comparable. */
+  .inkrow{grid-template-columns:1fr 1fr}
+  .inkn{font-size:17px}
+}
+
 /* ---- Priced logo configurations (Step 3) ----------------------------------------------------
    A short list of complete, named setups with the per-piece price on each, so a buyer picks a
    known-good configuration and we can quote and invoice from it directly. Selected state is a
