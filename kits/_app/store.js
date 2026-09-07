@@ -4591,6 +4591,165 @@ function contactVals(){return {
   company:((document.getElementById('coCompany')||{}).value||'').trim(),
   note:((document.getElementById('coNote')||{}).value||'').trim()};}
 function persistContact(c){try{localStorage.setItem('jdpkit_contact',JSON.stringify({name:c.name,email:c.email,company:c.company}));}catch(e){}}
+/* ---- Quote output: a proforma the customer can be sent, and the deal economics for us -------
+   Steven: "when we generate a quote, we [want] the company store to automatically produce a invoice
+   and a separate statement of our profit / roi".
+   Both are built here and both ride in the order email. The economics block is NOT rendered in the
+   buyer's browser and is fenced with a DO-NOT-FORWARD banner, because the one thing worse than not
+   having it is pasting it to the customer.
+   HONESTY BOUNDARIES, deliberately not papered over:
+     * Spector/promo lines: the store holds Spector's LIST price, not our net cost, so their gross
+       margin is genuinely unknown here. Reported as not computable rather than as 0% or a guess.
+     * Setup: rates.setup are what we CHARGE. What a digitizing or screen file costs us is not in
+       the store, so setup is shown as revenue with its cost flagged untracked.
+     * No payment terms, validity window or turnaround is stated -- we do not invent commercial
+       terms, and the real invoice number comes from JDP's own system, so this carries a reference. */
+function docRef(){
+  var d=new Date();
+  function p(n){return (n<10?'0':'')+n;}
+  var slug=String(CFG.slug||CFG.client||'JDP').replace(/[^A-Za-z0-9]/g,'').slice(0,4).toUpperCase();
+  return slug+'-'+d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+'-'+p(d.getHours())+p(d.getMinutes());
+}
+function docDate(){
+  var d=new Date(),M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return d.getDate()+' '+M[d.getMonth()]+' '+d.getFullYear();
+}
+function pad(s,n){s=String(s);return s.length>=n?s:s+new Array(n-s.length+1).join(' ');}
+function lpad(s,n){s=String(s);return s.length>=n?s:new Array(n-s.length+1).join(' ')+s;}
+
+/* Per-line economics. Returns nulls for cost/profit where the data honestly is not held. */
+function lineEconomics(ck){
+  var base=bkey(ck),it=BYKEY[base];if(!it)return null;
+  var c=CART[ck]||{};
+  var promo=(it.layer==='promo');
+  if(promo){
+    var pq=promoQuote(it,c);
+    return {key:ck,name:it.name,sku:it.sku,promo:true,qty:pq.qty,
+            unit:pq.perPiece,revenue:pq.goods,
+            garmentCost:null,decoCost:null,cogs:null,gp:null,gm:null};
+  }
+  var q=c.qty||0,tq=tierQty(ck);
+  var unit=unitPrice(ck,c.decos,tq);
+  var gPc=blankOf(base)*blankBreak(tq);
+  var layers=stdLayers(base);
+  var vpl={};(it.places||[]).forEach(function(p){if(p.logo)vpl[p.id]=1;});
+  var dPc=0;
+  activeDecos(c.decos).forEach(function(d){if(!vpl[d.pl])return;dPc+=decoCost(d,it)*layers;});
+  var cogs=gPc+dPc;
+  return {key:ck,name:it.name,sku:it.sku,promo:false,qty:q,unit:unit,revenue:unit*q,
+          garmentCost:gPc*q,decoCost:dPc*q,cogsPc:cogs,cogs:cogs*q,
+          gpPc:unit-cogs,gp:(unit-cogs)*q,gm:unit>0?((unit-cogs)/unit):null};
+}
+
+/* The customer-facing document. Contains no cost or margin figure of any kind. */
+function proformaText(c){
+  c=c||{};
+  var L=[];
+  L.push('PROFORMA INVOICE  (estimate — not a demand for payment)');
+  L.push('Reference '+docRef()+'   ·   '+docDate());
+  L.push('');
+  L.push('From:  Just Deals Promotions');
+  L.push('To:    '+((c.company||CFG.client||'')||'—'));
+  if(c.name) L.push('Attn:  '+c.name+(c.email?'  <'+c.email+'>':''));
+  L.push('');
+  L.push(pad('ITEM',44)+lpad('QTY',5)+lpad('UNIT',11)+lpad('AMOUNT',12));
+  L.push(new Array(73).join('-'));
+  var sub=0;
+  Object.keys(CART).forEach(function(k){
+    var e=lineEconomics(k);if(!e)return;
+    var it=BYKEY[bkey(k)],cc=CART[k];
+    var desc=e.name+(fitTag(it,cc)?' ('+fitTag(it,cc)+')':'');
+    L.push(pad(desc.slice(0,44),44)+lpad(e.qty,5)+lpad(money(e.unit),11)+lpad(money(e.revenue),12));
+    /* decoSummary() falls back to the literal string 'left chest' when a line has no decos, which
+       is right for apparel but wrong for Spector goods: they carry no custom placement (Steven,
+       2026-09-06) and their branding is already inside the price. */
+    var det=[cc.colour, e.promo?'logo included':decoSummary(it,cc)].filter(Boolean).join(' · ');
+    if(det)L.push('   '+det.slice(0,66));
+    var ss=sizesSummary(cc);if(ss)L.push('   sizes: '+ss.slice(0,62));
+    sub+=e.revenue;
+  });
+  L.push(new Array(73).join('-'));
+  L.push(pad('',44)+lpad('Subtotal',16)+lpad(money(sub),12));
+  var setup=cartSetup(),sb=setupBreakdown();
+  if(setup>0){
+    L.push(pad('',44)+lpad('One-time setup',16)+lpad(money(setup),12));
+    sb.forEach(function(x){L.push('   '+x.label.slice(0,58)+'  '+money(x.amount));});
+    L.push('   Setup is charged once per design, per location, per method — not per piece.');
+  }
+  L.push(pad('',44)+lpad('TOTAL',16)+lpad(money(sub+setup),12));
+  L.push('');
+  L.push('Decoration is priced into the unit rates above. Nothing is produced until');
+  L.push('this is approved. Taxes and freight are not included in this estimate.');
+  return L.join('\n');
+}
+
+/* The internal one. Never shown in the browser; fenced so it cannot be mistaken for the proforma. */
+function dealEconomicsText(){
+  var L=[];
+  var FLOOR=0.30;   // the v3 margin floor; anything under it is flagged, not silently accepted
+  L.push('================================================================');
+  L.push('  DEAL ECONOMICS — JDP INTERNAL. DO NOT FORWARD TO THE CUSTOMER.');
+  L.push('================================================================');
+  var rev=0,cogs=0,pcs=0,promoRev=0,promoPcs=0,under=[];
+  var rows=[];
+  Object.keys(CART).forEach(function(k){
+    var e=lineEconomics(k);if(!e)return;
+    rows.push(e);
+    if(e.promo){promoRev+=e.revenue;promoPcs+=e.qty;return;}
+    rev+=e.revenue;cogs+=e.cogs;pcs+=e.qty;
+    if(e.gm!=null&&e.gm<FLOOR)under.push(e);
+  });
+  var gp=rev-cogs, gm=rev>0?(gp/rev):0;
+  var setup=cartSetup();
+  L.push('');
+  L.push('APPAREL  (margin computable)');
+  L.push('   Revenue            '+lpad(money(rev),12)+'   on '+pcs+' pcs');
+  L.push('   Garment cost       '+lpad(money(rows.reduce(function(t,e){return t+(e.garmentCost||0);},0)),12));
+  L.push('   Decoration cost    '+lpad(money(rows.reduce(function(t,e){return t+(e.decoCost||0);},0)),12));
+  L.push('   ----------------------------------');
+  L.push('   GROSS PROFIT       '+lpad(money(gp),12)+'   '+(rev>0?(gm*100).toFixed(1)+'%':'—'));
+  if(pcs>0)L.push('   Per piece          '+lpad(money(gp/pcs),12)+'/pc');
+  L.push('');
+  if(promoRev>0){
+    L.push('PROMO / SPECTOR LINES');
+    L.push('   Revenue            '+lpad(money(promoRev),12)+'   on '+promoPcs+' pcs');
+    L.push('   Margin             NOT COMPUTABLE — the store holds Spector list price,');
+    L.push('                      not our net cost. Check the supplier invoice.');
+    L.push('');
+  }
+  if(setup>0){
+    L.push('SETUP');
+    L.push('   Charged            '+lpad(money(setup),12)+'   '+setupBreakdown().length+' distinct file(s)');
+    L.push('   Our cost           not tracked in the store — add it to see true setup margin');
+    L.push('');
+  }
+  L.push('ORDER TOTAL          '+lpad(money(cartSubtotal()+setup),12));
+  L.push('');
+  if(under.length){
+    L.push('*** '+under.length+' LINE(S) BELOW THE 30% FLOOR — review before quoting ***');
+    under.forEach(function(e){
+      L.push('   - '+e.name+': '+(e.gm*100).toFixed(1)+'%  ('+money(e.unit)+'/pc vs '+money(e.cogsPc)+' cost)');});
+    L.push('');
+  }else if(rev>0){
+    L.push('All apparel lines clear the 30% floor.');
+    L.push('');
+  }
+  L.push('PER-LINE DETAIL');
+  L.push('   '+pad('ITEM',30)+lpad('QTY',5)+lpad('UNIT',10)+lpad('COST/PC',10)+lpad('GP/PC',10)+lpad('GM%',7));
+  rows.forEach(function(e){
+    if(e.promo){
+      L.push('   '+pad(e.name.slice(0,30),30)+lpad(e.qty,5)+lpad(money(e.unit),10)+lpad('n/a',10)+lpad('n/a',10)+lpad('n/a',7));
+    }else{
+      L.push('   '+pad(e.name.slice(0,30),30)+lpad(e.qty,5)+lpad(money(e.unit),10)+lpad(money(e.cogsPc),10)+lpad(money(e.gpPc),10)+lpad((e.gm*100).toFixed(1),7));
+    }
+  });
+  L.push('');
+  L.push('How to read this: GM% is on the apparel lines only, measured against true cost');
+  L.push('(blank at the quantity break + our decoration cost). Setup is excluded from GM');
+  L.push('because its cost is not held here. Promo lines are excluded entirely.');
+  L.push('================================================================');
+  return L.join('\n');
+}
 function orderText(c){c=c||{};
   /* WHAT LANDS IN THE INBOX IS THE PRODUCT. Everything upstream — the curation, the notes, the
      headcount sizing — exists to produce this one message, and it had two defects that the
@@ -4643,6 +4802,10 @@ function orderText(c){c=c||{};
   if(c.note)lines.push('','MESSAGE FROM THE BUYER:','  '+c.note);
   lines.push('','Their board: '+boardUrl);
   lines.push('Store: '+location.href.split('#')[0].split('?')[0]);
+  /* Two documents, generated with the quote. The proforma is ready to send to the customer as-is;
+     the economics block is ours and is fenced so it cannot be mistaken for part of it. */
+  lines.push('','',proformaText(c));
+  lines.push('','',dealEconomicsText());
   return lines.join('\n');
 }
 function openCheckout(){
