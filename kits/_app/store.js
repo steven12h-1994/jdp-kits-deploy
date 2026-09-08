@@ -2494,7 +2494,7 @@ var CFG_SHIRT=[
 var CONFIGS={
   polo:CFG_SHIRT, woven:CFG_SHIRT,
   tee:[
-    {id:'sp', name:'{P} print',  sub:'Screen printed in one ink — the best value on tees.',      tag:'Best value',
+    {id:'sp', name:'{P} print',  sub:'Screen printed — the best value on tees. Choose your ink count below.', tag:'Best value',
      spots:[{pl:'PRIMARY',method:'screen',colours:1}]},
     {id:'lc', name:'{P} logo',   sub:'Embroidered, to match your polo and jacket program.',           tag:'Most popular',
      spots:[{pl:'PRIMARY',method:'embroidery'}]},
