@@ -39,15 +39,28 @@ function autoInkFor(method,rgb,logo){
   var gl=hexRelLum(rgb);
   var k=INK[logo.id];
   /* TWO bugs lived here. The saturation gate vetoed the contrast check, so a vivid brand mark was
-     never swapped however badly it washed out. And underneath that, INK[logo.id] is not populated
-     for these kits at all -- so the function returned 'brand' on the very first line and no
-     contrast logic has ever run. Farm Girl's coral lockup sat on maroon fleece, unreadable.
+     never swapped however badly it washed out. And underneath that, the contrast logic looked dead.
+     CORRECTION (2026-09-08): INK[logo.id] IS populated -- the ink probe further down this file
+     medians the brand PNG's solid pixels via canvas and writes {lum,sat}. The old note here claimed
+     it never is, which sent me looking in the wrong place for an hour. It is populated, this branch
+     DOES run, and that is exactly why the ondark preference below was being skipped.
 
      When a measured brand-ink luminance exists, use it. When it does not, decide from the garment
      alone: white on a dark garment. 0.18 relative luminance is the standard crossover below which
      white beats dark. */
   if(k&&typeof k.lum==='number'){
-    if(contrast(k.lum,gl)<INK_MINRATIO)return gl<0.18?'white':'dark';
+    /* When the measured brand ink has too little contrast on this garment we must substitute --
+       but PREFER THE HYBRID. This branch predated `ondark` and only knew white/dark, so it silently
+       bypassed the ondark preference below it and every dark garment got flat white.
+       That is what put ATTA Elevators' two-colour lockup on black as an all-white mark: the ink
+       probe medians the brand PNG, 86% of which is the dark "ATTA" wordmark, so k.lum came back
+       near-black, contrast against a black garment failed, and this returned 'white' before the
+       ondark branch was ever reached. Steven, 2026-09-08: "the company store protocol should be to
+       always use the real colors of the brand logo!" -- ondark keeps the red, flat white does not. */
+    if(contrast(k.lum,gl)<INK_MINRATIO){
+      if(gl<0.18&&logo.inks.ondark)return 'ondark';
+      return gl<0.18?'white':'dark';
+    }
     return 'brand';
   }
   /* On a dark garment prefer the HYBRID ink when the kit has one: the wordmark reversed to white,
