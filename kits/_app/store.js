@@ -1172,11 +1172,21 @@ function seasonRank(key){
   var i=ord.indexOf(itemCategory(BYKEY[bkey(key)]));
   return i<0?ord.length:i;
 }
+/* A WOMEN'S-ONLY STYLE SHOULD NOT LEAD AN AISLE. The work-pants shelf opened on "Women's Dura-Kap
+   Industrial Pants" -- a real product, and the wrong first impression for a shelf a warehouse
+   supervisor was sent to. Most styles carry both cuts behind a fit toggle; the handful that exist
+   only in a women's cut belong beside their unisex equivalents, not in front of them. A rank, not a
+   filter: nothing is hidden and the fit toggle is untouched. */
+function womensOnlyRank(key){
+  var it=BYKEY[bkey(key)]||{};
+  return /\bwomen|\bladies|\bwmn\b/i.test(it.name||'')?1:0;
+}
 function sortList(list){
   if(!VIEW.sort){
     /* Array.prototype.sort is stable in every engine this runs on, so equal ranks keep the
        catalogue order we curated. */
-    return list.slice().sort(function(a,b){return seasonRank(a)-seasonRank(b);});
+    return list.slice().sort(function(a,b){
+      return (seasonRank(a)-seasonRank(b))||(womensOnlyRank(a)-womensOnlyRank(b));});
   }
   var dir=(VIEW.sort==='ph')?-1:1;
   return list.slice().sort(function(a,b){return (shelfPrice(a)-shelfPrice(b))*dir;});
