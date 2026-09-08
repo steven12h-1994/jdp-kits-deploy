@@ -3207,8 +3207,15 @@ function addFromSheet(){
   saveCart();closeAll();refreshCartUI();syncBoardIfOpen();
   toast((was?'Updated · ':'Added · ')+BYKEY[SH.key].name);
 }
+/* METHOD COMES FROM THE CATALOGUE STANDARD, NEVER FROM THE KIT VIEWMODEL -- the same rule
+   openSheet() already follows. The kit's stored viewmodel is written by the fleet sync, which
+   stamps `embroidery` on everything; the catalogue's `std` is the decoration we actually
+   produce and quote. They agreed until tees moved to a screen-printed default on 2026-09-08,
+   and then a quick-add put an EMBROIDERED tee on the board at $13.50 while the product sheet
+   for the same tee said screen-printed at $11.00. Two prices for one garment, on one screen. */
 function recCartDecos(key){key=bkey(key);
-  var vm=vmOf(key),decos=realDecos(BYKEY[key],vm.decos).map(function(d){return {pl:d.pl,lg:d.lg,ink:d.ink||'auto',method:d.method||'embroidery',colours:d.colours||1,on:true};});
+  var _st=stdOf(key),_m=(_st&&_st.method)||null;
+  var vm=vmOf(key),decos=realDecos(BYKEY[key],vm.decos).map(function(d){return {pl:d.pl,lg:d.lg,ink:d.ink||'auto',method:((_st&&d.pl===_st.pl&&_m)?_m:(d.method||'embroidery')),colours:d.colours||1,on:true};});
   if(!decos.length){var p=(BYKEY[key].places||[]).filter(function(x){return x.logo;})[0];if(p)decos=[{pl:p.id,lg:(CFG.logos[0]||{}).id,ink:'auto',method:(recDecos(key)[0]||{}).method||'embroidery',colours:1,on:true}];}
   return decos;
 }
