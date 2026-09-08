@@ -2588,19 +2588,34 @@ function activeConfigId(){
   for(var i=0;i<cfgs.length;i++){
     var want=cfgs[i].decos.map(function(d){return d.pl;}).sort();
     if(want.length!==live.length||want.join('|')!==live.join('|'))continue;
+    /* Match on POSITIONS and METHODS only. Ink count used to be part of this comparison, which was
+       right while it was baked into the preset — but it now has its own control, so picking 4 inks
+       made no preset match and the card the customer had chosen silently lost its selected state
+       while still being the live configuration. Ink count is an independent dimension now. */
     var same=cfgs[i].decos.every(function(d){
       var s=SH.D[d.pl];
-      return s&&s.method===d.method&&(d.method!=='screen'||(s.colours||1)===(d.colours||1));});
+      return s&&s.method===d.method;});
     if(same)return cfgs[i].id;
   }
   return null;
 }
 function applyConfig(id){
   var cfg=configsFor(SH.key).filter(function(c){return c.id===id;})[0];if(!cfg)return;
+  /* Carry a deliberate ink choice across a configuration change. If the customer has set 3 inks
+     and then switches from "left chest print" to "chest + full back", they meant 3 inks on the new
+     setup too — resetting to the preset's 1 would quietly undo a decision they had already made
+     and priced. Only fall back to the preset's count when no screen ink has been chosen yet.
+     THIS MUST RUN BEFORE the off-loop below: the first version read s.on AFTER everything had been
+     switched off, so it never found anything and always reset to 1. */
+  var keepInk=0;
+  Object.keys(SH.D).forEach(function(pl){
+    var s=SH.D[pl];
+    if(s&&s.on&&s.method==='screen'&&(s.colours||1)>1)keepInk=Math.max(keepInk,s.colours||1);});
   Object.keys(SH.D).forEach(function(pl){SH.D[pl].on=false;});
   cfg.decos.forEach(function(d){
     if(!SH.D[d.pl])SH.D[d.pl]={lg:(CFG.logos&&CFG.logos[0]&&CFG.logos[0].id)||null,ink:'auto'};
-    SH.D[d.pl].on=true;SH.D[d.pl].method=d.method;SH.D[d.pl].colours=d.colours||1;
+    SH.D[d.pl].on=true;SH.D[d.pl].method=d.method;
+    SH.D[d.pl].colours=(d.method==='screen'&&keepInk)?keepInk:(d.colours||1);
     if(!SH.D[d.pl].lg)SH.D[d.pl].lg=(CFG.logos&&CFG.logos[0]&&CFG.logos[0].id)||null;
     if(!SH.D[d.pl].ink)SH.D[d.pl].ink='auto';});
 }
@@ -2650,7 +2665,7 @@ function inkPickerHtml(){
       '<span class="inkn">'+o.n+'</span>'+
       '<span class="inkl">'+(o.n===1?'ink':'inks')+'</span>'+
       '<span class="inkp">'+money(o.unit)+'<i>/pc</i></span>'+
-      '<span class="inks">'+money(o.screens)+' screens</span>'+
+      '<span class="inks">'+money0(o.screens)+' screens</span>'+
       (o.n===1?'<span class="inkt">Best value</span>':'')+
       '</button>';
   }).join('');
