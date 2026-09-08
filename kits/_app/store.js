@@ -2546,7 +2546,13 @@ function openSheet(key,wantCol,fromKey){
     // METHOD comes from the catalogue standard, never from the kit config. Reading vm.decos here is
     // what left the hi-vis tee drawing a screen print and the rain jacket a heat transfer while the
     // spec beside them said embroidery -- the mockup and the quote disagreeing on the same screen.
-    var _sd=(recDecos(key)||[]).filter(function(x){return x.pl===p.id;})[0]||{};
+    /* THE WHOLE RECOMMENDED SETUP, not just its primary placement. recDecos() describes ONE
+       placement, so for a second placement `_sd` came back empty and the method fell through to
+       the KIT viewmodel -- which the fleet sync stamps `embroidery` on every position. A board line
+       carrying a screen-printed back therefore reopened as an EMBROIDERED back: the 5-Point vest
+       went from $29.50 to $48.00 on reopen, because embroidery on a back panel carries a 2.5x
+       multiple. Same failure as the quick-add one, one layer further in. */
+    var _sd=(defaultDecos(key)||[]).filter(function(x){return x.pl===p.id;})[0]||{};
     var _kd=(vm.decos||[]).filter(function(x){return x.pl===p.id;})[0]||{};
     var rd={pl:p.id,on:!!_sd.on,method:_sd.method||_kd.method,colours:1,
             lg:_kd.lg||_sd.lg,ink:_kd.ink||'auto'};
@@ -4369,9 +4375,11 @@ function boardCardHtml(ck){
         return '<div class="btiers">'+rows+'</div>'+
           ((_tq>q)?('<div class="btier">Tier set by '+_tq+' pcs of this garment across both cuts</div>'):'');
       })()+
-      '<label class="bnote"><span>Note</span>'+
+      '<label class="bnote"><span>Your note</span>'+
         '<textarea data-note="'+esc(ck)+'" rows="2" maxlength="'+NOTE_MAX+'" '+
-        'placeholder="Why this piece \u2014 who it\u2019s for, anything to flag\u2026">'+
+        /* Renamed away from "Why this piece": that is now OUR block's heading directly above,
+           and two fields inviting the same sentence is how a form stops being answered. */
+        'placeholder="Sizing, deadlines, who it\u2019s for \u2014 anything we should know\u2026">'+
         esc(c.note||'')+'</textarea></label>'+
       '<div class="bacts">'+
         '<button type="button" class="bbtn" data-bedit="'+esc(ck)+'">Edit</button>'+
