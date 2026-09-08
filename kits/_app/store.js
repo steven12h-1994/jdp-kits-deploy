@@ -2576,8 +2576,17 @@ function configsFor(key){
 }
 function configDecos(cfg){
   var lg=(CFG.logos&&CFG.logos[0]&&CFG.logos[0].id)||null;
+  /* Price every card at the ink count the customer has actually CHOSEN, not the preset's default.
+     Without this the selected card kept quoting the 1-ink price while the footer and the Add
+     button showed the 4-ink one — two prices for the same thing on the same screen. It also makes
+     the cards comparable: switching ink re-prices all of them on the same basis. */
+  var live=0;
+  Object.keys(SH.D||{}).forEach(function(pl){
+    var s=SH.D[pl];
+    if(s&&s.on&&s.method==='screen'&&(s.colours||1)>1)live=Math.max(live,s.colours||1);});
   return cfg.decos.map(function(d){
-    return {pl:d.pl,on:true,lg:lg,ink:'auto',method:d.method,colours:d.colours||1};});
+    var n=(d.method==='screen'&&live)?live:(d.colours||1);
+    return {pl:d.pl,on:true,lg:lg,ink:'auto',method:d.method,colours:n};});
 }
 function configPrice(cfg){return unitPrice(SH.key,configDecos(cfg),effQty()||moq());}
 /* Which configuration the sheet is currently in — matched on the exact set of live positions and
