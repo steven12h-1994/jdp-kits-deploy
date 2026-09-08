@@ -1987,13 +1987,35 @@ var METHOD_OPTS=[
 ];
 var MENS_SIZES=['S','M','L','XL','2XL','3XL'],WOMENS_SIZES=['XS','S','M','L','XL','2XL'];
 var ALLSIZES=['XS','S','M','L','XL','2XL','3XL'];
-function sheetSizes(){return (SH.fit==='womens')?WOMENS_SIZES:MENS_SIZES;}
+/* ---- NOT EVERY GARMENT IS SIZED S-3XL -------------------------------------------------------
+   Work trousers run 30-44 at the waist and a coverall runs 38-52 at the chest. A fixed alpha run
+   asks a buyer how many "2XL work pants" they need, takes the answer, and quotes a size the maker
+   does not make -- a wrong order wearing the costume of a filled-in form. So any catalogue item may
+   declare its OWN run in `sizes`; everything without one keeps the alpha default, which is all 489
+   items that were on the store before workwear arrived. */
+function itemSizes(it,fit){
+  if(it&&it.sizes&&it.sizes.length)return it.sizes;
+  return (fit==='womens')?WOMENS_SIZES:MENS_SIZES;
+}
+function numericRun(szs){return !!(szs&&szs.length&&/^\d+$/.test(String(szs[0])));}
+function sizeOk(s){return /^(?:XS|S|M|L|XL|[2-6]XL|\d{2})$/.test(String(s));}
+function sheetSizes(){return itemSizes(BYKEY[bkey(SH.key)],SH.fit);}
 function sizeTotal(sz){sz=sz||SH.sizes||{};var t=0;for(var k in sz){t+=parseInt(sz[k],10)||0;}return t;}
 function effQty(){var t=sizeTotal();return t>0?t:(SH.baseQty||0);}
 // The next price tier above q (or null). Used to nudge orders up to the next volume break.
 function nextTier(q){var t=CFG.pricing.cols||[];for(var i=0;i<t.length;i++){if(q<t[i])return t[i];}return null;}
 function savingsNudge(key,decos,q){var nt=nextTier(q);if(!nt)return null;var a=unitPrice(key,decos,q),b=unitPrice(key,decos,nt);var pct=a>0?Math.round((1-b/a)*100):0;if(pct<=0)return null;return {need:nt-q,tier:nt,pct:pct};}
-function sizesSummary(c){if(!c||!c.sizes)return '';return ALLSIZES.filter(function(s){return c.sizes[s];}).map(function(s){return s+' '+c.sizes[s];}).join(' · ');}
+/* Ordered smallest-first in the item's OWN run, then -- deliberately -- anything left over. A size
+   outside the expected run is still stock the buyer typed and is paying for, so it goes on the end
+   of the quote rather than off it. Silently dropping a line from a summary that feeds an invoice is
+   the one failure here that costs money. */
+function sizesSummary(c,it){
+  if(!c||!c.sizes)return '';
+  var order=(it&&it.sizes&&it.sizes.length)?it.sizes:ALLSIZES,seen={},out=[];
+  order.forEach(function(s){if(c.sizes[s]){seen[s]=1;out.push(s+' '+c.sizes[s]);}});
+  Object.keys(c.sizes).forEach(function(s){if(!seen[s]&&c.sizes[s])out.push(s+' '+c.sizes[s]);});
+  return out.join(' · ');
+}
 /* ---- Share a product or a gift set --------------------------------------------------------
    Steven: "What if I want to share a specific kit / product to a client." The deep link already
    existed -- ?item=<key> is how the gift-set contents links work -- but there was no way for a
@@ -3151,7 +3173,7 @@ function encSizes(sz){if(!sz)return '';var o=[];
 function decSizes(str){var out={},n=0;
   String(str||'').split('.').forEach(function(p){var m=p.split('-');if(m.length!==2)return;
     var v=parseInt(m[1],10);
-    if(ALLSIZES.indexOf(m[0])<0||!(v>0)||v>100000)return;out[m[0]]=v;n++;});
+    if(!sizeOk(m[0])||!(v>0)||v>100000)return;out[m[0]]=v;n++;});
   return n?out:null;}
 function sizeSum(sz){var t=0;for(var s in (sz||{}))t+=(parseInt(sz[s],10)||0);return t;}
 function encodeList(){
@@ -3827,7 +3849,7 @@ function cartLineHtml(k){var it=BYKEY[bkey(k)];if(!it)return '';var c=CART[k];
         '<div class="row"><button class="editln" data-edit="'+k+'">'+pq.qty+' '+uP+' · '+money(pq.perPiece)+'/'+uP+' ✎</button><div class="lp">'+money(pline)+'</div></div></div>'+
         '<button class="rm" data-rm="'+k+'" aria-label="Remove">✕</button></div>';}
     var col=colInList(curColsOf(it,c.fit),c.colour);
-    var unit=unitPrice(k,c.decos,tierQty(k));var szsum=sizesSummary(c);var nud=savingsNudge(k,c.decos,tierQty(k));
+    var unit=unitPrice(k,c.decos,tierQty(k));var szsum=sizesSummary(c,it);var nud=savingsNudge(k,c.decos,tierQty(k));
     var _ftl=(_both&&c.fit!=='womens')?'Men\u2019s':fitTag(it,c);
     var fitb=_ftl?'<span class="fitbadge">'+esc(_ftl)+'</span> ':'';
     var ctrl='<button class="editln" data-edit="'+k+'">'+c.qty+' pcs · '+(c.sizes?'by size':'add sizes')+' ✎</button>';
@@ -3866,7 +3888,7 @@ function boardTotals(){
    keystroke, and the line total, piece count and board estimate update live.
    Deliberately NOT re-rendering the card on input -- that would blow away focus mid-typing. The few
    affected numbers are patched in place instead. */
-function sizesForFit(fit){return (fit==='womens')?WOMENS_SIZES:MENS_SIZES;}
+function sizesForFit(fit,it){return itemSizes(it,fit);}
 /* ---- ONE NUMBER INSTEAD OF A HUNDRED --------------------------------------------------------
    An 18-line board asks for a six-cell size split on every style: 108 boxes, demanded BEFORE the
    buyer has a price they trust. That is the wall the whole flow hits. Nobody fills in 108 boxes to
@@ -3902,8 +3924,31 @@ function getHC(){var v=0;try{v=parseInt(localStorage.getItem(hcKey())||'0',10)||
 function setHC(n){try{localStorage.setItem(hcKey(),String(n||0));}catch(e){}}
 /* Spread `total` across a size curve without losing or inventing pieces: floor everything, then
    hand the remainder to the biggest buckets first so the parts always add back to the whole. */
-function spreadSizes(total,fit){
-  var curve=SIZE_CURVE[fit==='womens'?'womens':'mens'],out={},keys=Object.keys(curve),acc=0,i;
+/* A numeric run has no alpha curve to look up and the runs differ per garment (waist 30-44,
+   coverall chest 38-52), so weight it as a bell centred just below the middle of whatever run the
+   item declares. Same shape as the alpha curve -- one fat middle, thin tails -- expressed so it
+   works for any run length instead of needing a hand-written table per garment. */
+function numericCurve(szs){
+  var n=szs.length,mid=(n-1)*0.45,sd=Math.max(1,n/3.2),w=[],tot=0,out={},i,d;
+  for(i=0;i<n;i++){d=(i-mid)/sd;w[i]=Math.exp(-0.5*d*d);tot+=w[i];}
+  for(i=0;i<n;i++)out[szs[i]]=w[i]/tot;
+  return out;
+}
+function curveFor(it,fit){
+  var base=SIZE_CURVE[fit==='womens'?'womens':'mens'];
+  if(!(it&&it.sizes&&it.sizes.length))return base;
+  var szs=it.sizes;
+  if(numericRun(szs))return numericCurve(szs);
+  /* An item declaring an alpha SUBSET -- a vest that starts at M, a belt that stops at XL -- keeps
+     the shape of the standard curve renormalised over the sizes it actually stocks, so the pieces
+     that would have gone to S land on M instead of vanishing out of the headcount. */
+  var out={},tot=0;
+  szs.forEach(function(s){var v=base[s]||0.05;out[s]=v;tot+=v;});
+  szs.forEach(function(s){out[s]=out[s]/tot;});
+  return out;
+}
+function spreadSizes(total,fit,it){
+  var curve=curveFor(it,fit),out={},keys=Object.keys(curve),acc=0,i;
   for(i=0;i<keys.length;i++){var v=Math.floor(total*curve[keys[i]]);out[keys[i]]=v;acc+=v;}
   var left=total-acc;
   var order=keys.slice().sort(function(a,b){return curve[b]-curve[a];});
@@ -3932,7 +3977,7 @@ function applyHeadcount(n){
     var share=paired[bkey(ck)]||1;
     var target=Math.max(moq(),Math.round(n*hcFactor(it)/share));
     if(oneSize(it)){delete c.sizes;c.qty=target;}   // a toque has no size split to estimate
-    else{c.sizes=spreadSizes(target,c.fit);c.qty=sizeSum(c.sizes);}
+    else{c.sizes=spreadSizes(target,c.fit,it);c.qty=sizeSum(c.sizes);}
     touched++;
   });
   setHC(n);saveCart();
@@ -3955,7 +4000,7 @@ function bSizeRowHtml(ck){
       'aria-label="Quantity"></label></div>'+
       '<div class="bszmoq" data-szmoq="'+esc(ck)+'"></div></div>';
   }
-  var szs=sizesForFit(c.fit),tot=sizeSum(c.sizes)||c.qty||0;
+  var szs=sizesForFit(c.fit,it),tot=sizeSum(c.sizes)||c.qty||0;
   var unsized=sizeSum(c.sizes)===0;
   /* A grid of boxes each reading "0" looks like DATA, not like a form -- which is why nobody typed
      in it. Three changes make the action unmistakable: an empty box instead of a zero (an empty
@@ -4057,7 +4102,7 @@ function boardCardHtml(ck){
   else{q=c.qty||0;_tq=tierQty(ck);unit=unitPrice(ck,c.decos,_tq);line=unit*q;}
   var both=!!(CART[bkey(ck)]&&CART[bkey(ck)+'#w']);
   var ftl=(both&&c.fit!=='womens')?'Men\u2019s':fitTag(it,c);
-  var szs=sizesSummary(c);
+  var szs=sizesSummary(c,it);
   // Prefer the STANDARDISED decoration label from the catalogue -- it is what actually gets
   // produced and quoted, which is the language a board shown to a buyer should be in.
   var deco=isPromo?'':((it.std&&it.std.label)?it.std.label:decoSummary(it,c));
@@ -5031,7 +5076,7 @@ function proformaText(c){
        third one off entirely mid-word -- on an invoice the customer has to be able to see every
        position they are being charged for. */
     wrapInto(L,det,66,'   ');
-    var ss=sizesSummary(cc);if(ss)wrapInto(L,'sizes: '+ss,66,'   ');
+    var ss=sizesSummary(cc,BYKEY[bkey(ck)]);if(ss)wrapInto(L,'sizes: '+ss,66,'   ');
     sub+=e.revenue;
   });
   L.push(new Array(73).join('-'));
@@ -5149,7 +5194,7 @@ function orderText(c){c=c||{};
     lines.push('');}
   Object.keys(CART).forEach(function(k){var it=BYKEY[bkey(k)];if(!it)return;var cc=CART[k];var u=unitPrice(k,cc.decos,tierQty(k));
     lines.push('• '+it.name+(fitSku(it,cc)?' '+fitSku(it,cc):'')+' ('+it.sku+') — '+(fitTag(it,cc)?fitTag(it,cc)+' · ':'')+cc.colour+' · '+decoSummary(it,cc)+' · qty '+cc.qty+' @ '+money(u)+' ea = '+money(u*cc.qty));
-    var ss=sizesSummary(cc);if(ss)lines.push('    sizes: '+ss);});
+    var ss=sizesSummary(cc,BYKEY[bkey(ck)]);if(ss)lines.push('    sizes: '+ss);});
   lines.push('','Estimated subtotal: '+money(sub));
   var sb=setupBreakdown();
   if(sb.length){lines.push('One-time setup: '+money(setup)+'  (once per design, shared across the kit)');
