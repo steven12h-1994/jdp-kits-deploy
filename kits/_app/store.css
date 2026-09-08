@@ -2023,3 +2023,15 @@ body{padding-left:74px}
 .bszcells.one{grid-template-columns:minmax(0,1fr) !important}
 .bszcells.one .bszc span{font-size:10.5px;letter-spacing:.06em}
 
+
+/* ---- WHY THIS PIECE (board recommendation note) ---------------------------------------------
+   Reads as a remark from us, not as another data field: an accent rule on the leading edge, a
+   small caps key, and the text set at reading size rather than the 11px the meta line uses. It
+   sits above the size grid because the buyer decides whether they want the piece before they
+   decide how many. */
+.bwhy{margin:8px 0 10px;padding:9px 12px 9px 13px;border-left:2.5px solid var(--a);
+  background:rgba(0,0,0,.022);border-radius:0 8px 8px 0;font-size:13px;line-height:1.5;
+  color:var(--ink)}
+.bwhyk{display:block;font-size:10px;letter-spacing:.13em;text-transform:uppercase;
+  color:var(--a);font-weight:800;margin-bottom:3px}
+@media(max-width:620px){.bwhy{font-size:12.5px;padding:8px 10px 8px 11px}}

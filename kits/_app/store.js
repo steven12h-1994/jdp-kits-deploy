@@ -695,8 +695,9 @@ function menuCard(key){
   // available to anyone ordering the 12-piece minimum, who was then quoted $27 on the very next
   // screen. Across the catalogue that gap ran to a median 15% -- and $43/pc on a jacket. So the
   // headline is now the price at the minimum, with the volume break kept as the upside it is.
-  var startP=unitPrice(key,vm.decos,moq());
-  var bestP=unitPrice(key,vm.decos,topcol);
+  var _dd=defaultDecos(key);
+  var startP=unitPrice(key,_dd,moq());
+  var bestP=unitPrice(key,_dd,topcol);
   var rec=(key===CFG.feature||item.rec)?'<span class="mrec">★ Top pick</span>':'';
   // Class badge: a specific published class reads bold; styles whose maker publishes only the generic
   // "meets CSA" claim (no class number) render muted — we never invent a class.
@@ -780,7 +781,13 @@ var MEGASUB={
   headwear:['Caps & Hats','Trucker & Snapback','Performance & Golf','Beanies & Toques'],
   // All bottoms in one place. classify() already returned mega 'workwear' for these but it was
   // never declared, so work pants and bibs were unreachable in the nav.
-  bottoms:['Joggers & Sweatpants','Work Pants & Bibs','Work Pants','Shorts','Bibs & Overalls'],
+  /* Steven, 2026-09-08: "for pants ... you did a terrible job with the navigation experience."
+     He was right. The aisle had THREE overlapping buckets: "Work Pants & Bibs" (5 Carhartt items,
+     pants and bibs mixed together), a separate "Work Pants" (6 Red Kap/Dickies), and a third
+     "Bibs & Overalls" holding one coverall. A buyer shopping for work pants had to know to look in
+     two places and would still miss the bibs. Two buckets by GARMENT, brand-agnostic, plus the
+     joggers and the shorts. Work pants lead because that is what the aisle is for. */
+  bottoms:['Work Pants','Bibs & Coveralls','Joggers & Sweatpants','Shorts'],
   fr:['FR Hoodies','FR Shirts','FR Tees','FR Pants','FR Jackets','FR Accessories'],
   /* Drinkware split by what it IS. 32 items in one flat "Drinkware" grid, half of them named
      "Easy Breezy" or "Shot Caller", is unnavigable -- a buyer looking for a water bottle had to open
@@ -849,7 +856,10 @@ function crossAlso(it,c){
   var out=[],n=((it.name||'')+' '+(it.key||'')).toLowerCase();
   if(c.mega!=='ruggedwear'&&RUGGED_CROSS[it.key])out.push({mega:'ruggedwear',sub:RUGGED_CROSS[it.key]});
   if(c.mega!=='headwear'&&isHeadwear(n)&&!/\bfr\b|flame[- ]resistant/.test(n))out.push({mega:'headwear',sub:headwearSub(n)});
-  if(c.mega!=='bottoms'&&c.sub==='Pants & Bibs')out.push({mega:'bottoms',sub:'Work Pants & Bibs'});
+  /* Carhartt keeps its brand aisle AND appears in the pants aisle -- but split by garment, so a
+     bib overall does not turn up under "Work Pants". */
+  if(c.mega!=='bottoms'&&c.sub==='Pants & Bibs')
+    out.push({mega:'bottoms',sub:/coverall|bib|overall/.test(n)?'Bibs & Coveralls':'Work Pants'});
   // A vest keeps its brand home (Carhartt, Rugged Wear) or its PPE home (Hi-Vis) AND appears in the
   // Vests category, so neither shopper loses it: one browses by brand, the other by garment.
   if(c.mega!=='vests'&&/vest/.test(n))out.push({mega:'vests',sub:vestSub(n)});
@@ -884,7 +894,7 @@ function megaName(id){for(var i=0;i<MEGA.length;i++)if(MEGA[i].id===id)return ME
    Route by garment; shirts remain the default because that is what most of the range is. */
 function classifyWorkShirt(n){
   if(/hi-?vis|high.visibility|safety vest|\btraffic\b|reflective/.test(n))return classifyHivis(n);
-  if(/coverall|bib overall|boilersuit/.test(n))return {mega:'bottoms',sub:'Bibs & Overalls'};
+  if(/coverall|bib overall|boilersuit/.test(n))return {mega:'bottoms',sub:'Bibs & Coveralls'};
   if(/\bshorts\b/.test(n))return {mega:'bottoms',sub:'Shorts'};
   if(/\bpants?\b|\btrousers?\b|\bjeans?\b|dungaree/.test(n))return {mega:'bottoms',sub:'Work Pants'};
   if(/\bbelt\b/.test(n))return {mega:'accessories',sub:'Lifestyle'};
@@ -2549,6 +2559,12 @@ function openSheet(key,wantCol,fromKey){
                 ink:(use&&use.ink)||rd.ink||'auto', method:rd.method||'embroidery',
                 colours:1};
     if(p.id!==primaryId && on)SH.showExtra=true;});
+  /* Open on the recommended configuration, but ONLY for a garment not already on the board -- a
+     returning buyer's own choices must never be overwritten by ours. */
+  if(!ex){var _dcid=stdCfgId(key);
+    if(_dcid){try{applyConfig(_dcid);
+      Object.keys(SH.D).forEach(function(pl){if(SH.D[pl].on&&pl!==primaryId)SH.showExtra=true;});
+    }catch(e){}}}
   renderSheet();
   document.getElementById('ov').classList.add('on');
   document.getElementById('sheet').classList.add('on');
@@ -2626,8 +2642,43 @@ var CFG_WORKSHIRT=CFG_SHIRT.concat([
    sub:'Logo left chest, company name screen printed across the back yoke — how a crew is recognised from behind.',
    spots:[{pl:'PRIMARY',method:'embroidery'},{pl:'backyoke',method:'screen',colours:1}]}
 ]);
+/* THE HI-VIS VEST, per Steven 2026-09-08: "the 5-Point Tear-Away Vest is typically the vest we
+   recommend. the logo embroidered is actually on the left chest reflective tape. the most popular
+   option is the left chest + name on the back."
+   So the two-mark setup is the DEFAULT here, not an upsell — and the copy says the mark goes ON the
+   tape, because a buyer looking at a vest covered in reflective stripes reasonably wonders where a
+   logo could possibly go. That is the question the card has to answer. */
+var CFG_HIVIS_VEST=[
+  {id:'lcb',  name:'{P} + name across the back', tag:'Most popular',
+   sub:'Logo embroidered onto the left-chest reflective tape, company name printed across the back — how a crew is identified from either side.',
+   spots:[{pl:'PRIMARY',method:'embroidery'},{pl:'backyoke',method:'screen',colours:1}]},
+  {id:'lc',   name:'{P} only',
+   sub:'One embroidered logo on the left-chest reflective tape. The simplest vest program.',
+   spots:[{pl:'PRIMARY',method:'embroidery'}]},
+  {id:'crew', name:'{P} + employee name + company on the back',
+   sub:'Logo left chest, the wearer\u2019s name on the right chest, company across the back. Managed uniforms.',
+   spots:[{pl:'PRIMARY',method:'embroidery'},{pl:'rchest',method:'embroidery'},{pl:'backyoke',method:'screen',colours:1}]}
+];
+/* THE HI-VIS TEE, per Steven 2026-09-08: "hi-vis t shirt logo placement is Front + Back ·
+   Recommended and another option is Front Only."
+   Front + back is the default because a traffic shirt is read from behind as often as from the
+   front. The third card exists because he also said to assess whether other configurations make
+   sense: on a managed crew the wearer's name on the right chest is the one addition that gets
+   asked for, and it costs a second embroidery run rather than a second screen. */
+var CFG_HIVIS_TEE=[
+  {id:'fb', name:'Front + back', tag:'Recommended',
+   sub:'Screen printed on the front and across the back, clear of the reflective tape. What most traffic-shirt programs order.',
+   spots:[{pl:'PRIMARY',method:'screen',colours:1},{pl:'backyoke',method:'screen',colours:1}]},
+  {id:'fo', name:'Front only',
+   sub:'One screen print on the front. The lowest-cost way to get the crew into branded hi-vis.',
+   spots:[{pl:'PRIMARY',method:'screen',colours:1}]},
+  {id:'fbn', name:'Front + back + employee name',
+   sub:'Front and back prints, plus the wearer\u2019s name embroidered on the right chest.',
+   spots:[{pl:'PRIMARY',method:'screen',colours:1},{pl:'backyoke',method:'screen',colours:1},{pl:'rchest',method:'embroidery'}]}
+];
 var CONFIGS={
   polo:CFG_SHIRT, woven:CFG_SHIRT, workshirt:CFG_WORKSHIRT, coverall:CFG_WORKSHIRT,
+  hivisvest:CFG_HIVIS_VEST, hivistee:CFG_HIVIS_TEE,
   /* Steven, 2026-09-08: "Tees default and most popular is left chest print." The print carried
      "Best value" while the EMBROIDERY carried "Most popular" -- backwards for a tee, and the tag
      does real work here because it is the row a buyer picks without reading the other two. */
@@ -2691,12 +2742,24 @@ var CONFIGS={
 /* Only offer a configuration whose every position actually exists on THIS item. A polo with no
    sleeve position simply does not show the sleeve option, rather than showing one that prices at
    zero because unitPrice() silently ignores decos on placements the garment does not have. */
+/* DECORATION CONFIGS NEED A FINER GRAIN THAN itemCategory. `hivis` covers a mesh vest, a traffic
+   tee, a crewneck and a winter parka, and Steven's recommended setups for the vest and the tee are
+   different from each other. Refining itemCategory itself would ripple into the seasonal ordering,
+   the browse aisles and the board slots for no benefit, so the split lives here and nowhere else. */
+function configKey(it){
+  var c=itemCategory(it),n=String((it&&it.name)||'').toLowerCase();
+  if(c==='hivis'){
+    if(/\bvest\b/.test(n))return 'hivisvest';
+    if(/\btee\b|\bt-?shirts?\b/.test(n))return 'hivistee';
+  }
+  return c;
+}
 function configsFor(key){
   var it=BYKEY[key];if(!it)return [];
   var prim=(stdOf(key)||{}).pl||((it.places||[]).filter(function(p){return p.logo;})[0]||{}).id;
   if(!prim)return [];
   var avail={};(it.places||[]).forEach(function(p){if(p.logo)avail[p.id]=p;});
-  var list=CONFIGS[itemCategory(it)]||CONFIGS.other;
+  var list=CONFIGS[configKey(it)]||CONFIGS.other;
   return list.map(function(c){
     var ok=true;
     var decos=c.spots.map(function(s){
@@ -2727,6 +2790,39 @@ function configDecos(cfg){
     return {pl:d.pl,on:true,lg:lg,ink:'auto',method:d.method,colours:n};});
 }
 function configPrice(cfg){return unitPrice(SH.key,configDecos(cfg),effQty()||moq());}
+/* ---- THE RECOMMENDED SETUP IS THE DEFAULT, EVERYWHERE ----------------------------------------
+   `std` describes ONE placement, which was fine while every recommendation was a single left
+   chest. Steven's recommended setups for hi-vis are two marks ("left chest + name on the back",
+   "front + back"), and a two-mark recommendation cannot be expressed in `std`.
+   Without this, the card tagged "Most popular" would be a paid upgrade off a cheaper default: the
+   grid would price one mark, the sheet would open on one mark, and the thing we actually recommend
+   would sit below it with a "+$2.50" next to it. So an item may name its default configuration in
+   `stdcfg`, and the grid price, the sheet's opening state, a quick-add and the board all read it
+   from HERE. One function, so they cannot drift apart. */
+function cfgDecosPure(cfg){
+  /* Deliberately does NOT consult SH: configDecos() reads the open sheet's live ink count, which is
+     correct inside a sheet and wrong on a grid card, where SH belongs to whatever was opened last. */
+  var lg=(CFG.logos&&CFG.logos[0]&&CFG.logos[0].id)||null;
+  return cfg.decos.map(function(d){
+    return {pl:d.pl,on:true,lg:lg,ink:'auto',method:d.method,colours:d.colours||1};});
+}
+function stdCfgId(key){var it=BYKEY[bkey(key)]||{};return it.stdcfg||null;}
+function stdCfgOf(key){
+  var id=stdCfgId(key);if(!id)return null;
+  return configsFor(bkey(key)).filter(function(c){return c.id===id;})[0]||null;
+}
+function defaultDecos(key){
+  var c=stdCfgOf(key);
+  return c?cfgDecosPure(c):recDecos(bkey(key));
+}
+/* What the card, the board and the quote CALL the default decoration. `std.label` still wins when
+   there is no stdcfg, so nothing changes for the 480-odd items that have one mark. */
+function defaultDecoLabel(key){
+  key=bkey(key);var it=BYKEY[key]||{};
+  var c=stdCfgOf(key);
+  if(c)return configWhere(c,it);
+  return (it.std&&it.std.label)||'';
+}
 /* Which configuration the sheet is currently in — matched on the exact set of live positions and
    their methods, so a hand-restored cart line lights up the right card or none of them. */
 function activeConfigId(){
@@ -3214,6 +3310,9 @@ function addFromSheet(){
    and then a quick-add put an EMBROIDERED tee on the board at $13.50 while the product sheet
    for the same tee said screen-printed at $11.00. Two prices for one garment, on one screen. */
 function recCartDecos(key){key=bkey(key);
+  /* An item naming a default configuration books THAT, not the single-placement standard. */
+  var _dc=stdCfgOf(key);
+  if(_dc)return realDecos(BYKEY[key],cfgDecosPure(_dc));
   var _st=stdOf(key),_m=(_st&&_st.method)||null;
   var vm=vmOf(key),decos=realDecos(BYKEY[key],vm.decos).map(function(d){return {pl:d.pl,lg:d.lg,ink:d.ink||'auto',method:((_st&&d.pl===_st.pl&&_m)?_m:(d.method||'embroidery')),colours:d.colours||1,on:true};});
   if(!decos.length){var p=(BYKEY[key].places||[]).filter(function(x){return x.logo;})[0];if(p)decos=[{pl:p.id,lg:(CFG.logos[0]||{}).id,ink:'auto',method:(recDecos(key)[0]||{}).method||'embroidery',colours:1,on:true}];}
@@ -4215,7 +4314,7 @@ function boardCardHtml(ck){
   var szs=sizesSummary(c,it);
   // Prefer the STANDARDISED decoration label from the catalogue -- it is what actually gets
   // produced and quoted, which is the language a board shown to a buyer should be in.
-  var deco=isPromo?'':((it.std&&it.std.label)?it.std.label:decoSummary(it,c));
+  var deco=isPromo?'':(defaultDecoLabel(bkey(ck))||decoSummary(it,c));
   /* THE BOARD IS THE THING SENT TO THE ACCOUNT. It was rendering the bare supplier photo, so a
      buyer opened a page of unbranded garments -- the single most important thing to show is their
      own logo on the gear, composited at the exact placement that will be produced. overlayHtml
@@ -4242,6 +4341,14 @@ function boardCardHtml(ck){
       '</div>'+
       (cmiss?('<div class="bmiss">'+esc(cmiss)+' is no longer available \u2014 showing '+
         esc(cname)+'. Tell us on the quote and we\u2019ll source it.</div>'):'')+
+      /* WHY THIS PIECE. Steven, 2026-09-08: "improve the recommendation suggestions to truly WOW
+         the customer especially with the notes."
+         A shortlist without reasons is just a list -- the buyer cannot tell what we know about
+         their trade from a row that says "Vault Pullover Hoodie, Ash Grey, $38.00". The reason is
+         the whole value of having picked it for them, so it sits directly under the name where it
+         is read before the price. Only rendered when the board actually carries one; a board the
+         customer built themselves shows nothing here rather than an empty label. */
+      (c.why?('<div class="bwhy"><span class="bwhyk">Why this one</span>'+esc(c.why)+'</div>'):'')+
       bSizeRowHtml(ck)+
       /* When both cuts of a garment are on the board they share one volume tier, so the men's line
          can be 40 pieces yet priced at a 240-piece rate. Without saying so, the number looks wrong
