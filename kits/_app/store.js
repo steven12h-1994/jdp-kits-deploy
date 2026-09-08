@@ -4787,6 +4787,7 @@ function curatedBoardIds(){
   out.sort(function(a,b){return listLen(b)-listLen(a);});
   return out;
 }
+function nwords(n){return ['','One','Two','Three','Four','Five','Six'][n]||String(n);}
 function recoHeroHtml(){
   var ids=curatedBoardIds();
   if(!ids.length)return '';
@@ -4805,7 +4806,10 @@ function recoHeroHtml(){
   return '<section class="recohero"><div class="w">'+
     '<div class="rhlbl">Prepared for '+esc(CFG.client||'your team')+'</div>'+
     '<h2 class="rhh">We\u2019ve already picked your shortlist</h2>'+
-    '<p class="rhsub">Two starting points, chosen for how your people actually work \u2014 open one, '+
+    /* Count the cards rather than saying "Two": the number changes per store and the copy does
+       not follow it. ATTA went to three boards and the page still claimed two. */
+    '<p class="rhsub">'+(ids.length===1?'A starting point':(nwords(Math.min(ids.length,3))+' starting points'))+
+      ', chosen for how your people actually work \u2014 open one, '+
       'change anything you like, and send it back for a quote.</p>'+
     '<div class="rhcards">'+cards+'</div></div></section>';
 }
