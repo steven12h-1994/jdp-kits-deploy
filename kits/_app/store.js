@@ -28,50 +28,61 @@ function autoInk(rgb){var l=hexLum(rgb),s=hexSat(rgb);if(l<120||s>=70)return 'wh
 // A SATURATED brand colour is never touched — red thread on navy reads fine and it is the customer's
 // actual brand; only the neutrals get rescued.
 var INK={},INK_MINRATIO=3.0,INK_MAXSAT=45;
+/* The kit's primary mark, in ink counts. Measured by probeInk() before the store is ever built, so
+   this is settled by the time anything renders or prices. Falls back to 1 if the probe could not
+   read the artwork -- under-quoting a setup is recoverable, a store that fails to load is not. */
+function brandInks(){
+  var L=(typeof CFG!=='undefined'&&CFG.logos&&CFG.logos[0])||null;
+  var k=L&&INK[L.id];
+  return (k&&k.n)||1;
+}
+/* The ink count a screen print STARTS at: the brand's own colours. The customer can still drop to
+   1 in the picker, and that choice is carried through every re-price. */
+function presetInks(method,preset){
+  if(method!=='screen')return 1;
+  return Math.max(preset||1,brandInks());
+}
 function srgbLin(c){c=c/255;return c<=0.04045?c/12.92:Math.pow((c+0.055)/1.055,2.4);}
 function relLum(r,g,b){return 0.2126*srgbLin(r)+0.7152*srgbLin(g)+0.0722*srgbLin(b);}
 function contrast(a,b){var hi=Math.max(a,b),lo=Math.min(a,b);return (hi+0.05)/(lo+0.05);}
 function hexRelLum(hex){var h=String(hex||'').replace('#','');if(h.length!==6)return 1;
   return relLum(parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16));}
-function autoInkFor(method,rgb,logo){
-  if(method!=='embroidery')return autoInk(rgb);
-  if(!logo||!logo.inks)return 'brand';
-  var gl=hexRelLum(rgb);
-  var k=INK[logo.id];
-  /* TWO bugs lived here. The saturation gate vetoed the contrast check, so a vivid brand mark was
-     never swapped however badly it washed out. And underneath that, the contrast logic looked dead.
-     CORRECTION (2026-09-08): INK[logo.id] IS populated -- the ink probe further down this file
-     medians the brand PNG's solid pixels via canvas and writes {lum,sat}. The old note here claimed
-     it never is, which sent me looking in the wrong place for an hour. It is populated, this branch
-     DOES run, and that is exactly why the ondark preference below was being skipped.
+function autoInkFor(method,rgb,logo,colours){
+  /* ONE RULE FOR EVERY METHOD. This used to fork on method: embroidery got a measured-contrast
+     decision, and screen/heat-transfer fell through to autoInk(), a crude luminance-and-saturation
+     heuristic. Two problems, both real:
 
-     When a measured brand-ink luminance exists, use it. When it does not, decide from the garment
-     alone: white on a dark garment. 0.18 relative luminance is the standard crossover below which
-     white beats dark. */
+       * autoInk() knows nothing about the `ondark` hybrid, so when tees moved to a screen-printed
+         default on 2026-09-08 a two-colour lockup on black rendered as FLAT WHITE and the brand red
+         vanished. Steven: "Parkour Cotton Tee and Breeze Long-Sleeve Tee in black not showing the
+         correct logo colors."
+       * autoInk() returns white for ANY saturated garment, so a dark brand mark on HI-VIS ORANGE
+         flipped to white ink -- against the catalogue spec, which puts charcoal or black on hi-vis,
+         and against the contrast test, which the brand ink passes on orange comfortably.
+
+     A print is as capable of carrying the brand colour as thread is, so the choice is about the
+     GARMENT and the ARTWORK, not the process. The only thing the method changes is whether a
+     multi-ink hybrid is even purchasable: embroidery is full-colour by nature, a screen run carries
+     the hybrid only when it pays for two or more inks. A single-ink run therefore still renders as
+     a single ink -- the picture must never promise a colour the price has not paid for. */
+  if(!logo||!logo.inks)return 'brand';
+  var gl=hexRelLum(rgb),k=INK[logo.id];
+  var canHybrid=(method==='embroidery')||((colours||1)>=2);
   if(k&&typeof k.lum==='number'){
-    /* When the measured brand ink has too little contrast on this garment we must substitute --
-       but PREFER THE HYBRID. This branch predated `ondark` and only knew white/dark, so it silently
-       bypassed the ondark preference below it and every dark garment got flat white.
-       That is what put ATTA Elevators' two-colour lockup on black as an all-white mark: the ink
-       probe medians the brand PNG, 86% of which is the dark "ATTA" wordmark, so k.lum came back
-       near-black, contrast against a black garment failed, and this returned 'white' before the
-       ondark branch was ever reached. Steven, 2026-09-08: "the company store protocol should be to
-       always use the real colors of the brand logo!" -- ondark keeps the red, flat white does not. */
     if(contrast(k.lum,gl)<INK_MINRATIO){
-      if(gl<0.18&&logo.inks.ondark)return 'ondark';
+      if(gl<0.18&&canHybrid&&logo.inks.ondark)return 'ondark';
       return gl<0.18?'white':'dark';
     }
     return 'brand';
   }
-  /* On a dark garment prefer the HYBRID ink when the kit has one: the wordmark reversed to white,
-     the brand accents left in their own colour. Flat white is the fallback -- it reads, but it
-     flattens two brand colours into one and loses the identity. */
+  /* No measurement (the probe could not read the artwork): decide from the garment alone. */
   if(gl<0.18){
-    if(logo.inks.ondark)return 'ondark';
+    if(canHybrid&&logo.inks.ondark)return 'ondark';
     if(logo.inks.white)return 'white';
   }
   return 'brand';
 }
+
 /* ---- Vibrant, brand-aware colourways -------------------------------------------------------
    Every store used to open as a wall of black. 169 of 353 items defaulted to Black and 68% of the
    accessories did, because the build-time picker scored ONLY for logo legibility: it paid a bonus for
@@ -221,7 +232,24 @@ function probeInk(logo){
         if(R.length>=20){
           var md=function(a){a.sort(function(p,q){return p-q;});return a[a.length>>1];};
           var r=md(R),g=md(G),b=md(B);
-          INK[logo.id]={lum:relLum(r,g,b),sat:Math.max(r,g,b)-Math.min(r,g,b)};
+          /* HOW MANY COLOURS IS THIS MARK, REALLY? Steven, 2026-09-07: "screen print pricing
+             could be multiple colors if they want Original logo Colors which could be 1,2,3 and
+             sometimes 4 colors. sometimes the company will want to do 1 color." So the DEFAULT ink
+             count should be the mark's own colour count, and 1-colour is the deliberate downgrade.
+             Counted by quantising every solid pixel to 4 levels per channel and keeping the buckets
+             that hold at least 4% of them -- coarse enough that anti-aliased edges never register
+             as a colour of their own, fine enough to separate a near-black wordmark from a brand
+             red. ATTA's lockup measures 2; a monochrome mark measures 1 and nothing changes for it. */
+          var bk={},tot=0;
+          for(var q=0;q<d.length;q+=4){
+            if(d[q+3]<=200)continue;
+            tot++;
+            bk[(d[q]>>6)+'|'+(d[q+1]>>6)+'|'+(d[q+2]>>6)]=(bk[(d[q]>>6)+'|'+(d[q+1]>>6)+'|'+(d[q+2]>>6)]||0)+1;
+          }
+          var nk=0;
+          if(tot>0)for(var bkey2 in bk){if(bk[bkey2]/tot>=0.04)nk++;}
+          INK[logo.id]={lum:relLum(r,g,b),sat:Math.max(r,g,b)-Math.min(r,g,b),
+                        n:Math.max(1,Math.min(4,nk||1))};
           // Same pass, second job: learn the brand's SATURATED hues. The ink probe above deliberately
           // medians every solid pixel, which on a two-colour lockup returns a muddy average — useless
           // for matching a garment. So collect only the genuinely colourful pixels and median THEM.
@@ -250,7 +278,9 @@ function logoOf(id){for(var i=0;i<CFG.logos.length;i++)if(CFG.logos[i].id===id)r
 // fleet-wide on EVERY ship, so any deploy reaches returning visitors too.
 var KV=(function(){try{var s=document.querySelector('script[src*="/_app/store.js"]');var m=s&&s.src.match(/[?&]v=([^&]+)/);if(m)return m[1];}catch(e){}return '';})();
 function kurl(u){if(!u)return u;if(/^(https?:)?\/\//.test(u)||u.charAt(0)==='/')return u;var v=KV||(CFG&&CFG.ver)||'';return v?u+(u.indexOf('?')<0?'?':'&')+'v='+v:u;}
-function inkUrl(logo,ink,col,method){var t=(ink&&ink!=='auto')?ink:autoInkFor(method,col&&col.rgb,logo);return kurl(logo.inks[t]||logo.inks.brand);}
+/* `colours` is threaded through because the right ink on a dark garment DEPENDS on how many inks
+   the run pays for: two or more can carry the brand hybrid, one cannot. */
+function inkUrl(logo,ink,col,method,colours){var t=(ink&&ink!=='auto')?ink:autoInkFor(method,col&&col.rgb,logo,colours);return kurl(logo.inks[t]||logo.inks.brand);}
 // Every image URL carries the catalogue's build version so a changed-content/same-filename asset
 // (e.g. a product re-shot on a model) is re-fetched instead of served stale from cache.
 function gurl(f){return CFG.catalog_base+'/img/'+f+(CATVER?((f.indexOf('?')<0?'?':'&')+'v='+CATVER):'');}
@@ -510,7 +540,7 @@ function recDecos(key){
   var st=stdOf(key);
   if(!st||!st.method||!st.pl)return [];
   return [{pl:st.pl,on:true,lg:(CFG.logos&&CFG.logos[0]&&CFG.logos[0].id)||null,
-           ink:'auto',method:st.method,colours:1}];
+           ink:'auto',method:st.method,colours:presetInks(st.method,1)}];
 }
 
 /* ---------- persistence ---------- */
@@ -679,7 +709,7 @@ function overlayHtml(item,vm,colName,faces,colsOverride,placesOverride){
        and invoice fast. Tune a position's geometry, drop its norender flag, and it draws. */
     if(p.norender)return;
     if(face==='back'&&!hasBack)return;
-    var L=logoOf(d.lg),src=inkUrl(L,d.ink,col,d.method);
+    var L=logoOf(d.lg),src=inkUrl(L,d.ink,col,d.method,d.colours);
     var wf=p.wf*(CFG.logo_scale||1);
     lg+='<img class="l" src="'+src+'" style="left:'+p.cx+'%;top:'+p.cy+'%;width:'+wf+'%" alt="">';});
   return {g:gurl(photo),lg:lg,hasBack:hasBack};
@@ -715,6 +745,14 @@ function menuCard(key){
     '<div class="mb"><h3>'+esc(item.name)+'</h3>'+
       '<div class="mmeta">'+esc(item.sku)+(item.layer==='promo'?'':(item.unisex?' · Unisex':''))+'</div>'+
       (hasLadies(item)?'<div class="mfit">Men’s &amp; Ladies’ cuts</div>':(item.unisex?'<div class="mfit alt">Unisex — one cut</div>':''))+
+      /* THE USE CASE, ON THE CARD. Steven, 2026-09-08: "overall make it clear on use case for each
+         pants it is very unclear and a terrible experience." The pants aisle holds eleven styles
+         whose names differ by one word against near-identical grey photos, and the card said
+         nothing about which is for whom -- so choosing meant opening eleven sheets and comparing
+         fabric weights. `use` is one line naming who the piece is for, and it belongs HERE, where
+         the choice is made, not in the sheet the buyer opens after already guessing.
+         Rendered only when an item has one, so nothing changes for the rest of the catalogue. */
+      (item.use?('<div class="muse">'+esc(item.use)+'</div>'):'')+
       csa+fab+
       colourDots(item,key)+
       (item.layer==='promo'
@@ -1177,6 +1215,14 @@ function seasonRank(key){
    supervisor was sent to. Most styles carry both cuts behind a fit toggle; the handful that exist
    only in a women's cut belong beside their unisex equivalents, not in front of them. A rank, not a
    filter: nothing is hidden and the fit toggle is untouched. */
+/* A TOP PICK LEADS ITS SHELF. The badge existed and did nothing to the ordering, so the work-pants
+   aisle opened on a $99.50 premium Carhartt while the $50.50 pant Steven calls the best seller sat
+   eighth. "Recommended" has to actually recommend something, or the sort label is a lie. */
+function recRank(key){
+  var it=BYKEY[bkey(key)]||{};
+  return (it.rec||key===CFG.feature)?0:1;
+}
+function recPrice(key){return recRank(key)===0?shelfPrice(key):0;}
 function womensOnlyRank(key){
   var it=BYKEY[bkey(key)]||{};
   return /\bwomen|\bladies|\bwmn\b/i.test(it.name||'')?1:0;
@@ -1186,7 +1232,13 @@ function sortList(list){
     /* Array.prototype.sort is stable in every engine this runs on, so equal ranks keep the
        catalogue order we curated. */
     return list.slice().sort(function(a,b){
-      return (seasonRank(a)-seasonRank(b))||(womensOnlyRank(a)-womensOnlyRank(b));});
+      return (recRank(a)-recRank(b))||
+             /* Among the top picks, the keener price leads -- the work-pants shelf had the $92
+                Dickies ahead of the $50.50 pant Steven names as the best seller. Non-picks all
+                score 0 here, so the curated catalogue order is untouched for everything else. */
+             (recPrice(a)-recPrice(b))||
+             (seasonRank(a)-seasonRank(b))||
+             (womensOnlyRank(a)-womensOnlyRank(b));});
   }
   var dir=(VIEW.sort==='ph')?-1:1;
   return list.slice().sort(function(a,b){return (shelfPrice(a)-shelfPrice(b))*dir;});
@@ -2564,7 +2616,7 @@ function openSheet(key,wantCol,fromKey){
        multiple. Same failure as the quick-add one, one layer further in. */
     var _sd=(defaultDecos(key)||[]).filter(function(x){return x.pl===p.id;})[0]||{};
     var _kd=(vm.decos||[]).filter(function(x){return x.pl===p.id;})[0]||{};
-    var rd={pl:p.id,on:!!_sd.on,method:_sd.method||_kd.method,colours:1,
+    var rd={pl:p.id,on:!!_sd.on,method:_sd.method||_kd.method,colours:_sd.colours||1,
             lg:_kd.lg||_sd.lg,ink:_kd.ink||'auto'};
     var use=exmap[p.id];
     var on = p.id===primaryId ? true : (ex?!!use:!!rd.on);
@@ -2573,7 +2625,7 @@ function openSheet(key,wantCol,fromKey){
     // otherwise a returning customer would keep being quoted a setup we no longer run.
     SH.D[p.id]={on:on, lg:(use&&use.lg)||rd.lg||(CFG.logos[0]||{}).id,
                 ink:(use&&use.ink)||rd.ink||'auto', method:rd.method||'embroidery',
-                colours:1};
+                colours:(use&&use.colours)||presetInks(rd.method,rd.colours)};
     if(p.id!==primaryId && on)SH.showExtra=true;});
   /* Open on the recommended configuration, but ONLY for a garment not already on the board -- a
      returning buyer's own choices must never be overwritten by ours. */
@@ -2781,7 +2833,7 @@ function configsFor(key){
     var decos=c.spots.map(function(s){
       var pl=(s.pl==='PRIMARY')?prim:s.pl;
       if(!avail[pl])ok=false;
-      return {pl:pl,method:s.method,colours:s.colours||1};
+      return {pl:pl,method:s.method,colours:presetInks(s.method,s.colours)};
     });
     if(!ok)return null;
     /* {P} resolves to the item's OWN label for its primary position, so a beanie reads "Front
@@ -2802,7 +2854,7 @@ function configDecos(cfg){
     var s=SH.D[pl];
     if(s&&s.on&&s.method==='screen'&&(s.colours||1)>1)live=Math.max(live,s.colours||1);});
   return cfg.decos.map(function(d){
-    var n=(d.method==='screen'&&live)?live:(d.colours||1);
+    var n=(d.method==='screen'&&live)?live:presetInks(d.method,d.colours);
     return {pl:d.pl,on:true,lg:lg,ink:'auto',method:d.method,colours:n};});
 }
 function configPrice(cfg){return unitPrice(SH.key,configDecos(cfg),effQty()||moq());}
@@ -2820,7 +2872,7 @@ function cfgDecosPure(cfg){
      correct inside a sheet and wrong on a grid card, where SH belongs to whatever was opened last. */
   var lg=(CFG.logos&&CFG.logos[0]&&CFG.logos[0].id)||null;
   return cfg.decos.map(function(d){
-    return {pl:d.pl,on:true,lg:lg,ink:'auto',method:d.method,colours:d.colours||1};});
+    return {pl:d.pl,on:true,lg:lg,ink:'auto',method:d.method,colours:presetInks(d.method,d.colours)};});
 }
 function stdCfgId(key){var it=BYKEY[bkey(key)]||{};return it.stdcfg||null;}
 function stdCfgOf(key){
@@ -2874,7 +2926,7 @@ function applyConfig(id){
   cfg.decos.forEach(function(d){
     if(!SH.D[d.pl])SH.D[d.pl]={lg:(CFG.logos&&CFG.logos[0]&&CFG.logos[0].id)||null,ink:'auto'};
     SH.D[d.pl].on=true;SH.D[d.pl].method=d.method;
-    SH.D[d.pl].colours=(d.method==='screen'&&keepInk)?keepInk:(d.colours||1);
+    SH.D[d.pl].colours=(d.method==='screen'&&keepInk)?keepInk:presetInks(d.method,d.colours);
     if(!SH.D[d.pl].lg)SH.D[d.pl].lg=(CFG.logos&&CFG.logos[0]&&CFG.logos[0].id)||null;
     if(!SH.D[d.pl].ink)SH.D[d.pl].ink='auto';});
 }

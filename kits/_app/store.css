@@ -2035,3 +2035,13 @@ body{padding-left:74px}
 .bwhyk{display:block;font-size:10px;letter-spacing:.13em;text-transform:uppercase;
   color:var(--a);font-weight:800;margin-bottom:3px}
 @media(max-width:620px){.bwhy{font-size:12.5px;padding:8px 10px 8px 11px}}
+
+/* ---- USE CASE LINE (card) --------------------------------------------------------------------
+   Set as a sentence, not as another spec chip: the pants aisle already has a SKU line, a fit line
+   and a fabric line, and a fourth badge would have disappeared into them. Accent-toned so the eye
+   lands on it before the fabric, because "who is this for" is the question being asked. */
+.muse{margin:6px 0 2px;font-size:12.5px;line-height:1.4;color:var(--ink);font-weight:550;
+  display:flex;gap:6px;align-items:baseline}
+.muse::before{content:'';flex:0 0 3px;align-self:stretch;background:var(--a);border-radius:2px;
+  margin:1px 0}
+@media(max-width:620px){.muse{font-size:12px}}
