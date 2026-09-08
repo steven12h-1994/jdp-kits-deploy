@@ -367,6 +367,19 @@ function isCarhartt(item){return String((item&&(item.brand||item.sku))||'').toLo
 function costMultCarh(c){if(c<=15)return 1.72;if(c<=30)return 1.60;if(c<=60)return 1.50;if(c<=100)return 1.42;if(c<=180)return 1.36;return 1.31;}
 function volFactorCarh(q){if(q<24)return 1.03;if(q<100)return 1.00;if(q<250)return 0.96;return 0.93;}
 function activeDecos(decos){return (decos||[]).filter(function(d){return d.on;});}
+/* A DECORATION ON A PLACEMENT THE GARMENT DOES NOT HAVE IS NOT A DECORATION.
+   The fleet sync writes a viewmodel per item and, for anything with no logo placement at all, it
+   fell back to a hard-coded {pl:'chest', method:'embroidery', on:true}. unitPrice already ignored
+   it (it checks the item's real placements), so the per-piece price was right and nothing was ever
+   drawn -- but setupBreakdown did not check, and happily billed $60 of embroidery digitizing for a
+   left chest that does not exist. Nine items, all 398 stores: a board with work pants, shorts and
+   a belt on it carried $180 of setup for three decorations nobody would ever produce.
+   Filtered here rather than only at the sync, so every store is right the moment this ships,
+   without waiting on a data migration to reach it. */
+function realDecos(item,decos){
+  var vpl={};((item&&item.places)||[]).forEach(function(p){if(p.logo)vpl[p.id]=1;});
+  return activeDecos(decos).filter(function(d){return !!vpl[d.pl];});
+}
 function hasDecoPlace(item){return !!((item.places||[]).some(function(p){return p.logo;}));}
 function unitPrice(key,decos,q){key=bkey(key);var r=CFG.rates;
   var _it=BYKEY[key]; if(_it&&_it.layer==='promo')return _it.price_cad||0;   // promo: flat Debco CAD price (customer price)
@@ -767,7 +780,7 @@ var MEGASUB={
   headwear:['Caps & Hats','Trucker & Snapback','Performance & Golf','Beanies & Toques'],
   // All bottoms in one place. classify() already returned mega 'workwear' for these but it was
   // never declared, so work pants and bibs were unreachable in the nav.
-  bottoms:['Joggers & Sweatpants','Work Pants & Bibs','Work Pants','Bibs & Overalls'],
+  bottoms:['Joggers & Sweatpants','Work Pants & Bibs','Work Pants','Shorts','Bibs & Overalls'],
   fr:['FR Hoodies','FR Shirts','FR Tees','FR Pants','FR Jackets','FR Accessories'],
   /* Drinkware split by what it IS. 32 items in one flat "Drinkware" grid, half of them named
      "Easy Breezy" or "Shot Caller", is unnavigable -- a buyer looking for a water bottle had to open
@@ -816,6 +829,7 @@ var RUGGED_CROSS={
   st_logan:'Hoodies & Thermals', st_nautilushoody:'Hoodies & Thermals',
   // Uniform shirts live in Polos, Shirts & Tees but a trades buyer shops Rugged Wear — surface them in both.
   dk_2574:'Work Shirts', rk_sx20:'Work Shirts', rk_sy20:'Work Shirts', rk_sp24:'Work Shirts', rk_sp14:'Work Shirts',
+  rk_sc30:'Work Shirts', rk_sc40:'Work Shirts',
   shirt:'Work Shirts', ashton:'Work Shirts'
 };
 // CROSS-LISTING: one HOME category, plus any second place a buyer would reasonably look. The item is
@@ -860,7 +874,20 @@ function megaName(id){for(var i=0;i<MEGA.length;i++)if(MEGA[i].id===id)return ME
 // bucket a twill button-down fell into — the Camden and Ashton twills are the same garment class as the
 // Dickies twill, so the split drew a line no shopper would draw. One Shirts sub; the work-duty ones
 // cross-list into Rugged Wear (see RUGGED_CROSS) for the trades buyer.
+/* RED KAP AND DICKIES ARE UNIFORM RANGES, NOT SHIRT RANGES.
+   classify() routes anything branded Red Kap or Dickies here, and this returned tops/Shirts
+   unconditionally -- which was fine while the range was five work shirts. The 13 workwear styles
+   added 2026-09-08 then filed EIGHT PAIRS OF WORK PANTS, TWO PAIRS OF SHORTS, A COVERALL, A HI-VIS
+   VEST AND A LEATHER BELT under "Polos, Shirts & Tees -> Shirts", while the Pants & Joggers tile
+   still read 9 and contained not one of them. A warehouse supervisor who asked us specifically what
+   we carry in pants would have browsed the pants aisle and found nothing new.
+   Route by garment; shirts remain the default because that is what most of the range is. */
 function classifyWorkShirt(n){
+  if(/hi-?vis|high.visibility|safety vest|\btraffic\b|reflective/.test(n))return classifyHivis(n);
+  if(/coverall|bib overall|boilersuit/.test(n))return {mega:'bottoms',sub:'Bibs & Overalls'};
+  if(/\bshorts\b/.test(n))return {mega:'bottoms',sub:'Shorts'};
+  if(/\bpants?\b|\btrousers?\b|\bjeans?\b|dungaree/.test(n))return {mega:'bottoms',sub:'Work Pants'};
+  if(/\bbelt\b/.test(n))return {mega:'accessories',sub:'Lifestyle'};
   return {mega:'tops',sub:'Shirts'};
 }
 // Headwear, by what a buyer actually picks between: a crown style. The old split had four sub-buckets
@@ -3140,7 +3167,7 @@ function addFromSheet(){
   toast((was?'Updated · ':'Added · ')+BYKEY[SH.key].name);
 }
 function recCartDecos(key){key=bkey(key);
-  var vm=vmOf(key),decos=activeDecos(vm.decos).map(function(d){return {pl:d.pl,lg:d.lg,ink:d.ink||'auto',method:d.method||'embroidery',colours:d.colours||1,on:true};});
+  var vm=vmOf(key),decos=realDecos(BYKEY[key],vm.decos).map(function(d){return {pl:d.pl,lg:d.lg,ink:d.ink||'auto',method:d.method||'embroidery',colours:d.colours||1,on:true};});
   if(!decos.length){var p=(BYKEY[key].places||[]).filter(function(x){return x.logo;})[0];if(p)decos=[{pl:p.id,lg:(CFG.logos[0]||{}).id,ink:'auto',method:(recDecos(key)[0]||{}).method||'embroidery',colours:1,on:true}];}
   return decos;
 }
@@ -3834,7 +3861,7 @@ function cartSubtotal(){var t=0;Object.keys(CART).forEach(function(k){var it=BYK
   if(it.layer==='promo'){var q=promoQuote(it,c);t+=q.goods+q.decoRun;}   // product + decoration (setup shown separately)
   else t+=unitPrice(k,c.decos,tierQty(k))*c.qty;});return t;}
 function setupBreakdown(){var r=CFG.rates||{},s=r.setup||{},seen={},out=[];
-  Object.keys(CART).forEach(function(k){var it=BYKEY[bkey(k)];if(!it)return;(CART[k].decos||[]).forEach(function(d){if(!d.on)return;
+  Object.keys(CART).forEach(function(k){var it=BYKEY[bkey(k)];if(!it)return;realDecos(it,CART[k].decos).forEach(function(d){
     var key=setupKey(d,it);if(seen[key])return;seen[key]=1;
     var L=logoOf(d.lg),p=placeOf(it,d.pl),plab=p?p.label:d.pl,lname=(L&&L.label)||'Logo',amt,lab;
     if(d.method==='screen'){var c=d.colours||1;amt=(s.screen||0)*c;lab=lname+' · '+plab+' · screen ('+c+'-colour)';}
@@ -4722,7 +4749,10 @@ function recoHeroHtml(){
     return '<button type="button" class="rhcard" data-reco="'+esc(id)+'">'+
       '<span class="rhthumbs">'+th+'</span>'+
       '<span class="rhtx"><b>'+esc(L.name)+'</b>'+
-        '<i>'+listLen(id)+' pieces picked for you, each with a note on why</i></span>'+
+        /* Was "each with a note on why". A board carries a product, a colour, a quantity and a
+           decoration -- it does NOT carry per-item notes, so the card was promising something the
+           board it opens cannot show. Say what is actually in there. */
+        '<i>'+listLen(id)+' pieces, priced and ready to change</i></span>'+
       '<span class="rharrow">\u2192</span></button>';}).join('');
   return '<section class="recohero"><div class="w">'+
     '<div class="rhlbl">Prepared for '+esc(CFG.client||'your team')+'</div>'+
