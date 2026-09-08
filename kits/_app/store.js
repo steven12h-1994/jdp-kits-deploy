@@ -1840,6 +1840,7 @@ function buildStore(){
       with outfitting staff. Removing the band makes the in-person offer the unambiguous focal point
       and lifts the catalogue up the page. */
    '<div id="recohero"></div>'+
+   '<div id="progs"></div>'+
    catTilesHtml()+
    '<section class="offerstrip"><div class="w">'+heroCta+'</div></section>'+
    '<div class="navwrap" id="navwrap">'+
@@ -1904,6 +1905,9 @@ function buildStore(){
   document.getElementById('openCart2').addEventListener('click',function(){openBoard();});
   wireRail();
   wireExplore();
+  /* Painted on first render, not only from the curated-board fetch: most stores have no curated
+     boards, and those are exactly the stores that need the programs. */
+  try{renderPrograms();}catch(e){}
   /* Categories now lives in the persistent bar, so the scroll-revealed chip strip is retired
      outright rather than swapped between states. One control, always in the same place. */
   var _tc=document.getElementById('tbCats');
@@ -2507,7 +2511,28 @@ function openSheet(key,wantCol,fromKey){
    full back 10-12" screen printed, hi-vis back yoke <=10"x2" above the upper reflective stripe. */
 function itemCategory(it){
   var n=String((it&&it.name)||'').toLowerCase(),layer=(it&&it.layer)||'';
-  if(layer==='field'||(it&&it.csa))return 'hivis';
+  /* GARMENT FIRST, layer as the fallback. `layer:'field'` means "the workwear range", NOT "hi-vis"
+     -- the workwear added 2026-09-08 put 13 work pants, coveralls, work shirts and a belt in that
+     layer, and treating them as hi-vis offered a coverall a back-yoke card reading "above the
+     reflective tape" for tape it does not have, and offered a leather belt an embroidered left
+     chest. Anything genuinely hi-vis still reaches 'hivis' below, from its CSA rating or its name.
+     Verified item-by-item against the whole catalogue: no product that used to classify one way
+     classifies differently now except the 13 this rule is for. */
+  /* HI-VIS WINS OVER THE GARMENT TYPE. Hi-Vis Rain Pants are hi-vis first and trousers second. */
+  if(it&&it.csa)return 'hivis';
+  if(/hi-?vis|high.visibility|\btraffic\b|reflective|enhanced visibility|safety vest|tear-?away/.test(n))return 'hivis';
+  if(/\bbelt\b/.test(n))return 'belt';
+  if(/coverall|bib overall|boilersuit/.test(n))return 'coverall';
+  /* PLURAL "shorts" ONLY. `\bshorts?\b` also matches the "Short" in "Short-Sleeve", because the
+     hyphen is a word boundary -- it reclassified 22 shirts, polos and tees as trousers. Found by
+     diffing the classifier's answer for every catalogue item against the previous one, which is the
+     only way a change like this shows itself. */
+  if(/\bshorts\b/.test(n))return 'shorts';
+  if(/\bpants?\b|\btrousers?\b|\bjeans?\b|dungaree/.test(n))return 'pant';
+  /* A plain industrial work shirt is not hi-vis. It used to classify as one purely because it sits
+     in the field layer, so it was offered a back-yoke print described as sitting "above the
+     reflective tape" -- on a shirt with no tape. It gets its own set instead. */
+  if(/work shirt|shop shirt|crew shirt|industrial .*shirt|\bmimix\b/.test(n))return 'workshirt';
   if(/beanie|toque|watch hat|\bcap\b|\bhat\b|trucker|snapback|visor/.test(n))return 'cap';
   if(/backpack|duffel|tote|\bbag\b|cooler|pack\b/.test(n)||layer==='bags')return 'bag';
   if(/\bpolo\b|sport shirt|knit shirt|piqu/.test(n))return 'polo';
@@ -2516,6 +2541,7 @@ function itemCategory(it){
   if(/hood|crewneck|sweatshirt|quarter|1\/4-zip|half-zip|pullover|fleece|midlayer/.test(n))return 'fleece';
   if(/\bvest\b/.test(n))return 'vest';
   if(/jacket|parka|shell|softshell|shacket|puffer|\bcoat\b|rain|3-in-1|6-in-1/.test(n))return 'outer';
+  if(layer==='field')return 'hivis';         // legacy field styles keep exactly the class they had
   return 'other';
 }
 var CFG_SHIRT=[
@@ -2526,8 +2552,17 @@ var CFG_SHIRT=[
   {id:'lcs', name:'Logo + sleeve badge', sub:'A second mark on the left sleeve for a department or division.',
    spots:[{pl:'PRIMARY',method:'embroidery'},{pl:'sleeve',method:'embroidery'}]}
 ];
+/* A work shirt and a coverall are a UNIFORM, so the company name across the back yoke is a normal
+   ask -- it is how a crew is identified across a yard from behind. The polo/dress-shirt set has no
+   back option (nobody prints across the back of a client-facing polo) and the hi-vis set describes
+   the back print in terms of reflective tape these garments do not have. Hence a third set. */
+var CFG_WORKSHIRT=CFG_SHIRT.concat([
+  {id:'lcb', name:'Logo + name across the back',
+   sub:'Logo left chest, company name screen printed across the back yoke — how a crew is recognised from behind.',
+   spots:[{pl:'PRIMARY',method:'embroidery'},{pl:'backyoke',method:'screen',colours:1}]}
+]);
 var CONFIGS={
-  polo:CFG_SHIRT, woven:CFG_SHIRT,
+  polo:CFG_SHIRT, woven:CFG_SHIRT, workshirt:CFG_WORKSHIRT, coverall:CFG_WORKSHIRT,
   tee:[
     {id:'sp', name:'{P} print',  sub:'Screen printed — the best value on tees. Choose your ink count below.', tag:'Best value',
      spots:[{pl:'PRIMARY',method:'screen',colours:1}]},
@@ -4702,6 +4737,199 @@ function renderRecoHero(){
   el.querySelectorAll('[data-reco]').forEach(function(b){
     b.addEventListener('click',function(){openBoard(b.dataset.reco);});});
 }
+/* ---- CREW PROGRAMS: recommendations shaped like the question people actually ask -------------
+   ATTA Elevators' warehouse supervisor, 2026-09-08: "can you tell us what you can offer for
+   hats/hoodies/workwear/pants etc". That is the real shape of the question. A buyer asks BY CREW
+   AND BY CATEGORY -- never by product key -- and the store's answer was one flat nine-item "JDP
+   starter list", byte-identical in all 398 stores, which answers neither half: it does not say
+   what we carry for a warehouse, and it does not say what we carry in trousers.
+
+   So: pick your crew, get a complete program, one line per category, every line priced at this
+   store's own minimum. The categories ARE the answer to "what do you offer for hats / hoodies /
+   workwear / pants".
+
+   NOTHING HERE IS PER-CLIENT. Each slot is filled from the store's OWN catalogue at runtime, so a
+   new product joins every program on the day it ships -- the 13 workwear styles added today land
+   in three of these without a line of per-store work -- and a store that does not carry a category
+   simply renders one slot fewer instead of an empty row. */
+var PROGRAMS=[
+  {id:'field',name:'Field & service crew',sub:'The people in the van, on site and in front of the customer.',
+   slots:[
+     {cat:'hivis',    lab:'Hi-vis top',        why:'CSA-rated, so they are covered the moment they step on a site.',
+      avoid:/\bvest\b/i},
+     {cat:'workshirt',lab:'Work shirt',        why:'The shirt that meets the customer, and comes out of an industrial wash ready to wear.'},
+     {cat:'pant',     lab:'Work pants',        why:'Twill built for ladder and pit work — not office trousers.'},
+     {cat:'coverall', lab:'Coverall',          why:'Full cover over whatever they arrived in — machine rooms, pits and shafts.'},
+     {cat:'fleece',   lab:'Hoodie / midlayer', why:'The layer they actually live in nine months of the year.'},
+     {cat:'outer',    lab:'Outer layer',       why:'For the shoulder seasons, the roof and the loading dock.'},
+     {cat:'cap',      lab:'Cap',               why:'The cheapest branded piece you own and the one that gets seen most.'}
+   ]},
+  {id:'shop',name:'Warehouse & shop',sub:'The people in the building all day, every day.',
+   slots:[
+     {cat:'tee',      lab:'Everyday tee',      why:'The piece that gets worn to destruction. Order it by the box.'},
+     {cat:'fleece',   lab:'Hoodie',            why:'A cold building in February decides this one for you.'},
+     {cat:'workshirt',lab:'Work shirt',        why:'Sharper than a tee for anyone who steps out to meet a driver or a customer.'},
+     {cat:'pant',     lab:'Work pants',        why:'Finishes the uniform. Supplied blank unless you ask us to decorate.'},
+     {cat:'shorts',   lab:'Shorts',            why:'The summer half of the same uniform, in the same twill.'},
+     {cat:'cap',      lab:'Cap',               why:'Keeps hair out of the work and your name on their head.'},
+     {cat:'hivis',    lab:'Hi-vis vest',       why:'One per person, kept by the door — forklifts and visitors both.',prefer:/vest/i}
+   ]},
+  {id:'office',name:'Office & client-facing',sub:'Reception, sales and anyone in front of a client.',
+   slots:[
+     {cat:'polo',     lab:'Polo',              why:'The default client-facing piece — branded without looking like workwear.'},
+     {cat:'outer',    lab:'Softshell or jacket',why:'What they put on to walk a client across a site.'},
+     {cat:'vest',     lab:'Quilted vest',      why:'The layer that reads as put-together indoors and outdoors both.',
+      prefer:/quilt|puffer|insulat|softshell|light/i},
+     {cat:'fleece',   lab:'Midlayer',          why:'A quarter-zip or crew that layers under the jacket and still reads as office.',
+      prefer:/quarter|1\/4|half.zip|crewneck/i},
+     {cat:'cap',      lab:'Cap',               why:'For site visits and trade shows.'},
+     {cat:'bag',      lab:'Bag',               why:'Travels further than any garment — airports, gyms, client offices.',
+      prefer:/backpack|tote|brief|laptop|duffel|weekender/i}
+   ]},
+  {id:'newhire',name:'New-hire starter pack',sub:'What every person gets on day one.',
+   slots:[
+     {cat:'tee',      lab:'Tee',               why:'Two or three per person. The everyday layer.'},
+     {cat:'fleece',   lab:'Hoodie',            why:'One per person. The piece they will be wearing in your photos.'},
+     {cat:'hivis',    lab:'Hi-vis',            why:'Non-negotiable if they set foot on a site.',
+      prefer:/vest/i},
+     {cat:'cap',      lab:'Cap',               why:'The cheapest thing in the pack and the one they keep longest.'},
+     {cat:'bag',      lab:'Bag',               why:'Something to carry it all home in on day one.',
+      prefer:/backpack|duffel|tote/i}
+   ]}
+];
+/* Programs are CLOTHING AND KIT, never giveaways: promo is a separate quantity model with its own
+   minimums, and sliding a branded pen into a uniform program makes the program look unserious. */
+function progPool(){
+  var order=CFG.order||{},out=[],seen={};
+  ['field','premium','office','bags'].forEach(function(L){
+    (order[L]||[]).forEach(function(k){if(BYKEY[k]&&!seen[k]){seen[k]=1;out.push(k);}});});
+  return out;
+}
+/* Deterministic and explainable, in this order: an item we have explicitly marked an essential,
+   then one marked a top pick within its category, then the lowest price at the minimum. A program
+   is a STARTING POINT, so where nothing distinguishes two products the cheaper one wins -- the
+   buyer trades up from a number they are comfortable with far more readily than down. */
+function progScore(k){
+  var it=BYKEY[k]||{};
+  /* A WOMEN'S-ONLY STYLE IS NEVER THE DEFAULT FOR A WHOLE CREW. Cheapest-wins put "Women's Dura-Kap
+     Industrial Pants" up as the work pant for everybody -- correct on price, absurd as the single
+     line a mixed crew is quoted from. It stands on its own only when nothing else fills the slot.
+     TESTED ON THE FIELD, NOT THE FLAG: `womens:true` means a women's cut is AVAILABLE, which is a
+     reason to prefer a style, not to penalise it -- 74 of the 99 items carrying it are men's styles
+     with a women's companion SKU. Reading it as "this is a women's garment" demoted the long-sleeve
+     work shirt and cost the program $37 a head for no reason. Only the name is unambiguous. */
+  var wonly=/\bwomen|\bladies|\bwmn\b/i.test(it.name||'');
+  return [it.ess||99,wonly?1:0,it.rec?0:1,unitPrice(k,vmOf(k).decos,moq())];
+}
+/* `prefer` narrows a slot to the garment the slot actually names, `avoid` rules one out. Both are
+   needed and neither is decoration: cheapest-wins alone answered "work pants" with a pair of
+   SHORTS, "quarter-zip" with the same hoodie already in the list above it, and "hi-vis top" with a
+   mesh vest -- each individually defensible and collectively a program no buyer would recognise as
+   theirs. Both are soft: if the filter empties the category the slot falls back to the open field,
+   because one imperfect suggestion beats a hole in the program. */
+/* Straight lexicographic comparison of the score tuple. Written out rather than nested inline so
+   adding a rank never turns into a chain of ternaries nobody can read -- which is how the
+   women's-cut rule would otherwise have gone in. */
+function betterScore(a,b){
+  for(var i=0;i<a.length;i++){if(a[i]!==b[i])return a[i]<b[i];}
+  return false;
+}
+function progPick(cat,used,prefer,avoid){
+  var best=null,bs=null;
+  progPool().forEach(function(k){
+    if(used[k]||itemCategory(BYKEY[k])!==cat)return;
+    var nm=BYKEY[k].name||'';
+    if(prefer&&!prefer.test(nm))return;
+    if(avoid&&avoid.test(nm))return;
+    var sc=progScore(k);
+    if(!bs||betterScore(sc,bs)){bs=sc;best=k;}
+  });
+  return best;
+}
+function programById(id){var p=null;PROGRAMS.forEach(function(x){if(x.id===id)p=x;});return p;}
+function programItems(id){
+  var p=programById(id);if(!p)return null;
+  var used={},rows=[];
+  p.slots.forEach(function(sl){
+    var k=(sl.prefer||sl.avoid)?progPick(sl.cat,used,sl.prefer,sl.avoid):null;
+    if(!k)k=progPick(sl.cat,used,null,null);
+    if(!k)return;                 // store does not carry the category: one slot fewer, never a gap
+    used[k]=1;rows.push({k:k,lab:sl.lab,why:sl.why});
+  });
+  return rows.length>=3?{prog:p,rows:rows}:null;   // fewer than three is not a program
+}
+var PROGID=null;
+function progAvailable(){return PROGRAMS.filter(function(p){return !!programItems(p.id);});}
+function programsHtml(){
+  var avail=progAvailable();if(!avail.length)return '';
+  var pid=PROGID;
+  if(!pid||!programById(pid)||!programItems(pid))pid=avail[0].id;
+  var m=programItems(pid);if(!m)return '';
+  var q=moq();
+  var chips=avail.map(function(p){
+    return '<button type="button" class="pgchip'+(p.id===pid?' on':'')+'" data-prog="'+esc(p.id)+'">'+
+      esc(p.name)+'</button>';}).join('');
+  var tot=0,nnew=0;
+  var rows=m.rows.map(function(r){
+    var it=BYKEY[r.k],vm=vmOf(r.k);
+    var o=overlayHtml(it,vm,browseColour(r.k,it),'front',browseCols(it),browsePlaces(it));
+    var u=unitPrice(r.k,vm.decos,q);tot+=u;
+    var inb=!!CART[r.k];if(!inb)nnew++;
+    var dec=(it.std&&it.std.label)?it.std.label:'Supplied blank';
+    return '<div class="pgrow'+(inb?' in':'')+'" data-pgkey="'+esc(r.k)+'">'+
+      '<button type="button" class="pgim mstage" data-pgopen="'+esc(r.k)+'" aria-label="'+esc(it.name)+'">'+
+        '<img class="g" src="'+o.g+'" alt="" loading="lazy" decoding="async">'+o.lg+'</button>'+
+      '<div class="pgtx"><i class="pgslot">'+esc(r.lab)+'</i>'+
+        '<b>'+esc(it.name)+'</b>'+
+        '<em>'+esc(r.why)+'</em>'+
+        '<span class="pgdec">'+esc(dec)+'</span></div>'+
+      '<div class="pgpr"><b>'+money(u)+'</b><i>each at '+q+'+</i>'+
+        '<button type="button" class="pgadd" data-pgkey="'+esc(r.k)+'">'+
+          (inb?'✓ On your board':'+ Add')+'</button></div>'+
+    '</div>';}).join('');
+  /* The honest total: one of each, at the minimum. It is the number a buyer works out on paper
+     anyway, and showing it first is what makes the program feel costed rather than aspirational. */
+  return '<section class="progs"><div class="w">'+
+    '<div class="pglbl">Not sure where to start?</div>'+
+    '<h2 class="pgh">Pick the crew — we’ll show you the program</h2>'+
+    '<p class="pgsub">Each one is a complete kit, one line per category, priced at your '+q+
+      '-piece minimum. Change anything, or add the pieces you want.</p>'+
+    '<div class="pgchips">'+chips+'</div>'+
+    '<div class="pgsubh">'+esc(m.prog.sub)+'</div>'+
+    '<div class="pglist">'+rows+'</div>'+
+    '<div class="pgfoot"><div class="pgtot"><b>'+money(tot)+'</b><i>one of each, per person, at '+q+'+</i></div>'+
+      '<button type="button" class="pgall" id="pgAddAll"'+(nnew?'':' disabled')+'>'+
+        (nnew?('Add all '+nnew+' to my board'):'All of these are on your board')+'</button></div>'+
+    '</div></section>';
+}
+function renderPrograms(){
+  var el=document.getElementById('progs');if(!el)return;
+  el.innerHTML=programsHtml();
+  el.querySelectorAll('.mstage .g').forEach(function(im){
+    if(im.complete)im.classList.add('ld');
+    else im.addEventListener('load',function(){im.classList.add('ld');});});
+  el.querySelectorAll('[data-prog]').forEach(function(b){
+    b.addEventListener('click',function(){PROGID=b.dataset.prog;renderPrograms();});});
+  el.querySelectorAll('[data-pgopen]').forEach(function(b){
+    b.addEventListener('click',function(){openSheet(b.dataset.pgopen);});});
+  el.querySelectorAll('.pgadd').forEach(function(b){
+    b.addEventListener('click',function(ev){
+      ev.stopPropagation();
+      var k=b.dataset.pgkey;if(!k||!BYKEY[k])return;
+      if(CART[k]){delete CART[k];}
+      else{CART[k]={qty:moq(),colour:vmOf(k).colour,decos:recCartDecos(k)};}
+      saveCart();refreshCartUI();renderPrograms();});});
+  var all=el.querySelector('#pgAddAll');
+  if(all)all.addEventListener('click',function(){
+    var pid=PROGID||(progAvailable()[0]||{}).id,m=programItems(pid);if(!m)return;
+    var n=0;
+    m.rows.forEach(function(r){
+      if(CART[r.k])return;
+      CART[r.k]={qty:moq(),colour:vmOf(r.k).colour,decos:recCartDecos(r.k)};n++;});
+    saveCart();refreshCartUI();renderPrograms();openBoard();
+    toast(n?('Added the '+m.prog.name.toLowerCase()+' program — '+n+' piece'+(n===1?'':'s')):
+             'Every piece is already on your board');});
+}
 function catTilesHtml(){
   var cats=(typeof CATS!=='undefined'&&CATS.length)?CATS:[];
   if(!cats.length)return '';
@@ -4961,7 +5189,7 @@ function syncBoardsFromServer(){
              scrolled out of sight; once the strip wraps on a phone it ate a whole row above the
              two boards that are the actual sales document. Repaint when it removes something. */
           if(hideStaleStarter()){refreshCartUI();syncBoardIfOpen();}
-          renderRecoHero();
+          renderRecoHero();renderPrograms();
         }catch(e){}
         return changed;
       });
