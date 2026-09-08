@@ -2958,10 +2958,26 @@ function configCardsHtml(){
           :(d>0?('<em>+'+money(d)+'</em>'):('<em class="save">'+money(-d)+' less</em>')))+
       '</span></button>';
   }).join('');
-  var note=(itemCategory(it)==='hivis')
-    ? '<div class="cfgnote">CSA / ANSI: nothing is placed over the reflective tape, and total '+
-      'decoration stays inside the Class 2 area limit. Back marks sit on the yoke, above the upper stripe.</div>'
-    : '';
+  /* THE COMPLIANCE NOTE HAS TO MATCH THE GARMENT IN FRONT OF THE BUYER. One blanket sentence said
+     "nothing is placed over the reflective tape" and "back marks sit on the yoke, above the upper
+     stripe" for every hi-vis item -- and both halves are wrong for the two products Steven
+     specified on 2026-09-08. On a tear-away vest the logo is embroidered ONTO the left-chest tape;
+     that is where it goes and there is nowhere else on a vest for it. On a traffic shirt the back
+     print is Loc D, the panel BELOW the tapes, not the yoke above them. A compliance claim that
+     contradicts the placement printed two lines above it is worse than no note. */
+  var _ck=configKey(it),note='';
+  if(_ck==='hivisvest'){
+    note='<div class="cfgnote">CSA / ANSI: on a vest the left-chest logo is embroidered onto the '+
+      'reflective tape \u2014 that is the standard placement and it does not reduce the certified '+
+      'area. Back marks sit in the centre-back panel, clear of the stripes.</div>';
+  }else if(_ck==='hivistee'){
+    note='<div class="cfgnote">CSA / ANSI: prints sit in the panels between the tapes, so the '+
+      'reflective area is untouched. The back mark goes below the upper stripe, in the '+
+      'centre-back panel.</div>';
+  }else if(itemCategory(it)==='hivis'){
+    note='<div class="cfgnote">CSA / ANSI: nothing is placed over the reflective tape, and total '+
+      'decoration stays inside the certified area. We confirm the exact placement on your proof.</div>';
+  }
   /* Only the part .shnote does not already say. .shnote lives further down the same panel and
      already covers "prices are per piece, decorated, setup shows once" -- printing that twice in
      two paragraphs a few pixels apart just made both look like boilerplate. */
