@@ -355,14 +355,6 @@ body:has(.demobar){padding-bottom:76px}
 .leadform{width:100%;height:62vh;min-height:440px;border:0;margin-top:16px;background:#fff;border-radius:12px}
 .leadbtn{display:block;text-align:center;margin-top:18px;background:var(--a);color:#fff;font-weight:850;font-size:16px;padding:15px 20px;border-radius:14px;transition:filter .12s,transform .12s}
 .leadbtn:hover{filter:brightness(1.07)}.leadbtn:active{transform:scale(.99)}
-.leadfrm{margin-top:16px}
-.leadfrm input{width:100%;font-family:inherit;font-size:16px;padding:15px 16px;border:1.6px solid var(--line);
-  border-radius:14px;background:#fff;color:var(--ink);-webkit-appearance:none}
-.leadfrm input:focus{outline:0;border-color:var(--a);box-shadow:0 0 0 3px rgba(37,99,235,.16)}
-/* .leadbtn was written for an <a>; as a submit button it needs these to match. */
-.leadfrm .leadbtn{width:100%;border:0;cursor:pointer;font-family:inherit;margin-top:12px}
-.leadfrm .leadbtn[disabled]{opacity:.7;cursor:default}
-.leadnote{text-align:center;margin-top:11px;font-size:12.5px;color:var(--mut)}
 .leadphone{text-align:center;margin-top:12px;font-size:14px;color:var(--mut)}
 .leadphone b{color:var(--ink)}
 .lead .shx{position:sticky;top:12px;margin-left:auto;margin-right:12px;margin-top:12px;flex-shrink:0}

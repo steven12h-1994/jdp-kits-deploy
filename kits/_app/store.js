@@ -69,16 +69,8 @@ function autoInkFor(method,rgb,logo,colours){
   var gl=hexRelLum(rgb),k=INK[logo.id];
   var canHybrid=(method==='embroidery')||((colours||1)>=2);
   if(k&&typeof k.lum==='number'){
-    /* A DARK garment takes the authored hybrid whenever one exists and the run can pay for it,
-       BEFORE the measured-contrast test. The ink probe medians the WHOLE mark, so a lockup whose
-       dominant element clears the test can still hide a second one: Koyo Foods is a green pine
-       badge (94% of the ink) with a BLACK wordmark inside it -- the green median passed on black
-       and navy while the company NAME disappeared. The hybrid is drawn for precisely this garment,
-       so it beats a measurement that cannot see a per-element clash. Kits with no ondark asset are
-       untouched, and the two that have one (attaelevators, farm-girl) already failed the test and
-       took this branch, so nothing in the fleet changes behaviour. */
-    if(gl<0.18&&canHybrid&&logo.inks.ondark)return 'ondark';
     if(contrast(k.lum,gl)<INK_MINRATIO){
+      if(gl<0.18&&canHybrid&&logo.inks.ondark)return 'ondark';
       return gl<0.18?'white':'dark';
     }
     return 'brand';
@@ -2098,78 +2090,27 @@ function buildStore(){
     document.getElementById('toast').classList.remove('on');openBoard();});
   ['leadOpen1','leadOpen2'].forEach(function(id){var b=document.getElementById(id);if(b)b.addEventListener('click',openLead);});
 }
-// Generic/demo store: ONE FIELD. The embedded four-field Airtable form (Contact Name / Work Email
-// / Website / Notes) that used to load here via CFG.cta_form is gone -- it asked four things where
-// the website asks one, and it was the highest-friction step in the whole funnel. This now uses the
-// SAME capture the main site uses: a work email, posted to the lead webhook, with the company,
-// website and contact name derived from the address so the Airtable record is just as complete.
-var LEAD_HOOK='https://hyperagent.com/api/webhooks/cms69ljxt0kod08adokdar5i6/receive';
-var LFREEMAIL={'gmail.com':1,'googlemail.com':1,'yahoo.com':1,'yahoo.ca':1,'ymail.com':1,'hotmail.com':1,
-  'hotmail.ca':1,'outlook.com':1,'live.com':1,'live.ca':1,'msn.com':1,'aol.com':1,'icloud.com':1,'me.com':1,
-  'mac.com':1,'protonmail.com':1,'proton.me':1,'gmx.com':1,'mail.com':1,'yandex.com':1,'zoho.com':1,
-  'rogers.com':1,'sympatico.ca':1,'bell.net':1,'bellnet.ca':1,'shaw.ca':1,'telus.net':1,'videotron.ca':1,
-  'cogeco.ca':1,'eastlink.ca':1,'xplornet.com':1};
-var LROLEBOX={info:1,ops:1,operations:1,sales:1,admin:1,office:1,accounts:1,accounting:1,ap:1,ar:1,
-  hello:1,contact:1,enquiries:1,inquiries:1,purchasing:1,procurement:1,buyer:1,hr:1,payroll:1,
-  safety:1,service:1,orders:1,estimating:1,estimates:1,quotes:1,shop:1,warehouse:1,dispatch:1,
-  team:1,mail:1,email:1,general:1,reception:1,front:1,billing:1,support:1,help:1,marketing:1};
-function lSiteFromEmail(email){
-  var m=/^[^@\s]+@([^@\s]+\.[a-z]{2,})$/i.exec((email||'').trim()); if(!m)return '';
-  var d=m[1].toLowerCase().replace(/^www\./,''); return LFREEMAIL[d]?'':d;
-}
-function lCompanyFromSite(site){
-  var b=(site||'').replace(/^https?:\/\//i,'').replace(/^www\./i,'').split('/')[0].split('.')[0];
-  if(!b)return '';
-  return b.replace(/[-_]+/g,' ').replace(/\b[a-z]/g,function(c){return c.toUpperCase();});
-}
-function lNameFromEmail(email){
-  var m=/^([^@\s]+)@/.exec((email||'').trim()); if(!m)return '';
-  var local=m[1].toLowerCase().replace(/\d+$/,'');
-  if(LROLEBOX[local.replace(/[._-]/g,'')])return '';
-  var parts=local.split(/[._-]+/).filter(function(x){return x&&!LROLEBOX[x];});
-  if(!parts.length)return '';
-  return parts.map(function(x){
-    return x.length===1?x.toUpperCase()+'.':x.charAt(0).toUpperCase()+x.slice(1);
-  }).join(' ');
-}
-function sendStoreLead(email){
-  var site=lSiteFromEmail(email), company=lCompanyFromSite(site), name=lNameFromEmail(email);
-  var body={name:name||'',companyName:company||'',companyWebsite:site||'',website:site||'',
-    email:email||'',products:'',status:'pending',scope:'all',country:'CA',
-    source:'Website',submittedAt:new Date().toISOString(),
-    airtable:{base:'appCYDBvfvfaLfzyi',table:'tbl3ctjDqg6nyQDao'}};
-  try{fetch(LEAD_HOOK,{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify(body),keepalive:true}).catch(function(){});}catch(e){}
-}
-function leadSubmit(e){
-  if(e&&e.preventDefault)e.preventDefault();
-  var inp=document.getElementById('leadEmail'); if(!inp)return false;
-  var email=(inp.value||'').trim();
-  if(!email||email.indexOf('@')<0){try{inp.focus();}catch(_){} return false;}
-  var btn=document.getElementById('leadBtn'); if(btn){btn.textContent='Sending…';btn.disabled=true;}
-  sendStoreLead(email);
-  var b=document.querySelector('#lead .leadb');
-  if(b)b.innerHTML='<div class="eyb">On its way</div><h2>Got it \u2014 check your inbox.</h2>'+
-    '<p class="leadsub">We\u2019ll send a recommended lineup for your team, your logo on the gear and exact '+
-    'pricing \u2014 usually within one business day. No obligation.</p>';
-  return false;
-}
+// Generic/demo store: a conversion-focused lead modal. When a published Airtable form URL is configured
+// (CFG.cta_form), it embeds that form (submissions land straight in Airtable). Otherwise it shows a
+// clear contact fallback so the CTA always works.
 function openLead(){
-  var cta=CFG.cta||{},el=document.getElementById('lead');
-  el.classList.remove('embed');
-  el.innerHTML='<button class="shx" id="leadX" aria-label="Close">\u2715</button><div class="leadb">'+
-    '<div class="eyb">Free \u00b7 no obligation</div><h2>Get your own branded store</h2>'+
-    '<p class="leadsub">Just your work email \u2014 that\u2019s it. We\u2019ll send a recommended lineup for your '+
-    'team, your logo on every piece, and exact pricing for your quantities.</p>'+
-    '<form id="leadForm" class="leadfrm">'+
-      '<input type="email" id="leadEmail" placeholder="Work email" required aria-label="Work email" '+
-        'autocomplete="email" inputmode="email" autocapitalize="off" autocorrect="off" '+
-        'spellcheck="false" enterkeyhint="send">'+
-      '<button type="submit" class="leadbtn" id="leadBtn">'+esc(cta.label||'Get my store \u2014 free')+' \u2192</button>'+
-    '</form>'+
-    '<div class="leadnote">One quick email \u2014 no spam, and nothing to buy.</div>'+
-    (cta.phone?'<div class="leadphone">or call <b>'+esc(cta.phone)+'</b></div>':'')+'</div>';
-  var f=document.getElementById('leadForm'); if(f)f.addEventListener('submit',leadSubmit);
+  var cta=CFG.cta||{},form=CFG.cta_form,el=document.getElementById('lead');
+  var inner;
+  if(form){
+    // Embedded Airtable form carries its own title/fields — keep our chrome minimal so it's the focus.
+    el.classList.add('embed');
+    inner='<button class="shx" id="leadX" aria-label="Close">✕</button>'+
+      '<div class="leadhd"><span class="eyb">Free · no obligation</span> Get your own branded store</div>'+
+      '<iframe class="leadform" src="'+esc(form)+'" frameborder="0"></iframe>';
+  } else {
+    el.classList.remove('embed');
+    inner='<button class="shx" id="leadX" aria-label="Close">✕</button><div class="leadb">'+
+      '<div class="eyb">Free · no obligation</div><h2>Get your own branded store</h2>'+
+      '<p class="leadsub">Tell us about your team and we’ll build a store like this — your logo, your colours, your gear — and with <b>live pricing</b> and an exact quote — no obligation.</p>'+
+      '<ul class="leadben"><li>Your logo on real gear</li><li>Your team’s colours &amp; sizes</li><li>Live pricing · no minimum beyond 12 pcs</li></ul>'+
+      '<a class="leadbtn" href="'+esc(cta.href||'#')+'">Email us to start →</a>'+(cta.phone?'<div class="leadphone">or call <b>'+esc(cta.phone)+'</b></div>':'')+'</div>';
+  }
+  el.innerHTML=inner;
   document.getElementById('leadX').addEventListener('click',closeAll);
   document.getElementById('ov').classList.add('on');
   document.getElementById('lead').classList.add('on');
@@ -5056,127 +4997,98 @@ function catTileImg(cat){
    one redirects into the buyer's own board. And a REAL curated board always wins -- if the store has
    one on the server, the generated programs step aside completely rather than competing with work
    somebody actually did for that client. */
+/* THE THREE STANDARD PROGRAMS. Steven picked these item by item on 2026-09-09, so they are EXPLICIT
+   KEYS rather than category slots. That is a deliberate downgrade in cleverness: the slot resolver
+   could fill "a hoodie" from whatever each store happened to carry, but every kit now carries the
+   same 506-item catalogue, so resolving adds nothing and takes away the merchandiser's control. A
+   named list is also auditable -- you can read it against his message and see they match.
+   A key that is not in a given store is skipped, and a program with fewer than three surviving
+   pieces does not render, so a scoped-down store degrades to fewer cards rather than to a gap. */
 var PROG_SPECS=[
-  {id:'field',name:'On the tools',
-   sub:'Everyone who works in a van, a shop, a yard or on a site.',
-   slots:[
-     {cat:'hivis',    lab:'Hi-vis top',   avoid:/\bvest\b/i,
-      why:'Keeps them compliant the moment they step out of the van. Front and back printing is what gets a crew recognised on a shared site.'},
-     {cat:'hivis',    lab:'Hi-vis vest',  prefer:/tear-?away|tearaway|5-?point|5 pt/i,
-      why:'Tear-away seams are the point: if it snags on machinery it lets go instead of pulling the wearer in. Keep spares by the door for visitors and subs.'},
-     {cat:'workshirt',lab:'Work shirt',
-      why:'The piece your customer actually sees at their door. Comes out of an industrial wash still looking like a company that turns up on time.'},
-     {cat:'pant',     lab:'Work pants',   prefer:/874|industrial|dura-?kap|shop pant/i,
-      why:'Knees and seat are where work pants die, and these are cut for it. Supplied blank — nobody decorates a work pant.'},
-     {cat:'fleece',   lab:'Hoodie',
+  {id:'crew',name:'Crew Uniform Program',
+   sub:'One program for the whole company — the crew on the tools and the people selling the work.',
+   items:[
+     {k:'crewtee',   lab:'Everyday tee',
+      why:'Gets worn to destruction, so buy it by the box. Screen printed at the left chest, which is a fraction of the cost of embroidery and what a crew actually wants.'},
+     {k:'st_sonora', lab:'Polo',
+      why:'The piece that carries you from the shop floor into a customer meeting without changing. Soft knit, holds its shape through a laundry cycle.'},
+     {k:'vault',     lab:'Hoodie',
       why:'The layer they genuinely live in from September to May, which makes it the piece your logo gets seen on most. Order deeper than you think.'},
-     {cat:'outer',    lab:'Softshell',    only:['fall','winter','spring'],
-      why:'Wind and light rain without the bulk of a parka — the jacket that stays on for a site walk and comes off in the van.'},
-     {cat:'sys',      lab:'Winter jacket · 3-in-1', only:['fall','winter'],
-      why:'One purchase, three jackets: liner alone, shell alone, or both at −20°C. It is the line that stops a crew buying their own coats in January — and the liner is branded too, so the logo does not disappear indoors.'},
-     {cat:'cap',      lab:'Cap',
-      why:'The cheapest branded thing you will ever buy and the one that gets worn off the clock.'}
+     {k:'chill',     lab:'Puffy vest',
+      why:'Warmth with the arms free — the layer that stays on indoors and under a jacket outside. The most-worn thing on this list after the hoodie.'},
+     {k:'softshell', lab:'Softshell jacket',
+      why:'Wind and light rain without the bulk of a parka. The jacket that goes on for a site walk and comes off in the van.'},
+     {k:'cs_cyclone',lab:'Insulated jacket',
+      why:'Insulated softshell rated to 8000 mm waterproof, 100 g through the body and 80 g in the sleeves — real winter warmth that still moves like a softshell.'}
    ]},
-  {id:'shop',name:'In the building',
-   sub:'Warehouse, shop floor, production and the counter.',
-   slots:[
-     {cat:'tee',      lab:'Everyday tee',
-      why:'Gets worn to destruction, so buy it by the box. A left-chest print costs a fraction of embroidery and is what a shop crew actually wants.'},
-     {cat:'fleece',   lab:'Hoodie',
-      why:'A cold building in February decides this one for you. It is also the piece people keep for years, which is free advertising.'},
-     {cat:'workshirt',lab:'Work shirt',
-      why:'One step sharper than a tee for anyone who steps out to meet a driver, an inspector or a customer at the counter.'},
-     {cat:'pant',     lab:'Work pants',   prefer:/874|industrial|dura-?kap|shop pant/i,
-      why:'Finishes the uniform so the crew reads as one company rather than as whoever wore their own jeans.'},
-     {cat:'sys',      lab:'Winter jacket · 3-in-1', only:['fall','winter'],
-      why:'Yard and dock crews are outside more than anyone expects. A 3-in-1 covers autumn and deep winter in one line, so you buy once.'},
-     {cat:'cap',      lab:'Cap',
-      why:'Keeps hair out of the work and your name on their head. The most-worn thing on this list.'},
-     {cat:'hivis',    lab:'Hi-vis vest',  prefer:/tear-?away|tearaway|5-?point|5 pt/i,
-      why:'One per person, kept by the door. Forklifts and visitors both.'}
+  {id:'premium',name:'Premium · In Front of the Client',
+   sub:'Sales, management and anyone whose first impression is the company’s.',
+   items:[
+     {k:'cbc_advantage_polo', lab:'Polo',
+      why:'Cutter & Buck’s cotton-blend piqué in a recycled build — the polo that still looks pressed at the end of a client day. GRS-certified recycled polyester and OEKO-TEX Standard 100, which is worth saying out loud on a tender.'},
+     {k:'cb_qzip',            lab:'Half-zip',
+      why:'The layer that reads as considered rather than casual. Soft-knit, no logo-on-fleece bulk, and it sits properly under a jacket.'},
+     {k:'cbc_evoke_fleece',   lab:'Full-zip fleece',
+      why:'Honeycomb-textured recycled fleece that reads as a jacket, not a sweatshirt. For the meeting that starts in a boardroom and ends on a site.'},
+     {k:'st_cruise',          lab:'Softshell jacket',
+      why:'Stormtech’s client-facing shell: bonded, structured, and cut so it still looks sharp over a polo.'},
+     {k:'vest',               lab:'Quilted vest',
+      why:'The most-requested piece in any office program — put-together indoors and outdoors both, and it flatters every build on the team.'}
    ]},
-  {id:'office',name:'In front of the client',
-   sub:'Reception, sales, management and anyone meeting a customer.',
-   slots:[
-     {cat:'polo',  lab:'Polo',
-      why:'The default client-facing piece: branded without reading as workwear. What reception and sales wear every day.'},
-     {cat:'outer', lab:'Softshell or jacket',
-      why:'What they put on to walk a client across a site — smart enough for the meeting, warm enough for the walk.'},
-     {cat:'vest',  lab:'Quilted vest', prefer:/quilt|puff|insulat|softshell|light/i, only:['fall','winter'],
-      why:'Reads as put-together indoors and outdoors both, which is why it is the most-requested piece in an office program.'},
-     {cat:'fleece',lab:'Midlayer',     prefer:/quarter|1\/4|half.zip|crewneck/i,
-      why:'A quarter-zip or crew that layers under the jacket and still looks like the office rather than the yard.'},
-     {cat:'cap',   lab:'Cap',
-      why:'For site visits and trade shows — and the piece you hand over when a client asks where you got it.'},
-     {cat:'bag',   lab:'Bag',          prefer:/backpack|tote|brief|laptop|duffel|weekender/i,
-      why:'Travels further than any garment you own: airports, gyms, client offices. The highest-mileage logo on this list.'}
+  {id:'hivis',name:'CSA Hi-Vis Program',
+   sub:'Everything a crew needs to be site-legal, from a summer tee to −20°C.',
+   items:[
+     {k:'tvest',  lab:'Tear-away vest',
+      why:'The vest we recommend. Tear-away seams are the point: if it snags on machinery it lets go instead of pulling the wearer in. Logo embroidered onto the left-chest tape, company name across the back.'},
+     {k:'tee',    lab:'Hi-vis tee',
+      why:'CSA Z96 Class 1. Front and back printing is what gets a crew recognised on a shared site — from behind as often as from the front.'},
+     {k:'tt4',    lab:'Hi-vis long sleeve',
+      why:'The same shirt with the arms covered, for shoulder seasons and anywhere sleeves are the site rule.'},
+     {k:'hoodie', lab:'Hi-vis hoodie',
+      why:'CSA Z96 Class 2. Compliance and warmth in one layer, so nobody covers their hi-vis with a personal hoodie and stops being compliant.'},
+     {k:'tj2',    lab:'Hi-vis softshell',
+      why:'Class 2 wind and rain protection that is not a parka — the nine-month jacket.'},
+     {k:'tj3',    lab:'3-in-1 winter jacket',
+      why:'One purchase, three jackets: liner alone, shell alone, or both at −20°C. The line that stops a crew buying their own coats in January — and the liner is branded too, so the logo does not disappear indoors.'}
    ]}
 ];
-/* Clothing and kit only -- promo has its own quantity model, and a branded pen inside a uniform
-   program makes the program look unserious. Carhartt is a brand DECISION, never a default. */
-function progPool(){
-  var order=CFG.order||{},out=[],seen={};
-  ['field','premium','office','bags'].forEach(function(L){
-    (order[L]||[]).forEach(function(k){
-      if(!BYKEY[k]||seen[k]||isCarhartt(k))return;
-      seen[k]=1;out.push(k);});});
-  return out;
-}
-/* `sys` is a PROPERTY, not a category: a 3-in-1 lives in outer, fleece or hivis depending on its
-   name, but the catalogue marks every one of them with `sys`. */
-function progIn(k,cat){
-  var it=BYKEY[k];
-  if(cat==='sys')return !!(it&&it.sys);
-  if(it&&it.sys)return false;
-  return itemCategory(it)===cat;
-}
-function progScore(k){
-  var it=BYKEY[k]||{};
-  var wonly=/\bwomen|\bladies|\bwmn\b/i.test(it.name||'');
-  return [it.ess||99,hasDecoPlace(it)?0:1,wonly?1:0,it.rec?0:1,unitPrice(k,defaultDecos(k),moq())];
-}
-function progBetter(a,b){for(var i=0;i<a.length;i++){if(a[i]!==b[i])return a[i]<b[i];}return false;}
-function progPick(cat,used,prefer,avoid){
-  var best=null,bs=null;
-  progPool().forEach(function(k){
-    if(used[k]||!progIn(k,cat))return;
-    var nm=BYKEY[k].name||'';
-    if(prefer&&!prefer.test(nm))return;
-    if(avoid&&avoid.test(nm))return;
-    var sc=progScore(k);
-    if(!bs||progBetter(sc,bs)){bs=sc;best=k;}});
-  return best;
-}
+
+/* The slot RESOLVER that used to live here (progPool / progIn / progScore / progPick) is gone.
+   It filled "a hoodie" from whatever a store carried, which mattered when stores had different
+   ranges; every kit now carries the same catalogue and Steven picks the programs item by item, so
+   the resolver had no callers left. It survives in make_boards.js, where it is still used to
+   generate per-client boards out of band. Dead code in a 400 KB engine is a liability, not an
+   option kept open. */
 /* On hi-vis the high-visibility colour IS the product; everywhere else a neutral is what a uniform
    program is built on. */
 var PROG_NEUTRAL=/^(black|true black|navy|true navy|dark navy|midnight|charcoal|graphite|gunmetal|steel|slate|grey|gray|heather grey|ash grey|white|ivory|stone|khaki|gravel|tan)\b/i;
 var PROG_HIVIS=/^(hi-?vis|fluorescent|safety)\b|\b(orange|yellow|lime)\b/i;
+/* A two-tone name like "Black/Red" passes a ^black test (the slash is a word boundary) and it is
+   NOT the neutral a program wants -- it put the premium half-zip up in Black/Red for every store.
+   A neutral here means a single plain colour. */
+function progPlain(n){return !!n&&n.indexOf('/')<0&&PROG_NEUTRAL.test(n);}
 function progColour(k){
   var it=BYKEY[k],def=vmOf(k).colour,cols=curColsOf(it,'mens')||it.cols||[],hit;
   if(itemCategory(it)==='hivis'){
     hit=cols.filter(function(c){return PROG_HIVIS.test(c.name||'');})[0];
     return hit?hit.name:def;
   }
-  if(PROG_NEUTRAL.test(def||''))return def;
-  hit=cols.filter(function(c){return PROG_NEUTRAL.test(c.name||'');})[0];
+  if(progPlain(def))return def;
+  hit=cols.filter(function(c){return progPlain(c.name);})[0];
   return hit?hit.name:def;
 }
 function progBuild(spec){
-  var season=seasonNow(),used={},rows=[];
-  spec.slots.forEach(function(sl){
-    if(sl.only&&sl.only.indexOf(season)<0)return;
-    var k=(sl.prefer||sl.avoid)?progPick(sl.cat,used,sl.prefer,sl.avoid):null;
-    if(!k)k=progPick(sl.cat,used,null,null);
-    if(!k)return;
-    used[k]=1;rows.push({k:k,lab:sl.lab,why:sl.why});});
-  /* Seasonal pieces lead; a system jacket sorts as outerwear, where a buyer expects it. */
-  var ord=SEASON_ORDER[season]||[];
-  return rows.map(function(r,i){return [r,i];}).sort(function(a,b){
-    var ca=BYKEY[a[0].k].sys?'outer':itemCategory(BYKEY[a[0].k]);
-    var cb=BYKEY[b[0].k].sys?'outer':itemCategory(BYKEY[b[0].k]);
-    var ra=ord.indexOf(ca),rb=ord.indexOf(cb);
-    return ((ra<0?99:ra)-(rb<0?99:rb))||(a[1]-b[1]);}).map(function(x){return x[0];});
+  /* Explicit keys, in the order they were chosen. A key the store does not carry is dropped rather
+     than substituted -- a program is a merchandising decision, and quietly swapping in a different
+     garment would misrepresent it. */
+  var rows=[];
+  (spec.items||[]).forEach(function(it){
+    if(!BYKEY[it.k])return;
+    rows.push({k:it.k,lab:it.lab,why:it.why});
+  });
+  return rows;
 }
+
 var PROGSEEDED=false;
 function seedPrograms(){
   if(PROGSEEDED)return;PROGSEEDED=true;
