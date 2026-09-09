@@ -4772,6 +4772,25 @@ function boardValue(id){
     else{var qq=c.qty||0;pieces+=qq;sub+=unitPrice(ck,c.decos,tierQty(ck))*qq;}});
   return {pieces:pieces,sub:sub};
 }
+/* The card previews used to be 26px squares of a bare supplier photo — postage stamps that proved
+   nothing. These render the garment WITH this client's mark at the placement we would produce, the
+   same overlayHtml the grid and the hero use, so the first thing a visitor sees on the front door of
+   their store is their own logo on their own gear. */
+function boardPreviews(id,n){
+  var L=(LISTS||{})[id];if(!L)return [];
+  var out=[];
+  Object.keys(L.items||{}).slice(0,n||4).forEach(function(ck){
+    var it=BYKEY[bkey(ck)];if(!it)return;
+    var c=L.items[ck];
+    try{
+      var cols=(it.layer==='promo')?(it.cols||[]):curColsOf(it,c.fit);
+      var o=overlayHtml(it,{decos:(c.decos&&c.decos.length)?c.decos:defaultDecos(ck)},
+                        c.colour,'front',cols,it.places);
+      out.push(o);
+    }catch(e){}
+  });
+  return out;
+}
 function boardThumbs(id,n){
   var L=(LISTS||{})[id];if(!L)return [];
   var out=[];
@@ -5041,7 +5060,9 @@ var PROG_SPECS=[
      {k:'st_cruise',          lab:'Softshell jacket',
       why:'Stormtech’s client-facing shell: bonded, structured, and cut so it still looks sharp over a polo.'},
      {k:'vest',               lab:'Quilted vest',
-      why:'The most-requested piece in any office program — put-together indoors and outdoors both, and it flatters every build on the team.'}
+      why:'The most-requested piece in any office program — put-together indoors and outdoors both, and it flatters every build on the team.'},
+     {k:'st_matrix',           lab:'3-in-1 system jacket',
+      why:'The top of the range: an H2XTREME waterproof shell, a zip-out thermal liner, and both together. Three jackets on one line, and the liner carries your mark too — so the logo is still there when the shell comes off indoors.'}
    ]},
   {id:'hivis',name:'CSA Hi-Vis Program',
    sub:'Everything a crew needs to be site-legal, from a summer tee to −20°C.',
@@ -5071,10 +5092,12 @@ var PROG_SPECS=[
    program is built on. */
 var PROG_NEUTRAL=/^(black|true black|navy|true navy|dark navy|midnight|charcoal|graphite|gunmetal|steel|slate|grey|gray|heather grey|ash grey|white|ivory|stone|khaki|gravel|tan)\b/i;
 var PROG_HIVIS=/^(hi-?vis|fluorescent|safety)\b|\b(orange|yellow|lime)\b/i;
-/* A two-tone name like "Black/Red" passes a ^black test (the slash is a word boundary) and it is
-   NOT the neutral a program wants -- it put the premium half-zip up in Black/Red for every store.
-   A neutral here means a single plain colour. */
-function progPlain(n){return !!n&&n.indexOf('/')<0&&PROG_NEUTRAL.test(n);}
+/* A neutral means NO ACCENT ANYWHERE IN THE NAME. Testing only the first word let "Black/Red" and
+   then "Black Bright Red" through -- both start with black, and both are two-tone garments with a
+   colour flash that has no business being the default on a premium board. So: it must start neutral
+   AND contain no accent word. Stormtech in particular names half its range this way. */
+var PROG_ACCENT=/\b(red|bright|electric|orange|yellow|green|purple|pink|gold|lime|teal|maroon|burgundy|royal|cardinal|crimson|magenta|coral|mint|sapphire|heliconia)\b|\//i;
+function progPlain(n){return !!n&&!PROG_ACCENT.test(n)&&PROG_NEUTRAL.test(n);}
 function progColour(k){
   var it=BYKEY[k],def=vmOf(k).colour,cols=curColsOf(it,'mens')||it.cols||[],hit;
   if(itemCategory(it)==='hivis'){
@@ -5174,7 +5197,9 @@ function boardPerPerson(id){
 /* PREVIEW GATE. Turning generated programs on changes the first screen of 398 live customer stores
    at once, so it ships dark: ?preview=programs opts a single store in, ?preview=none opts out.
    Rolling out is one line -- PROG_DEFAULT=true -- and one push. */
-var PROG_DEFAULT=false;
+/* LIVE ON EVERY STORE, Steven 2026-09-09: "update all sites with the new boards." Was dark while
+   he reviewed the preview. `?preview=none` still opts a single store out if one ever needs it. */
+var PROG_DEFAULT=true;
 function programsOn(){
   if(/[?&]preview=programs/.test(location.search))return true;
   if(/[?&]preview=none/.test(location.search))return false;
@@ -5188,24 +5213,33 @@ function recoHeroHtml(){
   if(!ids.length)return '';
   var cards=ids.slice(0,3).map(function(id){
     var L=LISTS[id];
-    var th=boardThumbs(id,4).map(function(u){
-      return '<span class="rhth"><img src="'+esc(u)+'" alt="" loading="lazy"></span>';}).join('');
-    return '<button type="button" class="rhcard" data-reco="'+esc(id)+'">'+
-      '<span class="rhthumbs">'+th+'</span>'+
+    /* Inline sizing on the preview tiles: store.css can arrive a mirror cycle behind store.js, and
+       an unstyled tile renders at the photo's natural 1000px. */
+    var th=boardPreviews(id,4).map(function(o){
+      return '<span class="rhpv mstage" style="position:relative;overflow:hidden;flex:1 1 0;'+
+        'min-width:0;aspect-ratio:1/1;border-radius:10px;display:block">'+
+        '<img class="g ld" src="'+o.g+'" alt="" loading="lazy" decoding="async" '+
+        'style="width:100%;height:100%;object-fit:contain;opacity:1">'+o.lg+'</span>';}).join('');
+    /* Column layout, declared inline. Horizontal put four garments in a 26px gutter beside the
+       text; stacked, the previews get the full card width and the card reads like a product. */
+    return '<button type="button" class="rhcard" data-reco="'+esc(id)+'" '+
+      'style="display:flex;flex-direction:column;align-items:stretch;gap:10px;text-align:left;width:100%">'+
+      (th?('<span class="rhpvs" style="display:flex;gap:6px;width:100%">'+th+'</span>'):'')+
       '<span class="rhtx"><b>'+esc(L.name)+'</b>'+
         (L.sub?('<span class="rhsubl">'+esc(L.sub)+'</span>'):'')+
         /* PUT THE NUMBER ON THE CARD. It read "N pieces, priced and ready to change" -- which says
            a price EXISTS without saying what it is, so the buyer has to click to find out the one
            thing they actually want to know. Cost per person, one of each at the minimum, is the
            figure they are trying to reach anyway. */
-        '<i>'+listLen(id)+' pieces'+(function(){
+        '<i class="rhfoot">'+listLen(id)+' pieces'+(function(){
            var pp=boardPerPerson(id);
            /* NOT a <b>: `.rhtx b` is display:block for the board name, so a <b> here broke
               "12 pieces · $665 per person" onto three lines. Inline style as well as a class,
               because store.css can arrive a mirror cycle after store.js. */
            return pp?(' \u00b7 <span class="rhpp" style="display:inline;font-weight:800;'+
-             'color:var(--ink)">'+money0(pp)+'</span> per person'):'';})()+'</i></span>'+
-      '<span class="rharrow">\u2192</span></button>';}).join('');
+             'color:var(--ink)">'+money0(pp)+'</span> per person'):'';})()+
+           '<span class="rharrow" style="margin-left:auto;flex:none">\u2192</span></i></span>'+
+      '</button>';}).join('');
   /* THE HEADING HAS TO BE TRUE. "Prepared for X - We've already picked your shortlist" is a claim
      about work somebody did for that client, and it is earned when a rep curated a board after a
      visit. On a generated program it would be a lie the customer cannot check -- and the moment two

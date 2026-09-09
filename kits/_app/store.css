@@ -2063,3 +2063,25 @@ body{padding-left:74px}
 @media(max-width:860px){.heroshots{display:none}.heroflex{display:block}}
 /* The per-person figure on a shortlist card. Inline, never a block — `.rhtx b` is the board name. */
 .rhtx .rhpp{display:inline;font-weight:800;color:var(--ink)}
+
+/* ---- SHORTLIST CARD: the front door of every store -------------------------------------------
+   Was a 26px 2x2 of bare supplier photos beside a line of text. It is now the first thing a visitor
+   sees on 399 stores, so it shows four real garments carrying THEIR mark, at a size you can read,
+   with the money and the affordance on one footer line. Column layout: horizontal gave the images a
+   gutter and the text everything, which is backwards for a card whose job is "that is our gear". */
+.rhcards{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;align-items:stretch}
+.rhcard{padding:12px;border-radius:16px;transition:transform .16s ease,box-shadow .16s ease,border-color .16s ease}
+.rhcard:hover{transform:translateY(-2px);box-shadow:var(--shx);border-color:var(--a)}
+.rhcard:focus-visible{outline:2px solid var(--a);outline-offset:2px}
+.rhpvs{width:100%}
+.rhpv.mstage{background:radial-gradient(120% 120% at 50% 26%,#fff,#eef0f2)}
+.rhpv .g{opacity:1}
+.rhtx{display:block;min-width:0}
+.rhfoot{display:flex;align-items:center;gap:0;width:100%;font-style:normal;margin-top:7px;
+  padding-top:8px;border-top:1px solid var(--line);font-size:12.5px;color:var(--mut)}
+.rhcard .rharrow{font-size:18px;color:var(--a);font-weight:700;transition:transform .16s ease}
+.rhcard:hover .rharrow{transform:translateX(3px)}
+@media(max-width:640px){
+  .rhcards{grid-template-columns:1fr}
+  .rhpv.mstage{border-radius:8px}
+}
