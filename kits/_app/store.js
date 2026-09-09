@@ -70,7 +70,14 @@ function autoInkFor(method,rgb,logo,colours){
   var canHybrid=(method==='embroidery')||((colours||1)>=2);
   if(k&&typeof k.lum==='number'){
     if(contrast(k.lum,gl)<INK_MINRATIO){
-      if(gl<0.18&&canHybrid&&logo.inks.ondark)return 'ondark';
+      if(canHybrid){
+        /* THE SAME COURTESY ON A LIGHT GARMENT. `ondark` had a branch and `onlight` did not, so a
+           mark with a WHITE wordmark flattened to solid near-black on a white polo -- the same
+           "our logo in one colour" complaint, mirrored. Only 83 marks in the fleet have a light
+           enough wordmark to need it; the rest never reach this line. */
+        if(gl<0.18&&logo.inks.ondark)return 'ondark';
+        if(gl>=0.18&&logo.inks.onlight)return 'onlight';
+      }
       return gl<0.18?'white':'dark';
     }
     return 'brand';
