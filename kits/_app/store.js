@@ -5170,8 +5170,19 @@ var JDP_AUTHOR=/just\s*deals/i;
    built in this browser. The residual edge case is a customer opening their OWN board in a private
    window, where it arrives as srv and reads as prepared-for-them; that is a cosmetic mislabel on a
    board that is genuinely theirs, and it is a far smaller error than the one it replaces. */
+/* TWO MORE GATES, both learned from sweeping all 398 stores on 2026-09-09:
+     * AT LEAST THREE PIECES. vastauto carried a one-item board and eddy-group two empty ones; every
+       one of them would have replaced three complete programs with "We've already picked your
+       shortlist" over a single garment. A shortlist of one is not a shortlist. Three is the same
+       floor a program has to clear.
+     * NOT STILL CALLED "My board". That is the name every browser mints by default, so a board
+       wearing it has not been curated for anyone -- whatever else is true of it. */
+function isDefaultBoardName(n){return /^my board$/i.test(String(n||'').trim());}
 function isCuratedList(L){
-  return !!(L&&L.slug&&Object.keys(L.items||{}).length&&(L.cur||L.srv||JDP_AUTHOR.test(L.by||'')));
+  if(!L||!L.slug)return false;
+  if(Object.keys(L.items||{}).length<3)return false;
+  if(isDefaultBoardName(L.name))return false;
+  return !!(L.cur||L.srv||JDP_AUTHOR.test(L.by||''));
 }
 function curatedBoardIds(){
   var out=[];
