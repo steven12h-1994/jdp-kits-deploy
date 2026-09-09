@@ -2048,3 +2048,16 @@ body{padding-left:74px}
 
 /* Role line on a generated program card — says who the program is for before the piece count. */
 .rhsubl{display:block;font-size:12px;line-height:1.35;color:var(--mut);margin:2px 0 3px}
+
+/* ---- HERO: the client's own gear, wearing their mark -----------------------------------------
+   The headline keeps the left; three real garments take the right. Sized so the strip reads as
+   proof rather than decoration, and dropped entirely below 860px where it would squeeze the
+   headline into a column two words wide. */
+.heroflex{display:flex;align-items:center;gap:32px;justify-content:space-between}
+.herotx{flex:1 1 auto;min-width:0}
+.heroshots{flex:0 0 auto;display:flex;gap:10px}
+.heroshot.mstage{width:132px;height:132px;border-radius:14px;flex:0 0 132px;
+  background:radial-gradient(120% 120% at 50% 26%,#fff,#eef0f2);box-shadow:var(--sh)}
+.heroshot .g{opacity:1}
+@media(max-width:1080px){.heroshot.mstage{width:112px;height:112px;flex:0 0 112px}}
+@media(max-width:860px){.heroshots{display:none}.heroflex{display:block}}

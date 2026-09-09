@@ -1966,9 +1966,12 @@ function buildStore(){
   var html=''+
    railHtml()+
    tbarHtml()+
-   '<section class="hero"><div class="w heroin">'+
-     '<h1>'+esc(poss(CFG.client))+" team store</h1>"+
-     '<p class="herosub">'+(demo?'This is a live sample. Every item shows exactly where your logo goes — swap in your brand and it becomes your team’s store. Live pricing, exact quote, no obligation.':'One premium store for the jobsite and the front office — CSA hi-vis and rugged workwear to sharp branded polos and client gifts, every piece ready with your logo.')+'</p>'+
+   '<section class="hero"><div class="w heroin heroflex">'+
+     '<div class="herotx">'+
+       '<h1>'+esc(poss(CFG.client))+" team store</h1>"+
+       '<p class="herosub">'+(demo?'This is a live sample. Every item shows exactly where your logo goes — swap in your brand and it becomes your team’s store. Live pricing, exact quote, no obligation.':'One premium store for the jobsite and the front office — CSA hi-vis and rugged workwear to sharp branded polos and client gifts, every piece ready with your logo.')+'</p>'+
+     '</div>'+
+     heroShotsHtml()+
    '</div></section>'+
    /* The value strip is gone. It stacked three more claims directly beneath a hero that already
       carries three trust chips AND the sample offer -- six competing assertions above the fold, which
@@ -5134,8 +5137,15 @@ function programIds(){
    does. It is also the worst copy in the store -- claiming credit for the customer's own work.
    The test is authorship, which we control at both ends: boards published by JDP carry `by`. */
 var JDP_AUTHOR=/just\s*deals/i;
+/* Curated means SOMEONE ELSE MADE THIS FOR THEM: a board published by JDP (`by`), one flagged as
+   curated (`cur`), or one that arrived from the server with no local counterpart (`srv`).
+   The `by` test alone was too narrow -- Steven curates ATTA's board from the store under his own
+   name, so authorship does not read as "Just Deals". `srv` is the honest signal: the board was not
+   built in this browser. The residual edge case is a customer opening their OWN board in a private
+   window, where it arrives as srv and reads as prepared-for-them; that is a cosmetic mislabel on a
+   board that is genuinely theirs, and it is a far smaller error than the one it replaces. */
 function isCuratedList(L){
-  return !!(L&&L.slug&&Object.keys(L.items||{}).length&&(L.cur||JDP_AUTHOR.test(L.by||'')));
+  return !!(L&&L.slug&&Object.keys(L.items||{}).length&&(L.cur||L.srv||JDP_AUTHOR.test(L.by||'')));
 }
 function curatedBoardIds(){
   var out=[];
@@ -5146,6 +5156,18 @@ function curatedBoardIds(){
   return out;
 }
 function nwords(n){return ['','One','Two','Three','Four','Five','Six'][n]||String(n);}
+/* One of each, per person, at this store's minimum -- the same basis the board panel prints, so the
+   card and the board it opens can never disagree. Promo lines are skipped: they carry their own
+   quantity model and would distort a per-person figure. */
+function boardPerPerson(id){
+  var L=(LISTS||{})[id];if(!L)return 0;
+  var t=0;
+  Object.keys(L.items||{}).forEach(function(k){
+    var it=BYKEY[bkey(k)];if(!it||it.layer==='promo')return;
+    try{t+=unitPrice(k,(L.items[k].decos&&L.items[k].decos.length)?L.items[k].decos:defaultDecos(k),moq());}catch(e){}
+  });
+  return t;
+}
 /* PREVIEW GATE. Turning generated programs on changes the first screen of 398 live customer stores
    at once, so it ships dark: ?preview=programs opts a single store in, ?preview=none opts out.
    Rolling out is one line -- PROG_DEFAULT=true -- and one push. */
@@ -5169,9 +5191,13 @@ function recoHeroHtml(){
       '<span class="rhthumbs">'+th+'</span>'+
       '<span class="rhtx"><b>'+esc(L.name)+'</b>'+
         (L.sub?('<span class="rhsubl">'+esc(L.sub)+'</span>'):'')+
-        /* Was "each with a note on why" before boards carried notes. They do now -- every generated
-           line has one -- but a customer-built board still does not, so the count stays the claim. */
-        '<i>'+listLen(id)+' pieces, priced and ready to change</i></span>'+
+        /* PUT THE NUMBER ON THE CARD. It read "N pieces, priced and ready to change" -- which says
+           a price EXISTS without saying what it is, so the buyer has to click to find out the one
+           thing they actually want to know. Cost per person, one of each at the minimum, is the
+           figure they are trying to reach anyway. */
+        '<i>'+listLen(id)+' pieces'+(function(){
+           var pp=boardPerPerson(id);
+           return pp?(' \u00b7 <b>'+money0(pp)+'</b> per person'):'';})()+'</i></span>'+
       '<span class="rharrow">\u2192</span></button>';}).join('');
   /* THE HEADING HAS TO BE TRUE. "Prepared for X - We've already picked your shortlist" is a claim
      about work somebody did for that client, and it is earned when a rep curated a board after a
@@ -5201,6 +5227,45 @@ function renderRecoHero(){
   el.innerHTML=recoHeroHtml();
   el.querySelectorAll('[data-reco]').forEach(function(b){
     b.addEventListener('click',function(){openBoard(b.dataset.reco);});});
+}
+/* ---- THE HERO HAS TO SHOW THEM THEIR OWN GEAR -----------------------------------------------
+   Steven, 2026-09-09: "Make the kits have better UI for a incredible visitor experience!"
+   The hero was 187px of a headline and a paragraph on a flat background -- the single most valuable
+   strip on the page, spent on a sentence. The store's whole proposition is "your logo, on gear your
+   crew will actually wear", and it was ASSERTING that in words directly above a grid that PROVES it
+   in pictures.
+   So the hero now carries three real garments from this store, with this client's mark composited
+   at the exact placement we would produce -- the same overlayHtml the cards use, so nothing here can
+   drift from what gets quoted. No new assets: `heroes` is empty on every kit I checked, and a stock
+   photo would be worth less than their own logo on their own products anyway.
+   CHOSEN for contrast, not for price: one client-facing piece, one hi-vis, one layer, so the first
+   thing a visitor sees says "this store covers my whole company". Falls back silently to nothing if
+   a store cannot fill three, because a lopsided one-photo hero looks broken. */
+function heroShots(){
+  var order=CFG.order||{},want=[['polo','woven','tee'],['hivis'],['fleece','outer','vest']],out=[],used={};
+  var pool=[];
+  ['office','premium','field','bags'].forEach(function(L){
+    (order[L]||[]).forEach(function(k){if(BYKEY[k]&&!isCarhartt(k))pool.push(k);});});
+  want.forEach(function(cats){
+    var best=null;
+    pool.forEach(function(k){
+      if(used[k]||best)return;
+      var it=BYKEY[k];
+      if(cats.indexOf(itemCategory(it))<0)return;
+      if(!hasDecoPlace(it))return;                 // the point is the logo; a blank piece proves nothing
+      if(!(it.rec||k===CFG.feature))return;        // only pieces we actually stand behind
+      best=k;});
+    if(best){used[best]=1;out.push(best);}});
+  return out.length===3?out:[];
+}
+function heroShotsHtml(){
+  var ks=heroShots();if(!ks.length)return '';
+  return '<div class="heroshots" aria-hidden="true">'+ks.map(function(k){
+    var it=BYKEY[k],vm=vmOf(k),o;
+    try{o=overlayHtml(it,{decos:defaultDecos(k)},progColour(k),'front',browseCols(it),it.places);}
+    catch(e){return '';}
+    return '<span class="heroshot mstage"><img class="g" src="'+o.g+'" alt="" loading="eager" '+
+      'decoding="async">'+o.lg+'</span>';}).join('')+'</div>';
 }
 function catTilesHtml(){
   var cats=(typeof CATS!=='undefined'&&CATS.length)?CATS:[];
@@ -5439,7 +5504,13 @@ function syncBoardsFromServer(){
           /* Re-resolve: localId was computed BEFORE this fetch, so it is stale if ?b= adopted the
              same board while we were in flight. This is the duplicate-board fix. */
           var id=listIdForSlug(row.b,true);
+          /* DID THIS BOARD ORIGINATE HERE? A board with no local counterpart came from somewhere
+             else -- us, or a colleague of theirs -- which is exactly what "prepared for you" means.
+             A board that already existed in this browser is the visitor's own working list, however
+             many times it has synced. Recorded once, at the moment we learn it. */
+          var _fresh=!id;
           if(!id){id=newListId();LISTS[id]={name:sb.name||row.b,items:{},updated:0};}
+          if(_fresh)LISTS[id].srv=1;
           LISTS[id].name=sb.name||LISTS[id].name;
           LISTS[id].items=sb.items||{};
           LISTS[id].slug=row.b;
