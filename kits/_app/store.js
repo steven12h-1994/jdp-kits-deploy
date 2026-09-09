@@ -1966,8 +1966,11 @@ function buildStore(){
   var html=''+
    railHtml()+
    tbarHtml()+
-   '<section class="hero"><div class="w heroin heroflex">'+
-     '<div class="herotx">'+
+   /* Same reasoning as the shots: the flex row is declared inline so a late stylesheet cannot
+      leave the strip stacked under the headline at full width. */
+   '<section class="hero"><div class="w heroin heroflex" style="display:flex;align-items:center;'+
+     'gap:32px;justify-content:space-between;flex-wrap:wrap">'+
+     '<div class="herotx" style="flex:1 1 320px;min-width:0">'+
        '<h1>'+esc(poss(CFG.client))+" team store</h1>"+
        '<p class="herosub">'+(demo?'This is a live sample. Every item shows exactly where your logo goes — swap in your brand and it becomes your team’s store. Live pricing, exact quote, no obligation.':'One premium store for the jobsite and the front office — CSA hi-vis and rugged workwear to sharp branded polos and client gifts, every piece ready with your logo.')+'</p>'+
      '</div>'+
@@ -5260,12 +5263,24 @@ function heroShots(){
 }
 function heroShotsHtml(){
   var ks=heroShots();if(!ks.length)return '';
-  return '<div class="heroshots" aria-hidden="true">'+ks.map(function(k){
-    var it=BYKEY[k],vm=vmOf(k),o;
-    try{o=overlayHtml(it,{decos:defaultDecos(k)},progColour(k),'front',browseCols(it),it.places);}
-    catch(e){return '';}
-    return '<span class="heroshot mstage"><img class="g" src="'+o.g+'" alt="" loading="eager" '+
-      'decoding="async">'+o.lg+'</span>';}).join('')+'</div>';
+  /* SIZING IS INLINE, ON PURPOSE. store.js and store.css ship as separate files and the SiteGround
+     mirror does not always land them in the same cycle -- on 2026-09-09 the JS arrived first and
+     this strip rendered at the photos' natural 1000px, turning a 190px hero into 3427px of giant
+     product shots on a live customer store. Markup that depends on a stylesheet arriving with it is
+     markup that will eventually render naked. The dimensions that keep the page from breaking are
+     therefore carried on the element; the stylesheet only refines the look. */
+  var W=(typeof window!=='undefined'&&window.innerWidth<1080)?112:132;
+  var box='width:'+W+'px;height:'+W+'px;flex:0 0 '+W+'px;position:relative;overflow:hidden;'+
+          'border-radius:14px;display:inline-block';
+  return '<div class="heroshots" aria-hidden="true" style="display:flex;gap:10px;flex:0 0 auto">'+
+    ks.map(function(k){
+      var it=BYKEY[k],o;
+      try{o=overlayHtml(it,{decos:defaultDecos(k)},progColour(k),'front',browseCols(it),it.places);}
+      catch(e){return '';}
+      return '<span class="heroshot mstage" style="'+box+'">'+
+        '<img class="g ld" src="'+o.g+'" alt="" loading="eager" decoding="async" '+
+        'style="width:100%;height:100%;object-fit:contain;opacity:1">'+o.lg+'</span>';
+    }).join('')+'</div>';
 }
 function catTilesHtml(){
   var cats=(typeof CATS!=='undefined'&&CATS.length)?CATS:[];
