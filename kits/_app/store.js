@@ -5200,7 +5200,11 @@ function recoHeroHtml(){
            figure they are trying to reach anyway. */
         '<i>'+listLen(id)+' pieces'+(function(){
            var pp=boardPerPerson(id);
-           return pp?(' \u00b7 <b>'+money0(pp)+'</b> per person'):'';})()+'</i></span>'+
+           /* NOT a <b>: `.rhtx b` is display:block for the board name, so a <b> here broke
+              "12 pieces · $665 per person" onto three lines. Inline style as well as a class,
+              because store.css can arrive a mirror cycle after store.js. */
+           return pp?(' \u00b7 <span class="rhpp" style="display:inline;font-weight:800;'+
+             'color:var(--ink)">'+money0(pp)+'</span> per person'):'';})()+'</i></span>'+
       '<span class="rharrow">\u2192</span></button>';}).join('');
   /* THE HEADING HAS TO BE TRUE. "Prepared for X - We've already picked your shortlist" is a claim
      about work somebody did for that client, and it is earned when a rep curated a board after a

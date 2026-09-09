@@ -2061,3 +2061,5 @@ body{padding-left:74px}
 .heroshot .g{opacity:1}
 @media(max-width:1080px){.heroshot.mstage{width:112px;height:112px;flex:0 0 112px}}
 @media(max-width:860px){.heroshots{display:none}.heroflex{display:block}}
+/* The per-person figure on a shortlist card. Inline, never a block — `.rhtx b` is the board name. */
+.rhtx .rhpp{display:inline;font-weight:800;color:var(--ink)}
