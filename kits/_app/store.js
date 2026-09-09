@@ -2040,6 +2040,12 @@ function buildStore(){
   document.getElementById('openCart2').addEventListener('click',function(){openBoard();});
   wireRail();
   wireExplore();
+  /* Paint the shortlist band on FIRST RENDER, not only after a successful board fetch.
+     renderRecoHero() was called from inside syncBoardsFromServer()'s success path, and that
+     path returns early when a store has no boards on the server -- which is nearly every
+     store. So the one surface that needed a fallback was the one surface the fallback could
+     never reach. The fetch still repaints it afterwards when real boards do arrive. */
+  try{renderRecoHero();}catch(e){}
   /* Categories now lives in the persistent bar, so the scroll-revealed chip strip is retired
      outright rather than swapped between states. One control, always in the same place. */
   var _tc=document.getElementById('tbCats');
