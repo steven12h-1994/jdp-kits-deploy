@@ -2045,3 +2045,6 @@ body{padding-left:74px}
 .muse::before{content:'';flex:0 0 3px;align-self:stretch;background:var(--a);border-radius:2px;
   margin:1px 0}
 @media(max-width:620px){.muse{font-size:12px}}
+
+/* Role line on a generated program card — says who the program is for before the piece count. */
+.rhsubl{display:block;font-size:12px;line-height:1.35;color:var(--mut);margin:2px 0 3px}

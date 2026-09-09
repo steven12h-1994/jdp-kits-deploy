@@ -4971,6 +4971,170 @@ function catTileImg(cat){
    board" and a generic starter list. So the curation only ever landed when someone remembered to
    send the ?b= link — which does not scale, and wastes the most expensive thing we make.
    This renders only when the kit actually has curated boards on the server. */
+/* ---- PRE-LOADED PROGRAMS: a shortlist on every store, not just the curated ones ---------------
+   Steven, 2026-09-09: "are they pre loaded shortlist you would have for every company store that
+   would optimize conversions. maybe common relevant use cases?"
+
+   They were not, and that was the gap. The shortlist band renders only when a store has curated
+   boards on the SERVER, and almost none do -- so on nearly every store the most valuable strip on
+   the page was blank and the buyer met a 504-item catalogue with no way in.
+
+   ROLE, NOT TRADE. Classifying the 398 live stores by what the business does gives construction and
+   trades 54, professional and office 39, food and hospitality 34, manufacturing 30, transport 27,
+   mechanical and electrical 25, auto 18 -- and 164 whose trade cannot be read from the name at all.
+   There is no trade field on a kit, so a trade-specific program would be a guess on 40% of the
+   fleet. Every one of those businesses does have the same THREE ROLES though: people on the tools,
+   people in the building, people in front of the client. Role-based is genuinely universal, and it
+   is honest about how it was chosen.
+
+   These are TEMPLATES, never save targets, exactly like the starter list they replace: saving from
+   one redirects into the buyer's own board. And a REAL curated board always wins -- if the store has
+   one on the server, the generated programs step aside completely rather than competing with work
+   somebody actually did for that client. */
+var PROG_SPECS=[
+  {id:'field',name:'On the tools',
+   sub:'Everyone who works in a van, a shop, a yard or on a site.',
+   slots:[
+     {cat:'hivis',    lab:'Hi-vis top',   avoid:/\bvest\b/i,
+      why:'Keeps them compliant the moment they step out of the van. Front and back printing is what gets a crew recognised on a shared site.'},
+     {cat:'hivis',    lab:'Hi-vis vest',  prefer:/tear-?away|tearaway|5-?point|5 pt/i,
+      why:'Tear-away seams are the point: if it snags on machinery it lets go instead of pulling the wearer in. Keep spares by the door for visitors and subs.'},
+     {cat:'workshirt',lab:'Work shirt',
+      why:'The piece your customer actually sees at their door. Comes out of an industrial wash still looking like a company that turns up on time.'},
+     {cat:'pant',     lab:'Work pants',   prefer:/874|industrial|dura-?kap|shop pant/i,
+      why:'Knees and seat are where work pants die, and these are cut for it. Supplied blank — nobody decorates a work pant.'},
+     {cat:'fleece',   lab:'Hoodie',
+      why:'The layer they genuinely live in from September to May, which makes it the piece your logo gets seen on most. Order deeper than you think.'},
+     {cat:'outer',    lab:'Softshell',    only:['fall','winter','spring'],
+      why:'Wind and light rain without the bulk of a parka — the jacket that stays on for a site walk and comes off in the van.'},
+     {cat:'sys',      lab:'Winter jacket · 3-in-1', only:['fall','winter'],
+      why:'One purchase, three jackets: liner alone, shell alone, or both at −20°C. It is the line that stops a crew buying their own coats in January — and the liner is branded too, so the logo does not disappear indoors.'},
+     {cat:'cap',      lab:'Cap',
+      why:'The cheapest branded thing you will ever buy and the one that gets worn off the clock.'}
+   ]},
+  {id:'shop',name:'In the building',
+   sub:'Warehouse, shop floor, production and the counter.',
+   slots:[
+     {cat:'tee',      lab:'Everyday tee',
+      why:'Gets worn to destruction, so buy it by the box. A left-chest print costs a fraction of embroidery and is what a shop crew actually wants.'},
+     {cat:'fleece',   lab:'Hoodie',
+      why:'A cold building in February decides this one for you. It is also the piece people keep for years, which is free advertising.'},
+     {cat:'workshirt',lab:'Work shirt',
+      why:'One step sharper than a tee for anyone who steps out to meet a driver, an inspector or a customer at the counter.'},
+     {cat:'pant',     lab:'Work pants',   prefer:/874|industrial|dura-?kap|shop pant/i,
+      why:'Finishes the uniform so the crew reads as one company rather than as whoever wore their own jeans.'},
+     {cat:'sys',      lab:'Winter jacket · 3-in-1', only:['fall','winter'],
+      why:'Yard and dock crews are outside more than anyone expects. A 3-in-1 covers autumn and deep winter in one line, so you buy once.'},
+     {cat:'cap',      lab:'Cap',
+      why:'Keeps hair out of the work and your name on their head. The most-worn thing on this list.'},
+     {cat:'hivis',    lab:'Hi-vis vest',  prefer:/tear-?away|tearaway|5-?point|5 pt/i,
+      why:'One per person, kept by the door. Forklifts and visitors both.'}
+   ]},
+  {id:'office',name:'In front of the client',
+   sub:'Reception, sales, management and anyone meeting a customer.',
+   slots:[
+     {cat:'polo',  lab:'Polo',
+      why:'The default client-facing piece: branded without reading as workwear. What reception and sales wear every day.'},
+     {cat:'outer', lab:'Softshell or jacket',
+      why:'What they put on to walk a client across a site — smart enough for the meeting, warm enough for the walk.'},
+     {cat:'vest',  lab:'Quilted vest', prefer:/quilt|puff|insulat|softshell|light/i, only:['fall','winter'],
+      why:'Reads as put-together indoors and outdoors both, which is why it is the most-requested piece in an office program.'},
+     {cat:'fleece',lab:'Midlayer',     prefer:/quarter|1\/4|half.zip|crewneck/i,
+      why:'A quarter-zip or crew that layers under the jacket and still looks like the office rather than the yard.'},
+     {cat:'cap',   lab:'Cap',
+      why:'For site visits and trade shows — and the piece you hand over when a client asks where you got it.'},
+     {cat:'bag',   lab:'Bag',          prefer:/backpack|tote|brief|laptop|duffel|weekender/i,
+      why:'Travels further than any garment you own: airports, gyms, client offices. The highest-mileage logo on this list.'}
+   ]}
+];
+/* Clothing and kit only -- promo has its own quantity model, and a branded pen inside a uniform
+   program makes the program look unserious. Carhartt is a brand DECISION, never a default. */
+function progPool(){
+  var order=CFG.order||{},out=[],seen={};
+  ['field','premium','office','bags'].forEach(function(L){
+    (order[L]||[]).forEach(function(k){
+      if(!BYKEY[k]||seen[k]||isCarhartt(k))return;
+      seen[k]=1;out.push(k);});});
+  return out;
+}
+/* `sys` is a PROPERTY, not a category: a 3-in-1 lives in outer, fleece or hivis depending on its
+   name, but the catalogue marks every one of them with `sys`. */
+function progIn(k,cat){
+  var it=BYKEY[k];
+  if(cat==='sys')return !!(it&&it.sys);
+  if(it&&it.sys)return false;
+  return itemCategory(it)===cat;
+}
+function progScore(k){
+  var it=BYKEY[k]||{};
+  var wonly=/\bwomen|\bladies|\bwmn\b/i.test(it.name||'');
+  return [it.ess||99,hasDecoPlace(it)?0:1,wonly?1:0,it.rec?0:1,unitPrice(k,defaultDecos(k),moq())];
+}
+function progBetter(a,b){for(var i=0;i<a.length;i++){if(a[i]!==b[i])return a[i]<b[i];}return false;}
+function progPick(cat,used,prefer,avoid){
+  var best=null,bs=null;
+  progPool().forEach(function(k){
+    if(used[k]||!progIn(k,cat))return;
+    var nm=BYKEY[k].name||'';
+    if(prefer&&!prefer.test(nm))return;
+    if(avoid&&avoid.test(nm))return;
+    var sc=progScore(k);
+    if(!bs||progBetter(sc,bs)){bs=sc;best=k;}});
+  return best;
+}
+/* On hi-vis the high-visibility colour IS the product; everywhere else a neutral is what a uniform
+   program is built on. */
+var PROG_NEUTRAL=/^(black|true black|navy|true navy|dark navy|midnight|charcoal|graphite|gunmetal|steel|slate|grey|gray|heather grey|ash grey|white|ivory|stone|khaki|gravel|tan)\b/i;
+var PROG_HIVIS=/^(hi-?vis|fluorescent|safety)\b|\b(orange|yellow|lime)\b/i;
+function progColour(k){
+  var it=BYKEY[k],def=vmOf(k).colour,cols=curColsOf(it,'mens')||it.cols||[],hit;
+  if(itemCategory(it)==='hivis'){
+    hit=cols.filter(function(c){return PROG_HIVIS.test(c.name||'');})[0];
+    return hit?hit.name:def;
+  }
+  if(PROG_NEUTRAL.test(def||''))return def;
+  hit=cols.filter(function(c){return PROG_NEUTRAL.test(c.name||'');})[0];
+  return hit?hit.name:def;
+}
+function progBuild(spec){
+  var season=seasonNow(),used={},rows=[];
+  spec.slots.forEach(function(sl){
+    if(sl.only&&sl.only.indexOf(season)<0)return;
+    var k=(sl.prefer||sl.avoid)?progPick(sl.cat,used,sl.prefer,sl.avoid):null;
+    if(!k)k=progPick(sl.cat,used,null,null);
+    if(!k)return;
+    used[k]=1;rows.push({k:k,lab:sl.lab,why:sl.why});});
+  /* Seasonal pieces lead; a system jacket sorts as outerwear, where a buyer expects it. */
+  var ord=SEASON_ORDER[season]||[];
+  return rows.map(function(r,i){return [r,i];}).sort(function(a,b){
+    var ca=BYKEY[a[0].k].sys?'outer':itemCategory(BYKEY[a[0].k]);
+    var cb=BYKEY[b[0].k].sys?'outer':itemCategory(BYKEY[b[0].k]);
+    var ra=ord.indexOf(ca),rb=ord.indexOf(cb);
+    return ((ra<0?99:ra)-(rb<0?99:rb))||(a[1]-b[1]);}).map(function(x){return x[0];});
+}
+var PROGSEEDED=false;
+function seedPrograms(){
+  if(PROGSEEDED)return;PROGSEEDED=true;
+  if(!LISTS)return;
+  try{
+    PROG_SPECS.forEach(function(spec){
+      var rows=progBuild(spec);
+      if(rows.length<3)return;                 // fewer than three is not a program
+      var items={};
+      rows.forEach(function(r){
+        items[r.k]={qty:moq(),colour:progColour(r.k),decos:recCartDecos(r.k),
+                    why:r.lab+' — '+r.why};});
+      var id='prog_'+spec.id;
+      LISTS[id]={name:spec.name,items:items,updated:0,starter:true,prog:1,
+                 sub:spec.sub,slug:null};
+    });
+  }catch(e){}
+}
+function programIds(){
+  var out=[];
+  for(var id in (LISTS||{}))if(LISTS[id]&&LISTS[id].prog)out.push(id);
+  return out;
+}
 function curatedBoardIds(){
   var out=[];
   for(var id in (LISTS||{})){
@@ -4981,8 +5145,20 @@ function curatedBoardIds(){
   return out;
 }
 function nwords(n){return ['','One','Two','Three','Four','Five','Six'][n]||String(n);}
+/* PREVIEW GATE. Turning generated programs on changes the first screen of 398 live customer stores
+   at once, so it ships dark: ?preview=programs opts a single store in, ?preview=none opts out.
+   Rolling out is one line -- PROG_DEFAULT=true -- and one push. */
+var PROG_DEFAULT=false;
+function programsOn(){
+  if(/[?&]preview=programs/.test(location.search))return true;
+  if(/[?&]preview=none/.test(location.search))return false;
+  return PROG_DEFAULT;
+}
 function recoHeroHtml(){
-  var ids=curatedBoardIds();
+  var ids=curatedBoardIds(),generated=false;
+  /* A REAL CURATED BOARD ALWAYS WINS. If somebody did the work for this client, the generated
+     programs step aside entirely rather than competing with it. */
+  if(!ids.length&&programsOn()){seedPrograms();ids=programIds();generated=ids.length>0;}
   if(!ids.length)return '';
   var cards=ids.slice(0,3).map(function(id){
     var L=LISTS[id];
@@ -4991,19 +5167,32 @@ function recoHeroHtml(){
     return '<button type="button" class="rhcard" data-reco="'+esc(id)+'">'+
       '<span class="rhthumbs">'+th+'</span>'+
       '<span class="rhtx"><b>'+esc(L.name)+'</b>'+
-        /* Was "each with a note on why". A board carries a product, a colour, a quantity and a
-           decoration -- it does NOT carry per-item notes, so the card was promising something the
-           board it opens cannot show. Say what is actually in there. */
+        (L.sub?('<span class="rhsubl">'+esc(L.sub)+'</span>'):'')+
+        /* Was "each with a note on why" before boards carried notes. They do now -- every generated
+           line has one -- but a customer-built board still does not, so the count stays the claim. */
         '<i>'+listLen(id)+' pieces, priced and ready to change</i></span>'+
       '<span class="rharrow">\u2192</span></button>';}).join('');
-  return '<section class="recohero"><div class="w">'+
-    '<div class="rhlbl">Prepared for '+esc(CFG.client||'your team')+'</div>'+
-    '<h2 class="rhh">We\u2019ve already picked your shortlist</h2>'+
-    /* Count the cards rather than saying "Two": the number changes per store and the copy does
-       not follow it. ATTA went to three boards and the page still claimed two. */
-    '<p class="rhsub">'+(ids.length===1?'A starting point':(nwords(Math.min(ids.length,3))+' starting points'))+
-      ', chosen for how your people actually work \u2014 open one, '+
-      'change anything you like, and send it back for a quote.</p>'+
+  /* THE HEADING HAS TO BE TRUE. "Prepared for X - We've already picked your shortlist" is a claim
+     about work somebody did for that client, and it is earned when a rep curated a board after a
+     visit. On a generated program it would be a lie the customer cannot check -- and the moment two
+     customers compare stores, it is a lie they CAN. So a generated set says plainly what it is: a
+     starting point built by role, from this store's own range, for the season. That is still a
+     strong offer and it costs nothing in trust. */
+  var hd=generated
+    ? {lbl:'Built for '+esc(CFG.client||'your team'),
+       h:'Start from a program, not a catalogue',
+       p:'Three ready-made programs \u2014 the people on the tools, the people in the building, and '+
+         'the people in front of your clients. Every piece is priced at your minimum and every line '+
+         'is yours to change.'}
+    : {lbl:'Prepared for '+esc(CFG.client||'your team'),
+       h:'We\u2019ve already picked your shortlist',
+       p:(ids.length===1?'A starting point':(nwords(Math.min(ids.length,3))+' starting points'))+
+         ', chosen for how your people actually work \u2014 open one, '+
+         'change anything you like, and send it back for a quote.'};
+  return '<section class="recohero'+(generated?' gen':'')+'"><div class="w">'+
+    '<div class="rhlbl">'+hd.lbl+'</div>'+
+    '<h2 class="rhh">'+hd.h+'</h2>'+
+    '<p class="rhsub">'+hd.p+'</p>'+
     '<div class="rhcards">'+cards+'</div></div></section>';
 }
 function renderRecoHero(){
