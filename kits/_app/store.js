@@ -626,7 +626,9 @@ function copyStarterToMine(){
   toast(n?('Copied '+n+' piece'+(n===1?'':'s')+' into '+activeName())
          :('Already in '+activeName()));
 }
-function starterId(){for(var id in (LISTS||{})){if(LISTS[id].starter)return id;}return '';}
+/* The GENERIC nine-item list only. The named programs are templates too, but they are the thing
+   hideStaleStarter() is meant to leave alone -- without this it deleted a program instead. */
+function starterId(){for(var id in (LISTS||{})){if(LISTS[id].starter&&!LISTS[id].prog)return id;}return '';}
 /* One clear concept. A generic 9-item "JDP starter list" sitting beside two boards curated for this
    specific company is strictly worse than both and makes a third competing thing to click. Retire it
    once curation exists -- but ONLY while it is untouched, so a customer who has actually put items
@@ -5105,6 +5107,18 @@ function seedPrograms(){
       LISTS[id]={name:spec.name,items:items,updated:0,starter:true,prog:1,
                  sub:spec.sub,slug:null};
     });
+    /* RETIRE THE GENERIC STARTER LIST. "JDP starter list" was one anonymous nine-item pile, and it
+       existed because there was nothing better. There is now: three named programs a buyer can tell
+       apart. Leaving both puts FOUR templates in the board strip and makes the named ones look like
+       more of the same. Only removed if it is untouched -- a customer who edited it keeps it. */
+    var _sid=starterId();
+    if(_sid&&programIds().length){
+      var _L=LISTS[_sid];
+      if(_L.seedn==null||Object.keys(_L.items||{}).length===_L.seedn){
+        if(ALID===_sid)ALID=personalListId();
+        delete LISTS[_sid];
+      }
+    }
   }catch(e){}
 }
 function programIds(){
