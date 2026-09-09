@@ -2059,8 +2059,9 @@ body{padding-left:74px}
 .heroshot.mstage{width:132px;height:132px;border-radius:14px;flex:0 0 132px;
   background:radial-gradient(120% 120% at 50% 26%,#fff,#eef0f2);box-shadow:var(--sh)}
 .heroshot .g{opacity:1}
-@media(max-width:1080px){.heroshot.mstage{width:112px;height:112px;flex:0 0 112px}}
-@media(max-width:860px){.heroshots{display:none}.heroflex{display:block}}
+/* The strip wraps below the headline on a phone and reads as a product row there, so it is kept
+   rather than hidden -- it is the proof, and a phone visitor deserves it as much as a desktop one. */
+@media(max-width:860px){.heroshots{max-width:none}}
 /* The per-person figure on a shortlist card. Inline, never a block — `.rhtx b` is the board name. */
 .rhtx .rhpp{display:inline;font-weight:800;color:var(--ink)}
 

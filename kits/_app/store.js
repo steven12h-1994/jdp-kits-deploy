@@ -5318,10 +5318,14 @@ function heroShotsHtml(){
      product shots on a live customer store. Markup that depends on a stylesheet arriving with it is
      markup that will eventually render naked. The dimensions that keep the page from breaking are
      therefore carried on the element; the stylesheet only refines the look. */
-  var W=(typeof window!=='undefined'&&window.innerWidth<1080)?112:132;
-  var box='width:'+W+'px;height:'+W+'px;flex:0 0 '+W+'px;position:relative;overflow:hidden;'+
-          'border-radius:14px;display:inline-block';
-  return '<div class="heroshots" aria-hidden="true" style="display:flex;gap:10px;flex:0 0 auto">'+
+  /* FLEXIBLE, not a fixed pixel width. Fixed 132px tiles overflowed a 390px phone -- the third
+     garment was clipped at the edge -- and a viewport measurement taken once at render would go
+     stale the moment someone rotated the device or resized. `flex:1 1 0` with a max-width and an
+     aspect ratio makes the row size itself at every width, with no JavaScript watching. */
+  var box='flex:1 1 0;min-width:0;max-width:132px;aspect-ratio:1/1;position:relative;'+
+          'overflow:hidden;border-radius:14px;display:block';
+  return '<div class="heroshots" aria-hidden="true" style="display:flex;gap:10px;'+
+    'flex:1 1 300px;max-width:436px">'+
     ks.map(function(k){
       var it=BYKEY[k],o;
       try{o=overlayHtml(it,{decos:defaultDecos(k)},progColour(k),'front',browseCols(it),it.places);}
