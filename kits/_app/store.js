@@ -69,8 +69,16 @@ function autoInkFor(method,rgb,logo,colours){
   var gl=hexRelLum(rgb),k=INK[logo.id];
   var canHybrid=(method==='embroidery')||((colours||1)>=2);
   if(k&&typeof k.lum==='number'){
+    /* A DARK garment takes the authored hybrid whenever one exists and the run can pay for it,
+       BEFORE the measured-contrast test. The ink probe medians the WHOLE mark, so a lockup whose
+       dominant element clears the test can still hide a second one: Koyo Foods is a green pine
+       badge (94% of the ink) with a BLACK wordmark inside it -- the green median passed on black
+       and navy while the company NAME disappeared. The hybrid is drawn for precisely this garment,
+       so it beats a measurement that cannot see a per-element clash. Kits with no ondark asset are
+       untouched, and the two that have one (attaelevators, farm-girl) already failed the test and
+       took this branch, so nothing in the fleet changes behaviour. */
+    if(gl<0.18&&canHybrid&&logo.inks.ondark)return 'ondark';
     if(contrast(k.lum,gl)<INK_MINRATIO){
-      if(gl<0.18&&canHybrid&&logo.inks.ondark)return 'ondark';
       return gl<0.18?'white':'dark';
     }
     return 'brand';
