@@ -5126,11 +5126,21 @@ function programIds(){
   for(var id in (LISTS||{}))if(LISTS[id]&&LISTS[id].prog)out.push(id);
   return out;
 }
+/* A SHORTLIST WE PREPARED, not just any saved board. This used to return every list with a slug --
+   and a slug is assigned to the CUSTOMER'S OWN board the first time it syncs. So a returning
+   visitor who had saved one item saw the three programs disappear and the band announce "We've
+   already picked your shortlist" over their own one-item list. That is the private-vs-normal
+   browser difference Steven hit on 2026-09-09: a private window has no saved board, a normal one
+   does. It is also the worst copy in the store -- claiming credit for the customer's own work.
+   The test is authorship, which we control at both ends: boards published by JDP carry `by`. */
+var JDP_AUTHOR=/just\s*deals/i;
+function isCuratedList(L){
+  return !!(L&&L.slug&&Object.keys(L.items||{}).length&&(L.cur||JDP_AUTHOR.test(L.by||'')));
+}
 function curatedBoardIds(){
   var out=[];
   for(var id in (LISTS||{})){
-    var L=LISTS[id];
-    if(L&&L.slug&&!isTemplate(id)&&Object.keys(L.items||{}).length)out.push(id);
+    if(!isTemplate(id)&&isCuratedList(LISTS[id]))out.push(id);
   }
   out.sort(function(a,b){return listLen(b)-listLen(a);});
   return out;
@@ -5434,6 +5444,9 @@ function syncBoardsFromServer(){
           LISTS[id].items=sb.items||{};
           LISTS[id].slug=row.b;
           LISTS[id].rev=sb.rev||0;
+          /* WHO MADE THIS BOARD decides whether it is a shortlist we prepared or the customer's own
+             working list. Carried down from the server so curatedBoardIds() can tell them apart. */
+          LISTS[id].by=sb.by||row.by||LISTS[id].by||'';
           LISTS[id].updated=(sb.updated||0)*1000;
           if(id===ALID)CART=LISTS[id].items;
           return true;
