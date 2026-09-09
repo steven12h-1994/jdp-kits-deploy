@@ -2098,27 +2098,78 @@ function buildStore(){
     document.getElementById('toast').classList.remove('on');openBoard();});
   ['leadOpen1','leadOpen2'].forEach(function(id){var b=document.getElementById(id);if(b)b.addEventListener('click',openLead);});
 }
-// Generic/demo store: a conversion-focused lead modal. When a published Airtable form URL is configured
-// (CFG.cta_form), it embeds that form (submissions land straight in Airtable). Otherwise it shows a
-// clear contact fallback so the CTA always works.
+// Generic/demo store: ONE FIELD. The embedded four-field Airtable form (Contact Name / Work Email
+// / Website / Notes) that used to load here via CFG.cta_form is gone -- it asked four things where
+// the website asks one, and it was the highest-friction step in the whole funnel. This now uses the
+// SAME capture the main site uses: a work email, posted to the lead webhook, with the company,
+// website and contact name derived from the address so the Airtable record is just as complete.
+var LEAD_HOOK='https://hyperagent.com/api/webhooks/cms69ljxt0kod08adokdar5i6/receive';
+var LFREEMAIL={'gmail.com':1,'googlemail.com':1,'yahoo.com':1,'yahoo.ca':1,'ymail.com':1,'hotmail.com':1,
+  'hotmail.ca':1,'outlook.com':1,'live.com':1,'live.ca':1,'msn.com':1,'aol.com':1,'icloud.com':1,'me.com':1,
+  'mac.com':1,'protonmail.com':1,'proton.me':1,'gmx.com':1,'mail.com':1,'yandex.com':1,'zoho.com':1,
+  'rogers.com':1,'sympatico.ca':1,'bell.net':1,'bellnet.ca':1,'shaw.ca':1,'telus.net':1,'videotron.ca':1,
+  'cogeco.ca':1,'eastlink.ca':1,'xplornet.com':1};
+var LROLEBOX={info:1,ops:1,operations:1,sales:1,admin:1,office:1,accounts:1,accounting:1,ap:1,ar:1,
+  hello:1,contact:1,enquiries:1,inquiries:1,purchasing:1,procurement:1,buyer:1,hr:1,payroll:1,
+  safety:1,service:1,orders:1,estimating:1,estimates:1,quotes:1,shop:1,warehouse:1,dispatch:1,
+  team:1,mail:1,email:1,general:1,reception:1,front:1,billing:1,support:1,help:1,marketing:1};
+function lSiteFromEmail(email){
+  var m=/^[^@\s]+@([^@\s]+\.[a-z]{2,})$/i.exec((email||'').trim()); if(!m)return '';
+  var d=m[1].toLowerCase().replace(/^www\./,''); return LFREEMAIL[d]?'':d;
+}
+function lCompanyFromSite(site){
+  var b=(site||'').replace(/^https?:\/\//i,'').replace(/^www\./i,'').split('/')[0].split('.')[0];
+  if(!b)return '';
+  return b.replace(/[-_]+/g,' ').replace(/\b[a-z]/g,function(c){return c.toUpperCase();});
+}
+function lNameFromEmail(email){
+  var m=/^([^@\s]+)@/.exec((email||'').trim()); if(!m)return '';
+  var local=m[1].toLowerCase().replace(/\d+$/,'');
+  if(LROLEBOX[local.replace(/[._-]/g,'')])return '';
+  var parts=local.split(/[._-]+/).filter(function(x){return x&&!LROLEBOX[x];});
+  if(!parts.length)return '';
+  return parts.map(function(x){
+    return x.length===1?x.toUpperCase()+'.':x.charAt(0).toUpperCase()+x.slice(1);
+  }).join(' ');
+}
+function sendStoreLead(email){
+  var site=lSiteFromEmail(email), company=lCompanyFromSite(site), name=lNameFromEmail(email);
+  var body={name:name||'',companyName:company||'',companyWebsite:site||'',website:site||'',
+    email:email||'',products:'',status:'pending',scope:'all',country:'CA',
+    source:'Website',submittedAt:new Date().toISOString(),
+    airtable:{base:'appCYDBvfvfaLfzyi',table:'tbl3ctjDqg6nyQDao'}};
+  try{fetch(LEAD_HOOK,{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(body),keepalive:true}).catch(function(){});}catch(e){}
+}
+function leadSubmit(e){
+  if(e&&e.preventDefault)e.preventDefault();
+  var inp=document.getElementById('leadEmail'); if(!inp)return false;
+  var email=(inp.value||'').trim();
+  if(!email||email.indexOf('@')<0){try{inp.focus();}catch(_){} return false;}
+  var btn=document.getElementById('leadBtn'); if(btn){btn.textContent='Sending…';btn.disabled=true;}
+  sendStoreLead(email);
+  var b=document.querySelector('#lead .leadb');
+  if(b)b.innerHTML='<div class="eyb">On its way</div><h2>Got it \u2014 check your inbox.</h2>'+
+    '<p class="leadsub">We\u2019ll send a recommended lineup for your team, your logo on the gear and exact '+
+    'pricing \u2014 usually within one business day. No obligation.</p>';
+  return false;
+}
 function openLead(){
-  var cta=CFG.cta||{},form=CFG.cta_form,el=document.getElementById('lead');
-  var inner;
-  if(form){
-    // Embedded Airtable form carries its own title/fields — keep our chrome minimal so it's the focus.
-    el.classList.add('embed');
-    inner='<button class="shx" id="leadX" aria-label="Close">✕</button>'+
-      '<div class="leadhd"><span class="eyb">Free · no obligation</span> Get your own branded store</div>'+
-      '<iframe class="leadform" src="'+esc(form)+'" frameborder="0"></iframe>';
-  } else {
-    el.classList.remove('embed');
-    inner='<button class="shx" id="leadX" aria-label="Close">✕</button><div class="leadb">'+
-      '<div class="eyb">Free · no obligation</div><h2>Get your own branded store</h2>'+
-      '<p class="leadsub">Tell us about your team and we’ll build a store like this — your logo, your colours, your gear — and with <b>live pricing</b> and an exact quote — no obligation.</p>'+
-      '<ul class="leadben"><li>Your logo on real gear</li><li>Your team’s colours &amp; sizes</li><li>Live pricing · no minimum beyond 12 pcs</li></ul>'+
-      '<a class="leadbtn" href="'+esc(cta.href||'#')+'">Email us to start →</a>'+(cta.phone?'<div class="leadphone">or call <b>'+esc(cta.phone)+'</b></div>':'')+'</div>';
-  }
-  el.innerHTML=inner;
+  var cta=CFG.cta||{},el=document.getElementById('lead');
+  el.classList.remove('embed');
+  el.innerHTML='<button class="shx" id="leadX" aria-label="Close">\u2715</button><div class="leadb">'+
+    '<div class="eyb">Free \u00b7 no obligation</div><h2>Get your own branded store</h2>'+
+    '<p class="leadsub">Just your work email \u2014 that\u2019s it. We\u2019ll send a recommended lineup for your '+
+    'team, your logo on every piece, and exact pricing for your quantities.</p>'+
+    '<form id="leadForm" class="leadfrm">'+
+      '<input type="email" id="leadEmail" placeholder="Work email" required aria-label="Work email" '+
+        'autocomplete="email" inputmode="email" autocapitalize="off" autocorrect="off" '+
+        'spellcheck="false" enterkeyhint="send">'+
+      '<button type="submit" class="leadbtn" id="leadBtn">'+esc(cta.label||'Get my store \u2014 free')+' \u2192</button>'+
+    '</form>'+
+    '<div class="leadnote">One quick email \u2014 no spam, and nothing to buy.</div>'+
+    (cta.phone?'<div class="leadphone">or call <b>'+esc(cta.phone)+'</b></div>':'')+'</div>';
+  var f=document.getElementById('leadForm'); if(f)f.addEventListener('submit',leadSubmit);
   document.getElementById('leadX').addEventListener('click',closeAll);
   document.getElementById('ov').classList.add('on');
   document.getElementById('lead').classList.add('on');
