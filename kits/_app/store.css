@@ -1493,12 +1493,15 @@ body{padding-left:74px}
   -webkit-appearance:none;appearance:none}
 .bswmore:hover{border-style:solid;color:var(--ink);border-color:var(--ink)}
 @media (max-width:560px){
-  /* One row that scrolls beats four rows that push the price off the screen. */
-  .bswr{flex-wrap:nowrap;overflow-x:auto;padding-bottom:3px;scrollbar-width:none;
-    -webkit-overflow-scrolling:touch}
-  .bswr::-webkit-scrollbar{display:none}
-  .bsw,.bswmore{flex:none}
-  .bsw:hover{transform:none}
+  /* WRAPPING, NOT SCROLLING. A horizontal scroller was written here first and could never have
+     worked: .bswr carries an inline `flex-wrap:wrap` (insurance for store.css arriving a mirror
+     cycle after store.js) and an inline style beats a stylesheet, so the rule would have been
+     dead while appearing to be the mobile design. Wrapping is the better answer anyway -- twelve
+     30px swatches land in two rows on a 360px screen with nothing hidden behind a gesture, and no
+     scroll affordance to discover. Hover is dropped because a tap would leave a swatch stuck
+     enlarged. */
+  .bsw:hover{transform:none;box-shadow:inset 0 0 0 1px rgba(255,255,255,.35)}
+  .bsw.on:hover{box-shadow:0 0 0 2px var(--bg),0 0 0 3px var(--ink)}
 }
 @media (prefers-reduced-motion:reduce){.bsw{transition:none}.bsw:hover{transform:none}}
 .bszed{margin:2px 0 0}
