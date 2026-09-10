@@ -1415,7 +1415,9 @@ body{padding-left:74px}
 /* ---- Print: the board becomes a clean proposal a buyer can forward or file -------------------- */
 @media print{
   .rail,.tbar,.hero,.excats,.offerstrip,.navwrap,main,.cbar,.toast,
-  .bhdR,.bchips,.bfoot,.bacts,.bpcta,.btmpl{display:none!important}
+  /* .bswr but not .bcols: a printed board still has to say which colour was chosen, and the
+     swatch row's heading carries the name. The buttons themselves are noise on paper. */
+  .bhdR,.bchips,.bfoot,.bacts,.bpcta,.btmpl,.bswr{display:none!important}
   body{padding:0!important;background:#fff!important}
   .boardov{position:static!important;left:0!important;inset:auto!important;overflow:visible!important;
     opacity:1!important;visibility:visible!important}
@@ -1426,6 +1428,8 @@ body{padding-left:74px}
   .bcard{break-inside:avoid;box-shadow:none!important;transform:none!important;border-color:#ddd}
   .bnote textarea{border:0;background:#fff;resize:none;padding:0}
   .bszc{border-color:#ddd}
+  .bcols{border-color:#ddd;background:none!important;padding:6px 0 0;margin:8px 0 0}
+  .bcoln{display:none}
   a[href]:after{content:""}
 }
 
@@ -1449,6 +1453,54 @@ body{padding-left:74px}
   background:rgba(180,120,0,.1);border:1px solid rgba(180,120,0,.26);color:#7a5200}
 /* Size entry on the board. Six thumb-sized cells, no steppers -- a stepper needs 12 taps to reach
    12, a keypad needs two. Filled cells darken so a split reads at a glance. */
+
+/* ---- Colour, chosen on the board card -------------------------------------------------------
+   Steven, 2026-09-10: "on a board I want the customer to be able to see and select colors much
+   more easily." The swatches are 30px, which is above the 24px floor where a colour stops being a
+   dot and starts being a sample -- big enough to actually judge a navy against a charcoal, and
+   comfortably past the 44px tap target once the gap is counted. The selected one is marked twice,
+   by a ring AND a tick, because a ring alone is invisible to anyone who cannot separate the
+   swatch's colour from the ring's. */
+.bcols{margin:12px 0 0;padding:11px 12px 12px;border:1px solid var(--line);border-radius:12px;
+  background:linear-gradient(180deg,rgba(0,0,0,.012),transparent)}
+.bcolhd{display:flex;align-items:baseline;gap:8px;margin:0 0 9px;min-width:0}
+.bcolk{font-size:10.5px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--mut);flex:none}
+/* The live one. It changes on hover, so it is the biggest text in the block -- the eye should
+   already be here when the colour under the cursor changes. */
+.bcolnow{font-size:14px;font-weight:800;color:var(--ink);flex:1 1 auto;min-width:0;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bcoln{font-size:11px;font-weight:600;color:var(--mut);flex:none}
+.bswr{display:flex;flex-wrap:wrap;gap:8px}
+.bsw{position:relative;width:30px;height:30px;padding:0;border-radius:999px;cursor:pointer;
+  /* An inner hairline, so #FFFFFF and #FFF8F0 are still two visibly different swatches on a
+     white card -- without it a white garment reads as a hole. */
+  border:1px solid rgba(0,0,0,.22);box-shadow:inset 0 0 0 1px rgba(255,255,255,.35);
+  transition:transform .12s ease,box-shadow .12s ease;-webkit-appearance:none;appearance:none}
+.bsw:hover{transform:scale(1.14);box-shadow:0 2px 9px rgba(0,0,0,.22),inset 0 0 0 1px rgba(255,255,255,.35)}
+.bsw:focus-visible{outline:none;box-shadow:0 0 0 2px var(--bg),0 0 0 4px var(--a)}
+.bsw.on{box-shadow:0 0 0 2px var(--bg),0 0 0 3px var(--ink)}
+.bsw.on:hover{transform:none}
+/* The tick is drawn in both black and white -- a white stroke with a dark drop shadow reads on a
+   pale swatch and on a navy one, which one flat colour cannot do. */
+.bsw>i{position:absolute;inset:0;display:none;background:
+  no-repeat center/13px 13px url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6L9 17l-5-5'/%3E%3C/svg%3E");
+  filter:drop-shadow(0 0 1.5px rgba(0,0,0,.85)) drop-shadow(0 1px 1px rgba(0,0,0,.5))}
+.bsw.on>i{display:block}
+.bcols:not(.all) .bsw.xtra{display:none}
+.bswmore{height:30px;padding:0 11px;border-radius:999px;border:1px dashed var(--line);
+  background:transparent;color:var(--mut);font-size:11.5px;font-weight:800;cursor:pointer;
+  -webkit-appearance:none;appearance:none}
+.bswmore:hover{border-style:solid;color:var(--ink);border-color:var(--ink)}
+@media (max-width:560px){
+  /* One row that scrolls beats four rows that push the price off the screen. */
+  .bswr{flex-wrap:nowrap;overflow-x:auto;padding-bottom:3px;scrollbar-width:none;
+    -webkit-overflow-scrolling:touch}
+  .bswr::-webkit-scrollbar{display:none}
+  .bsw,.bswmore{flex:none}
+  .bsw:hover{transform:none}
+}
+@media (prefers-reduced-motion:reduce){.bsw{transition:none}.bsw:hover{transform:none}}
 .bszed{margin:2px 0 0}
 /* Until a style is sized, the whole block reads as an outstanding action. */
 .bszed.need{padding:9px 10px 10px;margin:6px -2px 0;border:1px solid var(--a);border-radius:10px;

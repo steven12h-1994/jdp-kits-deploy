@@ -4378,6 +4378,93 @@ function applyHeadcount(n){
   setHC(n);saveCart();
   return touched;
 }
+/* SEE THE COLOUR AND CHANGE IT WITHOUT LEAVING THE BOARD. Steven, 2026-09-10: "on a board I want
+   the customer to be able to see and select colors much more easily."
+
+   The board showed a 6px dot and a colour name, and changing it meant pressing Edit -- which opens
+   the entire product sheet on top of the board. So the decision a buyer is most likely to revisit
+   while reviewing what they are about to send was the most expensive one on the card to make.
+
+   Every colourway in the run is now a control on the card itself: hovering previews it on the
+   mockup, clicking commits it. Both go through bPaintColour(), which is also what the caption and
+   the selected ring read from -- one path, so the photo, the logo's ink and the words underneath it
+   cannot drift apart. (They have before: the board once rendered an acid-green polo captioned
+   "Navy".)
+
+   Nothing here recomputes price, because colour does not move it -- so the card repaints in place
+   and the buyer keeps their scroll position while flicking through eighteen colours. */
+function bColourRowHtml(ck){
+  var it=BYKEY[bkey(ck)];if(!it)return '';
+  var c=CART[ck];if(!c)return '';
+  var cols=(it.layer==='promo')?(it.cols||[]):curColsOf(it,c.fit);
+  if(!cols||cols.length<2)return '';             // a single colourway is a fact, not a choice
+  var cur=(colInList(cols,c.colour)||cols[0]||{}).name||'';
+  var CAP=12;                                    // beyond this the row becomes a wall; the rest
+  var hidden=0;                                  // stay one tap away behind "+N more"
+  var sw=cols.map(function(cc,i){
+    var nm=cc.name||'';
+    var on=nm===cur;
+    /* THE SELECTED SWATCH IS NEVER THE HIDDEN ONE. Caught in the preview render: a board line
+       saved in the eighteenth of twenty-two colourways showed a header naming that colour above a
+       row of twelve swatches with no ring on any of them -- the selection was folded into "+10
+       more". Whatever else the cap does, the current choice has to be on screen. */
+    var xtra=(i>=CAP&&!on);
+    if(xtra)hidden++;
+    return '<button type="button" class="bsw'+(on?' on':'')+(xtra?' xtra':'')+'"'+
+      ' role="radio" aria-checked="'+(on?'true':'false')+'" tabindex="'+(on?'0':'-1')+'"'+
+      ' data-bcol="'+esc(nm)+'" data-bswk="'+esc(ck)+'"'+
+      /* Sizing inline as well as in store.css: the two files can land a mirror cycle apart, and an
+         unstyled <button> holding one empty <i> collapses to nothing -- a row of invisible
+         swatches. Same reason the hero's preview tiles carry theirs. */
+      ' style="width:30px;height:30px;border-radius:999px;flex:none;background:'+
+        esc(cc.rgb||'#cccccc')+'"'+
+      ' title="'+esc(nm)+'" aria-label="'+esc(nm)+'"><i aria-hidden="true"></i></button>';
+  }).join('');
+  return '<div class="bcols" data-bcolsk="'+esc(ck)+'">'+
+    '<div class="bcolhd"><span class="bcolk">Colour</span>'+
+      '<b class="bcolnow">'+esc(cur)+'</b>'+
+      '<span class="bcoln">'+cols.length+' to choose from</span></div>'+
+    '<div class="bswr" role="radiogroup" aria-label="Colour for '+esc(it.name)+'" '+
+      'style="display:flex;flex-wrap:wrap;gap:8px">'+sw+
+      (hidden?('<button type="button" class="bswmore" data-bmore="'+esc(ck)+'">+'+
+        hidden+' more</button>'):'')+
+    '</div></div>';
+}
+/* Repaint one board card in a colour. `commit` distinguishes a hover preview (photo and caption
+   only, so it never looks like it saved something) from a real choice (persisted, ring moved). */
+function bPaintColour(ck,colour,commit){
+  var it=BYKEY[bkey(ck)];if(!it)return;
+  var c=CART[ck];if(!c)return;
+  var card=document.querySelector('.bcard[data-bk="'+ck+'"]');if(!card)return;
+  var cols=(it.layer==='promo')?(it.cols||[]):curColsOf(it,c.fit);
+  var col=colInList(cols,colour)||cols[0]||{};
+  var nm=col.name||'';
+  if(commit){c.colour=nm;saveCart();}
+  var st=card.querySelector('.bstage');
+  if(st&&it.layer!=='promo'){
+    /* The logo is re-composited, not just re-positioned: autoInkFor picks a different ink for a
+       black garment than for a white one, so swapping the photo alone would leave white thread
+       sitting on a white polo. */
+    var pl=(c.fit==='womens'&&it.wplaces&&it.wplaces.length)?it.wplaces:it.places;
+    var oo=null;try{oo=overlayHtml(it,{decos:(c.decos||[])},nm,'front',cols,pl);}catch(e){oo=null;}
+    if(oo){
+      var im=st.querySelector('img.g');if(im){im.src=oo.g;im.classList.add('ld');}
+      var old=st.querySelectorAll('img.l');for(var i=0;i<old.length;i++)old[i].remove();
+      if(oo.lg)st.insertAdjacentHTML('beforeend',oo.lg);
+    }
+  }else{
+    var bi=card.querySelector('.bimg');if(bi&&col.front)bi.src=gurl(col.front);
+  }
+  var now=card.querySelector('.bcolnow');if(now)now.textContent=nm;
+  var dot=card.querySelector('.bdot');if(dot&&col.rgb)dot.style.background=col.rgb;
+  var mc=card.querySelector('.bmetacol');if(mc)mc.textContent=nm;
+  if(commit)card.querySelectorAll('.bsw').forEach(function(b){
+    var on=b.getAttribute('data-bcol')===nm;
+    b.classList.toggle('on',on);
+    b.setAttribute('aria-checked',on?'true':'false');
+    b.tabIndex=on?0:-1;                          // roving tabindex: one stop per row, not eighteen
+  });
+}
 function bSizeRowHtml(ck){
   var c=CART[ck];if(!c)return '';
   var it=BYKEY[bkey(ck)];
@@ -4511,6 +4598,7 @@ function boardCardHtml(ck){
     var _pl=(c.fit==='womens'&&it.wplaces&&it.wplaces.length)?it.wplaces:it.places;
     try{_o=overlayHtml(it,{decos:(c.decos||[])},c.colour,'front',cols,_pl);}catch(e){_o=null;}
   }
+  var _crow=bColourRowHtml(ck);
   var _stage=_o
     ? ('<div class="bstage"><img class="g" src="'+_o.g+'" alt="'+esc(it.name)+
        '" loading="lazy" decoding="async">'+_o.lg+'</div>')
@@ -4520,11 +4608,17 @@ function boardCardHtml(ck){
       (ftl?'<span class="bfit">'+esc(ftl)+'</span>':'')+'</div>'+
     '<div class="bbody">'+
       '<h3 class="bname">'+esc(it.name)+'</h3>'+
-      '<div class="bmeta">'+
-        (col.rgb?'<span class="bdot" style="background:'+esc(col.rgb)+'"></span>':'')+
-        '<span>'+esc(cname)+'</span>'+
-        (deco?'<span class="bsep">\u00b7</span><span>'+esc(deco)+'</span>':'')+
-      '</div>'+
+      /* The swatch row states the colour in bigger type right below, so repeating it here would
+         be the same fact twice on one card. When there is only one colourway there is no row, and
+         the meta line carries it as before. */
+      (function(){
+        var bits=[];
+        if(!_crow&&cname)bits.push((col.rgb?('<span class="bdot" style="background:'+
+          esc(col.rgb)+'"></span>'):'')+'<span class="bmetacol">'+esc(cname)+'</span>');
+        if(deco)bits.push('<span>'+esc(deco)+'</span>');
+        return bits.length?('<div class="bmeta">'+
+          bits.join('<span class="bsep">\u00b7</span>')+'</div>'):'';
+      })()+
       (cmiss?('<div class="bmiss">'+esc(cmiss)+' is no longer available \u2014 showing '+
         esc(cname)+'. Tell us on the quote and we\u2019ll source it.</div>'):'')+
       /* WHY THIS PIECE. Steven, 2026-09-08: "improve the recommendation suggestions to truly WOW
@@ -4535,6 +4629,8 @@ function boardCardHtml(ck){
          is read before the price. Only rendered when the board actually carries one; a board the
          customer built themselves shows nothing here rather than an empty label. */
       (c.why?('<div class="bwhy"><span class="bwhyk">Why this one</span>'+esc(c.why)+'</div>'):'')+
+      /* Colour then quantity: the two things the buyer configures, next to each other. */
+      _crow+
       bSizeRowHtml(ck)+
       /* When both cuts of a garment are on the board they share one volume tier, so the men's line
          can be 40 pieces yet priced at a 240-piece rate. Without saying so, the number looks wrong
@@ -4758,6 +4854,44 @@ function wireBoard(){
     openSheet(b.dataset.bedit);});});
   el.querySelectorAll('[data-brm]').forEach(function(b){b.addEventListener('click',function(){
     delete CART[b.dataset.brm];saveCart();refreshCartUI();renderBoard();});});
+  /* Colour, chosen on the card. Pointer and keyboard both land on bPaintColour(): hover/focus
+     previews, click commits, leaving restores whatever is actually saved -- so a buyer who runs the
+     mouse across the row and walks away is left looking at their own choice, not the last one they
+     grazed. */
+  el.querySelectorAll('.bsw').forEach(function(b){
+    var ck=b.getAttribute('data-bswk'),nm=b.getAttribute('data-bcol');
+    var back=function(){var c=CART[ck];if(c)bPaintColour(ck,c.colour,false);};
+    b.addEventListener('click',function(e){e.stopPropagation();bPaintColour(ck,nm,true);});
+    b.addEventListener('mouseenter',function(){bPaintColour(ck,nm,false);});
+    b.addEventListener('focus',function(){bPaintColour(ck,nm,false);});
+    b.addEventListener('mouseleave',back);
+    b.addEventListener('blur',back);
+    b.addEventListener('keydown',function(e){
+      var d=(e.key==='ArrowRight'||e.key==='ArrowDown')?1:
+            ((e.key==='ArrowLeft'||e.key==='ArrowUp')?-1:0);
+      if(!d)return;
+      e.preventDefault();
+      var row=b.closest('.bswr');if(!row)return;
+      // only the swatches actually on screen -- arrowing into a hidden one strands the focus ring
+      var all=[].slice.call(row.querySelectorAll('.bsw')).filter(function(x){
+        return x.offsetParent!==null;});
+      var i=all.indexOf(b);if(i<0)return;
+      var nx=all[(i+d+all.length)%all.length];
+      if(nx){nx.tabIndex=0;nx.focus();}
+    });
+  });
+  el.querySelectorAll('[data-bmore]').forEach(function(b){b.addEventListener('click',function(e){
+    e.stopPropagation();
+    var box=b.closest('.bcols');if(box)box.classList.add('all');
+    b.remove();});});
+  /* On a phone the swatch row scrolls sideways, so open it with the chosen colour already in
+     view. scrollLeft rather than scrollIntoView(): the latter also scrolls the nearest vertical
+     ancestor, which on a board of twelve cards jerks the whole panel to the last one. */
+  el.querySelectorAll('.bswr').forEach(function(row){
+    var on=row.querySelector('.bsw.on');
+    if(!on||row.scrollWidth<=row.clientWidth+2)return;
+    row.scrollLeft=Math.max(0,on.offsetLeft-(row.clientWidth-on.offsetWidth)/2);
+  });
   var x=document.getElementById('bClose');if(x)x.addEventListener('click',closeBoard);
   var ba=document.getElementById('bAll');if(ba)ba.addEventListener('click',function(){
     closeBoard();openBoards();});
@@ -5210,8 +5344,13 @@ function progBuild(spec){
 
 var PROGSEEDED=false;
 function seedPrograms(){
-  if(PROGSEEDED)return;PROGSEEDED=true;
+  /* The flag is set only once seeding can actually happen. It used to be set on the way IN, so a
+     single early call before loadLists() had run would latch it true, seed nothing, and leave the
+     hero permanently empty for that visitor -- the same symptom, from a different direction. */
+  if(PROGSEEDED)return;
+  if(!LISTS)loadLists();
   if(!LISTS)return;
+  PROGSEEDED=true;
   try{
     PROG_SPECS.forEach(function(spec){
       var rows=progBuild(spec);
@@ -5305,11 +5444,24 @@ function programsOn(){
   return PROG_DEFAULT;
 }
 function recoHeroHtml(){
-  var ids=curatedBoardIds(),generated=false;
-  /* A REAL CURATED BOARD ALWAYS WINS. If somebody did the work for this client, the generated
-     programs step aside entirely rather than competing with it. */
-  if(!ids.length&&programsOn()){seedPrograms();ids=programIds();generated=ids.length>0;}
+  /* THE PRE-APPROVED PROGRAMS, ALWAYS. Steven, 2026-09-10: "'We've already picked your shortlist'
+     is a bad idea. I prefer just to show the pre approved programs and allow customers to build
+     there own boards."
+
+     This used to hand the hero over to any board that looked curated, and that switch is what broke
+     stryder-motorfreight. He removed that store's recommended board, but his browser still had its
+     own cached copy -- three items, a slug, flagged `srv` -- so the store went on treating a board
+     that no longer existed as the client's shortlist, showed one stale card instead of three
+     programs, and captioned it with a claim about work nobody had done. A fresh browser saw the
+     programs correctly, which is exactly the private-vs-normal split he reported before.
+
+     Removing the branch removes the whole failure class: there is no state, local or remote, in
+     which the programs can be displaced. Boards the customer builds live in the board strip, which
+     is where he wants them. `curatedBoardIds()` stays -- hideStaleStarter() still uses it. */
+  var ids=[];
+  if(programsOn()){seedPrograms();ids=programIds();}
   if(!ids.length)return '';
+  var generated=true;
   var cards=ids.slice(0,3).map(function(id){
     var L=LISTS[id];
     /* Inline sizing on the preview tiles: store.css can arrive a mirror cycle behind store.js, and
@@ -5339,23 +5491,15 @@ function recoHeroHtml(){
              'color:var(--ink)">'+money0(pp)+'</span> per person'):'';})()+
            '<span class="rharrow" style="margin-left:auto;flex:none">\u2192</span></i></span>'+
       '</button>';}).join('');
-  /* THE HEADING HAS TO BE TRUE. "Prepared for X - We've already picked your shortlist" is a claim
-     about work somebody did for that client, and it is earned when a rep curated a board after a
-     visit. On a generated program it would be a lie the customer cannot check -- and the moment two
-     customers compare stores, it is a lie they CAN. So a generated set says plainly what it is: a
-     starting point built by role, from this store's own range, for the season. That is still a
-     strong offer and it costs nothing in trust. */
-  var hd=generated
-    ? {lbl:'Built for '+esc(CFG.client||'your team'),
-       h:'Start from a program, not a catalogue',
-       p:'Three ready-made programs \u2014 the people on the tools, the people in the building, and '+
-         'the people in front of your clients. Every piece is priced at your minimum and every line '+
-         'is yours to change.'}
-    : {lbl:'Prepared for '+esc(CFG.client||'your team'),
-       h:'We\u2019ve already picked your shortlist',
-       p:(ids.length===1?'A starting point':(nwords(Math.min(ids.length,3))+' starting points'))+
-         ', chosen for how your people actually work \u2014 open one, '+
-         'change anything you like, and send it back for a quote.'};
+  /* THE HEADING HAS TO BE TRUE. The old alternative -- "Prepared for X / We've already picked your
+     shortlist" -- claimed work somebody had done for that client, and the store could not actually
+     tell whether anyone had. Say plainly what these are: pre-approved programs built by role from
+     this store's own range. It is a strong offer and it costs nothing in trust. */
+  var hd={lbl:'Built for '+esc(CFG.client||'your team'),
+          h:'Pre-approved programs, ready to send',
+          p:nwords(Math.min(ids.length,3))+' programs we already stock and decorate \u2014 the '+
+            'people on the tools, the people in the building, and the people in front of your '+
+            'clients. Every piece is priced at your minimum, and every line is yours to change.'};
   return '<section class="recohero'+(generated?' gen':'')+'"><div class="w">'+
     '<div class="rhlbl">'+hd.lbl+'</div>'+
     '<h2 class="rhh">'+hd.h+'</h2>'+
