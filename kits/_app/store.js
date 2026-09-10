@@ -31,6 +31,25 @@ var INK={},INK_MINRATIO=3.0,INK_MAXSAT=45;
 /* The kit's primary mark, in ink counts. Measured by probeInk() before the store is ever built, so
    this is settled by the time anything renders or prices. Falls back to 1 if the probe could not
    read the artwork -- under-quoting a setup is recoverable, a store that fails to load is not. */
+/* IS THE MARK'S LIGHT CONTENT KNOCKED OUT OF A FILLED SHAPE, OR IS IT THE SHAPE ITSELF?
+
+   The test that decides whether flattening a logo destroys it. It replaces three metrics I trialled
+   and threw away; the mistake in all three was asking "does this read" when the real question is
+   "is this better than the alternative". Rendering marks as-is beside the flat reverse settled it:
+   the reverse is NOT a degradation for most artwork -- it is what a screen printer does, and for an
+   outline wordmark it is BETTER than the original (monitrol's hollow outlines become solid legible
+   letters; eddy-solutions goes from invisible to crisp).
+
+   Flattening destroys a mark in one situation only: its light content is INTERIOR to a filled
+   opaque region -- Walco's white banner text inside its navy plate, The Boardroom's letters inside
+   a white ellipse, Zenetec's diamond, Factory Outlet's banner. Flatten those and the enclosed
+   detail merges into a solid slab, which is exactly the bug Steven reported twice.
+
+   Measured across all 665 fleet marks this is cleanly bimodal -- badges land at 20-35%, wordmarks
+   at 0-14% -- with a trough at 14-18% holding only 4 of 226 marks. The threshold sits in that
+   trough, so it is not a knife edge. 23 marks keep their true colours; the rest read better
+   reversed, verified by looking at all 66 of the nearest ones rendered both ways. */
+var INK_KO_MIN=0.18,KO_LIGHT=0.30;
 function brandInks(){
   var L=(typeof CFG!=='undefined'&&CFG.logos&&CFG.logos[0])||null;
   var k=L&&INK[L.id];
@@ -73,11 +92,15 @@ function autoInkFor(method,rgb,logo,colours){
       if(canHybrid){
         /* THE SAME COURTESY ON A LIGHT GARMENT. `ondark` had a branch and `onlight` did not, so a
            mark with a WHITE wordmark flattened to solid near-black on a white polo -- the same
-           "our logo in one colour" complaint, mirrored. Only 83 marks in the fleet have a light
-           enough wordmark to need it; the rest never reach this line. */
+           "our logo in one colour" complaint, mirrored. A hybrid is strictly better than anything
+           below when one exists: full colour AND full legibility. */
         if(gl<0.18&&logo.inks.ondark)return 'ondark';
         if(gl>=0.18&&logo.inks.onlight)return 'onlight';
       }
+      /* NO HYBRID? Keep the real artwork when flattening it would destroy knocked-out detail --
+         Walco's flat white turned its banner into a white slab with the text invisible. Otherwise
+         a flat reverse is both the better print and the more legible one. */
+      if(k.ko>=INK_KO_MIN)return 'brand';
       return gl<0.18?'white':'dark';
     }
     return 'brand';
@@ -218,6 +241,45 @@ function assignColourways(){
    grey, which quietly defeated the whole test on the first attempt. Same-origin asset, so the canvas
    stays readable; capped at 1.5s and failure-tolerant, because a logo probe must never stop the store
    from painting. */
+/* Share of the mark that is interior light content -- see INK_KO_MIN.
+
+   Its own canvas, at the mark's natural aspect with the longest side capped at 400px, because that
+   is what the fleet-wide calibration was measured on. The probe's other statistics use a 256x256
+   STRETCHED canvas, fine for tone counts but it would make a wide logo's horizontal strokes
+   relatively thinner and shift an erosion-based measure. Runs once per logo at boot. */
+function koShare(im){
+  try{
+    var W=im.naturalWidth||im.width,H=im.naturalHeight||im.height;
+    if(!W||!H)return 0;
+    var sc=Math.min(1,400/Math.max(W,H)),w=Math.max(1,Math.round(W*sc)),h=Math.max(1,Math.round(H*sc));
+    var c=document.createElement('canvas');c.width=w;c.height=h;
+    var cx=c.getContext('2d');cx.drawImage(im,0,0,w,h);
+    var d=cx.getImageData(0,0,w,h).data,N=w*h;
+    var op=new Uint8Array(N),lt=new Uint8Array(N),mark=0,i;
+    for(i=0;i<N;i++){
+      if(d[i*4+3]>200){op[i]=1;mark++;
+        if(relLum(d[i*4],d[i*4+1],d[i*4+2])>=KO_LIGHT)lt[i]=1;}
+    }
+    if(!mark)return 0;
+    /* Erosion with a square structuring element separates into a horizontal min then a vertical
+       one -- 2*(2r+1) tests per pixel instead of (2r+1)^2. Off-canvas counts as NOT opaque: the
+       edge of the artwork is an edge, so a mark bled to the border is not treated as enclosed. */
+    var r=3,hmin=new Uint8Array(N),y,x,k,q,m;
+    for(y=0;y<h;y++)for(x=0;x<w;x++){
+      m=1;
+      for(k=-r;k<=r;k++){q=x+k;if(q<0||q>=w||!op[y*w+q]){m=0;break;}}
+      hmin[y*w+x]=m;
+    }
+    var ko=0;
+    for(y=0;y<h;y++)for(x=0;x<w;x++){
+      if(!lt[y*w+x])continue;
+      m=1;
+      for(k=-r;k<=r;k++){q=y+k;if(q<0||q>=h||!hmin[q*w+x]){m=0;break;}}
+      if(m)ko++;
+    }
+    return ko/mark;
+  }catch(e){return 0;}   // a tainted or undecodable canvas must never stop the store booting
+}
 function probeInk(logo){
   return new Promise(function(res){
     var u=logo&&logo.inks&&logo.inks.brand;
@@ -255,8 +317,12 @@ function probeInk(logo){
           }
           var nk=0;
           if(tot>0)for(var bkey2 in bk){if(bk[bkey2]/tot>=0.04)nk++;}
+          /* Walco Industries is 58% dark navy, 18% white knockout and 23% colour: the median
+             says "dark", the contrast test fails, and the store substituted a flat white that
+             turned the banner into a white slab with its own text invisible. So also record
+             whether the mark has interior light detail that a flattening would erase. */
           INK[logo.id]={lum:relLum(r,g,b),sat:Math.max(r,g,b)-Math.min(r,g,b),
-                        n:Math.max(1,Math.min(4,nk||1))};
+                        n:Math.max(1,Math.min(4,nk||1)),ko:koShare(im)};
           // Same pass, second job: learn the brand's SATURATED hues. The ink probe above deliberately
           // medians every solid pixel, which on a two-colour lockup returns a muddy average — useless
           // for matching a garment. So collect only the genuinely colourful pixels and median THEM.
