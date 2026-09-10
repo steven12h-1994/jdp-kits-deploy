@@ -435,12 +435,27 @@ function unitPrice(key,decos,q){key=bkey(key);var r=CFG.rates;
      industry average and calls sub-30% operationally dangerous once overhead is applied.
      Brand-transparent goods run leaner ON PURPOSE -- a buyer can price a Carhartt jacket on
      carhartt.com, so the mix carries it rather than the single line. */
-  /* The floor is measured on the FULL list blank (c0), never the volume-discounted one. The break
-     above is a forecast of supplier pricing; the floor is a guarantee. Measuring the guarantee
-     against the forecast would mean that if a supplier break came in smaller than expected we would
-     silently sell under 30% -- 113 items would have done exactly that. This way the worst case is
-     the floor, not a loss. */
-  var price=c*cm*vf+decc,floor=(c0+dec)/(carh?0.78:0.70);
+  /* THE FLOOR MUST USE THE SAME COST BASIS AS THE PRICE IT IS FLOORING.
+     It used to be measured on the full 12-piece list blank (c0) while the price above uses the
+     volume-discounted blank (c). Mixing a pessimistic cost into an optimistic price gives a number
+     that is neither -- and on expensive garments it ate the entire volume ladder. Steven,
+     2026-09-10: "Matrix 3-in-1 Jacket and Evoke Recycled Honeycomb Fleece Full-Zip Jacket 144+
+     pricing seems off." He was right:
+
+       Matrix 3-in-1   12 -> $262   48 -> $248   144 -> $248   (identical: floor bound both)
+       Evoke Fleece    12 -> $141   48 -> $129   144 -> $129   (identical)
+
+     A customer ordering 144 pieces was quoted exactly what they pay at 48. The cause is arithmetic,
+     not judgement: a dear garment carries a LOWER multiple (1.40 on a $165 jacket vs 1.52 on a $74
+     one), so c*cm*vf at the 144 break lands under c0/0.70 and the floor takes over.
+
+     The old note defended c0 as protection against a supplier break not materialising. That is a
+     real risk, but this is the wrong instrument for it: the honest place to be conservative about
+     what a garment costs is blankBreak(), which is where we state the break. A margin floor should
+     answer one question -- "are we making 30% on THIS order?" -- and at 144 pieces our cost is the
+     144-piece cost. Guaranteeing 30% against a cost we do not pay quietly cancels the discount the
+     customer earned. */
+  var price=c*cm*vf+decc,floor=(c+dec)/(carh?0.78:0.70);
   if(price<floor)price=floor; if(price<2.50)price=2.50;          // min piece price
   return Math.ceil(price/0.5)*0.5;}                              // round UP to nearest $0.50
 /* ---- PROMO pricing engine (Debco) — the correct all-in model ----
