@@ -428,6 +428,13 @@ function screenPc(colours){
 // One screen is burned per ink, per location, so screens are the real cost of a multi-colour print
 // at low quantity: 4 inks is $180 of screens against $45 for one. Charged once, shared across the
 // whole order — which is why the UI shows it as a one-time figure and not a per-piece number.
+/* A kit can carry more than one mark: 134 of the 399 stores ship `full`, `word` and `icon`. The
+   ids are ours, so give them names a buyer recognises -- a kit that supplies its own label wins. */
+var LOGO_LAB={full:'Full logo',word:'Wordmark',icon:'Icon',mono:'One-colour',stacked:'Stacked'};
+function logoLabel(L){
+  if(!L)return 'Logo';
+  return L.label||LOGO_LAB[L.id]||('Logo '+String(L.id||'').toUpperCase());
+}
 function screenSetupFor(colours){var s=(CFG.rates||{}).setup||{};return (s.screen||0)*Math.max(1,parseInt(colours,10)||1);}
 function decoCost(d,item){var r=CFG.rates||{};
   if(d.method==='screen')return screenPc(d.colours||1);
@@ -2949,15 +2956,20 @@ function configDecos(cfg){
   var lg=(CFG.logos&&CFG.logos[0]&&CFG.logos[0].id)||null;
   /* Price every card at the ink count the customer has actually CHOSEN, not the preset's default.
      Without this the selected card kept quoting the 1-ink price while the footer and the Add
-     button showed the 4-ink one — two prices for the same thing on the same screen. It also makes
-     the cards comparable: switching ink re-prices all of them on the same basis. */
-  var live=0;
-  Object.keys(SH.D||{}).forEach(function(pl){
-    var s=SH.D[pl];
-    if(s&&s.on&&s.method==='screen'&&(s.colours||1)>1)live=Math.max(live,s.colours||1);});
+     button showed the 4-ink one — two prices for the same thing on the same screen.
+     PER LOCATION. This used to take the highest ink count anywhere on the garment and apply it to
+     every screen placement, which is the same collapse that made a 4-colour front with a 2-colour
+     back impossible to quote. A card's placement inherits the customer's choice for THAT location
+     when they have made one, and the preset otherwise. */
   return cfg.decos.map(function(d){
-    var n=(d.method==='screen'&&live)?live:presetInks(d.method,d.colours);
-    return {pl:d.pl,on:true,lg:lg,ink:'auto',method:d.method,colours:n};});
+    var live=(SH.D||{})[d.pl];
+    var n=(d.method==='screen'&&live&&live.on&&live.method==='screen'&&live.colours)
+      ? Math.max(1,parseInt(live.colours,10)||1)
+      : presetInks(d.method,d.colours);
+    /* Likewise the artwork: a location the customer pointed at the wordmark should price and
+       preview with the wordmark, not silently revert to the primary mark. */
+    var art=(live&&live.on&&live.lg)||lg;
+    return {pl:d.pl,on:true,lg:art,ink:'auto',method:d.method,colours:n};});
 }
 function configPrice(cfg){return unitPrice(SH.key,configDecos(cfg),effQty()||moq());}
 /* ---- THE RECOMMENDED SETUP IS THE DEFAULT, EVERYWHERE ----------------------------------------
@@ -2987,6 +2999,23 @@ function defaultDecos(key){
 }
 /* What the card, the board and the quote CALL the default decoration. `std.label` still wins when
    there is no stdcfg, so nothing changes for the 480-odd items that have one mark. */
+/* THE LABEL HAS TO DESCRIBE WHAT THEY ACTUALLY CONFIGURED.
+   defaultDecoLabel() returns the friendly standard wording for the item's recommended setup, and
+   the board preferred it whenever one existed -- so a line a customer had changed to a 4-colour
+   front and a 2-colour back still read as the standard left-chest setup. Steven's whole complaint
+   was that this quote could not be produced; producing it and then mislabelling it on the sheet he
+   sends is the same failure one step later.
+   So: the standard wording while the line IS the standard, and the actual placements, methods,
+   ink counts and marks the moment it is not. */
+function decoLabelFor(ck){
+  var key=bkey(ck),it=BYKEY[key]||{},c=(CART[ck]||{});
+  var cur=realDecos(it,c.decos),std=realDecos(it,defaultDecos(key));
+  var same=cur.length===std.length&&std.every(function(a){
+    return cur.some(function(b){
+      return b.pl===a.pl&&(b.method||'')===(a.method||'')&&
+             (b.colours||1)===(a.colours||1)&&(b.lg||null)===(a.lg||null);});});
+  return same?(defaultDecoLabel(key)||decoSummary(it,c)):decoSummary(it,c);
+}
 function defaultDecoLabel(key){
   key=bkey(key);var it=BYKEY[key]||{};
   var c=stdCfgOf(key);
@@ -3058,38 +3087,79 @@ function activeScreenPls(){
   return Object.keys(SH.D).filter(function(pl){
     var d=SH.D[pl];return d&&d.on&&d.method==='screen';});
 }
+/* INK COUNT PER PRINT LOCATION, NOT PER GARMENT. Steven, 2026-09-10: "Tees chest + back has 2
+   logos and those logos could be different. for instance we are quoting someone 4 color screen
+   print front and 2 color screen print back and the company website will not give us a price for
+   this."
+
+   He is right, and the cause was one line in the handler: picking an ink count wrote it to EVERY
+   screen placement, so a front-and-back tee could only ever be 1/1, 2/2, 3/3 or 4/4. The quote he
+   was trying to build was not expressible. Everything underneath already worked per placement --
+   decoCost() reads d.colours, setupBreakdown() bills each screen separately, decoSummary() prints
+   each one's count -- so the fix is to stop collapsing the choice on the way in.
+
+   Each location gets its own row. With a single print location this renders exactly as before, so
+   the ordinary left-chest tee is untouched. Every chip prices the WHOLE garment with that option
+   applied to this location and every other location left alone, which means the selected chip in
+   each row always matches the footer -- a buyer can check the number rather than trust it. */
 function inkPickerHtml(){
   var pls=activeScreenPls();if(!pls.length)return '';
-  var cur=Math.max(1,parseInt(SH.D[pls[0]].colours,10)||1);
-  var q=effQty()||moq();
-  var opts=[1,2,3,4].map(function(n){
-    /* Price the whole garment as if every screen position in this configuration used n inks, so
-       the figure shown is what the customer actually pays per piece — the same basis as the
-       configuration cards above and the footer below. */
-    var decos=sheetDecos().map(function(d){
-      return (d.on&&d.method==='screen')
-        ? {pl:d.pl,on:true,lg:d.lg,ink:d.ink,method:'screen',colours:n} : d;});
-    return {n:n,unit:unitPrice(SH.key,decos,q),screens:screenSetupFor(n)*pls.length,on:n===cur};
-  });
-  var base=opts[0].unit;
-  var chips=opts.map(function(o){
-    var d=o.unit-base;
-    return '<button type="button" class="inkc'+(o.on?' on':'')+'" data-ink="'+o.n+'">'+
-      '<span class="inkn">'+o.n+'</span>'+
-      '<span class="inkl">'+(o.n===1?'ink':'inks')+'</span>'+
-      '<span class="inkp">'+money(o.unit)+'<i>/pc</i></span>'+
-      '<span class="inks">'+money0(o.screens)+' screens</span>'+
-      (o.n===1?'<span class="inkt">Best value</span>':'')+
-      '</button>';
+  var q=effQty()||moq(),it=BYKEY[SH.key];
+  var many=pls.length>1,multi=((CFG.logos||[]).length>1);
+  var blocks=pls.map(function(pl){
+    var cur=Math.max(1,parseInt(SH.D[pl].colours,10)||1);
+    var p=placeOf(it,pl);
+    var chips=[1,2,3,4].map(function(n){
+      var decos=sheetDecos().map(function(d){
+        return (d.pl===pl&&d.on&&d.method==='screen')
+          ? {pl:d.pl,on:true,lg:d.lg,ink:d.ink,method:'screen',colours:n} : d;});
+      return '<button type="button" class="inkc'+(n===cur?' on':'')+'" data-ink="'+n+'"'+
+        ' data-inkpl="'+esc(pl)+'" aria-pressed="'+(n===cur?'true':'false')+'">'+
+        '<span class="inkn">'+n+'</span>'+
+        '<span class="inkl">'+(n===1?'ink':'inks')+'</span>'+
+        '<span class="inkp">'+money(unitPrice(SH.key,decos,q))+'<i>/pc</i></span>'+
+        '<span class="inks">'+money0(screenSetupFor(n))+' screens</span>'+
+        (n===1?'<span class="inkt">Best value</span>':'')+
+        '</button>';
+    }).join('');
+    return '<div class="inkloc">'+
+      ((many||multi)?('<div class="inklh"><b>'+esc(p?p.label:pl)+'</b>'+
+        ((p&&p.size)?('<i>'+esc(p.size)+'</i>'):'')+'</div>'):'')+
+      '<div class="inkrow" role="group" aria-label="Ink colours'+(p?(' for '+esc(p.label)):'')+'">'+
+        chips+'</div>'+
+      artPickerHtml(pl)+
+    '</div>';
   }).join('');
   return '<div class="inkwrap">'+
-    '<div class="inkhd"><b>Ink colours</b>'+
-      '<i>'+pls.length+' print location'+(pls.length===1?'':'s')+' · one screen per ink, per location</i></div>'+
-    '<div class="inkrow">'+chips+'</div>'+
+    '<div class="inkhd"><b>Ink colours'+(multi?' &amp; artwork':'')+'</b>'+
+      '<i>'+pls.length+' print location'+(many?'s':'')+
+      (many?' · set each one separately':' · one screen per ink')+'</i></div>'+
+    blocks+
     '<div class="inkfoot">One ink is the best value and reads strongest on hi-vis. More inks bring '+
     'the print closer to your logo’s original colours. Screens are a one-time charge, shared '+
-    'across your whole order — we confirm the exact ink count from your artwork on your quote.</div>'+
-    '</div>';
+    'across your whole order — we confirm the exact ink count from your artwork on your quote.'+
+    '</div></div>';
+}
+/* WHICH MARK GOES HERE. Only shown when the kit actually carries more than one, so a single-logo
+   store sees no extra control. The per-placement `lg` was already respected by overlayHtml() and
+   billed separately by setupBreakdown() -- there was simply no way to set it. Choosing a different
+   mark resets that location's ink to `auto` so the contrast rule re-decides for the new artwork
+   rather than keeping a choice made about a different shape. */
+function artPickerHtml(pl){
+  var logos=(CFG.logos||[]);
+  if(logos.length<2||!SH.D[pl]||!SH.D[pl].on)return '';
+  var cur=SH.D[pl].lg||logos[0].id;
+  var chips=logos.map(function(L){
+    var nm=logoLabel(L);
+    return '<button type="button" class="artc'+(L.id===cur?' on':'')+'"'+
+      ' data-art="'+esc(L.id)+'" data-artpl="'+esc(pl)+'"'+
+      ' role="radio" aria-checked="'+(L.id===cur?'true':'false')+'" title="'+esc(nm)+'">'+
+      '<span class="artt"><img src="'+kurl((L.inks&&(L.inks.brand||L.inks.dark))||'')+'" alt=""'+
+        ' loading="lazy" decoding="async"></span>'+
+      '<span class="artn">'+esc(nm)+'</span></button>';
+  }).join('');
+  return '<div class="artrow" role="radiogroup" aria-label="Artwork for this location">'+
+    '<span class="artk">Artwork</span>'+chips+'</div>';
 }
 function configCardsHtml(){
   var cfgs=configsFor(SH.key);if(cfgs.length<2)return '';
@@ -3421,9 +3491,17 @@ function renderSheet(){
   sh.querySelectorAll('[data-cfg]').forEach(function(b){b.addEventListener('click',function(){
     applyConfig(b.dataset.cfg);renderSheet();});});
   sh.querySelectorAll('[data-ink]').forEach(function(b){b.addEventListener('click',function(){
-    var n=Math.max(1,parseInt(b.dataset.ink,10)||1);
-    activeScreenPls().forEach(function(pl){SH.D[pl].colours=n;});
+    var n=Math.max(1,parseInt(b.dataset.ink,10)||1),pl=b.dataset.inkpl;
+    /* ONE location, not all of them -- this line is the whole bug Steven reported. The fallback
+       covers a chip rendered without a location, which no longer happens but would otherwise
+       silently do nothing. */
+    if(pl&&SH.D[pl])SH.D[pl].colours=n;
+    else activeScreenPls().forEach(function(p){SH.D[p].colours=n;});
     renderSheet();});});
+  sh.querySelectorAll('[data-art]').forEach(function(b){b.addEventListener('click',function(){
+    var pl=b.dataset.artpl;if(!pl||!SH.D[pl])return;
+    SH.D[pl].lg=b.dataset.art;SH.D[pl].ink='auto';
+    swapPreview();renderSheet();});});
   sh.querySelectorAll('.shgthumb').forEach(function(b){b.addEventListener('click',function(){SH.gimg=b.dataset.img||null;renderSheet();
     var st=document.querySelector('#sheet .shscroll');if(st)st.scrollTop=0;});});
   sh.querySelectorAll('[data-face]').forEach(function(b){b.addEventListener('click',function(){SH.face=b.dataset.face;renderSheet();});});
@@ -4208,7 +4286,19 @@ function cartSetup(){return Math.round(setupBreakdown().reduce(function(t,x){ret
 function fitLabel(c){return (c&&c.fit==='womens')?'Women’s':'';}
 function fitTag(it,c){if(c&&c.fit==='womens')return 'Women’s';if(it&&it.unisex)return 'Unisex';return '';}
 function fitSku(it,c){return (c&&c.fit==='womens'&&it&&it.wsku)?it.wsku:((it&&it.msku)||'');}
-function decoSummary(it,c){return (c.decos||[]).map(function(d){var p=placeOf(it,d.pl),m=MLAB[d.method]||'Emb';if(d.method==='screen')m+=' '+(d.colours||1)+'C';return (p?p.label:d.pl)+' · '+m;}).join('  ·  ')||'left chest';}
+/* Names the MARK too, but only when it is worth saying: a kit with several marks where this
+   location does not use the primary one. On a single-logo store this is unchanged, and on a
+   multi-logo store it is the difference between "Centre back · Screen print 2C" and knowing the
+   back carries the wordmark rather than the full lockup. */
+function decoSummary(it,c){
+  var logos=(typeof CFG!=='undefined'&&CFG.logos)||[],prime=(logos[0]||{}).id;
+  return (c.decos||[]).map(function(d){
+    var p=placeOf(it,d.pl),m=MLAB[d.method]||'Emb';
+    if(d.method==='screen')m+=' '+(d.colours||1)+'C';
+    var art=(logos.length>1&&d.lg&&d.lg!==prime)?(' · '+logoLabel(logoOf(d.lg))):'';
+    return (p?p.label:d.pl)+' · '+m+art;
+  }).join('  ·  ')||'left chest';
+}
 function refreshCartUI(){
   var n=cartCount(),sub=cartSubtotal();
   var cn=document.getElementById('cartN');if(cn){cn.textContent=n;cn.classList.toggle('has',n>0);}
@@ -4587,7 +4677,7 @@ function boardCardHtml(ck){
   var szs=sizesSummary(c,it);
   // Prefer the STANDARDISED decoration label from the catalogue -- it is what actually gets
   // produced and quoted, which is the language a board shown to a buyer should be in.
-  var deco=isPromo?'':(defaultDecoLabel(bkey(ck))||decoSummary(it,c));
+  var deco=isPromo?'':decoLabelFor(ck);
   /* THE BOARD IS THE THING SENT TO THE ACCOUNT. It was rendering the bare supplier photo, so a
      buyer opened a page of unbranded garments -- the single most important thing to show is their
      own logo on the gear, composited at the exact placement that will be produced. overlayHtml

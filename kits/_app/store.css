@@ -1982,6 +1982,37 @@ body{padding-left:74px}
 .inkt{margin-top:4px;font-size:8.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;
   color:#0f7a41;background:color-mix(in srgb,#0f7a41 11%,#fff);border-radius:999px;padding:1px 6px}
 .inkfoot{margin-top:9px;font-size:11px;line-height:1.5;color:var(--mut)}
+/* ---- Ink colours + artwork, PER PRINT LOCATION ----------------------------------------------
+   A front-and-back tee now sets each location separately, so the block holds one row per
+   location. With a single location no heading renders and this is visually identical to the
+   single-row control it replaces. */
+.inkloc+.inkloc{margin-top:11px;padding-top:11px;border-top:1px dashed var(--line)}
+.inklh{display:flex;align-items:baseline;gap:7px;margin:0 0 7px;min-width:0}
+.inklh b{font-size:12.5px;font-weight:800;color:var(--ink);white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis}
+.inklh i{font-size:11px;font-weight:600;color:var(--mut);font-style:normal;flex:none}
+/* Which mark goes at this location. Chips carry the artwork itself -- a name alone ("Wordmark")
+   is a guess about what the customer will get, and the whole point of the store is that they can
+   see it. The tile is checkerboarded so a white-only mark is not an empty square. */
+.artrow{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin-top:8px}
+.artk{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--mut);margin-right:2px;flex:none}
+.artc{display:flex;align-items:center;gap:6px;padding:4px 9px 4px 5px;border-radius:999px;
+  border:1.5px solid var(--line);background:var(--card);cursor:pointer;
+  -webkit-appearance:none;appearance:none}
+.artc:hover{border-color:var(--ink)}
+.artc:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(29,111,224,.28)}
+.artc.on{border-color:var(--ink);background:var(--ink)}
+.artc.on .artn{color:#fff}
+.artt{width:26px;height:20px;flex:none;border-radius:4px;overflow:hidden;display:block;
+  background:#fff linear-gradient(45deg,rgba(0,0,0,.06) 25%,transparent 25%,transparent 75%,
+    rgba(0,0,0,.06) 75%) 0 0/8px 8px}
+.artt img{width:100%;height:100%;object-fit:contain;display:block}
+.artn{font-size:11.5px;font-weight:700;color:var(--ink);white-space:nowrap}
+@media (max-width:560px){
+  .artc{padding:3px 8px 3px 4px}
+  .artn{font-size:11px}
+}
 @media(max-width:600px){
   /* Two-up rather than four squeezed tiles: at 390px four columns leaves 78px each, and the price
      and the screens figure both have to stay on one line to be comparable. */
