@@ -2033,9 +2033,19 @@ function buildStore(){
   '</div></section>';
   var recN=(essKeysAll().length||recKeysAll().length);
   var _pk=picksOf();
-  var demo=!!CFG.demo,cta=CFG.cta||{};
+  /* A DEMO KIT SHOWS A CTA ONLY IF IT CONFIGURES ONE. Steven, 2026-09-11: "remove the CTA and
+     cta form from the demo website. there will be no CTA / form on the demo site."
+     Keyed on the kit's own `cta` rather than on `demo`, because four kits carry demo=true --
+     /demo plus the branded-apparel, office-apparel and office-hivis-apparel landing pages, which
+     are lead-generation surfaces and still want theirs. Dropping `cta`/`cta_form` from a kit's
+     config now removes every CTA surface on that kit, and putting them back restores it, with no
+     code change either way. The label used to fall back to "Get your store — free", so deleting
+     the config alone would have left a button behind. */
+  var demo=!!CFG.demo,cta=CFG.cta||{},hasCta=demo&&!!(cta.label||CFG.cta_form);
   var heroCta = demo
-    ? ('<button class="reccta" id="leadOpen1">'+esc(cta.label||'Get your store — free')+' →</button>'+(cta.phone?'<div class="herophone">or call <b>'+esc(cta.phone)+'</b></div>':''))
+    ? (hasCta
+        ? ('<button class="reccta" id="leadOpen1">'+esc(cta.label||'Get your store — free')+' →</button>'+(cta.phone?'<div class="herophone">or call <b>'+esc(cta.phone)+'</b></div>':''))
+        : '')
     : (
       /* The hero is the most valuable space on the page, so it should carry the offer that actually
          unblocks a company-wide order. Nobody signs off 200 shirts they have never touched -- the
@@ -2080,7 +2090,9 @@ function buildStore(){
       and lifts the catalogue up the page. */
    '<div id="recohero"></div>'+
    catTilesHtml()+
-   '<section class="offerstrip"><div class="w">'+heroCta+'</div></section>'+
+   /* No empty band: on a demo kit with no CTA this strip has nothing to hold, and an empty
+      bordered section between the programs and the catalogue reads as a broken page. */
+   (heroCta?('<section class="offerstrip"><div class="w">'+heroCta+'</div></section>'):'')+
    '<div class="navwrap" id="navwrap">'+
      '<div class="fscrim" id="fscrim"></div>'+
      '<div class="fpanel" id="fpanel" role="dialog" aria-label="Filter products">'+
@@ -2122,8 +2134,8 @@ function buildStore(){
    '<div class="vmodal" id="vmodal"></div>'+
    '<div class="sheet" id="sheet"></div>'+
    '<aside class="cart" id="cart"></aside>'+
-   (demo?('<div class="demobar"><div class="demobarin w"><span class="demotxt"><b>Like the look?</b> Get this store with <b>your</b> logo — free, no obligation.</span><button class="demobtn" id="leadOpen2">'+esc(cta.label||'Get your store — free')+'</button></div></div>'):'')+
-   (demo?'<div class="lead" id="lead"></div>':'')+
+   (hasCta?('<div class="demobar"><div class="demobarin w"><span class="demotxt"><b>Like the look?</b> Get this store with <b>your</b> logo — free, no obligation.</span><button class="demobtn" id="leadOpen2">'+esc(cta.label||'Get your store — free')+'</button></div></div>'):'')+
+   (hasCta?'<div class="lead" id="lead"></div>':'')+
    '<div class="lead samp" id="samp"></div>'+
    /* Share lives HERE, not only in the cart drawer. Buried behind "add items -> open kit -> scroll
       the footer" it was invisible: the person it is built for could not find it on his own store.
@@ -2198,6 +2210,9 @@ function buildStore(){
 // clear contact fallback so the CTA always works.
 function openLead(){
   var cta=CFG.cta||{},form=CFG.cta_form,el=document.getElementById('lead');
+  /* Nothing configured, nothing to open. The container is not rendered in that case either, so
+     this is belt and braces against a stale handler on a kit whose CTA was removed. */
+  if(!el||!(cta.label||cta.href||form))return;
   var inner;
   if(form){
     // Embedded Airtable form carries its own title/fields — keep our chrome minimal so it's the focus.
