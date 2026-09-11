@@ -1,0 +1,17 @@
+{
+  "generator": "client-app",
+  "version": "1789140732",
+  "slug": "multi-flow-systems",
+  "client": "Multi-Flow Systems",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_303590.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_eb1c24.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}
