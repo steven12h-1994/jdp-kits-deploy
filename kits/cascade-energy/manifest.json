@@ -1,0 +1,17 @@
+{
+  "generator": "client-app",
+  "version": "1789310777",
+  "slug": "cascade-energy",
+  "client": "Cascade Energy",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_49b2e5.png",
+    "img/lg_full_56b143.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}
