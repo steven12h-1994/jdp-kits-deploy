@@ -1,0 +1,17 @@
+{
+  "generator": "client-app",
+  "version": "1789393415",
+  "slug": "trans99",
+  "client": "Trans 99 Logistics",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_333372.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_ff0000.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}

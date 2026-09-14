@@ -1,0 +1,17 @@
+{
+  "generator": "client-app",
+  "version": "1789393404",
+  "slug": "velocityincubator",
+  "client": "Velocity",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_c92a31.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_f1c13d.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}

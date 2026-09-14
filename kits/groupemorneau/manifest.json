@@ -1,0 +1,16 @@
+{
+  "generator": "client-app",
+  "version": "1789393455",
+  "slug": "groupemorneau",
+  "client": "Groupe Morneau",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_0584a8.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "generator": "client-app",
+  "version": "1789393528",
+  "slug": "rpmmoves",
+  "client": "RPM",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_0076b6.png",
+    "img/lg_full_333b40.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}
