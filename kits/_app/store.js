@@ -5360,6 +5360,7 @@ function catTileImg(cat){
    pieces does not render, so a scoped-down store degrades to fewer cards rather than to a gap. */
 var PROG_SPECS=[
   {id:'crew',name:'Crew Uniform Program',
+   who:'the crew on the tools',
    sub:'One program for the whole company — the crew on the tools and the people selling the work.',
    items:[
      {k:'crewtee',   lab:'Everyday tee',
@@ -5376,6 +5377,7 @@ var PROG_SPECS=[
       why:'Insulated softshell rated to 8000 mm waterproof, 100 g through the body and 80 g in the sleeves — real winter warmth that still moves like a softshell.'}
    ]},
   {id:'premium',name:'Premium · In Front of the Client',
+   who:'the people in front of your clients',
    sub:'Sales, management and anyone whose first impression is the company’s.',
    items:[
      {k:'cbc_advantage_polo', lab:'Polo',
@@ -5392,6 +5394,7 @@ var PROG_SPECS=[
       why:'The top of the range: an H2XTREME waterproof shell, a zip-out thermal liner, and both together. Three jackets on one line, and the liner carries your mark too — so the logo is still there when the shell comes off indoors.'}
    ]},
   {id:'hivis',name:'CSA Hi-Vis Program',
+   who:'the crews who have to be site-legal',
    sub:'Everything a crew needs to be site-legal, from a summer tee to −20°C.',
    items:[
      {k:'tvest',  lab:'Tear-away vest',
@@ -5406,6 +5409,41 @@ var PROG_SPECS=[
       why:'Class 2 wind and rain protection that is not a parka — the nine-month jacket.'},
      {k:'tj3',    lab:'3-in-1 winter jacket',
       why:'One purchase, three jackets: liner alone, shell alone, or both at −20°C. The line that stops a crew buying their own coats in January — and the liner is branded too, so the logo does not disappear indoors.'}
+   ]},
+  /* EMPLOYEE GIFTS. Steven, 2026-09-14: "employee gifts are a huge buying demand and we should
+     capitalize in this. We need a separate program for employee gifts with ideas!"
+
+     Organised by OCCASION, not by product type, because that is how the purchase actually starts:
+     nobody wakes up wanting to buy drinkware, they have thirty new hires to welcome or a decade of
+     service to mark. Six occasions, one idea each, on a deliberate ladder from $24 to $95 so a
+     buyer with any budget finds themselves on the list.
+
+     `basis:'pick'` is the important field. A uniform program is one of EACH piece per person and
+     the sum is the number the buyer is trying to reach. A gift program is one idea per person --
+     nobody hands an employee all six -- so summing them produces a figure nobody will ever spend.
+     Pick-basis reports the entry point instead.
+
+     Every line here is Spector & Co, whose published price already includes the branding, so the
+     figure on the card is the figure on the invoice: no setup, no decoration line. That is worth
+     saying on a gift, where the buyer is comparing against retail. Minimums are the item's own
+     (25 or 35), not the store's 12-piece garment minimum. */
+  {id:'gifts',name:'Employee Gifts & Recognition',
+   sub:'Onboarding, milestones and the year-end thank-you — one idea per occasion, logo included in the price.',
+   basis:'pick',noun:'ideas',season:['fall','winter'],
+   who:'the gifts you hand out at the end of the year',
+   items:[
+     {k:'sp_dw339', lab:'Day one',
+      why:'The new-hire gift that gets used the same afternoon. A 500 ml double-wall recycled stainless bottle with a carry cord, in nine colours — so it can match your brand rather than approximate it. The lowest entry point here and the easiest yes.'},
+     {k:'sp_lf120', lab:'Year-end thank-you',
+      why:'The safest gift in the building: no sizing to get wrong, no dietary restriction, no alcohol. A 296 ml soy candle in glass with an acacia wood lid, in four colourways. Goes to everyone on the payroll without a single awkward conversation.'},
+     {k:'sp_lf125', lab:'Whole-crew winter gift',
+      why:'A 50x70" plush faux fur blanket — the gift people photograph on their own sofa, which is the only unpaid advertising in this catalogue. Warm enough to mean something to a crew that works outside.'},
+     {k:'sp_t92',   lab:'Safety milestone',
+      why:'A magnetic 3-in-1 stand for phone, watch and earbuds. Marks an injury-free record with something that sits on a nightstand for years, rather than a certificate that goes in a drawer.'},
+     {k:'sp_bg126', lab:'Five years of service',
+      why:'A 15.5" laptop backpack is the service award people actually carry — to work, to the airport, at weekends. Recognition that stays visible instead of going on a shelf.'},
+     {k:'sp_lf129', lab:'Ten years · leadership',
+      why:'A 55x70" woven poly-wool throw, and the top of this list. Reads as a gift rather than as merchandise, which is what a decade of service, a retirement, or the client who sent you the year’s biggest job actually warrants.'}
    ]}
 ];
 
@@ -5427,6 +5465,11 @@ var PROG_ACCENT=/\b(red|bright|electric|orange|yellow|green|purple|pink|gold|lim
 function progPlain(n){return !!n&&!PROG_ACCENT.test(n)&&PROG_NEUTRAL.test(n);}
 function progColour(k){
   var it=BYKEY[k],def=vmOf(k).colour,cols=curColsOf(it,'mens')||it.cols||[],hit;
+  /* A GIFT KEEPS ITS OWN COLOURWAY. The neutral preference below exists so a uniform program
+     never opens on a lime polo -- a crew kit has to read as one coherent set. A gift is chosen
+     for its own appeal, and the supplier's default is the colourway they photograph and
+     merchandise: an evergreen wool throw in October is the point of it, not a defect. */
+  if(it&&it.layer==='promo')return def;
   if(itemCategory(it)==='hivis'){
     hit=cols.filter(function(c){return PROG_HIVIS.test(c.name||'');})[0];
     return hit?hit.name:def;
@@ -5462,11 +5505,18 @@ function seedPrograms(){
       if(rows.length<3)return;                 // fewer than three is not a program
       var items={};
       rows.forEach(function(r){
-        items[r.k]={qty:moq(),colour:progColour(r.k),decos:recCartDecos(r.k),
+        /* A promo line carries its OWN minimum -- 25 bottles, 35 charging stands -- and the store's
+           12-piece garment minimum is meaningless against it. promoQuote() would raise a short
+           quantity silently at quote time, but the board would have displayed the wrong number
+           until then. */
+        var _it=BYKEY[r.k]||{};
+        var _q=(_it.layer==='promo')?(_it.moq||moq()):moq();
+        items[r.k]={qty:_q,colour:progColour(r.k),decos:recCartDecos(r.k),
                     why:r.lab+' — '+r.why};});
       var id='prog_'+spec.id;
       LISTS[id]={name:spec.name,items:items,updated:0,starter:true,prog:1,
-                 sub:spec.sub,slug:null};
+                 sub:spec.sub,slug:null,basis:spec.basis||'kit',noun:spec.noun||'pieces',
+                 season:spec.season||null,who:spec.who||null};
     });
     /* RETIRE THE GENERIC STARTER LIST. "JDP starter list" was one anonymous nine-item pile, and it
        existed because there was nothing better. There is now: three named programs a buyer can tell
@@ -5482,10 +5532,20 @@ function seedPrograms(){
     }
   }catch(e){}
 }
+/* Seeded order, except that a program naming the CURRENT season leads.
+   Corporate gift buying is decided well before it is delivered, so the gifts program surfacing
+   from the start of autumn is the whole point of having it -- a store that first shows it in
+   December has missed the decision. Outside its season it drops back to last, behind the
+   uniform programs that are the store's everyday job. */
 function programIds(){
-  var out=[];
+  var out=[],now=seasonNow();
   for(var id in (LISTS||{}))if(LISTS[id]&&LISTS[id].prog)out.push(id);
-  return out;
+  return out.sort(function(a,b){
+    var sa=((LISTS[a].season||[]).indexOf(now)>=0)?0:1,
+        sb=((LISTS[b].season||[]).indexOf(now)>=0)?0:1;
+    if(sa!==sb)return sa-sb;
+    return 0;                                   // otherwise leave the seeded order alone
+  });
 }
 /* A SHORTLIST WE PREPARED, not just any saved board. This used to return every list with a slug --
    and a slug is assigned to the CUSTOMER'S OWN board the first time it syncs. So a returning
@@ -5528,14 +5588,37 @@ function nwords(n){return ['','One','Two','Three','Four','Five','Six'][n]||Strin
 /* One of each, per person, at this store's minimum -- the same basis the board panel prints, so the
    card and the board it opens can never disagree. Promo lines are skipped: they carry their own
    quantity model and would distort a per-person figure. */
+/* TWO BASES, because a uniform board and a gift board answer different questions.
+
+   KIT (the default, and unchanged): one of each piece per person, summed. That is the figure a
+   buyer outfitting a crew is trying to reach. Promo lines stay excluded from this sum -- they
+   carry their own quantity model and would distort a per-person garment figure -- which is the
+   behaviour every existing board already prints.
+
+   PICK: one idea per person, chosen by occasion. Summing six gifts describes a purchase nobody
+   makes, so this reports the entry point instead and the card says "from". Promo IS priced here,
+   through promoQuote() rather than unitPrice(): a Spector line's published price already includes
+   its branding, where unitPrice() models a blank plus a decoration we would be charging twice. */
 function boardPerPerson(id){
   var L=(LISTS||{})[id];if(!L)return 0;
-  var t=0;
+  var pick=L.basis==='pick',lo=0,t=0;
   Object.keys(L.items||{}).forEach(function(k){
-    var it=BYKEY[bkey(k)];if(!it||it.layer==='promo')return;
-    try{t+=unitPrice(k,(L.items[k].decos&&L.items[k].decos.length)?L.items[k].decos:defaultDecos(k),moq());}catch(e){}
+    var it=BYKEY[bkey(k)];if(!it)return;
+    var u=0;
+    try{
+      if(it.layer==='promo'){
+        if(!pick)return;                       // kit basis: unchanged, promo is skipped
+        var q=promoQuote(it,L.items[k]||{});
+        u=(q&&q.perPiece)||0;
+      }else{
+        u=unitPrice(k,(L.items[k].decos&&L.items[k].decos.length)?L.items[k].decos:defaultDecos(k),moq());
+      }
+    }catch(e){return;}
+    if(!u)return;
+    t+=u;
+    if(!lo||u<lo)lo=u;
   });
-  return t;
+  return pick?lo:t;
 }
 /* PREVIEW GATE. Turning generated programs on changes the first screen of 398 live customer stores
    at once, so it ships dark: ?preview=programs opts a single store in, ?preview=none opts out.
@@ -5567,7 +5650,9 @@ function recoHeroHtml(){
   if(programsOn()){seedPrograms();ids=programIds();}
   if(!ids.length)return '';
   var generated=true;
-  var cards=ids.slice(0,3).map(function(id){
+  /* Four, not three. The gifts program is a fourth board and slicing at three would have built
+     it, priced it and never shown it. */
+  var cards=ids.slice(0,4).map(function(id){
     var L=LISTS[id];
     /* Inline sizing on the preview tiles: store.css can arrive a mirror cycle behind store.js, and
        an unstyled tile renders at the photo's natural 1000px. */
@@ -5587,12 +5672,16 @@ function recoHeroHtml(){
            a price EXISTS without saying what it is, so the buyer has to click to find out the one
            thing they actually want to know. Cost per person, one of each at the minimum, is the
            figure they are trying to reach anyway. */
-        '<i class="rhfoot">'+listLen(id)+' pieces'+(function(){
+        '<i class="rhfoot">'+listLen(id)+' '+esc(L.noun||'pieces')+(function(){
            var pp=boardPerPerson(id);
            /* NOT a <b>: `.rhtx b` is display:block for the board name, so a <b> here broke
               "12 pieces · $665 per person" onto three lines. Inline style as well as a class,
               because store.css can arrive a mirror cycle after store.js. */
-           return pp?(' \u00b7 <span class="rhpp" style="display:inline;font-weight:800;'+
+           /* "from" on a pick-basis board, because the number is the cheapest idea on the list
+              rather than the cost of the list. Saying "$24 per person" flat would understate a
+              buyer who picks the $95 throw. */
+           return pp?(' \u00b7 '+((L.basis==='pick')?'from ':'')+
+             '<span class="rhpp" style="display:inline;font-weight:800;'+
              'color:var(--ink)">'+money0(pp)+'</span> per person'):'';})()+
            '<span class="rharrow" style="margin-left:auto;flex:none">\u2192</span></i></span>'+
       '</button>';}).join('');
@@ -5600,16 +5689,26 @@ function recoHeroHtml(){
      shortlist" -- claimed work somebody had done for that client, and the store could not actually
      tell whether anyone had. Say plainly what these are: pre-approved programs built by role from
      this store's own range. It is a strong offer and it costs nothing in trust. */
+  /* COUNT AND CAST BOTH COME FROM THE CARDS. This read "Three programs ... the people on the
+     tools, the people in the building, and the people in front of your clients" as a hard-coded
+     sentence, so adding the gifts program left the page announcing three programs above four
+     cards, with the fourth unmentioned. Both halves are now derived: a store that ever carries a
+     different number of programs describes itself correctly without anyone editing this copy. */
+  var who=ids.slice(0,4).map(function(id){return (LISTS[id]||{}).who;}).filter(Boolean);
+  var whoTxt=who.length>1?(who.slice(0,-1).join(', ')+' and '+who[who.length-1])
+            :(who[0]||'');
   var hd={lbl:'Built for '+esc(CFG.client||'your team'),
           h:'Pre-approved programs, ready to send',
-          p:nwords(Math.min(ids.length,3))+' programs we already stock and decorate \u2014 the '+
-            'people on the tools, the people in the building, and the people in front of your '+
-            'clients. Every piece is priced at your minimum, and every line is yours to change.'};
+          p:nwords(Math.min(ids.length,4))+' programs we already stock and decorate'+
+            (whoTxt?(' \u2014 '+whoTxt):'')+
+            '. Every line is priced at your minimum, and every one is yours to change.'};
   return '<section class="recohero'+(generated?' gen':'')+'"><div class="w">'+
     '<div class="rhlbl">'+hd.lbl+'</div>'+
     '<h2 class="rhh">'+hd.h+'</h2>'+
     '<p class="rhsub">'+hd.p+'</p>'+
-    '<div class="rhcards">'+cards+'</div></div></section>';
+    /* 2x2 at four. The grid is auto-fit minmax(300px) inside a 1120px column, so a fourth card
+       lands alone on a second row -- which reads as an afterthought rather than a fourth option. */
+    '<div class="rhcards'+((ids.length>3)?' four':'')+'">'+cards+'</div></div></section>';
 }
 function renderRecoHero(){
   var el=document.getElementById('recohero');if(!el)return;
