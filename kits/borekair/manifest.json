@@ -1,0 +1,16 @@
+{
+  "generator": "client-app",
+  "version": "1789393106",
+  "slug": "borekair",
+  "client": "Kenn Borek Air",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_ed4033.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}

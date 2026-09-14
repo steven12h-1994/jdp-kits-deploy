@@ -1,0 +1,16 @@
+{
+  "generator": "client-app",
+  "version": "1789393132",
+  "slug": "phasorengineering",
+  "client": "Phasor Engineering Inc",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_ed1d24.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}

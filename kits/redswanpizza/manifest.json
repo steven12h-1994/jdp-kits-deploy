@@ -1,0 +1,16 @@
+{
+  "generator": "client-app",
+  "version": "1789393073",
+  "slug": "redswanpizza",
+  "client": "Red Swan Pizza",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_9d3235.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}
