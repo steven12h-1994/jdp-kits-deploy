@@ -1,0 +1,18 @@
+{
+  "generator": "client-app",
+  "version": "1789345783",
+  "slug": "crispyjustbaked",
+  "client": "TWI Foods Inc.",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_02713d.png",
+    "img/lg_full_9d0259.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_fee051.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}

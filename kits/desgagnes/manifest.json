@@ -1,0 +1,18 @@
+{
+  "generator": "client-app",
+  "version": "1789344440",
+  "slug": "desgagnes",
+  "client": "Desgagn\u00e9s",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_183c72.png",
+    "img/lg_full_507ab7.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_ecd877.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}

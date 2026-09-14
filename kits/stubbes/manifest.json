@@ -1,0 +1,17 @@
+{
+  "generator": "client-app",
+  "version": "1789344457",
+  "slug": "stubbes",
+  "client": "Stubbe's Precast",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_015232.png",
+    "img/lg_full_2aa049.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}

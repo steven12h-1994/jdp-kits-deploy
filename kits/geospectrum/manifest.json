@@ -1,0 +1,16 @@
+{
+  "generator": "client-app",
+  "version": "1789344186",
+  "slug": "geospectrum",
+  "client": "GeoSpectrum Technologies Inc.",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_163358.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}
