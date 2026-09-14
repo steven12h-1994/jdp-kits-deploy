@@ -4692,7 +4692,10 @@ function boardCardHtml(ck){
   var szs=sizesSummary(c,it);
   // Prefer the STANDARDISED decoration label from the catalogue -- it is what actually gets
   // produced and quoted, which is the language a board shown to a buyer should be in.
-  var deco=isPromo?'':decoLabelFor(ck);
+  /* Spector publishes a price with the branding already in it, so there is no decoration line to
+     describe -- but "logo included in the price" is the single most persuasive fact about a gift,
+     where the buyer is mentally comparing against a retail shelf. Worth the words. */
+  var deco=isPromo?(it.decoquote?'Logo included in the price':''):decoLabelFor(ck);
   /* THE BOARD IS THE THING SENT TO THE ACCOUNT. It was rendering the bare supplier photo, so a
      buyer opened a page of unbranded garments -- the single most important thing to show is their
      own logo on the gear, composited at the exact placement that will be produced. overlayHtml
@@ -4874,6 +4877,16 @@ function renderBoard(){
   var tmpl=isTemplate(ALID)?('<div class="btmpl"><b>This is our starter template.</b> Anything you save '+
       'goes to your own board \u2014 this one stays as it is.'+
       '<button type="button" class="tmplcopy" id="bTmplCopy">Copy these '+t.lines+' into my board</button></div>'):'';
+  /* A MENU, NOT A BUNDLE. The gifts board lists six occasions and the header totals them --
+     "6 items · 160 pieces · est. $8,055" -- which is the cost of buying every occasion at once and
+     is not what anyone does. The card that opened this board said "from $24 per person", so
+     without a line here the two numbers look like a contradiction and the sticker shock lands on
+     the most price-sensitive purchase in the store. Say what the list is. */
+  var pickNote=((LISTS[ALID]||{}).basis==='pick')
+    ? ('<div class="bpick"><b>A menu, not a bundle.</b> Pick the occasions you are buying for and '+
+       'remove the rest \u2014 the total above assumes all '+t.lines+'. Each line is priced at its '+
+       'own minimum, and the logo is already included in that price.</div>')
+    : '';
   el.innerHTML='<div class="bwrap">'+
     '<header class="bhd"><div class="bhdin">'+
       '<div class="bhdL">'+
@@ -4896,6 +4909,7 @@ function renderBoard(){
     '</div>'+
     '<div class="bchips">'+chips+'</div></header>'+
     tmpl+
+    pickNote+
     (t.lines?boardSummaryHtml():'')+
     (t.lines?('<div class="bgrid">'+cards+'</div>')
       :('<div class="bempty"><b>This board is empty</b><span>Tap the heart on any product to save it here.</span>'+

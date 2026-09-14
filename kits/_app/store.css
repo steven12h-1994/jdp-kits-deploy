@@ -1504,6 +1504,14 @@ body{padding-left:74px}
   .bsw.on:hover{box-shadow:0 0 0 2px var(--bg),0 0 0 3px var(--ink)}
 }
 @media (prefers-reduced-motion:reduce){.bsw{transition:none}.bsw:hover{transform:none}}
+
+/* "A menu, not a bundle" -- the note that reconciles a gift board's header total with the
+   "from $24 per person" on the card that opened it. Quiet, not a warning: it reframes the number
+   rather than apologising for it. */
+.bpick{margin:0 0 14px;padding:11px 14px;border:1px solid var(--line);border-left:3px solid var(--a);
+  border-radius:10px;background:var(--card);font-size:12.5px;line-height:1.55;color:var(--mut)}
+.bpick b{color:var(--ink);font-weight:800}
+@media print{.bpick{border-color:#ddd;background:none!important}}
 .bszed{margin:2px 0 0}
 /* Until a style is sized, the whole block reads as an outstanding action. */
 .bszed.need{padding:9px 10px 10px;margin:6px -2px 0;border:1px solid var(--a);border-radius:10px;
