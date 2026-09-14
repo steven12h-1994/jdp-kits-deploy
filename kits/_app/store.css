@@ -1512,6 +1512,79 @@ body{padding-left:74px}
   border-radius:10px;background:var(--card);font-size:12.5px;line-height:1.55;color:var(--mut)}
 .bpick b{color:var(--ink);font-weight:800}
 @media print{.bpick{border-color:#ddd;background:none!important}}
+
+/* ---- THE GIFT STUDIO --------------------------------------------------------------------------
+   Deliberately a different surface from the programme cards above it. A gift buyer is browsing,
+   not specifying, so this reads editorially: a dark header band that separates it from the
+   workwear store, then navigation, then guidance, then product. The section has to feel like a
+   different shop inside the same shop -- that separation is what Steven asked for when he said
+   "distinct from our 3 pre-approved programs". */
+.gifts{background:var(--steel);color:#fff;padding:34px 0 38px;margin:8px 0 0}
+.gfhd{max-width:660px}
+.gfeyb{font:800 11px/1 Inter;letter-spacing:.13em;text-transform:uppercase;color:var(--amber);
+  margin-bottom:9px}
+.gfh{font-family:var(--disp);font-size:40px;line-height:1;letter-spacing:.004em;margin:0 0 10px;
+  color:#fff;text-transform:uppercase}
+.gfsub{font-size:14.5px;line-height:1.6;color:rgba(255,255,255,.74);margin:0}
+/* OCCASION FIRST. The buyer's own question -- what is this for -- so it gets the primary control,
+   a scrollable row that never wraps into a block of buttons. */
+.gfnav{display:flex;gap:8px;margin:22px 0 0;overflow-x:auto;padding-bottom:4px;
+  scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.gfnav::-webkit-scrollbar{display:none}
+.gfocc{flex:none;display:inline-flex;align-items:center;gap:7px;padding:9px 15px;border-radius:999px;
+  border:1.5px solid rgba(255,255,255,.22);background:transparent;color:rgba(255,255,255,.9);
+  font-size:13.5px;font-weight:700;cursor:pointer;white-space:nowrap;
+  -webkit-appearance:none;appearance:none;transition:background .12s,border-color .12s,color .12s}
+.gfocc i{font-style:normal;font-size:11px;font-weight:800;opacity:.6}
+.gfocc:hover{border-color:#fff;color:#fff}
+.gfocc.on{background:#fff;border-color:#fff;color:var(--steel)}
+.gfocc.on i{opacity:.55}
+.gfocc:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(255,255,255,.35)}
+/* The guidance line. It changes with the occasion, because generic advice is not advice. */
+.gfguide{margin:16px 0 0;max-width:760px}
+.gfgt{margin:0;font-size:13.5px;line-height:1.65;color:rgba(255,255,255,.8);
+  border-left:3px solid var(--amber);padding-left:13px}
+.gfgt b{color:#fff;font-weight:800}
+/* Budget second: once they know the occasion, the number per head is the only other filter that
+   matters. Counts are shown so an empty result is visible before it is clicked. */
+.gfbands{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:20px 0 0;
+  padding-top:18px;border-top:1px solid rgba(255,255,255,.14)}
+.gfbl{font:800 10.5px/1 Inter;letter-spacing:.1em;text-transform:uppercase;
+  color:rgba(255,255,255,.5);margin-right:4px}
+.gfband{display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border-radius:8px;
+  border:1.5px solid rgba(255,255,255,.2);background:transparent;color:rgba(255,255,255,.86);
+  font-size:12.5px;font-weight:700;cursor:pointer;-webkit-appearance:none;appearance:none}
+.gfband i{font-style:normal;font-size:10.5px;font-weight:800;opacity:.55}
+.gfband:hover:not(.off){border-color:#fff;color:#fff}
+.gfband.on{background:var(--amber);border-color:var(--amber);color:#1b160e}
+.gfband.off{opacity:.32;cursor:not-allowed}
+.gfband:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(255,255,255,.35)}
+/* The product cards are the store's own, so they arrive light-on-white -- which is exactly the
+   contrast this dark band wants. The reason sits under each card as part of the same tile. */
+.gfgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(228px,1fr));gap:16px;margin:22px 0 0}
+.gfitem{display:flex;flex-direction:column;background:var(--card);border-radius:var(--rad);
+  overflow:hidden;box-shadow:var(--sh);
+  /* RESET THE INHERITED COLOUR. The band sets color:#fff for its own header, and the product card
+     is a light card sitting inside it -- so the card's <h3> inherited white and every gift
+     rendered with an invisible product name. Caught in the preview render, which is the entire
+     reason for rendering one. */
+  color:var(--ink)}
+.gfitem .mcard{border:0;border-radius:0;box-shadow:none;background:transparent;height:100%}
+.gfwhy{padding:0 13px 13px;font-size:12px;line-height:1.55;color:var(--mut);
+  border-top:1px dashed var(--line);margin:0 13px;padding-top:10px}
+.gfwk{display:block;font:800 9.5px/1 Inter;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--amber-d);margin-bottom:5px}
+.gfempty{margin:22px 0 0;padding:18px;border:1px dashed rgba(255,255,255,.3);border-radius:12px;
+  color:rgba(255,255,255,.78);font-size:13.5px;line-height:1.6}
+.gfempty b{color:#fff;display:block;margin-bottom:3px}
+@media (max-width:720px){
+  .gfh{font-size:30px}
+  .gfsub{font-size:13.5px}
+  .gifts{padding:26px 0 30px}
+  .gfgrid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+  .gfwhy{font-size:11.5px}
+}
+@media print{.gifts{display:none!important}}
 .bszed{margin:2px 0 0}
 /* Until a style is sized, the whole block reads as an outstanding action. */
 .bszed.need{padding:9px 10px 10px;margin:6px -2px 0;border:1px solid var(--a);border-radius:10px;

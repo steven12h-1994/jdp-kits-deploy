@@ -2089,6 +2089,9 @@ function buildStore(){
       with outfitting staff. Removing the band makes the in-person offer the unambiguous focal point
       and lifts the catalogue up the page. */
    '<div id="recohero"></div>'+
+   /* Gifts sit between the programs and the catalogue: after a buyer has seen what a uniform
+      programme looks like, and before they fall into 500 products. */
+   giftsSectionHtml()+
    catTilesHtml()+
    /* No empty band: on a demo kit with no CTA this strip has nothing to hold, and an empty
       bordered section between the programs and the catalogue reads as a broken page. */
@@ -2161,6 +2164,9 @@ function buildStore(){
      store. So the one surface that needed a fallback was the one surface the fallback could
      never reach. The fetch still repaints it afterwards when real boards do arrive. */
   try{renderRecoHero();}catch(e){}
+  /* Same reasoning as the band above: paint on first render. Wrapped because a gift line whose
+     product has been retired from the catalogue must never take the whole storefront down. */
+  try{renderGifts();}catch(e){}
   /* Categories now lives in the persistent bar, so the scroll-revealed chip strip is retired
      outright rather than swapped between states. One control, always in the same place. */
   var _tc=document.getElementById('tbCats');
@@ -5210,7 +5216,9 @@ function railIcon(n){
     explore:'<circle cx="12" cy="12" r="9"/><path d="M14.5 9.5l-2 5-5 2 2-5z"/>',
     boards:'<rect x="3" y="4" width="7.5" height="16" rx="1.6"/><rect x="13.5" y="4" width="7.5" height="7" rx="1.6"/><rect x="13.5" y="13" width="7.5" height="7" rx="1.6"/>',
     share:'<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/>',
-    quote:'<path d="M4 4h11l5 5v11H4z"/><path d="M14 4v5h5M8 13h8M8 17h5"/>'
+    quote:'<path d="M4 4h11l5 5v11H4z"/><path d="M14 4v5h5M8 13h8M8 17h5"/>',
+    gifts:'<rect x="3" y="8" width="18" height="13" rx="1.6"/><path d="M3 12h18M12 8v13"/>'+
+      '<path d="M12 8S10.5 4 8 4a2.2 2.2 0 0 0 0 4.4zM12 8s1.5-4 4-4a2.2 2.2 0 0 1 0 4.4z"/>'
   }[n]||'';
   return '<svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" '+
     'stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">'+p+'</svg>';
@@ -5223,6 +5231,8 @@ function railHtml(){
       '<span>Boards</span><i class="railn" id="railN"></i></button>'+
     '<button type="button" class="railb" data-rail="share">'+railIcon('share')+
       '<span>Share</span></button>'+
+    '<button type="button" class="railb" data-rail="gifts">'+railIcon('gifts')+
+      '<span>Gifts</span></button>'+
     '<button type="button" class="railb" data-rail="quote">'+railIcon('quote')+
       '<span>Quote</span></button>'+
     '</nav>';
@@ -5235,6 +5245,11 @@ function wireRail(){
         window.scrollTo({top:0,behavior:'smooth'});setRail('explore');return;}
       if(w==='boards'){closeBoard();openBoards();return;}
       if(w==='share'){shareList();return;}
+      if(w==='gifts'){
+        closeBoards();closeBoard();closeAll();
+        var gs=document.getElementById('gifts');
+        if(gs)gs.scrollIntoView({behavior:'smooth',block:'start'});
+        setRail('gifts');return;}
       if(w==='quote'){closeBoards();closeBoard();
         document.getElementById('ov').classList.add('on');
         document.getElementById('cart').classList.add('on');
@@ -5423,41 +5438,6 @@ var PROG_SPECS=[
       why:'Class 2 wind and rain protection that is not a parka — the nine-month jacket.'},
      {k:'tj3',    lab:'3-in-1 winter jacket',
       why:'One purchase, three jackets: liner alone, shell alone, or both at −20°C. The line that stops a crew buying their own coats in January — and the liner is branded too, so the logo does not disappear indoors.'}
-   ]},
-  /* EMPLOYEE GIFTS. Steven, 2026-09-14: "employee gifts are a huge buying demand and we should
-     capitalize in this. We need a separate program for employee gifts with ideas!"
-
-     Organised by OCCASION, not by product type, because that is how the purchase actually starts:
-     nobody wakes up wanting to buy drinkware, they have thirty new hires to welcome or a decade of
-     service to mark. Six occasions, one idea each, on a deliberate ladder from $24 to $95 so a
-     buyer with any budget finds themselves on the list.
-
-     `basis:'pick'` is the important field. A uniform program is one of EACH piece per person and
-     the sum is the number the buyer is trying to reach. A gift program is one idea per person --
-     nobody hands an employee all six -- so summing them produces a figure nobody will ever spend.
-     Pick-basis reports the entry point instead.
-
-     Every line here is Spector & Co, whose published price already includes the branding, so the
-     figure on the card is the figure on the invoice: no setup, no decoration line. That is worth
-     saying on a gift, where the buyer is comparing against retail. Minimums are the item's own
-     (25 or 35), not the store's 12-piece garment minimum. */
-  {id:'gifts',name:'Employee Gifts & Recognition',
-   sub:'Onboarding, milestones and the year-end thank-you — one idea per occasion, logo included in the price.',
-   basis:'pick',noun:'ideas',season:['fall','winter'],
-   who:'the gifts you hand out at the end of the year',
-   items:[
-     {k:'sp_dw339', lab:'Day one',
-      why:'The new-hire gift that gets used the same afternoon. A 500 ml double-wall recycled stainless bottle with a carry cord, in nine colours — so it can match your brand rather than approximate it. The lowest entry point here and the easiest yes.'},
-     {k:'sp_lf120', lab:'Year-end thank-you',
-      why:'The safest gift in the building: no sizing to get wrong, no dietary restriction, no alcohol. A 296 ml soy candle in glass with an acacia wood lid, in four colourways. Goes to everyone on the payroll without a single awkward conversation.'},
-     {k:'sp_lf125', lab:'Whole-crew winter gift',
-      why:'A 50x70" plush faux fur blanket — the gift people photograph on their own sofa, which is the only unpaid advertising in this catalogue. Warm enough to mean something to a crew that works outside.'},
-     {k:'sp_t92',   lab:'Safety milestone',
-      why:'A magnetic 3-in-1 stand for phone, watch and earbuds. Marks an injury-free record with something that sits on a nightstand for years, rather than a certificate that goes in a drawer.'},
-     {k:'sp_bg126', lab:'Five years of service',
-      why:'A 15.5" laptop backpack is the service award people actually carry — to work, to the airport, at weekends. Recognition that stays visible instead of going on a shelf.'},
-     {k:'sp_lf129', lab:'Ten years · leadership',
-      why:'A 55x70" woven poly-wool throw, and the top of this list. Reads as a gift rather than as merchandise, which is what a decade of service, a retirement, or the client who sent you the year’s biggest job actually warrants.'}
    ]}
 ];
 
@@ -5645,6 +5625,181 @@ function programsOn(){
   if(/[?&]preview=none/.test(location.search))return false;
   return PROG_DEFAULT;
 }
+/* ---- THE GIFT STUDIO -------------------------------------------------------------------------
+   Steven, 2026-09-14: "I want gifts to feature much more apparel focused and no blankets, allow
+   them to filter by budget, distinct from our 3 pre-approved programs. we should have the top
+   employee gifts navigation and buyer guidance for the gifts in the world."
+
+   A gift purchase does not start where a uniform purchase starts. A uniform buyer knows what they
+   need and is solving for cost per head; a gift buyer has an OCCASION and a NUMBER PER PERSON, and
+   is trying to find something that does not feel like merchandise. So this is not a fourth program
+   card -- it is its own destination, navigated on the two axes a buyer actually holds in their
+   head: what the gift is FOR, and what they can spend.
+
+   Apparel-led on purpose. A branded name on a jacket is what makes a gift read as a gift rather
+   than as swag, which is why the list leans on The North Face, Nike, adidas, Cutter & Buck,
+   Stormtech and Carhartt and keeps the non-apparel to a handful of genuinely wanted objects.
+   No blankets. */
+var GIFT_OCC=[
+  {id:'all',    lab:'All gifts',        blurb:''},
+  {id:'newhire',lab:'New hire welcome', blurb:'Something they can use on day one. Keep it useful and keep it in your brand colours — this is the first thing the company ever hands them.'},
+  {id:'service',lab:'Years of service', blurb:'Recognition people keep. Spend the most here: a five- or ten-year gift is compared against the years, not against the catalogue.'},
+  {id:'yearend',lab:'Year-end thank-you',blurb:'One gift, the whole payroll. Pick something with no sizing to get wrong where you can, and order the widest colour range so it suits everyone.'},
+  {id:'safety', lab:'Safety milestone', blurb:'Marks an injury-free record. Crews notice whether the gift is something they would have bought themselves — a name brand does more work here than a plaque.'},
+  {id:'client', lab:'Client & VIP',     blurb:'Fewer pieces, higher value. This is the one place where the label on the gift matters as much as the logo on it.'}
+];
+/* Bands are the buyer's own sentence -- "I have fifty dollars a head" -- so they are round numbers
+   in the customer's currency, not our cost bands. */
+var GIFT_BANDS=[
+  {id:'all',lab:'Any budget',  lo:0,   hi:1e9},
+  {id:'b1', lab:'Under $40',   lo:0,   hi:40},
+  {id:'b2', lab:'$40 – $75',   lo:40,  hi:75},
+  {id:'b3', lab:'$75 – $125',  lo:75,  hi:125},
+  {id:'b4', lab:'$125+',       lo:125, hi:1e9}
+];
+/* Curated, not filtered. A rule that selected "giftable apparel by price" also surfaces an FR
+   balaclava and a dog leash, both of which are real products and neither of which is a gift. Every
+   line below was chosen, and carries the reason it was chosen -- that reason IS the buyer guidance
+   Steven asked for, and it is the difference between a catalogue and a guide. */
+var GIFT_PICKS=[
+  {k:'at_recyfive',      occ:['newhire','yearend','safety'],
+   why:'Seventeen colours, so it lands in your exact brand colour rather than near it. The cheapest way to put something decent on every head in the company.'},
+  {k:'cs_h08000',        occ:['yearend','safety'],
+   why:'A cuffed acrylic toque in eleven colours. No sizing, fits everyone, and on a Canadian crew it is worn from October to April — the highest-mileage gift on this page for the money.'},
+  {k:'sp_dw339',         occ:['newhire','safety'],
+   why:'A 500 ml double-wall recycled stainless bottle with a carry cord, in nine colours. Spector publishes this price with the branding already in it, so what you see is what you pay.'},
+  {k:'st_stockton_ss',   occ:['newhire','yearend'],
+   why:'A heavier, better-finished cotton hand than a promotional blank. The tee people keep wearing after the novelty wears off, which is the only test that matters.'},
+  {k:'sp_lf120',         occ:['yearend'],
+   why:'A 296 ml soy candle in glass with an acacia wood lid. No sizing, no dietary restriction, no alcohol — the gift that goes to the entire payroll without a single awkward conversation.'},
+  {k:'st_monterey',      occ:['newhire','yearend'],
+   why:'Nine colours of short-sleeve polo. The safest apparel gift there is: everyone already owns one and nobody has enough of them.'},
+  {k:'nk_fb6447',        occ:['yearend','safety','newhire'],
+   why:'A Nike swoosh next to your logo. Under fifty dollars this is the single biggest jump in perceived value in the whole store — people wear a Nike cap in their own time.'},
+  {k:'nk_fb6539',        occ:['yearend','safety'],
+   why:'Nike knit beanie with a folding cuff. Same logic as the cap and better suited to a winter handout — one size, no fit problem, and it leaves the building on their head.'},
+  {k:'cbc_coastline_polo',occ:['service','yearend'],
+   why:'Sixteen colours from Cutter & Buck. A polo is the gift a mixed office actually uses, and this one is finished well enough that it does not read as a uniform.'},
+  {k:'ad_a230',          occ:['service','client'],
+   why:'The adidas mark does the same work as the Nike one, in nine colours and a performance knit. For a sales team who will wear it to a customer site.'},
+  {k:'cbc_coastline_qz', occ:['service','yearend'],
+   why:'A lightweight quarter-zip is the most-worn layer in any office — the thing that lives on the back of a chair. Nine colours, and it reads as considered rather than casual.'},
+  {k:'st_sierravest',    occ:['safety','yearend','service'],
+   why:'A quilted vest is the most-requested piece in any programme, gift or not. Warmth with the arms free, and it stays on indoors — so your logo is visible all day.'},
+  {k:'st_aquabp22',      occ:['newhire','service'],
+   why:'A 22-litre backpack a new hire can carry from day one. Bags outlast apparel, which makes them unusually good value as recognition.'},
+  {k:'nk_pohoodie',      occ:['yearend','service','safety'],
+   why:'A Nike hoodie in eight colours. If you want one gift that everybody under forty is pleased to receive, this is it — and it is worn in public far more than anything else here.'},
+  {k:'nk_halfzipsw',     occ:['service','yearend'],
+   why:'The half-zip version, in five colours. Slightly smarter than the hoodie and better suited to a team that sees customers.'},
+  {k:'cb_adapt',         occ:['service','client'],
+   why:'Cutter & Buck hybrid full-zip in nine colours. The five-year gift that still looks right in a boardroom — a jacket rather than a sweatshirt.'},
+  {k:'cbc_roam_hoodie',  occ:['yearend','service'],
+   why:'A soft-knit hoodie with eight colourways and a premium hand. For a company that wants the comfort of a hoodie without the promotional-blank look.'},
+  {k:'st_nautilushoody', occ:['safety','service','yearend'],
+   why:'Quilted hoody in seven colours — the layer a crew reaches for on a cold morning. Marks a safety record with something genuinely worn on site.'},
+  {k:'ch_spg0536',       occ:['service','newhire'],
+   why:'A 25-litre Carhartt laptop backpack. Carhartt is the one clothing brand a trades crew will name unprompted, which makes it the strongest recognition gift on this list under a hundred dollars.'},
+  {k:'sp_t151',          occ:['service','client'],
+   why:'A portfolio with a 5000 mAh battery, an FSC notebook and a phone stand. For the desk-based half of the company, where a jacket is the wrong gift.'},
+  {k:'cbc_evoke_fleece', occ:['service','client'],
+   why:'Honeycomb-textured recycled fleece that reads as a jacket, not a sweatshirt. A ten-year gift that does not need a plaque next to it.'},
+  {k:'tnf_fleece',       occ:['service','client'],
+   why:'The North Face on a fleece jacket. This is the gift people tell other people they were given — the label is doing as much work as the gesture, and both are the point.'},
+  {k:'cbc_rainier_hybrid',occ:['client','service'],
+   why:'A puffer hybrid in a premium build, for the client who sent you the year’s biggest job or the person retiring after twenty years.'},
+  {k:'tnf_thermo',       occ:['client'],
+   why:'A North Face ThermoBall. The top of the range and priced accordingly — reserved for a handful of people where the gift has to be unmistakably significant.'}
+];
+var GV={occ:'all',band:'all'};
+/* THE BAND PRICE MUST BE THE PRICE ON THE CARD. Banding apparel at 25 while the product card
+   underneath headlines the store's own minimum put two different numbers for the same gift on one
+   screen -- the Stockton tee read $21.00 in the filter and $21.50 on the card. So the basis here is
+   exactly what the card shows: the store minimum for apparel, and for a promo line its own
+   published minimum, where Spector's price already includes the branding. */
+function giftPrice(k){
+  var it=BYKEY[k];if(!it)return 0;
+  try{
+    if(it.layer==='promo'){var q=promoQuote(it,{qty:it.moq||moq()});return (q&&q.perPiece)||0;}
+    return unitPrice(k,defaultDecos(k),moq());
+  }catch(e){return 0;}
+}
+function giftBand(p){
+  for(var i=1;i<GIFT_BANDS.length;i++){var b=GIFT_BANDS[i];if(p>=b.lo&&p<b.hi)return b.id;}
+  return 'b4';
+}
+function giftPool(){
+  return GIFT_PICKS.filter(function(g){return !!BYKEY[g.k];})
+    .map(function(g){return {k:g.k,occ:g.occ,why:g.why,p:giftPrice(g.k)};})
+    .filter(function(g){return g.p>0;})
+    .sort(function(a,b){return a.p-b.p;});
+}
+function giftMatches(occ,band){
+  return giftPool().filter(function(g){
+    if(occ!=='all'&&g.occ.indexOf(occ)<0)return false;
+    if(band!=='all'&&giftBand(g.p)!==band)return false;
+    return true;});
+}
+function giftsSectionHtml(){
+  if(!giftPool().length)return '';
+  return '<section class="gifts" id="gifts"><div class="w">'+
+    '<div class="gfhd">'+
+      '<div class="gfeyb">Employee gifts</div>'+
+      '<h2 class="gfh">Gifts people keep</h2>'+
+      '<p class="gfsub">Onboarding, service milestones and the year-end thank-you — chosen so they '+
+        'read as a gift, not as swag. Every piece carries your logo, and every price is per person '+
+        'with the decoration already in it.</p>'+
+    '</div>'+
+    '<div class="gfnav" id="gfnav"></div>'+
+    '<div class="gfguide" id="gfguide"></div>'+
+    '<div class="gfbands" id="gfbands"></div>'+
+    '<div class="gfgrid" id="gfgrid"></div>'+
+    '<div class="gfnone" id="gfnone"></div>'+
+  '</div></section>';
+}
+function renderGifts(){
+  var nav=document.getElementById('gfnav');if(!nav)return;
+  var pool=giftPool();
+  nav.innerHTML=GIFT_OCC.map(function(o){
+    var n=pool.filter(function(g){return o.id==='all'||g.occ.indexOf(o.id)>=0;}).length;
+    return '<button type="button" class="gfocc'+(GV.occ===o.id?' on':'')+'" data-gfocc="'+esc(o.id)+'">'+
+      esc(o.lab)+'<i>'+n+'</i></button>';}).join('');
+  var oc=GIFT_OCC.filter(function(o){return o.id===GV.occ;})[0]||GIFT_OCC[0];
+  var gd=document.getElementById('gfguide');
+  gd.innerHTML=oc.blurb
+    ? ('<p class="gfgt">'+esc(oc.blurb)+'</p>')
+    : ('<p class="gfgt"><b>How to choose.</b> Start with what you can spend per person, then pick '+
+       'the occasion — the two together leave you three or four honest options instead of four '+
+       'hundred. Where a gift comes in many colours, take the one closest to your brand: it is the '+
+       'difference between a gift and a giveaway.</p>');
+  var bands=document.getElementById('gfbands');
+  bands.innerHTML='<span class="gfbl">Budget per person</span>'+GIFT_BANDS.map(function(b){
+    var n=pool.filter(function(g){
+      return (GV.occ==='all'||g.occ.indexOf(GV.occ)>=0)&&(b.id==='all'||giftBand(g.p)===b.id);}).length;
+    return '<button type="button" class="gfband'+(GV.band===b.id?' on':'')+
+      (n?'':' off')+'" data-gfband="'+esc(b.id)+'"'+(n?'':' disabled')+'>'+
+      esc(b.lab)+'<i>'+n+'</i></button>';}).join('');
+  var hits=giftMatches(GV.occ,GV.band);
+  var grid=document.getElementById('gfgrid'),none=document.getElementById('gfnone');
+  grid.innerHTML=hits.map(function(g){
+    /* The real product card, so a gift gets the same mockup, colour swatches and Add-to-board as
+       anything else in the store -- and so there is exactly one card implementation to maintain. */
+    return '<div class="gfitem">'+menuCard(g.k)+
+      '<div class="gfwhy"><span class="gfwk">Why it works</span>'+esc(g.why)+'</div></div>';}).join('');
+  none.innerHTML=hits.length?'':
+    '<div class="gfempty"><b>Nothing in that budget for this occasion.</b> '+
+    'Widen the budget, or tell us the number you have in mind and we will build to it.</div>';
+  wireCards('gfgrid');
+  nav.querySelectorAll('[data-gfocc]').forEach(function(b){b.addEventListener('click',function(){
+    GV.occ=b.dataset.gfocc;
+    /* If the chosen budget has nothing in the new occasion, fall back to Any rather than
+       showing an empty grid and making the buyer work out why. */
+    if(GV.band!=='all'&&!giftMatches(GV.occ,GV.band).length)GV.band='all';
+    renderGifts();});});
+  bands.querySelectorAll('[data-gfband]').forEach(function(b){b.addEventListener('click',function(){
+    GV.band=b.dataset.gfband;renderGifts();});});
+}
+
 function recoHeroHtml(){
   /* THE PRE-APPROVED PROGRAMS, ALWAYS. Steven, 2026-09-10: "'We've already picked your shortlist'
      is a bad idea. I prefer just to show the pre approved programs and allow customers to build
@@ -5664,9 +5819,7 @@ function recoHeroHtml(){
   if(programsOn()){seedPrograms();ids=programIds();}
   if(!ids.length)return '';
   var generated=true;
-  /* Four, not three. The gifts program is a fourth board and slicing at three would have built
-     it, priced it and never shown it. */
-  var cards=ids.slice(0,4).map(function(id){
+  var cards=ids.slice(0,3).map(function(id){
     var L=LISTS[id];
     /* Inline sizing on the preview tiles: store.css can arrive a mirror cycle behind store.js, and
        an unstyled tile renders at the photo's natural 1000px. */
@@ -5708,21 +5861,19 @@ function recoHeroHtml(){
      sentence, so adding the gifts program left the page announcing three programs above four
      cards, with the fourth unmentioned. Both halves are now derived: a store that ever carries a
      different number of programs describes itself correctly without anyone editing this copy. */
-  var who=ids.slice(0,4).map(function(id){return (LISTS[id]||{}).who;}).filter(Boolean);
+  var who=ids.slice(0,3).map(function(id){return (LISTS[id]||{}).who;}).filter(Boolean);
   var whoTxt=who.length>1?(who.slice(0,-1).join(', ')+' and '+who[who.length-1])
             :(who[0]||'');
   var hd={lbl:'Built for '+esc(CFG.client||'your team'),
           h:'Pre-approved programs, ready to send',
-          p:nwords(Math.min(ids.length,4))+' programs we already stock and decorate'+
+          p:nwords(Math.min(ids.length,3))+' programs we already stock and decorate'+
             (whoTxt?(' \u2014 '+whoTxt):'')+
             '. Every line is priced at your minimum, and every one is yours to change.'};
   return '<section class="recohero'+(generated?' gen':'')+'"><div class="w">'+
     '<div class="rhlbl">'+hd.lbl+'</div>'+
     '<h2 class="rhh">'+hd.h+'</h2>'+
     '<p class="rhsub">'+hd.p+'</p>'+
-    /* 2x2 at four. The grid is auto-fit minmax(300px) inside a 1120px column, so a fourth card
-       lands alone on a second row -- which reads as an afterthought rather than a fourth option. */
-    '<div class="rhcards'+((ids.length>3)?' four':'')+'">'+cards+'</div></div></section>';
+    '<div class="rhcards">'+cards+'</div></div></section>';
 }
 function renderRecoHero(){
   var el=document.getElementById('recohero');if(!el)return;
