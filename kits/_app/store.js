@@ -5485,6 +5485,25 @@ function progBuild(spec){
 }
 
 var PROGSEEDED=false;
+/* RETIRE A PROGRAM THAT NO LONGER EXISTS. Programs are seeded into the visitor's own localStorage,
+   so removing one from PROG_SPECS does not remove it from the browsers that already saw it. The
+   employee-gifts programme was live as a fourth board for about forty minutes on 2026-09-14 before
+   Steven asked for gifts to be a separate destination instead -- and it carried two blankets, which
+   he had explicitly ruled out. Anyone who loaded a store in that window would keep both forever.
+   Only untouched templates are removed: `starter` and `prog` mark our own seed, and a board the
+   customer has adopted or renamed is never ours to delete. */
+function retireDeadPrograms(){
+  if(!LISTS)return;
+  var live={};PROG_SPECS.forEach(function(sp){live['prog_'+sp.id]=1;});
+  Object.keys(LISTS).forEach(function(id){
+    var L=LISTS[id];
+    if(!L||!L.prog||!L.starter)return;          // not one of ours, or the customer has taken it on
+    if(live[id])return;                          // still a programme we ship
+    if(L.slug)return;                            // it has been shared or synced -- leave it alone
+    if(ALID===id){ALID=personalListId();CART=(LISTS[ALID]||{}).items||{};}
+    delete LISTS[id];
+  });
+}
 function seedPrograms(){
   /* The flag is set only once seeding can actually happen. It used to be set on the way IN, so a
      single early call before loadLists() had run would latch it true, seed nothing, and leave the
@@ -5493,6 +5512,7 @@ function seedPrograms(){
   if(!LISTS)loadLists();
   if(!LISTS)return;
   PROGSEEDED=true;
+  try{retireDeadPrograms();}catch(e){}
   try{
     PROG_SPECS.forEach(function(spec){
       var rows=progBuild(spec);
