@@ -1,0 +1,17 @@
+{
+  "generator": "client-app",
+  "version": "1789393333",
+  "slug": "gni",
+  "client": "Great Northern Insulation",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_2b349b.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_ffee00.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}
