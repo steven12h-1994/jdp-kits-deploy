@@ -1,0 +1,16 @@
+{
+  "generator": "client-app",
+  "version": "1789392691",
+  "slug": "centex",
+  "client": "Centex Petroleum",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_0c416a.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}

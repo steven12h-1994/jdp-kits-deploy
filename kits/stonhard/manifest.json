@@ -1,0 +1,16 @@
+{
+  "generator": "client-app",
+  "version": "1789392479",
+  "slug": "stonhard",
+  "client": "Stonhard",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_0085ca.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}

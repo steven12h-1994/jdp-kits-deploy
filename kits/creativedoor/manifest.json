@@ -1,0 +1,18 @@
+{
+  "generator": "client-app",
+  "version": "1789392770",
+  "slug": "creativedoor",
+  "client": "Creative Door Services",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_01548b.png",
+    "img/lg_full_323e48.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_ce0f2e.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}

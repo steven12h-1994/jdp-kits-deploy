@@ -1,0 +1,17 @@
+{
+  "generator": "client-app",
+  "version": "1789392075",
+  "slug": "ontariowholesaleenergy",
+  "client": "Ontario Wholesale Energy Gas &amp; Electric",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_1c78bb.png",
+    "img/lg_full_2cb578.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}
