@@ -5950,8 +5950,15 @@ function heroShotsHtml(){
      aspect ratio makes the row size itself at every width, with no JavaScript watching. */
   var box='flex:1 1 0;min-width:0;max-width:132px;aspect-ratio:1/1;position:relative;'+
           'overflow:hidden;border-radius:14px;display:block';
+  /* min-width:0 IS THE FIX, and it is not optional. A flex item's automatic minimum size is its
+     min-content width, and the min-content of a nowrap row of three 132px tiles is 416px -- so on
+     a 390px phone this container refused to shrink below 416 inside a 335px column and the third
+     garment was sliced off by the body's overflow clip. Every store, every phone, the first thing
+     anyone sees. The tiles were already flexible; it was their container that could not shrink.
+     Inline for the same reason as the rest of this block: the stylesheet can arrive a cycle late,
+     and a hero that clips is not something to leave to chance. */
   return '<div class="heroshots" aria-hidden="true" style="display:flex;gap:10px;'+
-    'flex:1 1 300px;max-width:436px">'+
+    'flex:1 1 300px;min-width:0;max-width:436px">'+
     ks.map(function(k){
       var it=BYKEY[k],o;
       try{o=overlayHtml(it,{decos:defaultDecos(k)},progColour(k),'front',browseCols(it),it.places);}

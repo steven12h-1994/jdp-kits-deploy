@@ -2257,3 +2257,43 @@ body{padding-left:74px}
   .rhcards{grid-template-columns:1fr}
   .rhpv.mstage{border-radius:8px}
 }
+
+/* ================================================================================================
+   TOUCH INPUTS. Measured on a real 390px render of a live store, 2026-09-14.
+
+   Two defects, both on the controls the entire funnel runs through, and both invisible on a
+   desktop browser:
+
+   1. iOS SAFARI ZOOMS THE PAGE when a focused input is under 16px, and every input in the store
+      was 13-15px: the search box, the sheet's size cells, the board's size cells and the note
+      field. Tapping any of them jumped the whole page to 150% and left the buyer pinching back
+      out -- on the search, and on the two places they type the quantities we quote against.
+
+   2. THE INPUT WAS HALF ITS CELL. A size cell is 36px tall and the <input> inside it was 17px,
+      because the box came from the parent's padding and the input had no height of its own. Less
+      than half of what looks like a target actually was one, so a thumb aimed at the middle of the
+      cell missed as often as it hit. Same story in the search bar: a 38px box with a 17px input.
+
+   16px is the floor, not a preference -- it is the exact threshold Safari uses. Kept to touch
+   widths so the desktop type scale is untouched. */
+@media (max-width:820px){
+  .tbsearch input,.qty input,.qty.sm input,.szqty input,.bszc input,.bnote textarea,
+  input[type="search"],input[type="number"],input[inputmode="numeric"],textarea{
+    font-size:16px}
+  /* Fill the cell, so the whole visible box is the target. */
+  .tbsearch input,.qty input,.qty.sm input,.szqty input{align-self:stretch;height:auto}
+  .bszc input{min-height:40px}
+  /* 16px digits need a shade more room than 14px ones did. */
+  .szqty input{width:42px}
+  .qty.sm input{width:46px}
+  /* The search bar's padding lived on the wrapper, so stretching the input still left it 20px in
+     a 38px box. Moving the padding onto the input makes the whole bar the target: 95% of it. */
+  .tbsearch{padding-top:0;padding-bottom:0;align-items:stretch}
+  .tbsearch input{padding-top:9px;padding-bottom:9px;min-height:0;align-self:stretch}
+}
+@media (max-width:600px){
+  /* Overrides the earlier 14px rule for the board's size cells, which is where a buyer actually
+     types the numbers the quote is built from. */
+  .bszc input{font-size:16px}
+  .bnote textarea{font-size:16px}
+}
