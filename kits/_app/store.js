@@ -5495,14 +5495,19 @@ var PROGSEEDED=false;
 function retireDeadPrograms(){
   if(!LISTS)return;
   var live={};PROG_SPECS.forEach(function(sp){live['prog_'+sp.id]=1;});
+  var hit=false;
   Object.keys(LISTS).forEach(function(id){
     var L=LISTS[id];
     if(!L||!L.prog||!L.starter)return;          // not one of ours, or the customer has taken it on
     if(live[id])return;                          // still a programme we ship
     if(L.slug)return;                            // it has been shared or synced -- leave it alone
     if(ALID===id){ALID=personalListId();CART=(LISTS[ALID]||{}).items||{};}
-    delete LISTS[id];
+    delete LISTS[id];hit=true;
   });
+  /* PERSIST, or this runs again on every page load and never actually finishes. The first version
+     deleted from the in-memory LISTS and stopped there, so the board came back from localStorage on
+     the next reload -- verified by planting one and refreshing. */
+  if(hit)persistLists();
 }
 function seedPrograms(){
   /* The flag is set only once seeding can actually happen. It used to be set on the way IN, so a
