@@ -5776,7 +5776,18 @@ var GIFT_PICKS=[
   {k:'st_denali',
    why:'The top of the range: a four-colourway parka for a decade of service, a retirement, or the client who sent you the year’s biggest job.'}
 ];
-var GV={band:'all'};
+/* Apparel vs ready-boxed kit. The buyer guidance on this page already tells the buyer this is the
+   decision to make first ("kits win for a whole-payroll gift and apparel wins for anyone you want
+   seen in it") -- but until now the page gave them no way to act on it, so the advice dead-ended in
+   a 33-card grid. This is a product-type split, not an occasion filter: it answers "what am I
+   buying", which the copy raises, rather than inventing a reason for the gift. */
+var GIFT_TYPES=[
+  {id:'all',  lab:'Everything'},
+  {id:'wear', lab:'Apparel'},
+  {id:'kit',  lab:'Ready-boxed kits'}
+];
+function giftType(g){var it=BYKEY[g.k];return (it&&it.layer==='promo')?'kit':'wear';}
+var GV={band:'all',type:'all'};
 /* THE BAND PRICE MUST BE THE PRICE ON THE CARD -- the store minimum for apparel, and for a Spector
    kit its own published minimum, where the price already includes the branding. */
 function giftPrice(k){
@@ -5804,9 +5815,10 @@ function giftPool(){
     .filter(function(g){return g.p>=GIFT_FLOOR;})
     .sort(function(a,b){return a.p-b.p;});
 }
-function giftMatches(band){
+function giftMatches(band,type){
+  if(type===undefined)type=GV.type;
   return giftPool().filter(function(g){
-    return band==='all'||giftBand(g.p)===band;});
+    return (band==='all'||giftBand(g.p)===band)&&(type==='all'||giftType(g)===type);});
 }
 function giftsSectionHtml(){
   if(!giftPool().length)return '';
@@ -5820,6 +5832,7 @@ function giftsSectionHtml(){
         'decoration already in it.</p>'+
     '</div>'+
     '<div class="gfguide" id="gfguide"></div>'+
+    '<div class="gftypes" id="gftypes"></div>'+
     '<div class="gfbands" id="gfbands"></div>'+
     '<div class="gfgrid" id="gfgrid"></div>'+
     '<div class="gfnone" id="gfnone"></div>'+
@@ -5833,12 +5846,20 @@ function renderGifts(){
     'narrows this to a handful. Apparel needs sizes and lands in your brand colour; a boxed kit '+
     'needs neither, which is why kits win for a whole-payroll gift and apparel wins for anyone '+
     'you want seen in it.</p>';
+  /* Each row counts against the OTHER row's current choice, so the numbers describe what a click
+     would actually return. A count that ignored the sibling filter would promise 15 and show 4. */
+  var types=document.getElementById('gftypes');
+  if(types)types.innerHTML='<span class="gfbl">What are you buying</span>'+GIFT_TYPES.map(function(t){
+    var n=giftMatches(GV.band,t.id).length;
+    return '<button type="button" class="gftype'+(GV.type===t.id?' on':'')+(n?'':' off')+'"'+
+      ' data-gftype="'+esc(t.id)+'"'+(n?'':' disabled')+'>'+esc(t.lab)+'<i>'+n+'</i></button>';
+  }).join('');
   bands.innerHTML='<span class="gfbl">Budget per person</span>'+GIFT_BANDS.map(function(b){
-    var n=pool.filter(function(g){return b.id==='all'||giftBand(g.p)===b.id;}).length;
+    var n=giftMatches(b.id,GV.type).length;
     return '<button type="button" class="gfband'+(GV.band===b.id?' on':'')+(n?'':' off')+'"'+
       ' data-gfband="'+esc(b.id)+'"'+(n?'':' disabled')+'>'+esc(b.lab)+'<i>'+n+'</i></button>';
   }).join('');
-  var hits=giftMatches(GV.band);
+  var hits=giftMatches(GV.band,GV.type);
   document.getElementById('gfgrid').innerHTML=hits.map(function(g){
     /* The real product card, so a gift gets the same mockup, colour swatches and Add-to-board as
        anything else in the store -- and so there is one card implementation to maintain. */
@@ -5846,11 +5867,69 @@ function renderGifts(){
       '<div class="gfwhy"><span class="gfwk">Why it works</span>'+esc(g.why)+'</div></div>';
   }).join('');
   document.getElementById('gfnone').innerHTML=hits.length?'':
-    '<div class="gfempty"><b>Nothing in that budget.</b> '+
-    'Widen it, or tell us the number you have in mind and we will build to it.</div>';
+    '<div class="gfempty"><b>Nothing matches those two filters.</b> '+
+    'Widen the budget, switch to Everything, or tell us the number you have in mind and we will '+
+    'build to it.</div>';
   wireCards('gfgrid');
   bands.querySelectorAll('[data-gfband]').forEach(function(b){b.addEventListener('click',function(){
     GV.band=b.dataset.gfband;renderGifts();});});
+  if(types)types.querySelectorAll('[data-gftype]').forEach(function(b){
+    b.addEventListener('click',function(){GV.type=b.dataset.gftype;renderGifts();});});
+  wireWornPeek('gfgrid');
+}
+
+/* "SEE IT WORN" ON THE CARD, without lying about colour.
+   17 of the 25 apparel gifts now carry a model shot, and on a gift page the photograph is the
+   decision: a person wearing the jacket reads as a gift, a flat lay on white reads as a catalogue
+   SKU. But the model shot is ONE colourway, and every other card in this store keeps its image
+   locked to the swatch the buyer picked -- showing an olive model shot under a Navy label would be
+   the same class of error as the black-and-white logos. So this is a peek, not a replacement: the
+   flat, colour-accurate shot stays the card's image, and the worn shot is revealed on hover, focus
+   or tap and withdrawn afterwards.
+   The pre-peek src is captured and restored verbatim rather than recomputed, so a colour changed
+   mid-peek cannot be clobbered by a stale value. */
+function wornShotFor(item,colourName){
+  var g=(item&&item.gallery)||[];
+  var worn=g.filter(function(u){return String(u).indexOf('worn')>=0;});
+  if(!worn.length)return '';
+  var sl=String(colourName||'').toLowerCase().replace(/[^a-z0-9]+/g,'');
+  if(sl)for(var i=0;i<worn.length;i++)if(String(worn[i]).toLowerCase().indexOf(sl)>=0)return worn[i];
+  return worn[0];
+}
+function wireWornPeek(rootId){
+  var root=document.getElementById(rootId);if(!root)return;
+  root.querySelectorAll('.gfitem').forEach(function(wrap){
+    var card=wrap.querySelector('.mcard[data-key]');if(!card)return;
+    var key=card.getAttribute('data-key'),it=BYKEY[key];if(!it)return;
+    var stage=card.querySelector('.mstage'),g=stage&&stage.querySelector('img.g');
+    if(!stage||!g)return;
+    if(!wornShotFor(it,''))return;
+    var btn=document.createElement('button');
+    btn.type='button';btn.className='gfpeek';
+    btn.setAttribute('aria-label','See '+(it.name||'this piece')+' worn');
+    btn.innerHTML='<span class="gfpl">See it worn</span>';
+    var prev='';
+    function on(){
+      /* resolve against the colour showing RIGHT NOW: the five styles fetched with worn shots per
+         colourway name their files by colour, so a Navy card can peek a Navy model shot. */
+      var shot=wornShotFor(it,browseColour(key,it));if(!shot)return;
+      if(!prev)prev=g.getAttribute('src')||'';
+      g.src=gurl(shot);
+      /* The logo layer is absolutely positioned from the FLAT photo's tuned cx/cy/wf. Those
+         fractions mean nothing on a model shot, so leaving it on would paint the client's logo
+         floating in mid-air. Hidden for the duration of the peek -- the same reasoning as
+         `norender` above: do not draw a logo we cannot place. */
+      card.classList.add('peeking');
+    }
+    function off(){ if(prev){g.src=prev;prev='';} card.classList.remove('peeking'); }
+    btn.addEventListener('mouseenter',on); btn.addEventListener('mouseleave',off);
+    btn.addEventListener('focus',on);      btn.addEventListener('blur',off);
+    btn.addEventListener('click',function(e){          // tap toggles, never opens the sheet
+      e.preventDefault();e.stopPropagation();
+      if(prev)off();else on();
+    });
+    stage.appendChild(btn);
+  });
 }
 
 /* The whole of the homepage's gift presence: one line. Enough to be found, small enough that the
