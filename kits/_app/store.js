@@ -5896,6 +5896,22 @@ function wornShotFor(item,colourName){
   if(sl)for(var i=0;i<worn.length;i++)if(String(worn[i]).toLowerCase().indexOf(sl)>=0)return worn[i];
   return worn[0];
 }
+/* Which colourway is the model actually wearing? Derived from the filename against the item's own
+   colour list, because the five styles fetched per-colourway name their worn files by colour
+   (`st_axis__blacksportred_worn.jpg`) while the backfilled ones are just `__worn1` -- the supplier
+   published one model shot and did not say which colourway it is.
+   This matters: Axis has a model shot only in Black/Sport Red, so a buyer looking at the Navy card
+   would otherwise see a black-and-red jacket and read it as Navy. Where the colour is knowable and
+   differs, the peek says so; where it is not knowable, it claims nothing. */
+function wornColourName(item,file){
+  var f=String(file||'').toLowerCase(),best='';
+  var all=(item.cols||[]).concat(item.wcols||[]);
+  for(var i=0;i<all.length;i++){
+    var sl=String(all[i].name||'').toLowerCase().replace(/[^a-z0-9]+/g,'');
+    if(sl&&f.indexOf(sl)>=0&&sl.length>best.length)best=all[i].name;   // longest match wins
+  }
+  return best;
+}
 function wireWornPeek(rootId){
   var root=document.getElementById(rootId);if(!root)return;
   root.querySelectorAll('.gfitem').forEach(function(wrap){
@@ -5908,20 +5924,29 @@ function wireWornPeek(rootId){
     btn.type='button';btn.className='gfpeek';
     btn.setAttribute('aria-label','See '+(it.name||'this piece')+' worn');
     btn.innerHTML='<span class="gfpl">See it worn</span>';
+    var cap=document.createElement('span');
+    cap.className='gfpcap';cap.hidden=true;stage.appendChild(cap);
     var prev='';
     function on(){
       /* resolve against the colour showing RIGHT NOW: the five styles fetched with worn shots per
          colourway name their files by colour, so a Navy card can peek a Navy model shot. */
-      var shot=wornShotFor(it,browseColour(key,it));if(!shot)return;
+      var cur=browseColour(key,it),shot=wornShotFor(it,cur);if(!shot)return;
       if(!prev)prev=g.getAttribute('src')||'';
       g.src=gurl(shot);
+      /* name the colourway on the model whenever it is knowable and is NOT the one selected */
+      var shown=wornColourName(it,shot);
+      if(cap){
+        if(shown&&shown!==cur){cap.textContent='Shown in '+shown;cap.hidden=false;}
+        else cap.hidden=true;
+      }
       /* The logo layer is absolutely positioned from the FLAT photo's tuned cx/cy/wf. Those
          fractions mean nothing on a model shot, so leaving it on would paint the client's logo
          floating in mid-air. Hidden for the duration of the peek -- the same reasoning as
          `norender` above: do not draw a logo we cannot place. */
       card.classList.add('peeking');
     }
-    function off(){ if(prev){g.src=prev;prev='';} card.classList.remove('peeking'); }
+    function off(){ if(prev){g.src=prev;prev='';} card.classList.remove('peeking');
+                    if(cap)cap.hidden=true; }
     btn.addEventListener('mouseenter',on); btn.addEventListener('mouseleave',off);
     btn.addEventListener('focus',on);      btn.addEventListener('blur',off);
     btn.addEventListener('click',function(e){          // tap toggles, never opens the sheet
