@@ -5698,23 +5698,30 @@ var GIFT_BANDS=[
 /* Curated, and every line carries the reason it is here -- that reason is the buyer guidance. Kit
    contents are quoted from the catalogue's own `contents` field, never described from memory. */
 var GIFT_PICKS=[
-  /* --- Spector kits: the ones with a usable minimum and contents worth naming ----------------- */
-  {k:'sp_gf107',
-   why:'A passport holder and a luggage tag in matching Toscano leather. The cheapest thing here that still feels like a gift rather than a handout, and the easiest way to mark a first anniversary.'},
+  /* --- Spector kits ---------------------------------------------------------------------------
+     Steven, 2026-09-15: "we do not want luggage tag kits. we want kits that are premium and are in
+     demand! also use some that have bags / backpacks."
+     So the two travel-accessory kits and the five-piece Vanguard set are out -- all three were
+     luggage-tag-and-passport-holder sets -- and six of the eight below are built around a backpack
+     or a duffle, which is the piece that outlasts everything else in a kit and the reason people
+     keep them. Contents are quoted from the catalogue's own `contents` field, never described from
+     memory. All eight carry a minimum a buyer can actually place (15 or 25). */
   {k:'sp_gf1033',
    why:'Pouch, journal, pen and bottle, boxed — and the lowest minimum of any kit we carry at 15 pieces. Built for onboarding: one box per new hire, no sizing to collect.'},
   {k:'sp_gf141',
-   why:'A mug and a candle, boxed. The gift that goes to the whole payroll without a single awkward conversation: no sizing, no dietary restriction, no alcohol.'},
-  {k:'sp_gf991',
-   why:'A bottle and a luggage tag, boxed, in nine colourways — so it can land in your brand colour rather than near it. The best-looking kit under sixty dollars.'},
+   why:'A mug and a candle, boxed. The one here with no bag in it on purpose: no sizing, no dietary restriction, no alcohol, so it goes to the whole payroll without a single awkward conversation.'},
+  {k:'sp_bb194',
+   why:'A backpack with a bottle and a journal-and-pen set. The bag is what makes this work — it is still being carried in three years, long after the notebook is full.'},
   {k:'sp_bb192',
-   why:'Backpack, bottle and a journal-and-pen set. A bag is the piece people keep using years later, which is what makes this the strongest fifty-eight dollars on the page.'},
+   why:'The same three pieces built around a commuter backpack. Our most-asked-for onboarding kit, and the strongest fifty-eight dollars on the page.'},
+  {k:'sp_bb193',
+   why:'A duffle instead of a backpack, with a bottle and a journal-and-pen set. For a crew that travels to site rather than to a desk.'},
   {k:'sp_bb196',
-   why:'Backpack, bottle, journal and pen — four pieces. The step up from Momentum Mode when the gift needs to feel like a box rather than an item.'},
+   why:'Backpack, bottle, journal and pen — four pieces. The step up when the gift needs to feel like a box rather than an item.'},
+  {k:'sp_bb199',
+   why:'A backpack and a duffle together, and nothing else. Two bags is an unusually confident gift: no filler, and both pieces get used.'},
   {k:'sp_bb197',
-   why:'Backpack, luggage tracker, journal-and-pen and a tumbler. For the people who actually travel for you; the tracker is the part they will mention to someone else.'},
-  {k:'sp_bb897',
-   why:'Five pieces of the Vanguard range — journal, passport holder, luggage tag, metal pen and the backpack — at a ten-piece minimum. The one to reach for when a gift has to be unmistakably significant.'},
+   why:'Backpack, luggage tracker, journal-and-pen and a tumbler. For the people who actually travel for you — the tracker is the part they mention to someone else.'},
   /* --- Apparel, Steven's list ------------------------------------------------------------------ */
   {k:'flux',
    why:'A quarter-zip sweatshirt in thirteen colours. The entry point into branded apparel as a gift: enough colour choice to match any brand, and a piece people wear on their own time.'},
@@ -5760,7 +5767,14 @@ var GIFT_PICKS=[
   {k:'cs_l00970',
    why:'Real down — 550 fill power, 90% down — that still packs into its own pouch. Proper winter warmth without the bulk of a parka.'},
   {k:'st_stavangervest',
-   why:'Polyfill warmth in a water-repellent shell that packs away, with the arms free. A vest is the piece people keep wearing indoors, which is where your logo gets seen.'}
+   why:'Polyfill warmth in a water-repellent shell that packs away, with the arms free. A vest is the piece people keep wearing indoors, which is where your logo gets seen.'},
+  /* --- Added 2026-09-15: the three Stormtech parkas ------------------------------------------- */
+  {k:'st_explorerquilted',
+   why:'A quilted jacket with a hood in three colourways. The most-given winter gift shape there is, and Stormtech filmed it — the card plays the film.'},
+  {k:'st_explorerparka',
+   why:'A full parka at the point where a gift stops being apparel and starts being equipment. For a crew that works outside in January.'},
+  {k:'st_denali',
+   why:'The top of the range: a four-colourway parka for a decade of service, a retirement, or the client who sent you the year’s biggest job.'}
 ];
 var GV={band:'all'};
 /* THE BAND PRICE MUST BE THE PRICE ON THE CARD -- the store minimum for apparel, and for a Spector
