@@ -2380,9 +2380,23 @@ function fibreColour(name){
 }
 /* Accepts the structured `fab` built from maker spec tables, and falls back to parsing the older
    plain string so nothing goes blank while the data is still being filled in. */
+/* `fab` COMES IN TWO SHAPES and only one of them used to render. The rich form is an object --
+   {mix:[["Recycled Polyester",75],...], weight:"320 gsm", knit:"..."} -- and that is what the
+   fabric panel was written against. But several items carry `fab` as a plain sentence instead
+   ("96% polyester · 4% spandex softshell bonded to micro fleece · 320 gsm"), and for those the
+   panel found no mix, fell through to `item.fabric` (a different field nothing sets) and rendered
+   NOTHING. Caught while adding the five outerwear styles on 2026-09-15: the catalogue held the
+   right composition and the sheet showed no fabric at all, and the same was quietly true of the
+   Cyclone jacket and the four tees added earlier.
+   A string `fab` is now parsed for its percentages and kept as the fallback sentence, so both
+   shapes render and neither has to be migrated. */
+function fabStr(item){
+  var f=item&&item.fab;
+  return (typeof f==='string')?f:(item&&item.fabric)||'';
+}
 function fabMix(item){
   if(item.fab&&item.fab.mix&&item.fab.mix.length)return item.fab.mix;
-  var s=item.fabric||'';if(!s)return [];
+  var s=fabStr(item);if(!s)return [];
   var out=[],re=/(\d{1,3})\s*%\s*([A-Za-z][A-Za-z\/\- ]{2,28})/g,m;
   while((m=re.exec(s))){out.push([m[2].replace(/\s+$/,''),parseInt(m[1],10)]);}
   return out;
@@ -2390,7 +2404,7 @@ function fabMix(item){
 function fabLine(item){
   var mix=fabMix(item);
   if(mix.length)return mix.map(function(p){return p[1]+'% '+p[0];}).join(' · ');
-  return item.fabric||'';
+  return fabStr(item);
 }
 // The card line. Weight rides along with the fibre content because heft is the difference a buyer
 // can't see in a photo: an 8.3 oz cotton-rich polo and a 4.1 oz performance piqu\u00e9 photograph
@@ -2403,7 +2417,7 @@ function fabCardLine(item){
      so they belong on the card, not three clicks deep. */
   var d=dwSpecLine(item);if(d)return d;
   var l=fabLine(item);if(!l)return '';
-  var w=(item.fab&&item.fab.weight)?String(item.fab.weight).split(' \u00b7 ')[0]:'';
+  var w=(item.fab&&typeof item.fab==='object'&&item.fab.weight)?String(item.fab.weight).split(' \u00b7 ')[0]:'';
   return w?(l+' \u00b7 '+w):l;
 }
 /* Every one of the 234 promo items carries a supplier quantity-break table (median 17.2% deep,
@@ -2427,8 +2441,8 @@ function dwSpecLine(item){
   return bits.join(' \u00b7 ');
 }
 function fabricHtml(item){
-  var f=item.fab||{},mix=fabMix(item);
-  if(!mix.length&&!f.weight&&!f.knit&&!(f.finishes&&f.finishes.length)&&!item.fabric)return '';
+  var f=(item.fab&&typeof item.fab==='object')?item.fab:{},mix=fabMix(item),fs=fabStr(item);
+  if(!mix.length&&!f.weight&&!f.knit&&!(f.finishes&&f.finishes.length)&&!fs)return '';
   var bar='',leg='';
   if(mix.length){
     var tot=0;mix.forEach(function(p){tot+=p[1];});
@@ -2441,7 +2455,7 @@ function fabricHtml(item){
     }).join('')+'</div>';
   }
   var rows='';
-  if(!mix.length&&item.fabric)rows+='<div class="frw"><span>Fabric</span><b>'+esc(item.fabric)+'</b></div>';
+  if(!mix.length&&fs)rows+='<div class="frw"><span>Fabric</span><b>'+esc(fs)+'</b></div>';
   if(f.weight)rows+='<div class="frw"><span>Weight</span><b>'+esc(f.weight)+'</b></div>';
   if(f.knit)rows+='<div class="frw"><span>Construction</span><b>'+esc(f.knit)+'</b></div>';
   if(f.note)rows+='<div class="frw"><span>Also</span><b>'+esc(f.note)+'</b></div>';
