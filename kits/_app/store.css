@@ -1513,6 +1513,59 @@ body{padding-left:74px}
 .bpick b{color:var(--ink);font-weight:800}
 @media print{.bpick{border-color:#ddd;background:none!important}}
 
+/* ---- GIFTS AS ITS OWN PAGE ------------------------------------------------------------------
+   The studio is built into the storefront's markup but hidden until the gift view is on, so
+   switching costs nothing and the buyer's occasion and budget survive the trip. `body.giftview`
+   hides the storefront and hands the studio the whole canvas.
+   Listed explicitly rather than hiding a wrapper, because the top bar, the rail and the footer all
+   have to stay -- a page with no way back is not a page. */
+.gifts{display:none}
+body.giftview .gifts{display:block}
+body.giftview .hero,
+body.giftview #recohero,
+body.giftview .excats,
+body.giftview .offerstrip,
+body.giftview .navwrap,
+body.giftview main.w,
+body.giftview .why,
+body.giftview .whyjdp,
+body.giftview .social,
+body.giftview .vbar,
+body.giftview .shopcats,
+body.giftview .gfentrywrap{display:none!important}
+/* The studio is the page now, so it does not need the band's outer margin fighting the top bar. */
+body.giftview .gifts{margin-top:0;min-height:60vh}
+.gfback{display:inline-flex;align-items:center;gap:6px;margin:0 0 18px;padding:8px 14px 8px 11px;
+  border-radius:999px;border:1.5px solid rgba(255,255,255,.26);background:transparent;
+  color:rgba(255,255,255,.88);font-size:13px;font-weight:700;cursor:pointer;
+  -webkit-appearance:none;appearance:none}
+.gfback:hover{border-color:#fff;color:#fff}
+.gfback:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(255,255,255,.35)}
+
+/* ---- The one line the homepage keeps ----------------------------------------------------------
+   Steven: the studio was "taking up way too much space on the company store homepage". This is the
+   whole of what replaces it -- a single strip under the programmes. Dark, so it reads as the door
+   to a different room rather than as another product band. */
+.gfentrywrap{padding-top:4px;padding-bottom:4px}
+.gfentry{display:flex;align-items:center;gap:14px;width:100%;text-align:left;cursor:pointer;
+  padding:15px 18px;border-radius:var(--rad);border:0;background:var(--steel);color:#fff;
+  box-shadow:var(--sh);-webkit-appearance:none;appearance:none;
+  transition:transform .13s ease,box-shadow .13s ease}
+.gfentry:hover{transform:translateY(-1px);box-shadow:var(--shx)}
+.gfentry:focus-visible{outline:2px solid var(--a);outline-offset:2px}
+.gfeic{flex:none;display:grid;place-items:center;width:38px;height:38px;border-radius:10px;
+  background:rgba(255,255,255,.1);color:var(--amber)}
+.gfetx{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1 1 auto}
+.gfetx b{font-size:15px;font-weight:800;letter-spacing:-.01em}
+.gfetx i{font-style:normal;font-size:12.5px;line-height:1.45;color:rgba(255,255,255,.72)}
+.gfear{flex:none;font-size:19px;color:var(--amber)}
+@media (max-width:560px){
+  .gfentry{padding:13px 14px;gap:11px}
+  .gfetx b{font-size:14px}
+  .gfetx i{font-size:11.5px}
+  .gfeic{width:34px;height:34px}
+}
+
 /* ---- THE GIFT STUDIO --------------------------------------------------------------------------
    Deliberately a different surface from the programme cards above it. A gift buyer is browsing,
    not specifying, so this reads editorially: a dark header band that separates it from the

@@ -1754,6 +1754,7 @@ function hivisIntroHtml(){
    Runs after buildStore(), so the chips and grid exist to drive. */
 function applyViewLink(){
   var s=location.search,c,sub2;
+  if(/[?&]view=gifts\b/.test(s)){setGiftView(true);return true;}
   var qm=s.match(/[?&]q=([^&#]*)/);
   if(qm){
     var q=qdec(qm[1]);
@@ -1788,6 +1789,9 @@ function applyViewLink(){
    entry per chip click, so Back still leaves the store the way it always did. */
 function viewUrl(){
   var b=location.origin+location.pathname;
+  /* The gift page is a destination a rep will want to send on its own -- "here are your gift
+     options" -- so it owns the address bar while it is open. */
+  if(giftViewOn())return b+'?view=gifts';
   if(VIEW.q)return b+'?q='+encodeURIComponent(VIEW.q).replace(/%20/g,'+');
   if(VIEW.cat&&VIEW.sub&&VIEW.sub!=='all')return b+'?sub='+bslug(VIEW.sub);
   if(VIEW.cat)return b+'?cat='+encodeURIComponent(VIEW.cat);
@@ -1837,6 +1841,9 @@ function scrollToResults(){
   window.scrollTo({top:Math.max(0,y),behavior:'smooth'});}
 function setSub(sub){VIEW.sub=sub;document.querySelectorAll('.schip').forEach(function(b){b.classList.toggle('on',b.dataset.sub===sub);});renderGrid();syncViewUrl();scrollToResults();}
 function setCat(cat,doScroll){
+  /* Any move into the catalogue leaves the gift page. Without this a category pick from the
+     Categories menu rendered the grid behind a hidden storefront and the buyer saw nothing move. */
+  if(giftViewOn())setGiftView(false);
   VIEW.cat=cat;VIEW.sub='all';VIEW.q='';
   var nw=document.getElementById('navwrap');if(nw)nw.classList.remove('searching');
   var si=document.getElementById('kitSearch');if(si)si.value='';
@@ -2089,9 +2096,10 @@ function buildStore(){
       with outfitting staff. Removing the band makes the in-person offer the unambiguous focal point
       and lifts the catalogue up the page. */
    '<div id="recohero"></div>'+
-   /* Gifts sit between the programs and the catalogue: after a buyer has seen what a uniform
-      programme looks like, and before they fall into 500 products. */
+   /* The studio itself renders here but is hidden until `?view=gifts` -- see setGiftView(). What
+      the homepage shows is the one-line strip, directly under the programmes. */
    giftsSectionHtml()+
+   '<div class="w gfentrywrap">'+giftEntryHtml()+'</div>'+
    catTilesHtml()+
    /* No empty band: on a demo kit with no CTA this strip has nothing to hold, and an empty
       bordered section between the programs and the catalogue reads as a broken page. */
@@ -2167,6 +2175,10 @@ function buildStore(){
   /* Same reasoning as the band above: paint on first render. Wrapped because a gift line whose
      product has been retired from the catalogue must never take the whole storefront down. */
   try{renderGifts();}catch(e){}
+  var _ge=document.getElementById('gfEntry');
+  if(_ge)_ge.addEventListener('click',function(){setGiftView(true);});
+  var _gb=document.getElementById('gfBack');
+  if(_gb)_gb.addEventListener('click',function(){setGiftView(false);});
   /* Categories now lives in the persistent bar, so the scroll-revealed chip strip is retired
      outright rather than swapped between states. One control, always in the same place. */
   var _tc=document.getElementById('tbCats');
@@ -5241,15 +5253,11 @@ function wireRail(){
   document.querySelectorAll('.railb').forEach(function(b){
     b.addEventListener('click',function(){
       var w=b.dataset.rail;
-      if(w==='explore'){closeBoards();closeBoard();closeAll();
+      if(w==='explore'){closeBoards();closeBoard();closeAll();setGiftView(false);
         window.scrollTo({top:0,behavior:'smooth'});setRail('explore');return;}
       if(w==='boards'){closeBoard();openBoards();return;}
       if(w==='share'){shareList();return;}
-      if(w==='gifts'){
-        closeBoards();closeBoard();closeAll();
-        var gs=document.getElementById('gifts');
-        if(gs)gs.scrollIntoView({behavior:'smooth',block:'start'});
-        setRail('gifts');return;}
+      if(w==='gifts'){closeBoards();closeBoard();closeAll();setGiftView(true);return;}
       if(w==='quote'){closeBoards();closeBoard();
         document.getElementById('ov').classList.add('on');
         document.getElementById('cart').classList.add('on');
@@ -5765,9 +5773,19 @@ function giftMatches(occ,band){
     if(band!=='all'&&giftBand(g.p)!==band)return false;
     return true;});
 }
+/* A PAGE, NOT A SLAB ON THE HOMEPAGE. Steven, 2026-09-14: "EMPLOYEE GIFTS Needs to be its own
+   separate page. Right now it's taking up way too much space on the company store homepage!"
+   He is right -- the studio is a header, a guidance line, two rows of navigation and twenty-four
+   product cards, and putting that between the programmes and the catalogue pushed the actual store
+   below two screens of something most visitors did not come for.
+   The store is one page of JavaScript, so "its own page" means its own VIEW: `?view=gifts` hides
+   the storefront and gives the studio the whole canvas, the rail switches to it, and a link to it
+   can be sent to a buyer directly. The homepage keeps a single slim strip, because a gift section
+   nobody can find sells nothing. */
 function giftsSectionHtml(){
   if(!giftPool().length)return '';
   return '<section class="gifts" id="gifts"><div class="w">'+
+    '<button type="button" class="gfback" id="gfBack">\u2039 Back to the store</button>'+
     '<div class="gfhd">'+
       '<div class="gfeyb">Employee gifts</div>'+
       '<h2 class="gfh">Gifts people keep</h2>'+
@@ -5781,6 +5799,32 @@ function giftsSectionHtml(){
     '<div class="gfgrid" id="gfgrid"></div>'+
     '<div class="gfnone" id="gfnone"></div>'+
   '</div></section>';
+}
+/* The whole of the homepage's gift presence: one line. Enough to be found, small enough that the
+   catalogue is still the page. */
+function giftEntryHtml(){
+  var pool=giftPool();if(!pool.length)return '';
+  var lo=pool[0].p;
+  return '<button type="button" class="gfentry" id="gfEntry">'+
+    '<span class="gfeic" aria-hidden="true">'+railIcon('gifts')+'</span>'+
+    '<span class="gfetx"><b>Employee gifts</b>'+
+      '<i>Onboarding, service milestones and the year-end thank-you \u2014 '+
+      pool.length+' ideas from '+money0(lo)+' a person</i></span>'+
+    '<span class="gfear" aria-hidden="true">\u2192</span></button>';
+}
+/* The view switch. A class on <body> rather than a re-render: the studio is already built and
+   wired, and tearing it down and rebuilding it would lose the buyer's occasion and budget. */
+function setGiftView(on){
+  try{
+    document.body.classList.toggle('giftview',!!on);
+    setRail(on?'gifts':'explore');
+    if(on){try{renderGifts();}catch(e){}}
+    window.scrollTo({top:0,behavior:'auto'});
+    syncViewUrl();
+  }catch(e){}
+}
+function giftViewOn(){
+  try{return document.body.classList.contains('giftview');}catch(e){return false;}
 }
 function renderGifts(){
   var nav=document.getElementById('gfnav');if(!nav)return;
@@ -5986,6 +6030,8 @@ function wireExplore(){
   var ts=document.getElementById('topSearch'),ks=document.getElementById('kitSearch');
   if(ts&&ks){
     var push=function(){ks.value=ts.value;
+      /* Typing a search is a request to see products, so it returns to the store. */
+      if(ts.value&&giftViewOn())setGiftView(false);
       try{ks.dispatchEvent(new Event('input',{bubbles:true}));}catch(e){}
       var x=document.getElementById('topSearchX');if(x)x.style.display=ts.value?'':'none';};
     ts.addEventListener('input',push);
