@@ -1579,21 +1579,7 @@ body.giftview .gifts{margin-top:0;min-height:60vh}
 .gfh{font-family:var(--disp);font-size:40px;line-height:1;letter-spacing:.004em;margin:0 0 10px;
   color:#fff;text-transform:uppercase}
 .gfsub{font-size:14.5px;line-height:1.6;color:rgba(255,255,255,.74);margin:0}
-/* OCCASION FIRST. The buyer's own question -- what is this for -- so it gets the primary control,
-   a scrollable row that never wraps into a block of buttons. */
-.gfnav{display:flex;gap:8px;margin:22px 0 0;overflow-x:auto;padding-bottom:4px;
-  scrollbar-width:none;-webkit-overflow-scrolling:touch}
-.gfnav::-webkit-scrollbar{display:none}
-.gfocc{flex:none;display:inline-flex;align-items:center;gap:7px;padding:9px 15px;border-radius:999px;
-  border:1.5px solid rgba(255,255,255,.22);background:transparent;color:rgba(255,255,255,.9);
-  font-size:13.5px;font-weight:700;cursor:pointer;white-space:nowrap;
-  -webkit-appearance:none;appearance:none;transition:background .12s,border-color .12s,color .12s}
-.gfocc i{font-style:normal;font-size:11px;font-weight:800;opacity:.6}
-.gfocc:hover{border-color:#fff;color:#fff}
-.gfocc.on{background:#fff;border-color:#fff;color:var(--steel)}
-.gfocc.on i{opacity:.55}
-.gfocc:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(255,255,255,.35)}
-/* The guidance line. It changes with the occasion, because generic advice is not advice. */
+/* The guidance line. One sentence, because the occasion tabs it used to sit under are gone. */
 .gfguide{margin:16px 0 0;max-width:760px}
 .gfgt{margin:0;font-size:13.5px;line-height:1.65;color:rgba(255,255,255,.8);
   border-left:3px solid var(--amber);padding-left:13px}

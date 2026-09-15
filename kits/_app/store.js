@@ -5658,98 +5658,99 @@ function programsOn(){
   if(/[?&]preview=none/.test(location.search))return false;
   return PROG_DEFAULT;
 }
-/* ---- THE GIFT STUDIO -------------------------------------------------------------------------
-   Steven, 2026-09-14: "I want gifts to feature much more apparel focused and no blankets, allow
-   them to filter by budget, distinct from our 3 pre-approved programs. we should have the top
-   employee gifts navigation and buyer guidance for the gifts in the world."
+/* ---- THE GIFT PAGE ---------------------------------------------------------------------------
+   Steven, 2026-09-15, revising the first build: "Employee gifts should be min $36 at 12+ pcs. no
+   north face, no nike. I do not like occasion filters it is weird. only apparel and spector kits
+   for gifts. select top kits for employee kits from the spector kits we have."
 
-   A gift purchase does not start where a uniform purchase starts. A uniform buyer knows what they
-   need and is solving for cost per head; a gift buyer has an OCCASION and a NUMBER PER PERSON, and
-   is trying to find something that does not feel like merchandise. So this is not a fourth program
-   card -- it is its own destination, navigated on the two axes a buyer actually holds in their
-   head: what the gift is FOR, and what they can spend.
+   So the page is now ONE axis -- budget -- over a hand-picked list of jackets, mid-layers and
+   Spector gift kits. The occasion tabs are gone: they read as a quiz standing between a buyer and
+   the product, and with a curated list this short the budget is the only question that actually
+   narrows anything.
 
-   Apparel-led on purpose. A branded name on a jacket is what makes a gift read as a gift rather
-   than as swag, which is why the list leans on The North Face, Nike, adidas, Cutter & Buck,
-   Stormtech and Carhartt and keeps the non-apparel to a handful of genuinely wanted objects.
-   No blankets. */
-var GIFT_OCC=[
-  {id:'all',    lab:'All gifts',        blurb:''},
-  {id:'newhire',lab:'New hire welcome', blurb:'Something they can use on day one. Keep it useful and keep it in your brand colours — this is the first thing the company ever hands them.'},
-  {id:'service',lab:'Years of service', blurb:'Recognition people keep. Spend the most here: a five- or ten-year gift is compared against the years, not against the catalogue.'},
-  {id:'yearend',lab:'Year-end thank-you',blurb:'One gift, the whole payroll. Pick something with no sizing to get wrong where you can, and order the widest colour range so it suits everyone.'},
-  {id:'safety', lab:'Safety milestone', blurb:'Marks an injury-free record. Crews notice whether the gift is something they would have bought themselves — a name brand does more work here than a plaque.'},
-  {id:'client', lab:'Client & VIP',     blurb:'Fewer pieces, higher value. This is the one place where the label on the gift matters as much as the logo on it.'}
-];
-/* Bands are the buyer's own sentence -- "I have fifty dollars a head" -- so they are round numbers
-   in the customer's currency, not our cost bands. */
+   GIFT_FLOOR is a merchandising rule, not a filter nicety: nothing under $36 a person belongs in a
+   gift programme, so a line that prices below it is dropped even if it is listed here. That keeps
+   the floor true if a vendor cost ever moves.
+
+   The apparel is Steven's own list, in his order. No North Face and no Nike anywhere -- asserted in
+   the harness so neither can drift back in. */
+var GIFT_FLOOR=36;
 var GIFT_BANDS=[
   {id:'all',lab:'Any budget',  lo:0,   hi:1e9},
-  {id:'b1', lab:'Under $40',   lo:0,   hi:40},
-  {id:'b2', lab:'$40 – $75',   lo:40,  hi:75},
-  {id:'b3', lab:'$75 – $125',  lo:75,  hi:125},
-  {id:'b4', lab:'$125+',       lo:125, hi:1e9}
+  {id:'b1', lab:'Under $60',   lo:0,   hi:60},
+  {id:'b2', lab:'$60 – $100',  lo:60,  hi:100},
+  {id:'b3', lab:'$100+',       lo:100, hi:1e9}
 ];
-/* Curated, not filtered. A rule that selected "giftable apparel by price" also surfaces an FR
-   balaclava and a dog leash, both of which are real products and neither of which is a gift. Every
-   line below was chosen, and carries the reason it was chosen -- that reason IS the buyer guidance
-   Steven asked for, and it is the difference between a catalogue and a guide. */
+/* Curated, and every line carries the reason it is here -- that reason is the buyer guidance. Kit
+   contents are quoted from the catalogue's own `contents` field, never described from memory. */
 var GIFT_PICKS=[
-  {k:'at_recyfive',      occ:['newhire','yearend','safety'],
-   why:'Seventeen colours, so it lands in your exact brand colour rather than near it. The cheapest way to put something decent on every head in the company.'},
-  {k:'cs_h08000',        occ:['yearend','safety'],
-   why:'A cuffed acrylic toque in eleven colours. No sizing, fits everyone, and on a Canadian crew it is worn from October to April — the highest-mileage gift on this page for the money.'},
-  {k:'sp_dw339',         occ:['newhire','safety'],
-   why:'A 500 ml double-wall recycled stainless bottle with a carry cord, in nine colours. Spector publishes this price with the branding already in it, so what you see is what you pay.'},
-  {k:'st_stockton_ss',   occ:['newhire','yearend'],
-   why:'A heavier, better-finished cotton hand than a promotional blank. The tee people keep wearing after the novelty wears off, which is the only test that matters.'},
-  {k:'sp_lf120',         occ:['yearend'],
-   why:'A 296 ml soy candle in glass with an acacia wood lid. No sizing, no dietary restriction, no alcohol — the gift that goes to the entire payroll without a single awkward conversation.'},
-  {k:'st_monterey',      occ:['newhire','yearend'],
-   why:'Nine colours of short-sleeve polo. The safest apparel gift there is: everyone already owns one and nobody has enough of them.'},
-  {k:'nk_fb6447',        occ:['yearend','safety','newhire'],
-   why:'A Nike swoosh next to your logo. Under fifty dollars this is the single biggest jump in perceived value in the whole store — people wear a Nike cap in their own time.'},
-  {k:'nk_fb6539',        occ:['yearend','safety'],
-   why:'Nike knit beanie with a folding cuff. Same logic as the cap and better suited to a winter handout — one size, no fit problem, and it leaves the building on their head.'},
-  {k:'cbc_coastline_polo',occ:['service','yearend'],
-   why:'Sixteen colours from Cutter & Buck. A polo is the gift a mixed office actually uses, and this one is finished well enough that it does not read as a uniform.'},
-  {k:'ad_a230',          occ:['service','client'],
-   why:'The adidas mark does the same work as the Nike one, in nine colours and a performance knit. For a sales team who will wear it to a customer site.'},
-  {k:'cbc_coastline_qz', occ:['service','yearend'],
-   why:'A lightweight quarter-zip is the most-worn layer in any office — the thing that lives on the back of a chair. Nine colours, and it reads as considered rather than casual.'},
-  {k:'st_sierravest',    occ:['safety','yearend','service'],
-   why:'A quilted vest is the most-requested piece in any programme, gift or not. Warmth with the arms free, and it stays on indoors — so your logo is visible all day.'},
-  {k:'st_aquabp22',      occ:['newhire','service'],
-   why:'A 22-litre backpack a new hire can carry from day one. Bags outlast apparel, which makes them unusually good value as recognition.'},
-  {k:'nk_pohoodie',      occ:['yearend','service','safety'],
-   why:'A Nike hoodie in eight colours. If you want one gift that everybody under forty is pleased to receive, this is it — and it is worn in public far more than anything else here.'},
-  {k:'nk_halfzipsw',     occ:['service','yearend'],
-   why:'The half-zip version, in five colours. Slightly smarter than the hoodie and better suited to a team that sees customers.'},
-  {k:'cb_adapt',         occ:['service','client'],
-   why:'Cutter & Buck hybrid full-zip in nine colours. The five-year gift that still looks right in a boardroom — a jacket rather than a sweatshirt.'},
-  {k:'cbc_roam_hoodie',  occ:['yearend','service'],
-   why:'A soft-knit hoodie with eight colourways and a premium hand. For a company that wants the comfort of a hoodie without the promotional-blank look.'},
-  {k:'st_nautilushoody', occ:['safety','service','yearend'],
-   why:'Quilted hoody in seven colours — the layer a crew reaches for on a cold morning. Marks a safety record with something genuinely worn on site.'},
-  {k:'ch_spg0536',       occ:['service','newhire'],
-   why:'A 25-litre Carhartt laptop backpack. Carhartt is the one clothing brand a trades crew will name unprompted, which makes it the strongest recognition gift on this list under a hundred dollars.'},
-  {k:'sp_t151',          occ:['service','client'],
-   why:'A portfolio with a 5000 mAh battery, an FSC notebook and a phone stand. For the desk-based half of the company, where a jacket is the wrong gift.'},
-  {k:'cbc_evoke_fleece', occ:['service','client'],
-   why:'Honeycomb-textured recycled fleece that reads as a jacket, not a sweatshirt. A ten-year gift that does not need a plaque next to it.'},
-  {k:'tnf_fleece',       occ:['service','client'],
-   why:'The North Face on a fleece jacket. This is the gift people tell other people they were given — the label is doing as much work as the gesture, and both are the point.'},
-  {k:'cbc_rainier_hybrid',occ:['client','service'],
-   why:'A puffer hybrid in a premium build, for the client who sent you the year’s biggest job or the person retiring after twenty years.'},
-  {k:'tnf_thermo',       occ:['client'],
-   why:'A North Face ThermoBall. The top of the range and priced accordingly — reserved for a handful of people where the gift has to be unmistakably significant.'}
+  /* --- Spector kits: the ones with a usable minimum and contents worth naming ----------------- */
+  {k:'sp_gf107',
+   why:'A passport holder and a luggage tag in matching Toscano leather. The cheapest thing here that still feels like a gift rather than a handout, and the easiest way to mark a first anniversary.'},
+  {k:'sp_gf1033',
+   why:'Pouch, journal, pen and bottle, boxed — and the lowest minimum of any kit we carry at 15 pieces. Built for onboarding: one box per new hire, no sizing to collect.'},
+  {k:'sp_gf141',
+   why:'A mug and a candle, boxed. The gift that goes to the whole payroll without a single awkward conversation: no sizing, no dietary restriction, no alcohol.'},
+  {k:'sp_gf991',
+   why:'A bottle and a luggage tag, boxed, in nine colourways — so it can land in your brand colour rather than near it. The best-looking kit under sixty dollars.'},
+  {k:'sp_bb192',
+   why:'Backpack, bottle and a journal-and-pen set. A bag is the piece people keep using years later, which is what makes this the strongest fifty-eight dollars on the page.'},
+  {k:'sp_bb196',
+   why:'Backpack, bottle, journal and pen — four pieces. The step up from Momentum Mode when the gift needs to feel like a box rather than an item.'},
+  {k:'sp_bb197',
+   why:'Backpack, luggage tracker, journal-and-pen and a tumbler. For the people who actually travel for you; the tracker is the part they will mention to someone else.'},
+  {k:'sp_bb897',
+   why:'Five pieces of the Vanguard range — journal, passport holder, luggage tag, metal pen and the backpack — at a ten-piece minimum. The one to reach for when a gift has to be unmistakably significant.'},
+  /* --- Apparel, Steven's list ------------------------------------------------------------------ */
+  {k:'flux',
+   why:'A quarter-zip sweatshirt in thirteen colours. The entry point into branded apparel as a gift: enough colour choice to match any brand, and a piece people wear on their own time.'},
+  {k:'forge',
+   why:'A heavyweight hoodie in eight colours. Heavier than a promotional blank, which is the whole difference between a gift and a giveaway on a hoodie.'},
+  {k:'vest',
+   why:'Stormtech’s quilted vest — the most-requested piece in any programme, gift or not. Warmth with the arms free, and it stays on indoors, so your logo is visible all day.'},
+  {k:'cb_qzip',
+   why:'Cutter & Buck soft-knit half-zip in eighteen colourways. Reads as considered rather than casual and sits properly under a jacket — the safest smart gift on the list.'},
+  {k:'st_nautilusjkt',
+   why:'A quilted jacket at the price most programmes budget for a fleece. Six colours, and it is the piece a crew will actually choose over their own coat.'},
+  {k:'cb_roamqz',
+   why:'The Roam soft-knit quarter-zip. Cutter & Buck’s finishing on a layer that lives on the back of an office chair — for a team that sees customers.'},
+  {k:'st_avalante',
+   why:'Full-zip fleece, five colours. The default mid-layer for a mixed workforce: nobody has too many, and it suits every build on the team.'},
+  {k:'st_basecampvest',
+   why:'A heavier quilted vest than the Stormtech classic, for a crew working outdoors through the winter rather than walking between buildings.'},
+  {k:'st_narvik',
+   why:'A hybrid jacket — quilted body, stretch panels where you move. The gift for the person who is in and out of a vehicle all day.'},
+  {k:'st_nautilushoody',
+   why:'The Nautilus quilted jacket with a hood, in seven colours. Same piece, one decision made for a crew that works outside.'},
+  {k:'st_tundrashacket',
+   why:'A quilted shacket — the shirt-jacket shape that has replaced the fleece in most offices. Wears as a layer indoors and a jacket outdoors.'},
+  {k:'st_highlandplaid',
+   why:'Sherpa-lined plaid. The gift that does not look like company apparel at all, which is exactly why people wear it at weekends.'},
+  {k:'st_stavanger',
+   why:'A quilted jacket built for real cold, and the point at which a gift starts reading as a serious one. For five or ten years of service.'},
+  {k:'st_bushwick',
+   why:'Quilted, structured, and cut to look right over a shirt. The jacket to give someone whose first impression is the company’s.'},
+  {k:'cbc_evoke_fleece',
+   why:'Honeycomb-textured recycled fleece that reads as a jacket, not a sweatshirt. A ten-year gift that needs no plaque beside it.'},
+  {k:'st_oxide',
+   why:'Sherpa-lined canvas — the workwear jacket people buy for themselves. For a trades crew this is the most wanted thing on the page.'},
+  {k:'st_matrix',
+   why:'A waterproof shell, a zip-out thermal liner, and both together: three jackets on one line, with the mark on the liner too. The top of the range, for a retirement or the client who sent you the year’s biggest job.'},
+  /* --- Added 2026-09-15 with the five styles Steven sent ---------------------------------------- */
+  {k:'cs_l04200',
+   why:'Packs into its own pouch and comes out unwrinkled, with mesh venting under the arms and reflective trim at the collar. The gift for a crew that keeps one in the van all year.'},
+  {k:'st_axis',
+   why:'A waterproof, breathable shell at the price of a fleece. Mesh-lined with an internal media pocket — the most useful sixty-four dollars on this page.'},
+  {k:'st_avalanteqz',
+   why:'Sweater-knit fleece at 320 gsm with a brushed interior and a zippered chest pocket. Heavy enough to feel like a gift and smart enough for a customer visit.'},
+  {k:'cs_l00970',
+   why:'Real down — 550 fill power, 90% down — that still packs into its own pouch. Proper winter warmth without the bulk of a parka.'},
+  {k:'st_stavangervest',
+   why:'Polyfill warmth in a water-repellent shell that packs away, with the arms free. A vest is the piece people keep wearing indoors, which is where your logo gets seen.'}
 ];
-var GV={occ:'all',band:'all'};
-/* THE BAND PRICE MUST BE THE PRICE ON THE CARD. Banding apparel at 25 while the product card
-   underneath headlines the store's own minimum put two different numbers for the same gift on one
-   screen -- the Stockton tee read $21.00 in the filter and $21.50 on the card. So the basis here is
-   exactly what the card shows: the store minimum for apparel, and for a promo line its own
-   published minimum, where Spector's price already includes the branding. */
+var GV={band:'all'};
+/* THE BAND PRICE MUST BE THE PRICE ON THE CARD -- the store minimum for apparel, and for a Spector
+   kit its own published minimum, where the price already includes the branding. */
 function giftPrice(k){
   var it=BYKEY[k];if(!it)return 0;
   try{
@@ -5759,47 +5760,71 @@ function giftPrice(k){
 }
 function giftBand(p){
   for(var i=1;i<GIFT_BANDS.length;i++){var b=GIFT_BANDS[i];if(p>=b.lo&&p<b.hi)return b.id;}
-  return 'b4';
+  return 'b3';
+}
+/* APPAREL AND SPECTOR KITS ONLY, and nothing under the floor. Both are enforced here rather than
+   trusted to the list above, so a vendor cost change or a catalogue edit cannot quietly put a $19
+   cap or a loose drinkware line on the gift page. */
+function giftEligible(it){
+  if(!it)return false;
+  if(['office','premium','bags'].indexOf(it.layer)>=0)return true;     // apparel and bags
+  return it.layer==='promo'&&it.sku==='Gift Set';                       // a Spector kit, not a single
 }
 function giftPool(){
-  return GIFT_PICKS.filter(function(g){return !!BYKEY[g.k];})
-    .map(function(g){return {k:g.k,occ:g.occ,why:g.why,p:giftPrice(g.k)};})
-    .filter(function(g){return g.p>0;})
+  return GIFT_PICKS.filter(function(g){return giftEligible(BYKEY[g.k]);})
+    .map(function(g){return {k:g.k,why:g.why,p:giftPrice(g.k)};})
+    .filter(function(g){return g.p>=GIFT_FLOOR;})
     .sort(function(a,b){return a.p-b.p;});
 }
-function giftMatches(occ,band){
+function giftMatches(band){
   return giftPool().filter(function(g){
-    if(occ!=='all'&&g.occ.indexOf(occ)<0)return false;
-    if(band!=='all'&&giftBand(g.p)!==band)return false;
-    return true;});
+    return band==='all'||giftBand(g.p)===band;});
 }
-/* A PAGE, NOT A SLAB ON THE HOMEPAGE. Steven, 2026-09-14: "EMPLOYEE GIFTS Needs to be its own
-   separate page. Right now it's taking up way too much space on the company store homepage!"
-   He is right -- the studio is a header, a guidance line, two rows of navigation and twenty-four
-   product cards, and putting that between the programmes and the catalogue pushed the actual store
-   below two screens of something most visitors did not come for.
-   The store is one page of JavaScript, so "its own page" means its own VIEW: `?view=gifts` hides
-   the storefront and gives the studio the whole canvas, the rail switches to it, and a link to it
-   can be sent to a buyer directly. The homepage keeps a single slim strip, because a gift section
-   nobody can find sells nothing. */
 function giftsSectionHtml(){
   if(!giftPool().length)return '';
   return '<section class="gifts" id="gifts"><div class="w">'+
-    '<button type="button" class="gfback" id="gfBack">\u2039 Back to the store</button>'+
+    '<button type="button" class="gfback" id="gfBack">‹ Back to the store</button>'+
     '<div class="gfhd">'+
       '<div class="gfeyb">Employee gifts</div>'+
       '<h2 class="gfh">Gifts people keep</h2>'+
-      '<p class="gfsub">Onboarding, service milestones and the year-end thank-you — chosen so they '+
-        'read as a gift, not as swag. Every piece carries your logo, and every price is per person '+
-        'with the decoration already in it.</p>'+
+      '<p class="gfsub">Jackets, mid-layers and ready-boxed kits — chosen so they read as a gift, '+
+        'not as swag. Every piece carries your logo, and every price is per person with the '+
+        'decoration already in it.</p>'+
     '</div>'+
-    '<div class="gfnav" id="gfnav"></div>'+
     '<div class="gfguide" id="gfguide"></div>'+
     '<div class="gfbands" id="gfbands"></div>'+
     '<div class="gfgrid" id="gfgrid"></div>'+
     '<div class="gfnone" id="gfnone"></div>'+
   '</div></section>';
 }
+function renderGifts(){
+  var bands=document.getElementById('gfbands');if(!bands)return;
+  var pool=giftPool();
+  document.getElementById('gfguide').innerHTML=
+    '<p class="gfgt"><b>How to choose.</b> Start with what you can spend per person — that alone '+
+    'narrows this to a handful. Apparel needs sizes and lands in your brand colour; a boxed kit '+
+    'needs neither, which is why kits win for a whole-payroll gift and apparel wins for anyone '+
+    'you want seen in it.</p>';
+  bands.innerHTML='<span class="gfbl">Budget per person</span>'+GIFT_BANDS.map(function(b){
+    var n=pool.filter(function(g){return b.id==='all'||giftBand(g.p)===b.id;}).length;
+    return '<button type="button" class="gfband'+(GV.band===b.id?' on':'')+(n?'':' off')+'"'+
+      ' data-gfband="'+esc(b.id)+'"'+(n?'':' disabled')+'>'+esc(b.lab)+'<i>'+n+'</i></button>';
+  }).join('');
+  var hits=giftMatches(GV.band);
+  document.getElementById('gfgrid').innerHTML=hits.map(function(g){
+    /* The real product card, so a gift gets the same mockup, colour swatches and Add-to-board as
+       anything else in the store -- and so there is one card implementation to maintain. */
+    return '<div class="gfitem">'+menuCard(g.k)+
+      '<div class="gfwhy"><span class="gfwk">Why it works</span>'+esc(g.why)+'</div></div>';
+  }).join('');
+  document.getElementById('gfnone').innerHTML=hits.length?'':
+    '<div class="gfempty"><b>Nothing in that budget.</b> '+
+    'Widen it, or tell us the number you have in mind and we will build to it.</div>';
+  wireCards('gfgrid');
+  bands.querySelectorAll('[data-gfband]').forEach(function(b){b.addEventListener('click',function(){
+    GV.band=b.dataset.gfband;renderGifts();});});
+}
+
 /* The whole of the homepage's gift presence: one line. Enough to be found, small enough that the
    catalogue is still the page. */
 function giftEntryHtml(){
@@ -5825,48 +5850,6 @@ function setGiftView(on){
 }
 function giftViewOn(){
   try{return document.body.classList.contains('giftview');}catch(e){return false;}
-}
-function renderGifts(){
-  var nav=document.getElementById('gfnav');if(!nav)return;
-  var pool=giftPool();
-  nav.innerHTML=GIFT_OCC.map(function(o){
-    var n=pool.filter(function(g){return o.id==='all'||g.occ.indexOf(o.id)>=0;}).length;
-    return '<button type="button" class="gfocc'+(GV.occ===o.id?' on':'')+'" data-gfocc="'+esc(o.id)+'">'+
-      esc(o.lab)+'<i>'+n+'</i></button>';}).join('');
-  var oc=GIFT_OCC.filter(function(o){return o.id===GV.occ;})[0]||GIFT_OCC[0];
-  var gd=document.getElementById('gfguide');
-  gd.innerHTML=oc.blurb
-    ? ('<p class="gfgt">'+esc(oc.blurb)+'</p>')
-    : ('<p class="gfgt"><b>How to choose.</b> Start with what you can spend per person, then pick '+
-       'the occasion — the two together leave you three or four honest options instead of four '+
-       'hundred. Where a gift comes in many colours, take the one closest to your brand: it is the '+
-       'difference between a gift and a giveaway.</p>');
-  var bands=document.getElementById('gfbands');
-  bands.innerHTML='<span class="gfbl">Budget per person</span>'+GIFT_BANDS.map(function(b){
-    var n=pool.filter(function(g){
-      return (GV.occ==='all'||g.occ.indexOf(GV.occ)>=0)&&(b.id==='all'||giftBand(g.p)===b.id);}).length;
-    return '<button type="button" class="gfband'+(GV.band===b.id?' on':'')+
-      (n?'':' off')+'" data-gfband="'+esc(b.id)+'"'+(n?'':' disabled')+'>'+
-      esc(b.lab)+'<i>'+n+'</i></button>';}).join('');
-  var hits=giftMatches(GV.occ,GV.band);
-  var grid=document.getElementById('gfgrid'),none=document.getElementById('gfnone');
-  grid.innerHTML=hits.map(function(g){
-    /* The real product card, so a gift gets the same mockup, colour swatches and Add-to-board as
-       anything else in the store -- and so there is exactly one card implementation to maintain. */
-    return '<div class="gfitem">'+menuCard(g.k)+
-      '<div class="gfwhy"><span class="gfwk">Why it works</span>'+esc(g.why)+'</div></div>';}).join('');
-  none.innerHTML=hits.length?'':
-    '<div class="gfempty"><b>Nothing in that budget for this occasion.</b> '+
-    'Widen the budget, or tell us the number you have in mind and we will build to it.</div>';
-  wireCards('gfgrid');
-  nav.querySelectorAll('[data-gfocc]').forEach(function(b){b.addEventListener('click',function(){
-    GV.occ=b.dataset.gfocc;
-    /* If the chosen budget has nothing in the new occasion, fall back to Any rather than
-       showing an empty grid and making the buyer work out why. */
-    if(GV.band!=='all'&&!giftMatches(GV.occ,GV.band).length)GV.band='all';
-    renderGifts();});});
-  bands.querySelectorAll('[data-gfband]').forEach(function(b){b.addEventListener('click',function(){
-    GV.band=b.dataset.gfband;renderGifts();});});
 }
 
 function recoHeroHtml(){
