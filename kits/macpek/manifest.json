@@ -1,0 +1,17 @@
+{
+  "generator": "client-app",
+  "version": "1789574141",
+  "slug": "macpek",
+  "client": "Macpek inc",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_4f5562.png",
+    "img/lg_full_b3181e.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}

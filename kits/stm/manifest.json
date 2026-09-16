@@ -1,0 +1,18 @@
+{
+  "generator": "client-app",
+  "version": "1789574922",
+  "slug": "stm",
+  "client": "Soci\u00e9t\u00e9 de transport de Montr\u00e9al",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_04afef.png",
+    "img/lg_full_87e4fb.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_fce820.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}

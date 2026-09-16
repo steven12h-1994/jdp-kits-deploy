@@ -1,0 +1,16 @@
+{
+  "generator": "client-app",
+  "version": "1789573828",
+  "slug": "excelso",
+  "client": "Excelso",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_bc2d33.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}

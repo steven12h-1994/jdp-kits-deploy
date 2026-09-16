@@ -1,0 +1,18 @@
+{
+  "generator": "client-app",
+  "version": "1789573836",
+  "slug": "richmond-elevator",
+  "client": "Richmond Elevator Maintenance LTD.",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_055682.png",
+    "img/lg_full_667580.png",
+    "img/lg_full_87a0ad.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}

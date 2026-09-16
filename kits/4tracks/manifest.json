@@ -1,0 +1,17 @@
+{
+  "generator": "client-app",
+  "version": "1789573728",
+  "slug": "4tracks",
+  "client": "4TRACKS LTD",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_362521.png",
+    "img/lg_full_7c4545.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}

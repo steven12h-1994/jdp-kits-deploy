@@ -1,0 +1,18 @@
+{
+  "generator": "client-app",
+  "version": "1789573738",
+  "slug": "techmationelectric",
+  "client": "Techmation Electric &amp; Controls Ltd.",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_c73b3f.png",
+    "img/lg_full_cc7b7e.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_e2b0b1.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}

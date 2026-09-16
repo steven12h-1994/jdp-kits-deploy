@@ -1,0 +1,16 @@
+{
+  "generator": "client-app",
+  "version": "1789573772",
+  "slug": "primee",
+  "client": "Prime Electric",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_e0352e.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}

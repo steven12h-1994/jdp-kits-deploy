@@ -1,0 +1,16 @@
+{
+  "generator": "client-app",
+  "version": "1789574838",
+  "slug": "prt",
+  "client": "PRT Growing Services Ltd.",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_66bb50.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}
