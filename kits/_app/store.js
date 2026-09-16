@@ -2943,7 +2943,7 @@ var CFG_HIVIS_TEE=[
 var CFG_SWEAT=[
   {id:'lc',   name:'{P} logo',  sub:'One embroidered logo. What most corporate programs order.', tag:'Most popular',
    spots:[{pl:'PRIMARY',method:'embroidery'}]},
-  {id:'sp',   name:'{P} print', sub:'Screen printed instead of stitched \u2014 the usual choice for crew, shop and event hoodies, and better value as the run grows. Choose your ink count below.',
+  {id:'sp',   name:'{P} print', sub:'Screen printed instead of stitched \u2014 what most crew and shop hoodies order, and better value as the run grows. Choose your ink count below.',
    spots:[{pl:'PRIMARY',method:'screen',colours:1}]},
   {id:'spfb', name:'Chest print + back print', sub:'Screen printed front and back \u2014 small mark on the chest, large one across the shoulders.',
    spots:[{pl:'PRIMARY',method:'screen',colours:1},{pl:'back',method:'screen',colours:1}]},
