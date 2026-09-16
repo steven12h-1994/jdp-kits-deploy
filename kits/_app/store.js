@@ -349,8 +349,30 @@ function logoOf(id){for(var i=0;i<CFG.logos.length;i++)if(CFG.logos[i].id===id)r
 // warm-cache browser on three separate reviews while every server-side check passed (each fetched with
 // its own cache-buster). We key off the ?v= token on our own <script> tag, which jdp_ship.py bumps
 // fleet-wide on EVERY ship, so any deploy reaches returning visitors too.
-var KV=(function(){try{var s=document.querySelector('script[src*="/_app/store.js"]');var m=s&&s.src.match(/[?&]v=([^&]+)/);if(m)return m[1];}catch(e){}return '';})();
-function kurl(u){if(!u)return u;if(/^(https?:)?\/\//.test(u)||u.charAt(0)==='/')return u;var v=KV||(CFG&&CFG.ver)||'';return v?u+(u.indexOf('?')<0?'?':'&')+'v='+v:u;}
+/* KIT-LOCAL ASSET URLS (the logo artwork). Versioned by `logo_ver`, a CONTENT HASH of that kit's
+   own artwork.
+
+   Steven, 2026-09-16: "logo is updated on private browser but not on regular browser. this a
+   reoccurring problem."
+
+   Two things combined to make a replaced logo invisible for a YEAR. The host serves everything
+   under a kit with `Cache-Control: max-age=31536000` (only index.html is no-store), so an asset
+   URL that does not change is never re-fetched. And the version this function appended could not
+   change when a logo changed:
+
+     * it first tried a key read from the engine's own <script src> as `?v=(...)`. The
+       self-versioning migration changed that key's format to `?h<bucket>` / `?f<ts>` with no
+       `v=` at all, so the regex stopped matching and the value was silently always ''. Removed
+       rather than repaired: that key is a TWO-MINUTE bucket, so honouring it would re-download a
+       half-megabyte logo every two minutes.
+     * it then fell back to CFG.ver, which is the SHARED CATALOGUE's build number. Replacing one
+       kit's logo does not rebuild the catalogue, so the number -- and therefore the URL -- stayed
+       exactly the same.
+
+   `logo_ver` is derived from the git blob hashes of the artwork a kit actually declares, so the
+   URL changes if and only if the artwork changed. Cached for a year when nothing moves; busted
+   the instant it does. CFG.ver remains the fallback for any kit not yet carrying a logo_ver. */
+function kurl(u){if(!u)return u;if(/^(https?:)?\/\//.test(u)||u.charAt(0)==='/')return u;var v=(CFG&&CFG.logo_ver)||(CFG&&CFG.ver)||'';return v?u+(u.indexOf('?')<0?'?':'&')+'v='+v:u;}
 /* `colours` is threaded through because the right ink on a dark garment DEPENDS on how many inks
    the run pays for: two or more can carry the brand hybrid, one cannot. */
 function inkUrl(logo,ink,col,method,colours){var t=(ink&&ink!=='auto')?ink:autoInkFor(method,col&&col.rgb,logo,colours);return kurl(logo.inks[t]||logo.inks.brand);}
@@ -2900,9 +2922,41 @@ var CFG_HIVIS_TEE=[
    sub:'Front and back prints, plus the wearer\u2019s name embroidered on the right chest.',
    spots:[{pl:'PRIMARY',method:'screen',colours:1},{pl:'backyoke',method:'screen',colours:1},{pl:'rchest',method:'embroidery'}]}
 ];
+/* SWEATSHIRTS GET SCREEN PRINT. Steven, 2026-09-16: "hoodies need a option for screen printing!"
+   Hoodies classify as `fleece`, whose presets were embroidery-only on the chest -- screen print
+   appeared solely as the BACK half of "chest + full back", so a customer wanting a printed hoodie
+   had no way to ask for one.
+
+   `fleece` is too broad to fix in place. It holds 44 items: 26 knit sweatshirts, where screen print
+   is the norm, and 18 that must NOT offer it -- insulated parkas, canvas bombers, quilted and
+   soft-knit fleece jackets. Six of those parkas and bombers reach the group only through the words
+   "Detachable Hood", so matching /hood/ alone would put a screen print on an insulated parka. Hence
+   the exclusion list, and hence a separate preset set rather than an edit to `fleece`.
+
+   No FULL-FRONT print preset: none of the 26 carries a centre-front placement (tees do, sweatshirts
+   do not), and a preset naming a place an item lacks is silently dropped. Inventing cx/cy/wf for a
+   big front print would paint the logo in the wrong spot on 26 garments, so the print goes where we
+   have tuned geometry -- left chest and full back.
+
+   Embroidery keeps "Most popular" and stays first: it is the current default for these garments and
+   there is no evidence to reassign the tag, so this ADDS the option rather than re-ranking them. */
+var CFG_SWEAT=[
+  {id:'lc',   name:'{P} logo',  sub:'One embroidered logo. What most corporate programs order.', tag:'Most popular',
+   spots:[{pl:'PRIMARY',method:'embroidery'}]},
+  {id:'sp',   name:'{P} print', sub:'Screen printed instead of stitched \u2014 the usual choice for crew, shop and event hoodies, and better value as the run grows. Choose your ink count below.',
+   spots:[{pl:'PRIMARY',method:'screen',colours:1}]},
+  {id:'spfb', name:'Chest print + back print', sub:'Screen printed front and back \u2014 small mark on the chest, large one across the shoulders.',
+   spots:[{pl:'PRIMARY',method:'screen',colours:1},{pl:'back',method:'screen',colours:1}]},
+  {id:'fb',   name:'Chest + full back', sub:'Embroidered chest, large screen print across the back.',
+   spots:[{pl:'PRIMARY',method:'embroidery'},{pl:'back',method:'screen',colours:1}]},
+  {id:'lcs',  name:'Logo + sleeve badge', sub:'A second mark on the left sleeve.',
+   spots:[{pl:'PRIMARY',method:'embroidery'},{pl:'sleeve',method:'embroidery'}]}
+];
+var SWEATSHIRT_RE=/hood|crewneck|sweatshirt/;
+var NOT_SWEATSHIRT_RE=/parka|bomber|\bjacket\b|quilted|insulated|3-in-1|6-in-1|shacket|\bvest\b|\bcoat\b|softshell|shell\b/;
 var CONFIGS={
   polo:CFG_SHIRT, woven:CFG_SHIRT, workshirt:CFG_WORKSHIRT, coverall:CFG_WORKSHIRT,
-  hivisvest:CFG_HIVIS_VEST, hivistee:CFG_HIVIS_TEE,
+  hivisvest:CFG_HIVIS_VEST, hivistee:CFG_HIVIS_TEE, sweat:CFG_SWEAT,
   /* Steven, 2026-09-08: "Tees default and most popular is left chest print." The print carried
      "Best value" while the EMBROIDERY carried "Most popular" -- backwards for a tee, and the tag
      does real work here because it is the row a buyer picks without reading the other two. */
@@ -2976,6 +3030,8 @@ function configKey(it){
     if(/\bvest\b/.test(n))return 'hivisvest';
     if(/\btee\b|\bt-?shirts?\b/.test(n))return 'hivistee';
   }
+  /* a knit sweatshirt can be screen printed; a parka with a detachable hood cannot */
+  if(c==='fleece'&&SWEATSHIRT_RE.test(n)&&!NOT_SWEATSHIRT_RE.test(n))return 'sweat';
   return c;
 }
 function configsFor(key){
