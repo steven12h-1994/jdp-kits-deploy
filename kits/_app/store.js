@@ -1021,9 +1021,42 @@ function vestSub(n){
   if(/canvas|duck|lined|flannel/.test(n))return 'Canvas & Lined';
   return 'Quilted & Puffer';
 }
+/* WHICH JACKETS SHELF. One function, because the Jackets tab is reached two ways: a garment
+   classified as outerwear, and a Rugged Wear or brand-aisle jacket cross-listed into it. When these
+   rules lived inline in classify(), the cross-list had no way to pick a shelf -- which is why nine
+   heavy winter jackets were reachable only through the Rugged Wear tab. */
+function outerSub(it,n){
+  n=n||((it.name||'')+' '+(it.key||'')).toLowerCase();
+  if(SHACKET_KEYS[it.key]||/shacket|overshirt/.test(n))return 'Shirt Jackets & Shackets';
+  // a parka IS the deep-winter answer, so it belongs with the systems rather than a generic name
+  if(/3-?in-?1|5-?in-?1|system jacket|\bparka\b/.test(n))return 'Winter Parkas & 3-in-1';
+  if(/\brain\b(?! ?defender)|dryvent|raincoat/.test(n))return 'Shells & Rainwear';
+  if(/softshell|soft shell/.test(n))return 'Softshell Jackets';
+  if(/puffer|quilted|down|thermoball|puffy|thermal|insulated|sherpa|hybrid|freezer/.test(n))return 'Insulated & Quilted';
+  if(/shell/.test(n))return 'Shells & Rainwear';
+  /* Named only "… Jacket", with no type word -- the Axis and the Pursuit. Placed from the garment's
+     OWN published fabric finishes rather than a hard-coded key: both are light water-repellent
+     outer layers (the Axis's own blurb calls it "a lightweight waterproof, breathable shell"). */
+  if(it.fab&&it.fab.finishes&&/water|wind|breathable/i.test(it.fab.finishes.join(' ')))
+    return 'Shells & Rainwear';
+  if(/bomber|\bcoat\b/.test(n))return 'Insulated & Quilted';
+  if(/jacket|parka/.test(n))return 'Shells & Rainwear';
+  return '';                       // not outerwear at all -- let classify() keep looking
+}
 function crossAlso(it,c){
   var out=[],n=((it.name||'')+' '+(it.key||'')).toLowerCase();
   if(c.mega!=='ruggedwear'&&RUGGED_CROSS[it.key])out.push({mega:'ruggedwear',sub:RUGGED_CROSS[it.key]});
+  /* …AND THE REVERSE. Steven, 2026-09-18, with buyers about to review the jacket section: the
+     Rugged Wear aisle held NINE jackets, parkas and bombers -- the heavy winter end of the range,
+     $27 to $106 -- that a shopper browsing Jackets could not see at all, because a brand aisle was
+     also acting as their only home. Four of them are products Steven asked to have "added"; they
+     were already in the catalogue, just unreachable from the tab where jackets are shopped.
+     Rugged Wear keeps its brand aisle AND the garments appear under Jackets, the same bargain the
+     vests and the uniform shirts already strike above.
+     Scoped to ruggedwear on purpose: hi-vis outerwear is PPE and stays in Hi-Vis & Safety, and
+     Carhartt keeps its own aisle by an earlier deliberate decision. */
+  if(c.mega==='ruggedwear'&&/jacket|parka|bomber|\bcoat\b|shell/.test(n)&&!/vest/.test(n))
+    out.push({mega:'outerwear',sub:outerSub(it,n)});
   if(c.mega!=='headwear'&&isHeadwear(n)&&!/\bfr\b|flame[- ]resistant/.test(n))out.push({mega:'headwear',sub:headwearSub(n)});
   /* Carhartt keeps its brand aisle AND appears in the pants aisle -- but split by garment, so a
      bib overall does not turn up under "Work Pants". */
@@ -1147,20 +1180,10 @@ function classify(it){
   if(n.indexOf('polo')>=0)return {mega:'tops',sub:'Polos'};
   if(/tee|t-shirt|henley/.test(n))return {mega:'tops',sub:'Tees'};
   if(n.indexOf('shirt')>=0)return {mega:'tops',sub:'Shirts'};
-  // a parka IS the deep-winter answer, so it belongs with the systems rather than under a generic
-  // name -- both $165 parkas were previously invisible in the catch-all
-  if(/3-?in-?1|5-?in-?1|system jacket|\bparka\b/.test(n))return {mega:'outerwear',sub:'Winter Parkas & 3-in-1'};
-  if(/\brain\b(?! ?defender)|dryvent|raincoat/.test(n))return {mega:'outerwear',sub:'Shells & Rainwear'};
-  if(/softshell|soft shell/.test(n))return {mega:'outerwear',sub:'Softshell Jackets'};
-  if(/puffer|quilted|down|thermoball|puffy|thermal|insulated|sherpa|hybrid/.test(n))return {mega:'outerwear',sub:'Insulated & Quilted'};
-  if(/shell/.test(n))return {mega:'outerwear',sub:'Shells & Rainwear'};
-  /* Named only "… Jacket", with no type word -- the Axis and the Pursuit. Placed from the garment's
-     OWN published fabric finishes rather than a hard-coded key: both are light water-repellent
-     outer layers (the Axis's own blurb calls it "a lightweight waterproof, breathable shell"), so
-     the data answers the question and a future item like them lands correctly without an edit. */
-  if(it.fab&&it.fab.finishes&&/water|wind|breathable/i.test(it.fab.finishes.join(' ')))
-    return {mega:'outerwear',sub:'Shells & Rainwear'};
-  if(/jacket|coat|parka/.test(n))return {mega:'outerwear',sub:'Shells & Rainwear'};
+  /* Gate on outerSub's own answer rather than a second, narrower regex. A hand-written gate
+     here dropped the Nautilus Quilted Hoody -- its name carries no "jacket", so it matched
+     /quilted/ inside outerSub but never reached it. One source of truth for both. */
+  var _os=outerSub(it,n);if(_os)return {mega:'outerwear',sub:_os};
   return {mega:'tops',sub:'Shirts'};
 }
 /* ---------- FILTERED BROWSE MODEL (one category at a time; no endless scroll) ---------- */
