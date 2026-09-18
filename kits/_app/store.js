@@ -1195,6 +1195,8 @@ function classify(it){
 /* ---------- FILTERED BROWSE MODEL (one category at a time; no endless scroll) ---------- */
 /* How many of each group the All view previews before offering that group's own tab. */
 var GRP_PREVIEW=4;
+/* Has the buyer narrowed the range themselves? Sort is excluded: re-ordering is not narrowing. */
+function narrowed(){return !!(VIEW.warm||VIEW.band||VIEW.col||(VIEW.fit&&VIEW.fit!=='all'));}
 var VIEW={cat:null,sub:'all',q:'',world:'all',fit:'all',col:null,band:null,warm:null,sort:null};
 // Colour chosen while BROWSING, per item+fit. A shopper who picks navy on the grid should still be on
 // navy when the product opens — otherwise the swatch feels fake.
@@ -1916,7 +1918,11 @@ function renderGrid(){
        taken AFTER sortList(), whose default order is top picks first then the keener price, so what
        shows is the strongest of each group rather than an arbitrary slice. */
     inner=subs.map(function(s){var ks=fitOK(BUCKETS[VIEW.cat][s]);if(!ks.length)return '';
-      var shown=ks.slice(0,GRP_PREVIEW),rest=ks.length-shown.length;
+      /* The cap exists to tame the UNFILTERED wall. Once the buyer has narrowed -- by warmth,
+         budget, colour or fit -- they have already done the choosing, and hiding four of their
+         fourteen winter jackets behind a "See all" is the opposite of helpful. So the preview
+         applies only while nothing is filtered. */
+      var shown=narrowed()?ks:ks.slice(0,GRP_PREVIEW),rest=ks.length-shown.length;
       return '<div class="subgrp"><h3 class="subhd">'+esc(s)+' <span class="subn">'+ks.length+'</span></h3>'+subGuideHtml(s)+
         '<div class="menu">'+shown.map(menuCard).join('')+'</div>'+
         (rest>0?('<button type="button" class="seeall" data-seesub="'+esc(s)+'">See all '+ks.length+
