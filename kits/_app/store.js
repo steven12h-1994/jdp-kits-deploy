@@ -920,7 +920,19 @@ var SHACKET_KEYS={st_bushwick:1,st_highlandplaid:1,st_oxide:1};
 var MEGASUB={
   tops:['Polos','Shirts','Tees'],
   layers:['Quarter & Half-Zips','Crewnecks & Sweatshirts','Hoodies','Fleece'],   // bottoms live in the Pants & Joggers tab
-  outerwear:['Softshell Jackets','Shackets & Overshirts','Insulated & Thermal','Puffer & Quilted','3-in-1 Systems','Shells & Rainwear','Jackets'],
+  /* JACKETS, ORDERED LIGHT -> WARM. Steven, 2026-09-18: "are jackets section is terrible for
+     customers and gives them a headache!"
+     Three faults, measured across the 51 jackets:
+       * 'Insulated & Thermal' (7) and 'Puffer & Quilted' (12) both just mean WARM. A buyer could
+         not know that the Orbiter *Insulated* sat in one and the Tundra *Quilted* in the other, so
+         the only way to see the warm jackets was to open both and merge them by hand. Now one tab.
+       * a catch-all tab literally called 'Jackets' held 4 items -- including BOTH $165 parkas, the
+         most premium outerwear we sell, filed under a name that says nothing. Gone; the parkas now
+         head the winter tab where someone shopping for a parka will actually look.
+       * 'Shackets & Overshirts' led with trade jargon. A shirt jacket is what it is.
+     Ordering matters as much as naming: the tabs now run in the order a buyer narrows -- weather
+     first, then warmth -- so the list reads as a scale instead of seven unrelated words. */
+  outerwear:['Shells & Rainwear','Softshell Jackets','Shirt Jackets & Shackets','Insulated & Quilted','Winter Parkas & 3-in-1'],
   // Vests are their own category, not a drawer inside Jackets. A vest is a different purchase --
   // worn indoors, over a hoodie, year round -- and burying eleven of them under Jackets meant a
   // buyer shopping for vests had to know to look there first.
@@ -1125,8 +1137,8 @@ function classify(it){
   // "Quilted"/"Sherpa-Lined", so the name regexes below file them under Puffer & Quilted and
   // Insulated & Thermal. Keyed explicitly because widening the regex would wrongly catch genuine
   // zip-front puffers (Gravity, Tundra, Nautilus, Stavanger, Sierra) and sherpa hoodies.
-  if(SHACKET_KEYS[it.key])return {mega:'outerwear',sub:'Shackets & Overshirts'};
-  if(/shacket|overshirt/.test(n))return {mega:'outerwear',sub:'Shackets & Overshirts'};
+  if(SHACKET_KEYS[it.key])return {mega:'outerwear',sub:'Shirt Jackets & Shackets'};
+  if(/shacket|overshirt/.test(n))return {mega:'outerwear',sub:'Shirt Jackets & Shackets'};
   if(/quarter-?zip|half-?zip|1\/4/.test(n))return {mega:'layers',sub:'Quarter & Half-Zips'};
   if(/crewneck|sweatshirt/.test(n)&&!/hood/.test(n)&&!/t-shirt|\btee\b/.test(n))return {mega:'layers',sub:'Crewnecks & Sweatshirts'};  // a "Crewneck T-Shirt" is a TEE
   if(/hoodie|hooded/.test(n))return {mega:'layers',sub:'Hoodies'};
@@ -1135,13 +1147,20 @@ function classify(it){
   if(n.indexOf('polo')>=0)return {mega:'tops',sub:'Polos'};
   if(/tee|t-shirt|henley/.test(n))return {mega:'tops',sub:'Tees'};
   if(n.indexOf('shirt')>=0)return {mega:'tops',sub:'Shirts'};
-  if(/3-?in-?1|5-?in-?1|system jacket/.test(n))return {mega:'outerwear',sub:'3-in-1 Systems'};
+  // a parka IS the deep-winter answer, so it belongs with the systems rather than under a generic
+  // name -- both $165 parkas were previously invisible in the catch-all
+  if(/3-?in-?1|5-?in-?1|system jacket|\bparka\b/.test(n))return {mega:'outerwear',sub:'Winter Parkas & 3-in-1'};
   if(/\brain\b(?! ?defender)|dryvent|raincoat/.test(n))return {mega:'outerwear',sub:'Shells & Rainwear'};
   if(/softshell|soft shell/.test(n))return {mega:'outerwear',sub:'Softshell Jackets'};
-  if(/puffer|quilted|down|thermoball|puffy/.test(n))return {mega:'outerwear',sub:'Puffer & Quilted'};
-  if(/thermal|insulated|sherpa|hybrid/.test(n))return {mega:'outerwear',sub:'Insulated & Thermal'};
+  if(/puffer|quilted|down|thermoball|puffy|thermal|insulated|sherpa|hybrid/.test(n))return {mega:'outerwear',sub:'Insulated & Quilted'};
   if(/shell/.test(n))return {mega:'outerwear',sub:'Shells & Rainwear'};
-  if(/jacket|coat|parka/.test(n))return {mega:'outerwear',sub:'Jackets'};
+  /* Named only "… Jacket", with no type word -- the Axis and the Pursuit. Placed from the garment's
+     OWN published fabric finishes rather than a hard-coded key: both are light water-repellent
+     outer layers (the Axis's own blurb calls it "a lightweight waterproof, breathable shell"), so
+     the data answers the question and a future item like them lands correctly without an edit. */
+  if(it.fab&&it.fab.finishes&&/water|wind|breathable/i.test(it.fab.finishes.join(' ')))
+    return {mega:'outerwear',sub:'Shells & Rainwear'};
+  if(/jacket|coat|parka/.test(n))return {mega:'outerwear',sub:'Shells & Rainwear'};
   return {mega:'tops',sub:'Shirts'};
 }
 /* ---------- FILTERED BROWSE MODEL (one category at a time; no endless scroll) ---------- */
@@ -1515,6 +1534,50 @@ function renderFitbar(){
     return '<button type="button" class="fchip'+(VIEW.fit===o.id?' on':'')+'" data-fit="'+o.id+'">'+o.lbl+'</button>';}).join('');
   el.querySelectorAll('.fchip').forEach(function(b){b.addEventListener('click',function(){VIEW.fit=b.dataset.fit;renderFitbar();renderGrid();});});
 }
+/* BUYER GUIDANCE. Steven, 2026-09-18, on the jackets section: "help customers decide and be
+   interested and convert better!"
+
+   Renaming the tabs stops the confusion; it does not answer the question. Measured across the 51
+   jackets, 44 carry NO fabric data and NO blurb, so the cards can only show a name, a brand, some
+   colours and a price -- nothing that says how cold a jacket is for. The buyer's real question is
+   "how cold and how wet will they be", and the one place we can answer it honestly for all 51 is at
+   the GROUP level: a jacket sits under "Insulated & Quilted" because its own name says quilted or
+   insulated, so describing what that group is for invents nothing about any individual product.
+
+   Deliberately NOT a curated shortlist -- Steven, 2026-09-10: "'We've already picked your
+   shortlist' is a bad idea." This orients the buyer and leaves the choosing to them.
+
+   No superlatives, no "most popular", no warmth ratings: we do not hold that data, and a number we
+   made up would be a false claim on 576 live stores. */
+var CATGUIDE={
+  outerwear:'Start with the weather they work in, not the price \u2014 the tabs below run light to '+
+            'warm. Every price is per person, with your logo already in it.'
+};
+var SUBGUIDE={
+  'Shells & Rainwear':'The lightest layer \u2014 cuts wind, sheds rain and packs down small. No '+
+    'insulation, so it goes over a hoodie or fleece rather than replacing one.',
+  'Softshell Jackets':'Stretch woven with a little warmth built in. The three-season jacket for '+
+    'crews and client-facing staff who need to move in it.',
+  'Shirt Jackets & Shackets':'A shirt cut as a jacket, worn open over a tee or hoodie. Reads '+
+    'casual rather than technical, and works indoors as well as out.',
+  'Insulated & Quilted':'Real warmth without bulk \u2014 quilted and puffer fills for cold '+
+    'mornings and winter travel. The widest choice here, so set your budget per person first.',
+  'Winter Parkas & 3-in-1':'Deep winter. The 3-in-1 and 5-in-1 systems pair a shell with a '+
+    'zip-out liner that can each be worn on their own, so one order covers three seasons.'
+};
+function catGuideHtml(){
+  var out='';
+  var c=CATGUIDE[VIEW.cat];
+  if(c)out+='<p class="gguide">'+esc(c)+'</p>';
+  /* When one tab is open its own line replaces the scale, because the buyer has already chosen
+     where on that scale they are. */
+  if(VIEW.sub&&VIEW.sub!=='all'&&SUBGUIDE[VIEW.sub])
+    out='<p class="gguide">'+esc(SUBGUIDE[VIEW.sub])+'</p>';
+  return out;
+}
+function subGuideHtml(sub){
+  return SUBGUIDE[sub]?('<p class="subguide">'+esc(SUBGUIDE[sub])+'</p>'):'';
+}
 function renderSubchips(){var el=document.getElementById('subchips');if(!el)return;
   var subs=subNames(VIEW.cat);
   var h='<button class="schip'+(VIEW.sub==='all'?' on':'')+'" data-sub="all">All<span class="scn">'+TOTALS[VIEW.cat]+'</span></button>';
@@ -1741,12 +1804,12 @@ function renderGrid(){
   var subs=subNames(VIEW.cat),csa=VIEW.cat==='hivis'?' <span class="csa">CSA Z96 · ANSI 107</span>':'';
   var _shown=(VIEW.sub==='all'?fitOK(ALLKEYS.filter(function(k){return (BUCKETS[VIEW.cat]||{})&&subs.some(function(s){return BUCKETS[VIEW.cat][s].indexOf(k)>=0;});})).length:fitOK(BUCKETS[VIEW.cat][VIEW.sub]||[]).length);
   SHOWN=_shown;
-  hd.innerHTML='<h2 class="glbl">'+esc(megaName(VIEW.cat))+csa+'</h2><span class="gsub">'+_shown+' styles'+(VIEW.fit==='womens'?' in ladies’ &amp; unisex fits':'')+'</span>';
+  hd.innerHTML='<h2 class="glbl">'+esc(megaName(VIEW.cat))+csa+'</h2><span class="gsub">'+_shown+' styles'+(VIEW.fit==='womens'?' in ladies’ &amp; unisex fits':'')+'</span>'+catGuideHtml();
   var inner;
   if(VIEW.sub!=='all'){inner='<div class="menu">'+fitOK(BUCKETS[VIEW.cat][VIEW.sub]||[]).map(menuCard).join('')+'</div>';}
   else if(subs.length>1&&TOTALS[VIEW.cat]>6){
     inner=subs.map(function(s){var ks=fitOK(BUCKETS[VIEW.cat][s]);if(!ks.length)return '';
-      return '<div class="subgrp"><h3 class="subhd">'+esc(s)+' <span class="subn">'+ks.length+'</span></h3><div class="menu">'+ks.map(menuCard).join('')+'</div></div>';}).join('');}
+      return '<div class="subgrp"><h3 class="subhd">'+esc(s)+' <span class="subn">'+ks.length+'</span></h3>'+subGuideHtml(s)+'<div class="menu">'+ks.map(menuCard).join('')+'</div></div>';}).join('');}
   else{var flat=[];subs.forEach(function(s){flat=flat.concat(BUCKETS[VIEW.cat][s]);});flat=fitOK(flat);inner='<div class="menu">'+flat.map(menuCard).join('')+'</div>';}
   grid.innerHTML=(VIEW.cat==='hivis'?hivisIntroHtml():'')+inner+moreCatsHtml();wireCards();}
 // Compliance-forward intro for the Hi-Vis category — safety buyers shop by STANDARD & CLASS first.

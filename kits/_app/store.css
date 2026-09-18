@@ -2375,3 +2375,17 @@ body.giftview .gifts{margin-top:0;min-height:60vh}
   max-width:calc(100% - 16px)}
 .mstage .gfpcap[hidden]{display:none}
 @media (max-width:820px){.mstage .gfpcap{left:6px;bottom:40px}}
+
+/* ---- buyer guidance on a category and its groups --------------------------------------------- */
+/* Sits between the heading and the grid, where a buyer reads before they start scanning. Kept to
+   one line of real prose -- long enough to say what the group is for, short enough that it is not
+   skipped. Measured against the grid, not the viewport, so it lines up with the first card. */
+.gguide{margin:6px 0 0;max-width:68ch;color:var(--mut);font:400 14.5px/1.5 ui-sans-serif,system-ui}
+.subguide{margin:-2px 0 14px;max-width:66ch;color:var(--mut);
+  font:400 14px/1.5 ui-sans-serif,system-ui}
+.subgrp .subhd{margin-bottom:4px}
+@media (max-width:820px){
+  /* on a phone the guidance is doing MORE work, not less -- it is what stops an endless scroll */
+  .gguide{font-size:14px;max-width:none}
+  .subguide{font-size:13.5px;max-width:none;margin:-2px 0 12px}
+}
