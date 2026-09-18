@@ -2393,3 +2393,16 @@ body.giftview .gifts{margin-top:0;min-height:60vh}
   .gguide{font-size:14px}.gguide>span{max-width:none}
   .subguide{font-size:13.5px;max-width:none;margin:-2px 0 12px}
 }
+
+/* ---- warmth facts on a product card ----------------------------------------------------------- */
+/* A signpost plus its evidence: the band reads first, the maker's published figure follows in
+   lighter type. Not a badge -- warmth is information, the same argument the fabric line settles. */
+.mwarm{margin:5px 0 0;font:800 11px/1.35 ui-sans-serif,system-ui;letter-spacing:.03em;
+  text-transform:uppercase;color:#0f5c8c;display:flex;flex-wrap:wrap;gap:6px;align-items:baseline}
+.mwarm i{font-style:normal;font-weight:600;font-size:11.5px;letter-spacing:0;text-transform:none;
+  color:var(--mut)}
+.mwarm.winter{color:#0b4f7a}
+.mwarm.insulated{color:#186a8a}
+.mwarm.uninsulated{color:#6b7480}
+.mwarm.winter::before{content:"❄ "}
+@media (max-width:820px){.mwarm{font-size:10.5px}.mwarm i{font-size:11px}}

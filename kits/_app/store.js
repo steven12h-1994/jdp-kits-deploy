@@ -855,6 +855,7 @@ function menuCard(key){
   // emoji pill it shared with the CSA rating read as clip-art on a B2B storefront.
   var _fl=fabCardLine(item);
   var fab=_fl?'<div class="mfab" title="Fabric content as published by the maker">'+esc(_fl)+'</div>':'';
+  var warm=warmCardHtml(item);
   var q=cartQtyOf(key);
   var inkit=q?' inkit':'';
   var addlbl=q?(heartSvg(1)+'<b>'+q+'</b>'):heartSvg(0);
@@ -872,7 +873,9 @@ function menuCard(key){
          the choice is made, not in the sheet the buyer opens after already guessing.
          Rendered only when an item has one, so nothing changes for the rest of the catalogue. */
       (item.use?('<div class="muse">'+esc(item.use)+'</div>'):'')+
-      csa+fab+
+      /* Warmth sits directly under the fabric line and above the colours: it is the fact a
+         winter buyer decides on, so it comes before the cosmetic choice. */
+      csa+fab+warm+
       colourDots(item,key)+
       (item.layer==='promo'
         ? (kitContentsHtml(item)+
@@ -1190,7 +1193,7 @@ function classify(it){
   return {mega:'tops',sub:'Shirts'};
 }
 /* ---------- FILTERED BROWSE MODEL (one category at a time; no endless scroll) ---------- */
-var VIEW={cat:null,sub:'all',q:'',world:'all',fit:'all',col:null,band:null,sort:null};
+var VIEW={cat:null,sub:'all',q:'',world:'all',fit:'all',col:null,band:null,warm:null,sort:null};
 // Colour chosen while BROWSING, per item+fit. A shopper who picks navy on the grid should still be on
 // navy when the product opens — otherwise the swatch feels fake.
 var BCOL={};
@@ -1407,6 +1410,62 @@ function sortList(list){
   var dir=(VIEW.sort==='ph')?-1:1;
   return list.slice().sort(function(a,b){return (shelfPrice(a)-shelfPrice(b))*dir;});
 }
+/* WARMTH FACTS. Steven, 2026-09-18: "we need to know warmth facts for jackets. we have buyers for
+   winter jackets and they need help deciding."
+
+   Every figure shown here is harvested from the garment's OWN maker page (warmth_harvest.py) and
+   stored on the item as `warm`, with the source URL kept in `warm.src` so any claim can be checked.
+
+   THERE IS NO WARMTH SCORE, and that is deliberate. Nobody in this range publishes fill power or a
+   comfort temperature, and the one number that looked scrapeable -- fill weight -- turned out to be
+   stated on 3 of 42 jackets, all three of them misreads (a breathability figure and a liner
+   taffeta weight). So the band restates the maker's own construction, and the FACT sits next to the
+   label on the card: "Winter weight · 3M Thinsulate 200 gsm". The label is a signpost; the fact is
+   the evidence. Where a maker states nothing, the card says nothing. */
+var WARM_LAB={winter:'Winter weight', insulated:'Insulated', uninsulated:'Uninsulated shell'};
+var WARM_ORDER=['winter','insulated','uninsulated'];
+function warmOf(it){var w=it&&it.warm;return (w&&w.band)?w:null;}
+function warmBand(key){var it=BYKEY[key];var w=warmOf(it);return w?w.band:'';}
+/* The strongest fact the maker actually publishes, shortest first so the card stays one line:
+   a named insulation with its weight beats a weight alone, which beats a waterproof rating. */
+function warmFacts(it){
+  var w=it&&it.warm;if(!w)return '';
+  var out=[];
+  if(w.ins&&w.gsm)out.push(w.ins+' '+w.gsm);
+  else if(w.ins)out.push(w.ins);
+  else if(w.gsm)out.push(w.gsm+' insulation');
+  if(w.wp)out.push((w.wp.indexOf('/')>0?w.wp+' waterproof / breathable':w.wp+' waterproof'));
+  if(!out.length&&w.flags&&w.flags.length)out.push(w.flags.slice(0,2).join(' · '));
+  return out.join(' · ');
+}
+function warmCardHtml(it){
+  var w=warmOf(it);if(!w)return '';
+  var f=warmFacts(it);
+  return '<div class="mwarm '+esc(w.band)+'" title="Warmth and weather specs as published by the '+
+    'maker">'+esc(WARM_LAB[w.band]||'')+(f?'<i>'+esc(f)+'</i>':'')+'</div>';
+}
+function warmOK(list){
+  if(!VIEW.warm)return list;
+  return list.filter(function(k){return warmBand(k)===VIEW.warm;});
+}
+/* The filter a winter buyer actually wants. Only rendered where the answer is real: it needs at
+   least two populated bands in view, otherwise it is a control that cannot change anything. */
+function renderWarmbar(){
+  var el=document.getElementById('warmbar');if(!el)return;
+  var keys=(VIEW.sub==='all')?[].concat.apply([],subNames(VIEW.cat).map(function(s){return BUCKETS[VIEW.cat][s];}))
+                             :((BUCKETS[VIEW.cat]||{})[VIEW.sub]||[]);
+  var cnt={},live=[];
+  WARM_ORDER.forEach(function(b){cnt[b]=keys.filter(function(k){return warmBand(k)===b;}).length;
+    if(cnt[b])live.push(b);});
+  if(live.length<2){el.innerHTML='';el.style.display='none';VIEW.warm=null;return;}
+  el.style.display='';
+  el.innerHTML='<span class="fitlbl">Warmth</span><button type="button" class="cfchip'+
+    (VIEW.warm?'':' on')+'" data-warm="">Any</button>'+
+    live.map(function(b){return '<button type="button" class="cfchip'+(VIEW.warm===b?' on':'')+
+      '" data-warm="'+b+'">'+esc(WARM_LAB[b])+' <i>'+cnt[b]+'</i></button>';}).join('');
+  el.querySelectorAll('.cfchip').forEach(function(x){x.addEventListener('click',function(){
+    VIEW.warm=x.dataset.warm||null;renderWarmbar();renderGrid();});});
+}
 function bandOK(list){
   if(!VIEW.band)return list;
   var b=BANDS.filter(function(x){return x[0]===VIEW.band;})[0];if(!b)return list;
@@ -1494,7 +1553,7 @@ function setFilters(open){
 function renderFilterUI(){
   var btn=document.getElementById('fbtn');if(!btn)return;
   // Hide the whole control where there is nothing to filter, rather than offering an empty panel.
-  var any=['fitbar','colbar','bandbar','sortbar'].some(function(id){
+  var any=['fitbar','colbar','bandbar','warmbar','sortbar'].some(function(id){
     var el=document.getElementById(id);return el&&el.style.display!=='none'&&el.innerHTML;});
   btn.style.display=any?'':'none';
   if(!any&&FOPEN)setFilters(false);
@@ -1576,8 +1635,14 @@ function renderFitbar(){
    No superlatives, no "most popular", no warmth ratings: we do not hold that data, and a number we
    made up would be a false claim on 576 live stores. */
 var CATGUIDE={
-  outerwear:'Start with the weather they work in, not the price \u2014 the tabs below run light to '+
-            'warm. Every price is per person, with your logo already in it.'
+  /* Warmth first, because that is the decision. The second sentence says where the numbers come
+     from and, just as importantly, what they are not: there is no temperature rating in this
+     range, so the store cites insulation and waterproof figures and lets the buyer judge. */
+  outerwear:'Start with the weather they work in, not the price \u2014 the tabs run light to warm. '+
+            'Each jacket shows how warm it is built: an uninsulated shell, insulated, or winter '+
+            'weight, with the maker\u2019s own published insulation and waterproof figures beside '+
+            'it. Use the Warmth filter to narrow to one. Every price is per person, with your '+
+            'logo already in it.'
 };
 var SUBGUIDE={
   'Shells & Rainwear':'The lightest layer \u2014 cuts wind, sheds rain and packs down small. No '+
@@ -1587,9 +1652,12 @@ var SUBGUIDE={
   'Shirt Jackets & Shackets':'A shirt cut as a jacket, worn open over a tee or hoodie. Reads '+
     'casual rather than technical, and works indoors as well as out.',
   'Insulated & Quilted':'Real warmth without bulk \u2014 quilted and puffer fills for cold '+
-    'mornings and winter travel. The widest choice here, so set your budget per person first.',
-  'Winter Parkas & 3-in-1':'Deep winter. The 3-in-1 and 5-in-1 systems pair a shell with a '+
-    'zip-out liner that can each be worn on their own, so one order covers three seasons.'
+    'mornings and winter travel. Published insulation here runs 120 gsm to 220 gsm; the heavier '+
+    'the fill, the colder the day it answers.',
+  'Winter Parkas & 3-in-1':'Deep winter \u2014 the warmest thing we sell. The 3-in-1 and 5-in-1 '+
+    'systems pair a shell with a zip-out liner that can each be worn on their own, so one order '+
+    'covers three seasons. Published insulation here runs 170 gsm to 220 gsm, and the Defender '+
+    'carries 3M Thinsulate at 200 gsm behind a 3000 mm waterproof shell.'
 };
 function catGuideHtml(){
   var out='';
@@ -1613,7 +1681,7 @@ function renderSubchips(){var el=document.getElementById('subchips');if(!el)retu
   var h='<button class="schip'+(VIEW.sub==='all'?' on':'')+'" data-sub="all">All<span class="scn">'+TOTALS[VIEW.cat]+'</span></button>';
   h+=subs.map(function(s){return '<button class="schip'+(VIEW.sub===s?' on':'')+'" data-sub="'+esc(s)+'">'+esc(s)+'<span class="scn">'+BUCKETS[VIEW.cat][s].length+'</span></button>';}).join('');
   el.innerHTML=h;
-  renderFitbar();renderColbar();renderBandbar();renderSortbar();renderFilterUI();
+  renderFitbar();renderColbar();renderBandbar();renderWarmbar();renderSortbar();renderFilterUI();
   el.querySelectorAll('.schip').forEach(function(b){b.addEventListener('click',function(){setSub(b.dataset.sub);
     var tr=b.closest('.subchips');if(tr)tr.scrollTo({left:b.offsetLeft-tr.clientWidth/2+b.clientWidth/2,behavior:'smooth'});});});}
 function wireCards(rootId){
@@ -1830,7 +1898,7 @@ function renderGrid(){
   // Ladies' includes UNISEX. A unisex hoodie is genuinely available to her — it simply isn't cut
   // separately — so excluding it hid 10 of the 21 Sweaters & Fleece styles from anyone shopping for
   // the women on their team. Items with neither flag are men's-only and stay hidden.
-  var fitOK=function(list){var L=(VIEW.fit==='womens')?list.filter(function(k){var i=BYKEY[k]||{};return hasLadies(i)||i.unisex;}):list;return sortList(bandOK(colourOK(L)));};
+  var fitOK=function(list){var L=(VIEW.fit==='womens')?list.filter(function(k){var i=BYKEY[k]||{};return hasLadies(i)||i.unisex;}):list;return sortList(warmOK(bandOK(colourOK(L))));};
   var subs=subNames(VIEW.cat),csa=VIEW.cat==='hivis'?' <span class="csa">CSA Z96 · ANSI 107</span>':'';
   var _shown=(VIEW.sub==='all'?fitOK(ALLKEYS.filter(function(k){return (BUCKETS[VIEW.cat]||{})&&subs.some(function(s){return BUCKETS[VIEW.cat][s].indexOf(k)>=0;});})).length:fitOK(BUCKETS[VIEW.cat][VIEW.sub]||[]).length);
   SHOWN=_shown;
@@ -2226,6 +2294,7 @@ function buildStore(){
        '<div class="fpbody">'+
          '<div class="fitbar" id="fitbar"></div><div class="fitbar colbar" id="colbar"></div>'+
          '<div class="fitbar colbar" id="bandbar"></div>'+
+         '<div class="fitbar colbar" id="warmbar"></div>'+
          '<div class="fitbar colbar" id="sortbar"></div></div>'+
        '<div class="fpfoot"><button type="button" class="fclear" id="fclear">Clear all</button>'+
          '<button type="button" class="fdone" id="fdone">Show results</button></div>'+
