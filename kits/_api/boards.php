@@ -114,6 +114,26 @@ function keep_history(string $kit, string $b, array $prev): void {
     }
 }
 
+/* ITEMS MUST GO OVER THE WIRE AS A JSON OBJECT, NEVER AN ARRAY.
+ *
+ * Steven, 2026-09-18, on dif: "board is not saving again... when I went back on it deleted!"
+ *
+ * PHP cannot distinguish an empty object from an empty array, so an empty `items` was encoded as
+ * `[]`. The browser then did `sb.items || {}` -- and an empty ARRAY is truthy, so the board's item
+ * container became a JS Array. Adding a product set a NAMED property on that array, which
+ * Object.keys() shows (the board looked fine) but which JSON.stringify DROPS. Every save, local and
+ * remote, therefore wrote an empty board: dif/my-board reached rev 26 with every retained revision
+ * at n=0.
+ *
+ * The browser is being hardened too, but this is the end that stops it at the source and repairs
+ * every board already stored as `[]` the next time it is read. Cast to object only when empty: a
+ * populated items map is a PHP associative array and already encodes as an object, and casting
+ * that would break the `is_array()`/`count()` checks the list endpoint relies on. */
+function items_obj($items) {
+    if (is_array($items) && count($items) === 0) return new stdClass();
+    return $items;
+}
+
 function read_board(string $kit, string $b): ?array {
     $f = board_file($kit, $b);
     if (!is_file($f)) return null;
@@ -173,6 +193,7 @@ if ($method === 'GET') {
 
     $board = read_board($kit, $b);
     if ($board === null) out(404, ['ok' => false, 'error' => 'no such board']);
+    $board['items'] = items_obj($board['items'] ?? []);
     out(200, ['ok' => true, 'board' => $board]);
 }
 
@@ -241,12 +262,24 @@ if ($existing === null) {
 $curRev = (int)($existing['rev'] ?? 0);
 $sentRev = array_key_exists('rev', $in) ? (int)$in['rev'] : null;
 if ($existing !== null && ($sentRev === null || $sentRev !== $curRev)) {
+    $existing['items'] = items_obj($existing['items'] ?? []);
     out(409, ['ok' => false, 'error' => 'stale', 'rev' => $curRev, 'board' => $existing]);
+}
+
+/* REFUSE TO BLANK A BOARD THAT HAS CONTENTS, unless the caller states the customer did it.
+ * The rev check above only stops a write that edited a DIFFERENT revision; an empty write carrying
+ * the current rev was accepted, which is how dif's board was emptied repeatedly. `clear` is sent by
+ * the browser's own remove handlers, so a customer emptying their board still works. */
+$curItems = is_array($existing['items'] ?? null) ? count($existing['items']) : 0;
+if ($existing !== null && count($items) === 0 && $curItems > 0 && empty($in['clear'])) {
+    $existing['items'] = items_obj($existing['items'] ?? []);
+    out(409, ['ok' => false, 'error' => 'stale', 'rev' => $curRev, 'board' => $existing,
+              'note' => 'refused an empty write over a board with contents']);
 }
 
 $board = [
     'name'    => $name,
-    'items'   => $items,
+    'items'   => items_obj($items),
     'by'      => mb_substr(trim((string)($in['by'] ?? '')), 0, 40),
     'rev'     => $curRev + 1,
     'updated' => time(),
