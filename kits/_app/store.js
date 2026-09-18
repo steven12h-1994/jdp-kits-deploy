@@ -673,6 +673,37 @@ function recDecos(key){
    An existing single cart is migrated into the first List on load, so nobody loses a kit. */
 var LISTS=null,ALID='';
 function LKEY(){return LSKEY+'_lists';}
+/* ITEMS MUST BE A PLAIN OBJECT, NEVER AN ARRAY.
+   Steven, 2026-09-18, on dif: "board is not saving again. I created a custom board and when I went
+   back on it deleted!"
+
+   The board was not deleted and the push was not wrong -- the container was the wrong TYPE, and
+   JSON threw the contents away on every save:
+
+     * boards.php stores items as a PHP associative array, and PHP cannot tell an empty object from
+       an empty array, so an empty board comes back over the wire as `"items": []`.
+     * the ingest paths did `sb.items || {}`. An empty ARRAY is truthy, so the board's item
+       container became an Array.
+     * adding a product then set a NAMED property on that array. Object.keys() sees it, so the board
+       looked completely normal on screen.
+     * but JSON.stringify of an array DROPS named properties. persistLists() therefore wrote an
+       empty board to localStorage and pushBoardNow() sent an empty board to the server.
+       dif/my-board reached rev 26 with 13 retained revisions, every one of them n=0: the items
+       never existed anywhere but in the live page.
+
+   Self-perpetuating, too: once the server holds [], every later visit re-seeds an array and loses
+   the contents again. Hence a normaliser at EVERY ingest -- both server-pull paths, the
+   localStorage load, the stale-merge reply and the outbound push -- so a `[]` from anywhere,
+   including boards already stored that way, becomes a real object before anything is added. */
+/* The customer removing their own last item IS a legitimate empty save, so the guard in
+   pushBoardNow() has to be able to tell that apart from an empty push it should refuse. Only the
+   remove handlers call this. */
+function markCleared(){try{if(LISTS&&LISTS[ALID])LISTS[ALID]._cleared=1;}catch(e){}}
+function asItems(v){
+  if(!v||typeof v!=='object')return {};
+  if(!Array.isArray(v))return v;
+  var o={};Object.keys(v).forEach(function(k){o[k]=v[k];});return o;   // keep any named props
+}
 function persistLists(){
   try{localStorage.setItem(LKEY(),JSON.stringify({lists:LISTS,active:ALID}));}catch(e){}}
 function newListId(){return 'l'+Date.now().toString(36)+Math.floor(Math.random()*1e4).toString(36);}
@@ -680,6 +711,9 @@ function loadLists(){
   var raw=null;try{raw=JSON.parse(localStorage.getItem(LKEY())||'null');}catch(e){}
   if(raw&&raw.lists&&Object.keys(raw.lists).length){
     LISTS=raw.lists;ALID=raw.active||Object.keys(raw.lists)[0];
+    // repair any board already stored with an array container (see asItems)
+    Object.keys(LISTS).forEach(function(k){
+      if(LISTS[k])LISTS[k].items=asItems(LISTS[k].items);});
   }else{
     // First run under Lists: adopt whatever single cart already exists so no work is lost.
     var old={};try{old=JSON.parse(localStorage.getItem(LSKEY)||'{}')||{};}catch(e){old={};}
@@ -4027,19 +4061,26 @@ function pushBoardNow(){
      one (eddy-group/my-board reached rev 23 with items:[]). The server now refuses an unrev'd
      write, but there is no reason to even send this one: it has nothing to save and everything
      to lose. */
-  if(!L.rev){
-    var _n=L.items?Object.keys(L.items).length:0;
-    if(!_n){markSync('saved');return;}
-  }
+  var _n=L.items?Object.keys(L.items).length:0;
+  if(!L.rev&&!_n){markSync('saved');return;}
+  /* An empty push over a board the server holds WITH contents is how a board gets wiped. The old
+     guard only covered a board that had never synced (`!L.rev`) -- which is exactly the case dif
+     was not in: it had a rev, so its empty pushes sailed through. Emptying a board is still
+     allowed, but only when the customer actually did it: `_cleared` is set by the remove path. */
+  if(_n===0&&L.rev&&!L._cleared){markSync('saved');return;}
   L.slug=b;
+  L.items=asItems(L.items);              // an array here would serialise as [] and wipe the board
+  if(LISTS[ALID]===L)CART=L.items;
   var who='';try{who=(JSON.parse(localStorage.getItem('jdpkit_contact')||'{}').name||'');}catch(e){}
   var body={kit:SLUG,b:b,name:L.name,items:L.items,by:who};
+  // the server refuses an empty write over a board with contents unless the customer did it
+  if(_n===0&&L._cleared)body.clear=1;
   if(L.rev)body.rev=L.rev;
   fetch(boardsApi(),{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify(body)})
     .then(function(r){return r.json();})
     .then(function(j){
-      if(j&&j.ok){L.rev=j.rev;L.slug=j.b;persistLists();markSync('saved');return;}
+      if(j&&j.ok){L.rev=j.rev;L.slug=j.b;L._cleared=0;persistLists();markSync('saved');return;}
       /* Someone edited the same board elsewhere. Adopt their version rather than clobbering a
          colleague -- the whole point of a shared document.
          MERGE, do not replace. Replacing was safe while only a rev MISMATCH could land here, but
@@ -4048,7 +4089,7 @@ function pushBoardNow(){
          boards being wiped. Server entries win on conflict; anything only we hold is added and
          pushed back with the correct rev, once. */
       if(j&&j.error==='stale'&&j.board){
-        var srv=j.board.items||{},mine=L.items||{},merged={},addedLocal=0;
+        var srv=asItems(j.board.items),mine=asItems(L.items),merged={},addedLocal=0;
         Object.keys(srv).forEach(function(k){merged[k]=srv[k];});
         Object.keys(mine).forEach(function(k){if(!(k in merged)){merged[k]=mine[k];addedLocal++;}});
         L.items=merged;L.rev=j.board.rev;L.name=j.board.name||L.name;
@@ -4095,7 +4136,7 @@ function openSharedBoard(b){
     var id=listIdForSlug(b,true);
     if(!id){id=newListId();LISTS[id]={name:sb.name||b,items:{},updated:Date.now()};}
     LISTS[id].name=sb.name||LISTS[id].name;
-    LISTS[id].items=sb.items||{};
+    LISTS[id].items=asItems(sb.items);
     LISTS[id].slug=b;LISTS[id].rev=sb.rev||0;LISTS[id].updated=Date.now();
     ALID=id;CART=LISTS[id].items;persistLists();
     refreshCartUI();
@@ -5254,7 +5295,7 @@ function wireBoard(){
        sheet is now layered above the board and the board is simply revealed again. */
     openSheet(b.dataset.bedit);});});
   el.querySelectorAll('[data-brm]').forEach(function(b){b.addEventListener('click',function(){
-    delete CART[b.dataset.brm];saveCart();refreshCartUI();renderBoard();});});
+    delete CART[b.dataset.brm];markCleared();saveCart();refreshCartUI();renderBoard();});});
   /* Colour, chosen on the card. Pointer and keyboard both land on bPaintColour(): hover/focus
      previews, click commits, leaving restores whatever is actually saved -- so a buyer who runs the
      mouse across the row and walks away is left looking at their own choice, not the last one they
@@ -6471,7 +6512,7 @@ function renderCart(){
     deleteList(ALID);renderCart();refreshCartUI();});
   document.querySelectorAll('.ci').forEach(function(ci){var k=ci.dataset.key;
     var ed=ci.querySelector('[data-edit]');if(ed)ed.addEventListener('click',function(){editItem(k);});
-    ci.querySelector('[data-rm]').addEventListener('click',function(){delete CART[k];saveCart();renderCart();refreshCartUI();});
+    ci.querySelector('[data-rm]').addEventListener('click',function(){delete CART[k];markCleared();saveCart();renderCart();refreshCartUI();});
   });
 }
 function editItem(k){document.getElementById('cart').classList.remove('on');openSheet(k);}
@@ -6624,7 +6665,7 @@ function syncBoardsFromServer(){
           if(!id){id=newListId();LISTS[id]={name:sb.name||row.b,items:{},updated:0};}
           if(_fresh)LISTS[id].srv=1;
           LISTS[id].name=sb.name||LISTS[id].name;
-          LISTS[id].items=sb.items||{};
+          LISTS[id].items=asItems(sb.items);
           LISTS[id].slug=row.b;
           LISTS[id].rev=sb.rev||0;
           /* WHO MADE THIS BOARD decides whether it is a shortlist we prepared or the customer's own
