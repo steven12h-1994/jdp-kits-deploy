@@ -1193,6 +1193,8 @@ function classify(it){
   return {mega:'tops',sub:'Shirts'};
 }
 /* ---------- FILTERED BROWSE MODEL (one category at a time; no endless scroll) ---------- */
+/* How many of each group the All view previews before offering that group's own tab. */
+var GRP_PREVIEW=4;
 var VIEW={cat:null,sub:'all',q:'',world:'all',fit:'all',col:null,band:null,warm:null,sort:null};
 // Colour chosen while BROWSING, per item+fit. A shopper who picks navy on the grid should still be on
 // navy when the product opens — otherwise the swatch feels fake.
@@ -1906,10 +1908,23 @@ function renderGrid(){
   var inner;
   if(VIEW.sub!=='all'){inner='<div class="menu">'+fitOK(BUCKETS[VIEW.cat][VIEW.sub]||[]).map(menuCard).join('')+'</div>';}
   else if(subs.length>1&&TOTALS[VIEW.cat]>6){
+    /* THE "ALL" VIEW IS A PREVIEW, NOT THE WHOLE RANGE. 62 jackets rendered in full made this
+       category 11.8 screens deep on desktop and 25.6 on a phone -- the wall Steven kept calling a
+       headache. Each group now shows its first few and offers its own tab, so the category is
+       scannable in a couple of screens and nothing is more than one click away. The preview is
+       taken AFTER sortList(), whose default order is top picks first then the keener price, so what
+       shows is the strongest of each group rather than an arbitrary slice. */
     inner=subs.map(function(s){var ks=fitOK(BUCKETS[VIEW.cat][s]);if(!ks.length)return '';
-      return '<div class="subgrp"><h3 class="subhd">'+esc(s)+' <span class="subn">'+ks.length+'</span></h3>'+subGuideHtml(s)+'<div class="menu">'+ks.map(menuCard).join('')+'</div></div>';}).join('');}
+      var shown=ks.slice(0,GRP_PREVIEW),rest=ks.length-shown.length;
+      return '<div class="subgrp"><h3 class="subhd">'+esc(s)+' <span class="subn">'+ks.length+'</span></h3>'+subGuideHtml(s)+
+        '<div class="menu">'+shown.map(menuCard).join('')+'</div>'+
+        (rest>0?('<button type="button" class="seeall" data-seesub="'+esc(s)+'">See all '+ks.length+
+                 ' '+esc(s)+' <i>\u2192</i></button>'):'')+
+        '</div>';}).join('');}
   else{var flat=[];subs.forEach(function(s){flat=flat.concat(BUCKETS[VIEW.cat][s]);});flat=fitOK(flat);inner='<div class="menu">'+flat.map(menuCard).join('')+'</div>';}
-  grid.innerHTML=(VIEW.cat==='hivis'?hivisIntroHtml():'')+inner+moreCatsHtml();wireCards();}
+  grid.innerHTML=(VIEW.cat==='hivis'?hivisIntroHtml():'')+inner+moreCatsHtml();wireCards();
+  grid.querySelectorAll('[data-seesub]').forEach(function(b){
+    b.addEventListener('click',function(){setSub(b.dataset.seesub);});});}
 // Compliance-forward intro for the Hi-Vis category — safety buyers shop by STANDARD & CLASS first.
 // Certified for BOTH Canada (CSA Z96-22) and the U.S. (ANSI/ISEA 107-2020), with a plain-English class guide.
 function hivisIntroHtml(){
@@ -2293,8 +2308,6 @@ function buildStore(){
        '<div class="fphd">Filter<button type="button" class="fpx" id="fpx" aria-label="Close">&times;</button></div>'+
        '<div class="fpbody">'+
          '<div class="fitbar" id="fitbar"></div><div class="fitbar colbar" id="colbar"></div>'+
-         '<div class="fitbar colbar" id="bandbar"></div>'+
-         '<div class="fitbar colbar" id="warmbar"></div>'+
          '<div class="fitbar colbar" id="sortbar"></div></div>'+
        '<div class="fpfoot"><button type="button" class="fclear" id="fclear">Clear all</button>'+
          '<button type="button" class="fdone" id="fdone">Show results</button></div>'+
@@ -2317,7 +2330,19 @@ function buildStore(){
        '<div class="fpills" id="fpills"></div>'+
        '</div>'+
    '</div>'+
-   '<main class="w"><div class="gridhd" id="gridhd"></div><div class="grid" id="grid"></div>'+
+   /* WARMTH AND BUDGET ARE NOT "FILTERS", THEY ARE THE DECISION. Steven, 2026-09-18: the jacket
+      section "still giving customers headaches". Both bars used to live inside the collapsed
+      Filters panel -- so the category guidance said "Use the Warmth filter to narrow to one" while
+      pointing at a control the customer could not see. Measured on the live page: 11.8 screens of
+      scroll on desktop, 25.6 on a phone, and every narrowing tool hidden behind a button. They now
+      sit in the open, directly above the grid, where the choice is actually made. Fit, colour and
+      sort stay in the panel: those refine a choice, they do not make it. */
+   '<main class="w"><div class="gridhd" id="gridhd"></div>'+
+     '<div class="inbar" id="inbar">'+
+       '<div class="fitbar colbar" id="warmbar"></div>'+
+       '<div class="fitbar colbar" id="bandbar"></div>'+
+     '</div>'+
+     '<div class="grid" id="grid"></div>'+
      '<div class="noresults" id="noResults" style="display:none">No products match your search. Try another term.</div></main>'+
    whyGearHtml()+
    whyJdpHtml()+
