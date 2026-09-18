@@ -1567,12 +1567,16 @@ var SUBGUIDE={
 };
 function catGuideHtml(){
   var out='';
+  /* The inner span carries the reading measure. `.gridhd` is a wrapping flex row, and a
+     max-width on the flex ITEM clamps its 100% basis small enough to fit beside the heading --
+     which is exactly how this first shipped, reading as a subtitle rather than an intro. Cap the
+     span, let the paragraph own the whole line. */
   var c=CATGUIDE[VIEW.cat];
-  if(c)out+='<p class="gguide">'+esc(c)+'</p>';
+  if(c)out+='<p class="gguide"><span>'+esc(c)+'</span></p>';
   /* When one tab is open its own line replaces the scale, because the buyer has already chosen
      where on that scale they are. */
   if(VIEW.sub&&VIEW.sub!=='all'&&SUBGUIDE[VIEW.sub])
-    out='<p class="gguide">'+esc(SUBGUIDE[VIEW.sub])+'</p>';
+    out='<p class="gguide"><span>'+esc(SUBGUIDE[VIEW.sub])+'</span></p>';
   return out;
 }
 function subGuideHtml(sub){

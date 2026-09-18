@@ -2383,12 +2383,13 @@ body.giftview .gifts{margin-top:0;min-height:60vh}
 /* .gridhd is a wrapping flex row, so without flex-basis the guidance becomes a third item
    beside the heading and the style count, competing with the title instead of introducing
    the grid. Full basis puts it on its own line, under the heading, where it is read. */
-.gguide{flex:0 0 100%;margin:4px 0 0;max-width:72ch;color:var(--mut);font:400 14.5px/1.55 ui-sans-serif,system-ui}
+.gguide{flex:0 0 100%;min-width:100%;margin:4px 0 0;color:var(--mut);font:400 14.5px/1.55 ui-sans-serif,system-ui}
+.gguide>span{display:block;max-width:72ch}
 .subguide{margin:-2px 0 14px;max-width:66ch;color:var(--mut);
   font:400 14px/1.5 ui-sans-serif,system-ui}
 .subgrp .subhd{margin-bottom:4px}
 @media (max-width:820px){
   /* on a phone the guidance is doing MORE work, not less -- it is what stops an endless scroll */
-  .gguide{font-size:14px;max-width:none}
+  .gguide{font-size:14px}.gguide>span{max-width:none}
   .subguide{font-size:13.5px;max-width:none;margin:-2px 0 12px}
 }
