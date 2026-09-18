@@ -2380,7 +2380,10 @@ body.giftview .gifts{margin-top:0;min-height:60vh}
 /* Sits between the heading and the grid, where a buyer reads before they start scanning. Kept to
    one line of real prose -- long enough to say what the group is for, short enough that it is not
    skipped. Measured against the grid, not the viewport, so it lines up with the first card. */
-.gguide{margin:6px 0 0;max-width:68ch;color:var(--mut);font:400 14.5px/1.5 ui-sans-serif,system-ui}
+/* .gridhd is a wrapping flex row, so without flex-basis the guidance becomes a third item
+   beside the heading and the style count, competing with the title instead of introducing
+   the grid. Full basis puts it on its own line, under the heading, where it is read. */
+.gguide{flex:0 0 100%;margin:4px 0 0;max-width:72ch;color:var(--mut);font:400 14.5px/1.55 ui-sans-serif,system-ui}
 .subguide{margin:-2px 0 14px;max-width:66ch;color:var(--mut);
   font:400 14px/1.5 ui-sans-serif,system-ui}
 .subgrp .subhd{margin-bottom:4px}
