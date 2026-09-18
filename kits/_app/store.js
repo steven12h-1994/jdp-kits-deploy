@@ -1178,7 +1178,10 @@ function classify(it){
   if(n.indexOf('vest')>=0)return {mega:'vests',sub:vestSub(n)};
   if(/fleece/.test(n))return {mega:'layers',sub:'Fleece'};
   if(n.indexOf('polo')>=0)return {mega:'tops',sub:'Polos'};
-  if(/tee|t-shirt|henley/.test(n))return {mega:'tops',sub:'Tees'};
+  /* ANCHORED. Unanchored, /tee/ matches the substring inside "s-TEE-lhead" -- the Steelhead HD
+     Thermal Jacket classified as a T-SHIRT and never reached the Jackets tab. Same failure mode
+     as the "swea|tshirt" bug already fixed in itemCategory(), which is anchored for it. */
+  if(/\btee\b|\bt-shirts?\b|\bhenley\b/.test(n))return {mega:'tops',sub:'Tees'};
   if(n.indexOf('shirt')>=0)return {mega:'tops',sub:'Shirts'};
   /* Gate on outerSub's own answer rather than a second, narrower regex. A hand-written gate
      here dropped the Nautilus Quilted Hoody -- its name carries no "jacket", so it matched
