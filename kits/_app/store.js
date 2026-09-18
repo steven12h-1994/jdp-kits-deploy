@@ -1640,11 +1640,12 @@ var CATGUIDE={
   /* Warmth first, because that is the decision. The second sentence says where the numbers come
      from and, just as importantly, what they are not: there is no temperature rating in this
      range, so the store cites insulation and waterproof figures and lets the buyer judge. */
-  outerwear:'Start with the weather they work in, not the price \u2014 the tabs run light to warm. '+
-            'Each jacket shows how warm it is built: an uninsulated shell, insulated, or winter '+
-            'weight, with the maker\u2019s own published insulation and waterproof figures beside '+
-            'it. Use the Warmth filter to narrow to one. Every price is per person, with your '+
-            'logo already in it.'
+  /* Shorter than it was: the warmth and budget chips now sit directly beneath this line, so the
+     paragraph no longer has to describe a control the reader cannot see. */
+  outerwear:'Start with how cold they will be, not the price. Every jacket shows how warm it is '+
+            'built \u2014 uninsulated shell, insulated, or winter weight \u2014 with the maker\u2019s '+
+            'own published insulation and waterproof figures. Narrow by warmth or budget below; '+
+            'every price is per person with your logo already in it.'
 };
 var SUBGUIDE={
   'Shells & Rainwear':'The lightest layer \u2014 cuts wind, sheds rain and packs down small. No '+
