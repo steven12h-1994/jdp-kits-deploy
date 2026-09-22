@@ -6065,7 +6065,13 @@ var GIFT_PICKS=[
   {k:'st_explorerparka',
    why:'A full parka at the point where a gift stops being apparel and starts being equipment. For a crew that works outside in January.'},
   {k:'st_denali',
-   why:'The top of the range: a four-colourway parka for a decade of service, a retirement, or the client who sent you the year’s biggest job.'}
+   why:'The top of the range: a four-colourway parka for a decade of service, a retirement, or the client who sent you the year’s biggest job.'},
+  /* --- Added 2026-09-22 ------------------------------------------------------------------------
+     Every other jacket on this page is a warm one, so the gift page had nothing to offer between
+     April and October. This is the shoulder-season answer, and at $66 it opens the $60-$100 band
+     from the bottom. */
+  {k:'st_pacificawind',
+   why:'An ultra-lightweight hooded shell at 65 gsm, water repellent, with a mesh-lined back vent. The shoulder-season gift — for the months a parka is too much — in seven colourways, two of them two-tone.'}
 ];
 /* Apparel vs ready-boxed kit. The buyer guidance on this page already tells the buyer this is the
    decision to make first ("kits win for a whole-payroll gift and apparel wins for anyone you want
