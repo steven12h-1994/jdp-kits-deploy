@@ -1,0 +1,17 @@
+{
+  "generator": "client-app",
+  "version": "1790039603",
+  "slug": "omnitrax",
+  "client": "OmniTRAX, Inc.",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_1b2a48.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_f9be03.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}
