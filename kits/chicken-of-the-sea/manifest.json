@@ -1,0 +1,19 @@
+{
+  "generator": "client-app",
+  "version": "1790039609",
+  "slug": "chicken-of-the-sea",
+  "client": "Chicken of the Sea",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_2a5b76.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_d72b1d.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_deb041.png",
+    "img/lg_full_white.png",
+    "img/lg_full_ondark.png",
+    "img/logo-white.png"
+  ]
+}
