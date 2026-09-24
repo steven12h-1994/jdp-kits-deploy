@@ -868,6 +868,86 @@ function overlayHtml(item,vm,colName,faces,colsOverride,placesOverride){
   return {g:gurl(photo),lg:lg,hasBack:hasBack};
 }
 
+/* ---- WHAT THE PRICE INCLUDES, SHOWN WHERE THE BUYER DECIDES ---------------------------------
+   Steven, 2026-09-24: "decoration is not clear when browsing. for instance we go to the hi-vis
+   program. shows prices at embroidered left chest and 4 color screen print but the customer has
+   no way of knowing this unless they click the item and scroll down to decoration."
+
+   Measured before building, across all 292 apparel items:
+     * 274 prices include a decoration, in seven different setups, and the card said only
+       "decorated" -- never where, never how.
+     * 13 of them (hi-vis tees and tear-away vests) include a CENTRE-BACK print that the card could
+       never show: it draws the front, and every back placement is `norender` (no tuned geometry,
+       and on hi-vis the back is reflective-tape territory, so it is deliberately not guessed).
+       Those were the worst case -- paying for a print that is invisible until step 3 of the sheet.
+     * 18 are supplied blank and said so NOWHERE: an $18.50 blank vest sat beside a $32.50
+       decorated one with the same "/pc", no logo on either photo for the blank, and no word. A
+       buyer comparing them was comparing a garment against a garment-plus-logo without knowing.
+
+   One component, three surfaces -- the grid card, the top of the product sheet, the board -- and
+   each is built from THE SAME decos array its price was computed from (defaultDecos on the card,
+   the live sheet state in the sheet, the saved line on the board). The words and the number
+   therefore cannot disagree, which is the whole point: a label that drifted from the price would
+   be worse than no label.
+
+   The pictogram shows WHERE (a dot on the chest, a band across the back, the front of a cap); the
+   words say HOW. It keys off the placement's human LABEL, not its id -- hi-vis items use id `front`
+   for what is actually a left-chest mark, and the label is what the buyer reads. */
+var INC_HOW={embroidery:'Embroidered',screen:'Printed',heat_transfer:'Heat transfer'};
+function incParts(it,decos){
+  var logos=(CFG&&CFG.logos)||[],prime=(logos[0]||{}).id;
+  return realDecos(it,decos).map(function(d){
+    var p=placeOf(it,d.pl)||{};
+    var how=INC_HOW[d.method]||'Embroidered';
+    if(d.method==='screen'){var n=d.colours||1;how+=' · '+n+' colour'+(n===1?'':'s');}
+    /* A second logo (a wordmark on the back, say) is named, exactly as the quote names it. */
+    var art=(logos.length>1&&d.lg&&d.lg!==prime)?logoLabel(logoOf(d.lg)):'';
+    return {where:p.label||d.pl,how:how,face:p.face||'front',size:p.size||'',art:art};
+  });
+}
+function incGlyph(it,part){
+  var cat=itemCategory(it),w=String(part.where||'').toLowerCase(),body,mark;
+  if(cat==='cap'){
+    body='<path d="M3 15.5c0-5.2 3.6-9 8-9s8 3.8 8 9z"/><path d="M19 15.5h2.4"/>';
+    mark='<circle cx="11" cy="11.6" r="2.1"/>';
+  }else if(cat==='bag'){
+    body='<rect x="4.5" y="7.5" width="13" height="12" rx="2.2"/><path d="M8 7.5V6a3 3 0 0 1 6 0v1.5"/>';
+    mark='<circle cx="11" cy="13.4" r="2.1"/>';
+  }else{
+    var back=part.face==='back';
+    /* the back view is the same garment with a shallow neckline, which is how a flat-lay reads */
+    body='<path d="M8 3.6 4 5.6 2 9.2l2.6 1.5L6 9.8v9.7h10V9.8l1.4.9L20 9.2l-2-3.6-4-2'+
+         (back?'c-.6.8-1.7 1.2-3 1.2s-2.4-.4-3-1.2z':'c-.5 1.5-1.7 2.4-3 2.4S8.5 5.1 8 3.6z')+'"/>';
+    if(back)                          mark='<rect x="7.4" y="7.6" width="7.2" height="3.4" rx=".8"/>';
+    else if(/hip/.test(w))            mark='<circle cx="13.6" cy="16.6" r="1.8"/>';
+    else if(/left/.test(w))           mark='<circle cx="13.6" cy="9.6" r="1.8"/>';   /* wearer's left = viewer's right, as every photo shows it */
+    else if(/right/.test(w))          mark='<circle cx="8.4" cy="9.6" r="1.8"/>';
+    else if(/sleeve/.test(w))         mark='<circle cx="18" cy="8.2" r="1.5"/>';
+    else                              mark='<circle cx="11" cy="10.2" r="2"/>';
+  }
+  return '<svg class="incg" viewBox="0 0 22 22" aria-hidden="true"><g class="incb">'+body+'</g><g class="incm">'+mark+'</g></svg>';
+}
+/* mode: 'card' | 'sheet' | 'board'. The card stays terse (where + how); the sheet and the board
+   are where a buyer checks detail, so they carry the print size too. */
+function incHtml(it,decos,mode){
+  if(!it||it.layer==='promo')return '';
+  if(!hasDecoPlace(it))
+    return '<div class="inc inc-'+mode+' blank"><span class="incl">No logo</span>'+
+           '<span class="incc"><span><b>Supplied blank</b></span></span></div>';
+  var ps=incParts(it,decos||[]);
+  if(!ps.length)
+    return '<div class="inc inc-'+mode+' blank"><span class="incl">No logo on this line</span></div>';
+  var detail=mode!=='card';
+  var title=ps.map(function(p){return p.where+(p.size?' '+p.size:'')+' — '+p.how+(p.art?' ('+p.art+')':'');}).join('; ');
+  return '<div class="inc inc-'+mode+'" title="'+esc(title)+'">'+
+    '<span class="incl">'+(mode==='board'?'Logo':'Your logo, included')+'</span>'+
+    ps.map(function(p){
+      return '<span class="incc">'+incGlyph(it,p)+'<span><b>'+esc(p.where)+'</b>'+
+        (detail&&p.size?'<i> '+esc(p.size)+'</i>':'')+' '+esc(p.how)+
+        (p.art?'<i> · '+esc(p.art)+'</i>':'')+'</span></span>';
+    }).join('')+'</div>';
+}
+
 /* ---------- menu card (photo-forward, one + button) ---------- */
 function menuCard(key){
   var item=BYKEY[key],vm=vmOf(key);if(!item)return '';
@@ -920,7 +1000,8 @@ function menuCard(key){
               point on a decorated-goods store, so say it on the card where the buyer anchors. */
            '<div class="mprice"><b>'+money(item.price_cad)+'</b> <small>/'+(item.unit==='dozen'?'dozen':'pc')+' · min '+item.moq+' · logo included</small></div>'+
            promoVolLine(item))
-        : '<div class="mprice"><b>'+money(startP)+'</b> <small>/pc'+(hasDecoPlace(item)?' · decorated':'')+'</small></div>'+
+        : incHtml(item,_dd,'card')+
+          '<div class="mprice"><b>'+money(startP)+'</b> <small>/pc'+(hasDecoPlace(item)?'':' · blank')+'</small></div>'+
            '<div class="mvol">at '+moq()+' pcs'+(bestP<startP?(' · <b>'+money(bestP)+'</b>/pc at '+topcol+'+'):'')+'</div>')+
       '</div></article>';
 }
@@ -3747,17 +3828,17 @@ function renderSheet(){
      do not run -- which is what made this read-only in the first place. */
   var _cfgCards=configCardsHtml();
   var primaryHtml=_cfgCards
-    ? ('<section class="step"><div class="steph"><span class="stepn">3</span><span class="stept">Your logo</span>'+
+    ? ('<section class="step" id="shLogo"><div class="steph"><span class="stepn">3</span><span class="stept">Your logo</span>'+
         '<i>choose a setup</i></div>'+_cfgCards+sysHtml(item)+'</section>')
     : (_st&&_st.method)
-    ? ('<section class="step"><div class="steph"><span class="stepn">3</span><span class="stept">Your logo</span>'+
+    ? ('<section class="step" id="shLogo"><div class="steph"><span class="stepn">3</span><span class="stept">Your logo</span>'+
         '<i>included</i></div><div class="decostd">'+
         '<span class="dsic" aria-hidden="true">\u25C6</span>'+
         '<span class="dstx"><b>'+esc(_st.loc)+'</b><i>Embroidered \u00b7 '+esc(_st.size)+' \u00b7 included in the price</i></span>'+
         '</div>'+sysHtml(item)+'<div class="decofoot">Our standard setup for this product. The image above is a '+
         'visual guide, not an exact production rendering. Your logo, placement and size are confirmed '+
         'on your quote. Need another location? Add it in the notes and we\u2019ll price it.</div></section>')
-    : (hasDecoPlace(item)?'':'<section class="step"><div class="steph"><span class="stepn">3</span><span class="stept">Your logo</span></div>'+
+    : (hasDecoPlace(item)?'':'<section class="step" id="shLogo"><div class="steph"><span class="stepn">3</span><span class="stept">Your logo</span></div>'+
         '<div class="decofoot">This piece is supplied blank. Tell us in the notes if you\u2019d like it decorated and we\u2019ll quote it.</div></section>');
   var extraHtml='';
   var decos=sheetDecos();
@@ -3800,8 +3881,15 @@ function renderSheet(){
       '<div class="shimg" id="shimg"><div class="shstage"><img class="g" src="'+(SH.gimg?gurl(SH.gimg):o.g)+'" alt="">'+(SH.gimg?'':o.lg)+'</div>'+faceTog+'</div>'+
       galleryStrip(item)+
       '<div class="shb"><h2>'+esc(item.name)+'</h2><div class="shsku">'+esc(item.sku)+(hasLadies(item)?(SH.fit==='womens'?' · Ladies’':' · Men’s'):(item.unisex?' · Unisex':''))+(item.layer==='field'&&item.csa?' · CSA hi-vis':'')+shareBtnHtml(SHEETKEY)+'</div>'+
-      '<div class="shfrom"><b>'+money(unit)+'</b> <small>/pc</small> <i>at '+(q||moq())+' pcs</i>'+(hasDecoPlace(item)?' · decorated':'')+
+      '<div class="shfrom"><b>'+money(unit)+'</b> <small>/pc</small> <i>at '+(q||moq())+' pcs</i>'+(hasDecoPlace(item)?'':' · blank')+
         (fromP<unit?('<span class="shvol">'+money(fromP)+'/pc at '+topcol+'+</span>'):'')+'</div>'+
+      /* What that price includes, BEFORE the blurb -- it used to live in step 3, below colour and
+         sizes, so a buyer read a price and had to scroll past two decisions to learn what it was
+         for. Built from the same `decos` the price above was computed from, so it follows every
+         change they make; "Change" goes straight to the logo step. */
+      (item.layer==='promo'?'':('<div class="shinc">'+incHtml(item,decos,'sheet')+
+        (hasDecoPlace(item)?'<button type="button" class="shincgo" id="shIncGo">Change<span aria-hidden="true"> \u2193</span></button>':'')+
+      '</div>'))+
       (item.blurb?'<p class="shblurb">'+esc(item.blurb)+'</p>':'')+
       mediaRow+
       fabricHtml(item)+sampCtaHtml(SH.key)+
@@ -3820,6 +3908,10 @@ function renderSheet(){
   var vw=document.getElementById('vwatch');if(vw){vw.addEventListener('click',function(){openVideo(item.video,item.name);});
     stampVideoDuration(item.video,'vwatch');}
   var sw=document.getElementById('shworn');if(sw)sw.addEventListener('click',function(){openScenic(gurl(item.scenic),item.name);});
+  var ig=document.getElementById('shIncGo');if(ig)ig.addEventListener('click',function(){
+    var t=document.getElementById('shLogo');if(!t)return;
+    t.scrollIntoView({behavior:'smooth',block:'start'});
+    t.classList.remove('flash');void t.offsetWidth;t.classList.add('flash');});
   sh.querySelectorAll('.cchip').forEach(function(b){b.addEventListener('click',function(){SH.colour=b.dataset.col;SH.gimg=null;swapPreview();renderSheet();});});
   sh.querySelectorAll('[data-cfg]').forEach(function(b){b.addEventListener('click',function(){
     applyConfig(b.dataset.cfg);renderSheet();});});
@@ -4634,7 +4726,8 @@ function decoSummary(it,c){
   var logos=(typeof CFG!=='undefined'&&CFG.logos)||[],prime=(logos[0]||{}).id;
   return (c.decos||[]).map(function(d){
     var p=placeOf(it,d.pl),m=MLAB[d.method]||'Emb';
-    if(d.method==='screen')m+=' '+(d.colours||1)+'C';
+    /* "4C" was printer's shorthand on a customer-facing line; say it the way the row above it does. */
+    if(d.method==='screen'){var _n=d.colours||1;m+=' · '+_n+' colour'+(_n===1?'':'s');}
     var art=(logos.length>1&&d.lg&&d.lg!==prime)?(' · '+logoLabel(logoOf(d.lg))):'';
     return (p?p.label:d.pl)+' · '+m+art;
   }).join('  ·  ')||'left chest';
@@ -5048,10 +5141,14 @@ function boardCardHtml(ck){
         var bits=[];
         if(!_crow&&cname)bits.push((col.rgb?('<span class="bdot" style="background:'+
           esc(col.rgb)+'"></span>'):'')+'<span class="bmetacol">'+esc(cname)+'</span>');
-        if(deco)bits.push('<span>'+esc(deco)+'</span>');
+        /* Apparel lines show their decoration as the same where+how row the grid card uses, built
+           from THIS line's own decos -- so a line the buyer changed to a back print says so, and a
+           blank says blank. Promo keeps its one-line "logo included in the price". */
+        if(deco&&isPromo)bits.push('<span>'+esc(deco)+'</span>');
         return bits.length?('<div class="bmeta">'+
           bits.join('<span class="bsep">\u00b7</span>')+'</div>'):'';
       })()+
+      (isPromo?'':incHtml(it,c.decos||[],'board'))+
       (cmiss?('<div class="bmiss">'+esc(cmiss)+' is no longer available \u2014 showing '+
         esc(cname)+'. Tell us on the quote and we\u2019ll source it.</div>'):'')+
       /* WHY THIS PIECE. Steven, 2026-09-08: "improve the recommendation suggestions to truly WOW
