@@ -6927,7 +6927,7 @@ function orderText(c){c=c||{};
     lines.push('');}
   Object.keys(CART).forEach(function(k){var it=BYKEY[bkey(k)];if(!it)return;var cc=CART[k];var u=unitPrice(k,cc.decos,tierQty(k));
     lines.push('• '+it.name+(fitSku(it,cc)?' '+fitSku(it,cc):'')+' ('+it.sku+') — '+(fitTag(it,cc)?fitTag(it,cc)+' · ':'')+cc.colour+' · '+decoSummary(it,cc)+' · qty '+cc.qty+' @ '+money(u)+' ea = '+money(u*cc.qty));
-    var ss=sizesSummary(cc,BYKEY[bkey(ck)]);if(ss)lines.push('    sizes: '+ss);});
+    /* was bkey(ck): `ck` does not exist in this loop (its variable is `k`), so this line threw a ReferenceError on every checkout from 2026-09-08 cf39435b until 2026-09-24 -- no store could send a quote, and the mailto fallback never ran because the throw came first. */var ss=sizesSummary(cc,BYKEY[bkey(k)]);if(ss)lines.push('    sizes: '+ss);});
   lines.push('','Estimated subtotal: '+money(sub));
   var sb=setupBreakdown();
   if(sb.length){lines.push('One-time setup: '+money(setup)+'  (once per design, shared across the kit)');
