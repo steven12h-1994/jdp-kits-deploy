@@ -6960,12 +6960,25 @@ function openCheckout(){
     '<div class="citems"><div class="co">'+
       '<div class="cohow"><div class="costep"><b>1</b><span>Pick your gear</span></div><div class="costep"><b>2</b><span>Get your exact quote</span></div><div class="costep"><b>3</b><span>Approve &amp; we produce</span></div></div>'+
       '<div class="cosum"><span>'+n+' item'+(n===1?'':'s')+' · est. <b>'+money(sub)+'</b>'+(setup>0?' + '+money(setup)+' setup':'')+'</span><button class="cosumedit" id="cosumedit">Edit ‹</button></div>'+
-      '<div class="coform">'+
-        '<input id="coName" placeholder="Your name" autocomplete="name" value="'+esc(saved.name||'')+'">'+
-        '<input id="coEmail" type="email" inputmode="email" placeholder="Email — where we send your quote" autocomplete="email" value="'+esc(saved.email||'')+'">'+
-        '<input id="coCompany" placeholder="Company / team" autocomplete="organization" value="'+esc(saved.company||CFG.client||'')+'">'+
-        '<textarea id="coNote" placeholder="Anything to add? Deadlines, sizes, other items…"></textarea>'+
-      '</div>'+
+      /* DEMO STORES ASK FOR ONE THING. The demo is where the website sends every visitor who clicks
+         "Browse the catalog", so this checkout IS the website's conversion step for browsers, and the
+         site asks for a work email and nothing else. Name, company, note and logo were always optional
+         in submitKit(); on a demo they now sit behind one toggle instead of reading as a five-part form.
+         Company is never pre-filled from CFG.client on a demo -- there it is literally "Your Company",
+         and every demo board arrived labelled that way. Client stores are unchanged. */
+      (CFG.demo
+        ? '<div class="coform coone">'+
+            '<input id="coEmail" type="email" inputmode="email" placeholder="Your work email — where we send your quote" autocomplete="email" autocapitalize="off" spellcheck="false" enterkeyhint="send" value="'+esc(saved.email||'')+'">'+
+            '<details class="coopt"><summary>Add your name, a note or your logo <i>optional</i></summary>'+
+              '<input id="coName" placeholder="Your name" autocomplete="name" value="'+esc(saved.name||'')+'">'+
+              '<input id="coCompany" placeholder="Company / team" autocomplete="organization" value="'+esc(saved.company||'')+'">'+
+              '<textarea id="coNote" placeholder="Anything to add? Deadlines, sizes, other items…"></textarea>'
+        : '<div class="coform">'+
+            '<input id="coName" placeholder="Your name" autocomplete="name" value="'+esc(saved.name||'')+'">'+
+            '<input id="coEmail" type="email" inputmode="email" placeholder="Email — where we send your quote" autocomplete="email" value="'+esc(saved.email||'')+'">'+
+            '<input id="coCompany" placeholder="Company / team" autocomplete="organization" value="'+esc(saved.company||CFG.client||'')+'">'+
+            '<textarea id="coNote" placeholder="Anything to add? Deadlines, sizes, other items…"></textarea>'+
+          '</div>')+
       /* Artwork is the single biggest cause of back-and-forth after an order lands. Asking for it
          HERE, while they are already filling in a form, costs one click; chasing it by email later
          costs days. Vector is what production actually wants, so it is named first -- but a
@@ -6982,6 +6995,7 @@ function openCheckout(){
         '<div class="artnote">No logo file to hand? Send your board anyway \u2014 we\u2019ll redraw your '+
           'logo to production quality from the best image you have, at no charge.</div>'+
       '</div>'+
+      (CFG.demo?'</details></div>':'')+
     '</div></div>'+
     '<div class="cartf">'+
       '<button class="checkout" id="emailKit">Send my list — get my quote <span class="ar">→</span></button>'+
@@ -7002,6 +7016,57 @@ function openCheckout(){
 }
 function clipCopy(s){if(navigator.clipboard&&navigator.clipboard.writeText){try{navigator.clipboard.writeText(s);return;}catch(e){}}
   var ta=document.createElement('textarea');ta.value=s;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.focus();ta.select();try{document.execCommand('copy');}catch(e){}document.body.removeChild(ta);}
+/* ---- DEMO LEADS REACH THE KIT QUEUE ------------------------------------------------------------
+   The website sends every "Browse the catalog" click to the demo store, so a board sent from a demo
+   is a website lead. It used to go only to FormSubmit -- Steven's inbox -- and never reached the
+   Airtable Kit Queue that every other website lead lands in. On a demo it now ALSO posts to the same
+   lead webhook the website uses, same payload shape, so it arrives as a Pending row like any other.
+   Client stores are deliberately excluded: their buyers are existing customers, and a Kit Queue row
+   would spawn a second store for a company that already has one.
+   Name / company / website are derived from the work email when not typed, exactly as the site does.
+   Freemail domains give no company; role inboxes (ops@, info@) give no name rather than "Ops".
+   This adds no CTA and no form: it is plumbing behind the checkout the demo already has. */
+var DLEAD_HOOK='https://hyperagent.com/api/webhooks/cms69ljxt0kod08adokdar5i6/receive';
+var DFREEMAIL={'gmail.com':1,'googlemail.com':1,'yahoo.com':1,'yahoo.ca':1,'ymail.com':1,'hotmail.com':1,
+  'hotmail.ca':1,'outlook.com':1,'live.com':1,'live.ca':1,'msn.com':1,'aol.com':1,'icloud.com':1,'me.com':1,
+  'mac.com':1,'protonmail.com':1,'proton.me':1,'gmx.com':1,'mail.com':1,'yandex.com':1,'zoho.com':1,
+  'rogers.com':1,'sympatico.ca':1,'bell.net':1,'bellnet.ca':1,'shaw.ca':1,'telus.net':1,'videotron.ca':1,
+  'cogeco.ca':1,'eastlink.ca':1,'xplornet.com':1};
+var DROLEBOX={info:1,ops:1,operations:1,sales:1,admin:1,office:1,accounts:1,accounting:1,ap:1,ar:1,
+  hello:1,contact:1,enquiries:1,inquiries:1,purchasing:1,procurement:1,buyer:1,hr:1,payroll:1,
+  safety:1,service:1,orders:1,estimating:1,estimates:1,quotes:1,shop:1,warehouse:1,dispatch:1,
+  team:1,mail:1,email:1,general:1,reception:1,front:1,billing:1,support:1,help:1,marketing:1};
+function dSiteFromEmail(email){
+  var m=/^[^@\s]+@([^@\s]+\.[a-z]{2,})$/i.exec((email||'').trim()); if(!m)return '';
+  var d=m[1].toLowerCase().replace(/^www\./,''); return DFREEMAIL[d]?'':d;
+}
+function dCompanyFromSite(site){
+  var b=(site||'').replace(/^https?:\/\//i,'').replace(/^www\./i,'').split('/')[0].split('.')[0];
+  if(!b)return '';
+  return b.replace(/[-_]+/g,' ').replace(/\b[a-z]/g,function(c){return c.toUpperCase();});
+}
+function dNameFromEmail(email){
+  var m=/^([^@\s]+)@/.exec((email||'').trim()); if(!m)return '';
+  var local=m[1].toLowerCase().replace(/\d+$/,'');
+  if(DROLEBOX[local.replace(/[._-]/g,'')])return '';
+  var parts=local.split(/[._-]+/).filter(function(x){return x&&!DROLEBOX[x];});
+  if(!parts.length)return '';
+  return parts.map(function(x){return x.length===1?x.toUpperCase()+'.':x.charAt(0).toUpperCase()+x.slice(1);}).join(' ');
+}
+function demoBoardSummary(){
+  try{return Object.keys(CART).map(function(k){var it=BYKEY[bkey(k)];
+    return it?(it.name+' ×'+((CART[k]||{}).qty||'')):null;}).filter(Boolean).join(', ');}catch(e){return '';}
+}
+function demoLead(c){
+  if(!CFG.demo)return;
+  var site=dSiteFromEmail(c.email);
+  var body={name:c.name||'',companyName:c.company||'',companyWebsite:site||'',website:site||'',
+    email:c.email||'',products:demoBoardSummary(),status:'pending',scope:'all',country:'CA',
+    source:'Website',submittedAt:new Date().toISOString(),
+    airtable:{base:'appCYDBvfvfaLfzyi',table:'tbl3ctjDqg6nyQDao'}};
+  try{fetch(DLEAD_HOOK,{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(body),keepalive:true}).catch(function(){});}catch(e){}
+}
 // PROPER form-to-inbox: POST the kit + contact straight to JDP's inbox (FormSubmit) — no reliance on the
 // visitor's email app. If the request fails for any reason, fall back to a prefilled email + clipboard copy
 // so a lead is never lost.
@@ -7009,10 +7074,15 @@ function submitKit(){
   var c=contactVals();
   if(!c.email||c.email.indexOf('@')<1){var e=document.getElementById('coEmail');if(e){e.classList.add('err');e.focus();}
     toast('Add your email so we can send your quote');return;}
+  if(CFG.demo){
+    if(!c.company)c.company=dCompanyFromSite(dSiteFromEmail(c.email));
+    if(!c.name)c.name=dNameFromEmail(c.email);
+  }
   persistContact(c);var body=orderText(c);
   var btn=document.getElementById('emailKit');if(btn){btn.disabled=true;btn.dataset.lbl=btn.innerHTML;btn.innerHTML='Sending…';}
-  var subj='Kit request — '+(c.company||CFG.client)+(c.name?' — '+c.name:'');
-  var payload={name:c.name||'(not given)',email:c.email,company:c.company||CFG.client||'',
+  var subj='Kit request — '+(c.company||(CFG.demo?c.email:CFG.client))+(c.name?' — '+c.name:'')+(CFG.demo?' (demo store)':'');
+  demoLead(c);
+  var payload={name:c.name||'(not given)',email:c.email,company:c.company||(CFG.demo?'':CFG.client)||'',
     _subject:subj,_template:'table',_captcha:'false',kit:body,
     kit_link:location.href.split('#')[0].split('?')[0],
     // The customer's own list as a link: open it to see exactly what they chose, and adopt it as

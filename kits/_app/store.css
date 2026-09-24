@@ -454,6 +454,16 @@ main{padding:0 0 22px}
 .coform input:focus,.coform textarea:focus{outline:0;border-color:var(--a)}
 .coform input.err{border-color:#e2554b;background:#fef4f3}
 .coform textarea{min-height:70px;resize:vertical}
+/* demo checkout: one visible field, the rest behind a toggle (see openCheckout) */
+.coone .coopt{border:1.5px dashed var(--line);border-radius:12px;padding:0 14px}
+.coone .coopt>summary{list-style:none;cursor:pointer;padding:12px 0;font-size:14px;font-weight:700;color:var(--mut)}
+.coone .coopt>summary::-webkit-details-marker{display:none}
+.coone .coopt>summary:before{content:"+ ";font-weight:800;color:var(--a)}
+.coone .coopt[open]>summary:before{content:"\2212  "}
+.coone .coopt>summary i{font-style:normal;font-weight:600;opacity:.75;margin-left:4px}
+.coone .coopt[open]{padding-bottom:14px}
+.coone .coopt>input,.coone .coopt>textarea{margin-top:10px}
+.coone .coopt .artwrap{margin-top:12px}
 /* checkout: secondary copy action */
 .copyalt{display:block;width:100%;background:none;border:0;color:var(--a);font:inherit;font-weight:800;font-size:13.5px;padding:12px 6px 2px;cursor:pointer}
 
