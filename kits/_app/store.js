@@ -2934,7 +2934,9 @@ function submitSampleVisit(){
     .catch(function(){clearTimeout(to);fail();});
 }
 function sampSuccess(c){
-  var first=c.name?esc(c.name.split(' ')[0]):'';
+  var first=c.name?c.name.split(' ')[0]:'';
+  if(/^[A-Za-z]\.$/.test(first))first=c.name;   /* "J. Smith", not "J." */
+  first=first?esc(first):'';
   var el=document.getElementById('samp');if(!el)return;
   el.innerHTML='<button class="shx" id="sampX" aria-label="Close">\u2715</button>'+
     '<div class="cosent"><div class="csent-ic">\u2713</div>'+
@@ -7075,11 +7077,14 @@ function submitKit(){
   var c=contactVals();
   if(!c.email||c.email.indexOf('@')<1){var e=document.getElementById('coEmail');if(e){e.classList.add('err');e.focus();}
     toast('Add your email so we can send your quote');return;}
+  /* Remember only what the buyer TYPED. Saved contact is shared by every store on this domain, so a
+     guessed name/company from a demo would pre-fill the next store they open. */
+  var typed={name:c.name,email:c.email,company:c.company};
   if(CFG.demo){
     if(!c.company)c.company=dCompanyFromSite(dSiteFromEmail(c.email));
     if(!c.name)c.name=dNameFromEmail(c.email);
   }
-  persistContact(c);var body=orderText(c);
+  persistContact(CFG.demo?typed:c);var body=orderText(c);
   var btn=document.getElementById('emailKit');if(btn){btn.disabled=true;btn.dataset.lbl=btn.innerHTML;btn.innerHTML='Sending…';}
   var subj='Kit request — '+(c.company||(CFG.demo?c.email:CFG.client))+(c.name?' — '+c.name:'')+(CFG.demo?' (demo store)':'');
   demoLead(c);
@@ -7122,7 +7127,9 @@ function mailtoFallback(c,body,subj){
   window.location.href='mailto:'+JDP_EMAIL+'?subject='+encodeURIComponent(subj)+'&body='+encodeURIComponent(body);
 }
 function checkoutSuccess(c){
-  var first=c.name?esc(c.name.split(' ')[0]):'';
+  var first=c.name?c.name.split(' ')[0]:'';
+  if(/^[A-Za-z]\.$/.test(first))first=c.name;   /* "J. Smith", not "J." */
+  first=first?esc(first):'';
   document.getElementById('cart').innerHTML=
     '<div class="carth"><h2>Request sent</h2><button class="cartx" id="cartx" aria-label="Close">✕</button></div>'+
     '<div class="citems"><div class="cosent"><div class="csent-ic">✓</div>'+
