@@ -6809,7 +6809,8 @@ function proformaText(c){
        third one off entirely mid-word -- on an invoice the customer has to be able to see every
        position they are being charged for. */
     wrapInto(L,det,66,'   ');
-    var ss=sizesSummary(cc,BYKEY[bkey(ck)]);if(ss)wrapInto(L,'sizes: '+ss,66,'   ');
+    /* was bkey(ck) -- same undeclared-variable bug as orderText(); the loop key here is `k`. */
+    var ss=sizesSummary(cc,BYKEY[bkey(k)]);if(ss)wrapInto(L,'sizes: '+ss,66,'   ');
     sub+=e.revenue;
   });
   L.push(new Array(73).join('-'));
