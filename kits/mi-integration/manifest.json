@@ -1,0 +1,16 @@
+{
+  "generator": "client-app",
+  "version": "1790266395",
+  "slug": "mi-integration",
+  "client": "Mi Integration",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_0071bb.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}
