@@ -1,0 +1,17 @@
+{
+  "generator": "client-app",
+  "version": "1790363574",
+  "slug": "city-electric-supply",
+  "client": "City Electric Supply",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_0471ab.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_df1a37.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}
