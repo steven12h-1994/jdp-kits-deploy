@@ -948,6 +948,77 @@ function incHtml(it,decos,mode){
     }).join('')+'</div>';
 }
 
+
+/* ---- THE TRUST LAYER (2026-09-25) -----------------------------------------------------------------
+   Steven: "4 imprint does 1 billion in revenue and we do not ! We must copy and execute there best
+   customer experience and conversion methods".
+
+   4imprint puts a person, a phone number, a rating and a guarantee on every page, because for a
+   decorated-goods order the buyer's real question is not "is this polo nice" but "will these people
+   get my logo right, on time, and answer the phone if they don't". Our 583 company stores carried
+   NONE of that: no phone, no reviews, no heritage, no response time -- measured, zero occurrences in
+   store.js -- while justdealspromotions.com itself publishes all of it.
+
+   EVERY FACT BELOW IS PUBLISHED BY JDP, verified 2026-09-25:
+     * phone, email, address, "Canadian since 1989", "Family-owned", "12,847+ teams",
+       "Logo Reprint Guarantee", "Free mockups + exact pricing · reply in ~1 business day",
+       "Ships coast to coast"                      -> justdealspromotions.com homepage
+     * 4.8 stars from 38 reviews                    -> Google listing "Just Deals", 4490 Chesswood Dr
+                                                      (the same address the homepage publishes)
+   Nothing is paraphrased into a stronger promise: "Logo Reprint Guarantee" is shown as its name only,
+   because the site does not publish its terms. Update the numbers here, in ONE place, when they move. */
+var JDP_TRUST={
+  phone:'(416) 638-3862', tel:'+14166383862', email:'steven@justdealspromotions.com',
+  rating:4.8, reviews:38, reviewsUrl:'https://maps.google.com/?cid=2410870944395279026',
+  since:1989, teams:'12,847+', reply:'about 1 business day'
+};
+function trustOn(){return !(CFG&&CFG.trust===false);}                 /* a store can opt out */
+function trustStars(r){
+  /* Filled to the exact rating (4.8 -> 96%), not rounded up to five full stars. */
+  var pct=Math.max(0,Math.min(100,Math.round(r/5*1000)/10));
+  return '<span class="tstars" aria-label="'+r+' out of 5 stars"><span class="tsb">★★★★★</span>'+
+    '<span class="tsf" style="width:'+pct+'%">★★★★★</span></span>';
+}
+function trustRatingHtml(cls){
+  var T=JDP_TRUST;
+  return '<a class="trate '+(cls||'')+'" href="'+T.reviewsUrl+'" target="_blank" rel="noopener noreferrer" '+
+    'title="Read our Google reviews">'+trustStars(T.rating)+'<b>'+T.rating.toFixed(1)+'</b>'+
+    '<span>'+T.reviews+' Google reviews</span></a>';
+}
+function trustPhoneHtml(cls,label){
+  var T=JDP_TRUST;
+  return '<a class="tphone '+(cls||'')+'" href="tel:'+T.tel+'" aria-label="Call Just Deals Promotions at '+T.phone+'">'+
+    '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+
+    '<path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.5c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"/></svg>'+
+    '<span>'+(label?esc(label)+' ':'')+'<b>'+T.phone+'</b></span></a>';
+}
+/* Top bar: the phone and the rating, always one glance away -- 4imprint's header carries both. */
+function trustBarHtml(){
+  if(!trustOn())return '';
+  return '<div class="tbtrust">'+trustRatingHtml('tb')+trustPhoneHtml('tb')+'</div>';
+}
+/* Next to the add button: why it is safe to say yes. The three promises a decorated order turns on
+   -- you see it first, it is priced exactly, a person answers -- in the words the site already uses. */
+function trustPromiseHtml(where){
+  if(!trustOn())return '';
+  var T=JDP_TRUST;
+  return '<div class="tprom tprom-'+(where||'sheet')+'">'+
+    '<div class="tpl">'+trustRatingHtml('mini')+'<span class="tsep">·</span><span>Canadian since '+T.since+'</span>'+
+      '<span class="tsep">·</span><span>Family-owned</span></div>'+
+    '<ul class="tpg">'+
+      '<li><b>Free mockup</b> of your logo on it, before anything is made</li>'+
+      '<li><b>Exact pricing</b> confirmed — no payment now, no obligation</li>'+
+      '<li><b>Logo Reprint Guarantee</b> · <b>Price-match</b> on a written quote</li>'+
+    '</ul></div>';
+}
+/* A real person, and when they will answer. The success screen used to end at "your list is on its
+   way" -- no time, no name, no number to call while waiting. */
+function trustReplyHtml(){
+  if(!trustOn())return '';
+  var T=JDP_TRUST;
+  return '<div class="treply"><b>A real person replies in '+T.reply+'</b> with your free mockup and exact quote.'+
+    ' Questions before then? '+trustPhoneHtml('inline','Call')+'</div>';
+}
 /* ---------- menu card (photo-forward, one + button) ---------- */
 function menuCard(key){
   var item=BYKEY[key],vm=vmOf(key);if(!item)return '';
@@ -2330,13 +2401,13 @@ function sxSetQuery(q){
 function sxSubmit(q){
   if(q!=null)sxSetQuery(q);
   var ts=document.getElementById('topSearch'),cur=ts?ts.value:VIEW.q;
-  sxRemember(cur);sxDropHide();if(ts)ts.blur();
+  sxRemember(cur);sxDropHide();if(ts)ts.blur();jdpTrackSearch(cur);
   var ex=cur?sxExactAisle(sxResultsFor(cur)):null;
   if(ex){sxGoAisle(ex.mega,ex.sub);return;}
   scrollToResults();
 }
 function sxGoAisle(mega,sub){
-  sxDropHide();
+  sxDropHide();jdpTrack('aisle',{k:bslug(sub||mega)});
   var ts=document.getElementById('topSearch');
   if(ts&&ts.value)sxRemember(ts.value);
   sxSetQuery('');
@@ -2365,7 +2436,8 @@ function wireSuggest(){
   ts.addEventListener('focus',function(){sxDropShow(ts.value);});
   ts.addEventListener('input',function(){
     clearTimeout(SXD.t);var v=ts.value;
-    SXD.t=setTimeout(function(){if(document.activeElement===ts)sxDropShow(v);},60);});
+    SXD.t=setTimeout(function(){if(document.activeElement===ts)sxDropShow(v);},60);
+    clearTimeout(SXD.tt);SXD.tt=setTimeout(function(){jdpTrackSearch(v);},1800);});
   ts.addEventListener('keydown',function(e){
     if(e.key==='ArrowDown'){e.preventDefault();if(!SXD.open)sxDropShow(ts.value);sxMove(1);}
     else if(e.key==='ArrowUp'){e.preventDefault();sxMove(-1);}
@@ -2502,7 +2574,7 @@ function sxExactAisle(R){
 /* Zero results: 4imprint offers a person ("Need help?"). The store's own quote request already
    reaches the team with a note, so it opens as a sourcing request with the search written in. */
 function openSourcing(q){
-  sxDropHide();
+  sxDropHide();jdpTrack('source',{q:q});
   openCart();openCheckout();
   var empty=!cartCount();
   var h=document.querySelector('#cart .carth h2');if(h&&empty)h.textContent='Ask us to source it';
@@ -2532,7 +2604,8 @@ function noResultsHtml(q,R){
   h+='<p class="nrbl">Popular in this store:</p><div class="nrchips">'+pop.map(function(p){
     return '<button type="button" class="nrchip" data-nrq="'+esc(p.q)+'">'+esc(p.q)+' <i>'+p.n+'</i></button>';}).join('')+'</div>';
   h+='<div class="nrask"><div><b>Can\u2019t find it?</b><span>We source well beyond what is shown here. '+
-     'Tell us what you need and a real person will quote it \u2014 no obligation.</span></div>'+
+     'Tell us what you need and a real person will quote it \u2014 no obligation.'+
+     (trustOn()?(' Or call '+trustPhoneHtml('inline')):'')+'</span></div>'+
      '<button type="button" class="nraskb" data-nrask="'+esc(q)+'">Ask us to source it \u2192</button></div></div>';
   return h;
 }
@@ -3618,6 +3691,7 @@ function backChipHtml(){
 }
 function wireBack(root){wireDelegates();}
 function openSheet(key,wantCol,fromKey){
+  jdpTrack('sheet',{k:key});
   // Accepts a CART key (so the kit's edit pencil reopens that exact fit) or a plain product key.
   var _ck=key;key=bkey(key);
   FROMKEY=(fromKey&&fromKey!==key)?fromKey:'';
@@ -4451,11 +4525,13 @@ function renderSheet(){
       mediaRow+
       fabricHtml(item)+sampCtaHtml(SH.key)+
       fitTog+step1+qtyGrp+primaryHtml+extraHtml+
+      trustPromiseHtml('sheet')+
       '<div class="shnote">'+(hasDecoPlace(item)?'Prices are per piece, decorated — your logo (embroidery / print) is included. One-time setup shows once in your board summary. ':'Prices are per piece (blank garment — no decoration on this item). ')+'Exact quote confirmed before anything runs.</div>'+
     '</div></div>'+
     '<div class="shfoot">'+priceClar+
       '<button class="shaddbtn" id="shAdd"'+(canAdd?'':' disabled')+'><span>'+(canAdd?(CART[ckey(SH.key,SH.fit)]?'Update board':'Add to board'):('Add '+moq()+'+ pieces'))+'</span><span class="p">'+money(line)+'</span></button>'+
-      '<div class="shtrust">✓ Live pricing · exact quote · no obligation · no payment now</div></div>';
+      (trustOn()?('<div class="shtrust">'+trustRatingHtml('mini')+' · free mockup first · no payment now</div>')
+                :'<div class="shtrust">✓ Live pricing · exact quote · no obligation · no payment now</div>')+'</div>';
   var sh=document.getElementById('sheet');
   // Re-render replaces this markup, so the sheet chrome must be re-bound every time, not just
   // on open: clicking a colour swatch calls the renderer again and left Share and Back dead.
@@ -4537,6 +4613,7 @@ function swapPreview(){var im=document.getElementById('shimg');if(im){im.classLi
 function addFromSheet(){
   var q=effQty();
   if(q<moq()){toast('Add at least '+moq()+' pieces');return;}
+  jdpTrack('add',{k:SH.key,n:q});
   var _moved=ensureWritable();
   var _ck=ckey(SH.key,SH.fit);
   var was=!!CART[_ck],decos=[];
@@ -4684,6 +4761,35 @@ function readSharedList(){
    local mirror so the store is instant and still works with no network -- the server is the shared
    truth, the browser is the fast copy. Every network call is fire-and-forget: nothing in the UI ever
    waits on it. */
+
+/* ---- FUNNEL EVENTS (2026-09-25) --------------------------------------------------------------
+   The stores recorded nothing, so no one could say where buyers leave. One anonymous beacon per
+   step to kits/_api/events.php: no name, no email, no IP kept; a random id per tab. sendBeacon is
+   fire-and-forget, so this can never slow a buyer down or break a page if the endpoint is down. */
+var JDP_SID=null,JDP_KIT=null,JDP_LASTQ='';
+function jdpKit(){if(JDP_KIT==null){var m=location.pathname.match(/\/kits\/([a-z0-9][a-z0-9_\-]*)/i);JDP_KIT=m?m[1].toLowerCase():'';}return JDP_KIT;}
+function jdpSid(){
+  if(JDP_SID)return JDP_SID;
+  try{JDP_SID=sessionStorage.getItem('jdp_sid');}catch(e){}
+  if(!JDP_SID){JDP_SID=Math.random().toString(36).slice(2,12)+Date.now().toString(36);
+    try{sessionStorage.setItem('jdp_sid',JDP_SID);}catch(e){}}
+  return JDP_SID;
+}
+function jdpTrack(e,x){
+  try{
+    if(!jdpKit()||CFG&&CFG.notrack)return;
+    var p={kit:jdpKit(),e:e,sid:jdpSid()};if(x)for(var k in x)p[k]=x[k];
+    var body=JSON.stringify(p),url=apiBase()+'/events.php';
+    if(navigator.sendBeacon){navigator.sendBeacon(url,new Blob([body],{type:'text/plain'}));}
+    else{fetch(url,{method:'POST',body:body,keepalive:true,headers:{'Content-Type':'text/plain'}}).catch(function(){});}
+  }catch(err){}
+}
+/* A search is logged once the buyer has stopped typing or pressed Enter -- not per keystroke. */
+function jdpTrackSearch(q){
+  q=String(q||'').trim();if(q.length<2||q===JDP_LASTQ)return;JDP_LASTQ=q;
+  var n=0;try{n=sxResultsFor(q).keys.length;}catch(e){}
+  jdpTrack(n?'search':'search0',{q:q,n:n});if(n)return;
+}
 function apiBase(){return String((CFG&&CFG.catalog_base)||CATALOG_BASE).replace('_catalog','_api');}
 function boardsApi(){return apiBase()+'/boards.php';}
 function bslug(s){return String(s||'').toLowerCase()
@@ -6031,6 +6137,7 @@ function wireBoard(){
   if(tc)tc.addEventListener('click',function(){copyStarterToMine();renderBoard();});
 }
 function openBoard(id){
+  jdpTrack('board');
   /* A board id is local to the browser that made it. openBoard used to write ?board=<id> into the
      address bar, so copying that URL -- the obvious thing to do -- handed someone a link that
      resolves to nothing on their machine, or worse, silently showed them their OWN board under the
@@ -6283,6 +6390,7 @@ function tbarHtml(){
         '<button type="button" class="exsx" id="topSearchX" aria-label="Clear">\u2715</button>'+
         '<div class="sxdd" id="sxdd" role="listbox" aria-label="Search suggestions" hidden></div>'+
       '</div>'+
+      trustBarHtml()+
       '<button type="button" class="tbboards" id="tbBoards">'+railIcon('boards')+
         '<span id="tbBoardsLbl">Boards</span></button>'+
     '</div>'+catMenuHtml()+'</div>';
@@ -7612,6 +7720,7 @@ function orderText(c){c=c||{};
   return lines.join('\n');
 }
 function openCheckout(){
+  jdpTrack('checkout',{n:cartCount()});
   var n=cartCount(),sub=cartSubtotal(),setup=cartSetup();var saved={};
   try{saved=JSON.parse(localStorage.getItem('jdpkit_contact')||'{}');}catch(e){}
   document.getElementById('cart').innerHTML=
@@ -7660,6 +7769,7 @@ function openCheckout(){
       '<button class="checkout" id="emailKit">Send my list — get my quote <span class="ar">→</span></button>'+
       '<button class="copyalt" id="copyKit">or copy my list to paste into a reply</button>'+
       '<div class="ckpm">\u2605 <b>Price-match guarantee</b> — found a lower written quote for the same job? Send it with your board and we\u2019ll match it.</div>'+
+      trustReplyHtml()+
       '<button type="button" class="svalt" data-samp="">\u270B Rather see them in person first? We\u2019ll bring samples to you</button>'+
       '<div class="cktrust" id="copyHint"><span>No payment now</span><span>No obligation</span><span>No minimum beyond 12 pcs</span></div></div>';
   document.getElementById('cartx').addEventListener('click',closeAll);
@@ -7783,6 +7893,7 @@ function mailtoFallback(c,body,subj){
   window.location.href='mailto:'+JDP_EMAIL+'?subject='+encodeURIComponent(subj)+'&body='+encodeURIComponent(body);
 }
 function checkoutSuccess(c){
+  jdpTrack('sent',{n:cartCount()});
   var first=c.name?c.name.split(' ')[0]:'';
   if(/^[A-Za-z]\.$/.test(first))first=c.name;   /* "J. Smith", not "J." */
   first=first?esc(first):'';
@@ -7791,6 +7902,7 @@ function checkoutSuccess(c){
     '<div class="citems"><div class="cosent"><div class="csent-ic">✓</div>'+
       '<h3>Your list is on its way'+(first?', '+first:'')+'!</h3>'+
       '<p>We’ve got your picks and will reply to <b>'+esc(c.email)+'</b> with your exact quote. No payment now — no obligation.</p>'+
+      trustReplyHtml()+
       '<button class="checkout" id="sentdone">Keep browsing</button></div></div>';
   document.getElementById('cartx').addEventListener('click',closeAll);
   document.getElementById('sentdone').addEventListener('click',closeAll);
@@ -7844,7 +7956,7 @@ function go(cfg){
     // Learn each logo's ink BEFORE first paint so garments render a thread colour that actually reads.
     Promise.all((cfg.logos||[]).map(probeInk)).then(function(){
       assignColourways();
-      SHARED=readSharedList();curateInit();loadCart();autoApplyShared();buildStore();
+      SHARED=readSharedList();curateInit();loadCart();autoApplyShared();buildStore();jdpTrack('view');
       var _bm=location.search.match(/[?&]board=([^&#]+)/);
       if(_bm){try{openBoard(decodeURIComponent(_bm[1]));}catch(e){}}
       /* ?b=<slug> is the live-board link. The legacy ?list=... links stay working via SHARED, so
