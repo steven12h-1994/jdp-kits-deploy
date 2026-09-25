@@ -4563,7 +4563,15 @@ function renderSheet(){
       '<div class="shnote">'+(hasDecoPlace(item)?'Prices are per piece, decorated — your logo (embroidery / print) is included. One-time setup shows once in your board summary. ':'Prices are per piece (blank garment — no decoration on this item). ')+'Exact quote confirmed before anything runs.</div>'+
     '</div></div>'+
     '<div class="shfoot">'+priceClar+
-      '<button class="shaddbtn" id="shAdd"'+(canAdd?'':' disabled')+'><span>'+(canAdd?(CART[ckey(SH.key,SH.fit)]?'Update board':'Add to board'):('Add '+moq()+'+ pieces'))+'</span><span class="p">'+money(line)+'</span></button>'+
+      /* ONE TAP FROM A PRODUCT TO A REQUEST. Live funnel, 2026-09-25: 21 product opens, 0 adds.
+         "Add to board" asked a buyer to adopt our concept of a board before they could ask a
+         question. The primary action is now the thing they came for -- a free mockup and price for
+         THIS piece -- and the board is the secondary "keep browsing" path. Same add, same line,
+         then straight into the request instead of back to the grid. */
+      (canAdd
+        ? ('<button class="shaddbtn" id="shQuote"><span>Get a free mockup of this</span><span class="p">'+money(line)+'</span></button>'+
+           '<button class="shaddsec" id="shAdd">'+(CART[ckey(SH.key,SH.fit)]?'Update my board':'+ Add to board, keep browsing')+'</button>')
+        : '<button class="shaddbtn" id="shAdd" disabled><span>Add '+moq()+'+ pieces</span><span class="p">'+money(line)+'</span></button>')+
       (trustOn()?('<div class="shtrust">'+trustRatingHtml('mini')+' · free mockup first · no payment now</div>')
                 :'<div class="shtrust">✓ Live pricing · exact quote · no obligation · no payment now</div>')+'</div>';
   var sh=document.getElementById('sheet');
@@ -4613,6 +4621,8 @@ function renderSheet(){
   var _sr=document.getElementById('spreadre');if(_sr)_sr.addEventListener('click',applySpread);
   sh.querySelectorAll('.szin').forEach(function(inp){inp.addEventListener('change',function(e){SH.sizes[e.target.dataset.sz]=Math.max(0,parseInt(e.target.value,10)||0);renderSheet();});});
   document.getElementById('shAdd').addEventListener('click',addFromSheet);
+  var shq=document.getElementById('shQuote');
+  if(shq)shq.addEventListener('click',function(){SH_QUOTE=true;jdpTrack('sheet_quote',{k:SH.key});addFromSheet();});
   var _n=document.querySelector('#sheet .shscroll');if(_n)_n.scrollTop=_top;
 }
 /* ---------- reuse the size split -------------------------------------------------------------
@@ -4729,8 +4739,10 @@ function addFromSheet(){
   if(Object.keys(sz).length)saveSpread(sz,SH.fit,BYKEY[SH.key].name);
   CART[_ck]=entry;
   saveCart();var _k=SH.key,_col=SH.colour,_fit=SH.fit;closeAll();refreshCartUI();syncBoardIfOpen();
+  if(SH_QUOTE){SH_QUOTE=false;openCart();openCheckout();return;}
   addedPanel(_k,was,_col,_fit);
 }
+var SH_QUOTE=false;
 /* METHOD COMES FROM THE CATALOGUE STANDARD, NEVER FROM THE KIT VIEWMODEL -- the same rule
    openSheet() already follows. The kit's stored viewmodel is written by the fleet sync, which
    stamps `embroidery` on everything; the catalogue's `std` is the decoration we actually
@@ -5514,6 +5526,7 @@ function refreshCartUI(){
   var cl=document.getElementById('cartLbl');
   if(cl){var nm=activeName();cl.textContent=nm.length>17?(nm.slice(0,16)+'\u2026'):nm;}
   var bar=document.getElementById('cbar');if(bar)bar.classList.toggle('on',n>0&&!CFG.demo);
+  document.documentElement.classList.toggle('hascart',n>0);
   var bn=document.getElementById('cbarN');if(bn)bn.textContent=n;
   var bp=document.getElementById('cbarP');if(bp)bp.textContent=money0(sub);
   document.querySelectorAll('.mcard').forEach(function(card){var k=card.dataset.key;
@@ -7300,12 +7313,42 @@ function wireHeroNext(){
     if(nt)nt.value='What we need (items, how many people, colours, date): ';
     var h=document.querySelector('#cart .carth h2');if(h&&!cartCount())h.textContent='Tell us what you need';});}
 }
+
+/* ---- ALWAYS ONE TAP FROM A PERSON (4imprint's floating "Email / Chat") ------------------------------
+   55 visits and not one contact in a day. A buyer with a question had to find the phone number in the
+   header or the FAQ at the bottom of a long page. This sits in the corner of every page: open it for
+   "send us what you need" or a tap-to-call. Hidden on demo stores (their own lead flow) and while the
+   board bar is showing, so it never stacks on another button. */
+function helpDockHtml(){
+  if(CFG.demo||!trustOn())return '';
+  var T=JDP_TRUST;
+  return '<div class="jhelp" id="jhelp"><div class="jhpan" id="jhPan" hidden>'+
+      '<div class="jhhd"><b>Questions? Talk to a person.</b><i>Steven replies in '+T.reply+'.</i></div>'+
+      '<button type="button" class="jhgo" id="jhAsk">Send us what you need \u2192</button>'+
+      trustPhoneHtml('jh','Call')+
+      '<div class="jhft">Free mockup &amp; exact quote \u00b7 no payment now</div></div>'+
+    '<button type="button" class="jhbtn" id="jhBtn" aria-expanded="false" aria-controls="jhPan">'+
+      '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg>'+
+      '<span>Questions? Free mockup</span></button></div>';
+}
+function wireHelpDock(){
+  var b=document.getElementById('jhBtn'),p=document.getElementById('jhPan');if(!b||b.dataset.w)return;b.dataset.w='1';
+  b.addEventListener('click',function(){var open=p.hidden;p.hidden=!open;b.setAttribute('aria-expanded',open?'true':'false');
+    if(open)jdpTrack('help_open');});
+  document.getElementById('jhAsk').addEventListener('click',function(){p.hidden=true;b.setAttribute('aria-expanded','false');
+    jdpTrack('help_ask');openSourcing('');
+    var nt=document.getElementById('coNote');if(nt)nt.value='What we need (items, how many people, colours, date): ';
+    var h=document.querySelector('#cart .carth h2');if(h&&!cartCount())h.textContent='Tell us what you need';});
+  document.addEventListener('mousedown',function(e){if(!p.hidden&&!document.getElementById('jhelp').contains(e.target)){p.hidden=true;b.setAttribute('aria-expanded','false');}});
+}
 function renderRecoHero(){
   var el=document.getElementById('recohero');if(!el)return;
   el.innerHTML=recoHeroHtml();
   el.querySelectorAll('[data-reco]').forEach(function(b){
     b.addEventListener('click',function(){openBoard(b.dataset.reco);});});
   wireHeroNext();
+  if(!document.getElementById('jhelp')){var d=document.createElement('div');d.innerHTML=helpDockHtml();
+    if(d.firstChild){document.body.appendChild(d.firstChild);wireHelpDock();}}
 }
 /* ---- THE HERO HAS TO SHOW THEM THEIR OWN GEAR -----------------------------------------------
    Steven, 2026-09-09: "Make the kits have better UI for a incredible visitor experience!"
@@ -7924,12 +7967,16 @@ function openCheckout(){
               '<input id="coName" placeholder="Your name" autocomplete="name" value="'+esc(saved.name||'')+'">'+
               '<input id="coCompany" placeholder="Company / team" autocomplete="organization" value="'+esc(saved.company||'')+'">'+
               '<textarea id="coNote" placeholder="Anything to add? Deadlines, sizes, other items…"></textarea>'
-        : '<div class="coform">'+
-            '<input id="coName" placeholder="Your name" autocomplete="name" value="'+esc(saved.name||'')+'">'+
-            '<input id="coEmail" type="email" inputmode="email" placeholder="Email — where we send your quote" autocomplete="email" value="'+esc(saved.email||'')+'">'+
-            '<input id="coCompany" placeholder="Company / team" autocomplete="organization" value="'+esc(saved.company||CFG.client||'')+'">'+
-            '<textarea id="coNote" placeholder="Anything to add? Deadlines, sizes, other items…"></textarea>'+
-          '</div>')+
+        /* CLIENT STORES NOW ASK FOR ONE THING TOO. Five fields stood between a buyer and a request
+           (name, email, company, note, logo). submitKit() has only ever required the email, and the
+           company is known -- it is the store. So: email, and a note for anything they want to say;
+           name and logo behind one optional toggle, company pre-filled inside it. */
+        : '<div class="coform coone">'+
+            '<input id="coEmail" type="email" inputmode="email" placeholder="Your work email — where we send your mockup &amp; quote" autocomplete="email" autocapitalize="off" spellcheck="false" enterkeyhint="send" value="'+esc(saved.email||'')+'">'+
+            '<textarea id="coNote" placeholder="Anything to add? Deadlines, sizes, other items… (optional)"></textarea>'+
+            '<details class="coopt"><summary>Add your name or your logo file <i>optional</i></summary>'+
+              '<input id="coName" placeholder="Your name" autocomplete="name" value="'+esc(saved.name||'')+'">'+
+              '<input id="coCompany" placeholder="Company / team" autocomplete="organization" value="'+esc(saved.company||CFG.client||'')+'">')+
       /* Artwork is the single biggest cause of back-and-forth after an order lands. Asking for it
          HERE, while they are already filling in a form, costs one click; chasing it by email later
          costs days. Vector is what production actually wants, so it is named first -- but a
@@ -7946,10 +7993,10 @@ function openCheckout(){
         '<div class="artnote">No logo file to hand? Send your board anyway \u2014 we\u2019ll redraw your '+
           'logo to production quality from the best image you have, at no charge.</div>'+
       '</div>'+
-      (CFG.demo?'</details></div>':'')+
+      '</details></div>'+
     '</div></div>'+
     '<div class="cartf">'+
-      '<button class="checkout" id="emailKit">Send my list — get my quote <span class="ar">→</span></button>'+
+      '<button class="checkout" id="emailKit">Send — get my free mockup &amp; quote <span class="ar">→</span></button>'+
       '<button class="copyalt" id="copyKit">or copy my list to paste into a reply</button>'+
       '<div class="ckpm">\u2605 <b>Price-match guarantee</b> — found a lower written quote for the same job? Send it with your board and we\u2019ll match it.</div>'+
       trustReplyHtml()+
