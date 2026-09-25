@@ -35,7 +35,7 @@ declare(strict_types=1);
 header('Cache-Control: no-store');
 header('X-Content-Type-Options: nosniff');
 
-const EV_OK        = ['view','search','search0','sheet','add','board','checkout','sent','source','aisle','alt','added_go'];
+const EV_OK        = ['view','search','search0','sheet','add','board','checkout','sent','source','aisle','alt','added_go','board_quote','hero_programs','hero_ask','faq_ask'];
 const EV_PER_HOUR  = 900;        // per IP; a real buyer sends a few dozen
 
 function data_root(): string { return dirname(__DIR__, 3) . '/jdp-board-data'; }
