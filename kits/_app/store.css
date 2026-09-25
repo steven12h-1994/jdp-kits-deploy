@@ -2655,3 +2655,24 @@ html.sxon .subbar,html.sxon .inbar,html.sxon #catguide,html.sxon .catguide{displ
 .btmpl .tmplcopy{background:#fff!important;color:var(--ink)!important;border:1.5px solid var(--line)!important;box-shadow:none!important}
 .btmpl .tmplcopy:hover{border-color:var(--ink)!important}
 .bphc .bphcgo{background:#fff!important;color:var(--ink)!important;border:1.5px solid color-mix(in srgb,var(--a) 45%,#fff)!important;box-shadow:none!important}
+
+/* ---- CONVERSION 3 (2026-09-25 pm): product -> request in one tap; floating help ---------------- */
+.shaddsec{display:block;width:100%;margin-top:8px;border:1.5px solid var(--line);background:#fff;border-radius:12px;
+  padding:11px 12px;font:inherit;font-size:14px;font-weight:800;color:var(--ink);cursor:pointer}
+.shaddsec:hover{border-color:var(--ink)}
+.jhelp{position:fixed;right:22px;bottom:22px;z-index:1400;display:flex;flex-direction:column;align-items:flex-end;gap:10px}
+.jhbtn{display:inline-flex;align-items:center;gap:8px;border:0;border-radius:99px;background:var(--ink);color:#fff;
+  font:inherit;font-size:13.5px;font-weight:800;padding:12px 16px;cursor:pointer;box-shadow:0 10px 30px rgba(17,24,39,.25)}
+.jhbtn:hover{filter:brightness(1.15)}
+.jhpan{width:min(300px,calc(100vw - 32px));background:#fff;border:1px solid var(--line);border-radius:16px;padding:14px;
+  box-shadow:0 24px 60px rgba(17,24,39,.22);display:flex;flex-direction:column;gap:9px}
+.jhpan[hidden]{display:none}
+.jhhd{display:flex;flex-direction:column;gap:2px}.jhhd b{font-size:15px;font-weight:850}.jhhd i{font-style:normal;font-size:12.5px;color:var(--mut)}
+.jhgo{border:0;border-radius:11px;background:var(--a);color:#fff;font:inherit;font-size:14px;font-weight:850;padding:12px;cursor:pointer}
+.tphone.jh{justify-content:center;padding:10px;border:1.5px solid var(--line);border-radius:11px;font-size:14px}
+.jhft{text-align:center;font-size:11.5px;color:var(--mut)}
+/* never stack on the added panel, and step aside for the board bar on phones */
+.addedp.on~.jhelp{display:none}
+@media (max-width:760px){.jhelp{right:12px;bottom:76px}.jhbtn span{display:none}.jhbtn{padding:13px}}
+@media (max-width:600px){html.hascart .jhelp{display:none}}
+@media print{.jhelp{display:none}}
