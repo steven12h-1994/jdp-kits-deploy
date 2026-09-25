@@ -2838,6 +2838,29 @@ var GEARSTATS=[
   {n:'58%',k:'Higher perceived quality',d:'Expect better product and service when it\u2019s delivered by uniformed staff.'},
   {n:'77%',k:'Team pride',d:'Of workers say wearing the company brand gives them a sense of pride.'}
 ];
+
+/* ---- FAQ: the doubts a first order turns on ------------------------------------------------------
+   4imprint ends every category page with five questions: minimum, how long, printed or embroidered,
+   materials, care. These are ours, and every answer is something this store already does or JDP
+   already publishes. Turnaround is NOT stated as a number -- JDP publishes none -- so the answer is
+   to give us the date and get it confirmed in writing. */
+function faqHtml(){
+  var m=moq(),T=JDP_TRUST;
+  var qa=[
+    ['Is there a minimum order?','Apparel starts at '+m+' pieces per style, and you can split those across sizes. Gifts and kits show their own minimum on each card.'],
+    ['How does ordering work?','Pick a ready program or your own gear and send it to us. We reply in '+T.reply+' with a free mockup of your logo on every piece and your exact quote. No payment now, and nothing is made until you approve it.'],
+    ['Do I need everyone\u2019s sizes first?','No. Tell us roughly how many people and we will estimate the size split \u2014 you confirm the sizes before anything is produced.'],
+    ['Embroidered or printed?','Every card shows what its price includes. Embroidery is stitched in thread \u2014 premium and long-lasting, best on polos, jackets and caps. Screen print is the best value on tees and hi-vis.'],
+    ['My logo file isn\u2019t perfect.','Send the best image you have. We redraw it to production quality at no charge, and you see the mockup before anything runs.'],
+    ['How long will it take?','Tell us the date you need it by when you send your request, and we will confirm it in writing before anything is produced.'],
+    ['What if I find a better price?','Send us the written quote for the same job and we will match it. Every order also carries our Logo Reprint Guarantee.']
+  ];
+  return '<section class="faq"><div class="w"><h2 class="faqh">Questions before your first order</h2>'+
+    '<div class="faql">'+qa.map(function(x,i){
+      return '<details class="faqi"'+(i<2?' open':'')+'><summary>'+esc(x[0])+'</summary><p>'+esc(x[1])+'</p></details>';}).join('')+
+    '</div><p class="faqmore">Still a question? '+trustPhoneHtml('inline','Call Steven')+' \u2014 or '+
+    '<button type="button" class="faqask" id="faqAsk">send it with your request</button>.</p></div></section>';
+}
 function whyGearHtml(){
   return '<section class="why"><div class="w">'+
     '<div class="whyhd"><span class="eyb">Why branded gear works</span>'+
@@ -3039,7 +3062,11 @@ function buildStore(){
      'gap:32px;justify-content:space-between;flex-wrap:wrap">'+
      '<div class="herotx" style="flex:1 1 320px;min-width:0">'+
        '<h1>'+esc(poss(CFG.client))+" team store</h1>"+
-       '<p class="herosub">'+(demo?'This is a live sample. Every item shows exactly where your logo goes — swap in your brand and it becomes your team’s store. Live pricing, exact quote, no obligation.':'One premium store for the jobsite and the front office — CSA hi-vis and rugged workwear to sharp branded polos and client gifts, every piece ready with your logo.')+'</p>'+
+       '<p class="herosub">'+(demo?'This is a live sample. Every item shows exactly where your logo goes — swap in your brand and it becomes your team’s store. Live pricing, exact quote, no obligation.':'Your logo is already on every piece. Pick a ready program or your own gear \u2014 we send a free mockup and your exact quote, usually within 1 business day. Nothing is ordered until you approve it.')+'</p>'+
+       /* 4imprint opens every category with a named person ("David with 4imprint, 11 years"). The
+          person who actually answers these stores is Steven, so say so, with the number that reaches
+          him -- and give the two ways forward, not six claims. */
+       (demo||!trustOn()?'':heroNextHtml())+
      '</div>'+
      heroShotsHtml()+
    '</div></section>'+
@@ -3101,6 +3128,7 @@ function buildStore(){
      '</div>'+
      '<div class="grid" id="grid"></div>'+
      '<div class="noresults" id="noResults" style="display:none">No products match your search. Try another term.</div></main>'+
+   (CFG.demo||!trustOn()?'':faqHtml())+
    whyGearHtml()+
    whyJdpHtml()+
    (C.feed?('<section class="social"><div class="w"><h2 class="seclbl">Recent work — from our shop floor</h2>'+
@@ -5975,6 +6003,17 @@ function wireProposal(){
       setTimeout(function(){var i=card.querySelector('.bszc input');
         if(i){i.focus();try{i.select();}catch(e){}}},420);
       setTimeout(function(){card.classList.remove('needsize');},2600);}});
+  var bq=document.getElementById('bQuote');
+  if(bq)bq.addEventListener('click',function(){
+    jdpTrack('board_quote',{n:cartCount()});
+    closeBoard();
+    document.getElementById('ov').classList.add('on');
+    document.getElementById('cart').classList.add('on');
+    document.body.style.overflow='hidden';
+    openCheckout();
+    /* say, on the request itself, that sizes are to follow -- so the rep knows to ask */
+    var nt=document.getElementById('coNote');
+    if(nt&&!nt.value)nt.value='Sizes to confirm'+(getHC()?(' \u2014 about '+getHC()+' people'):'')+'. ';});
   var bp=document.getElementById('bProforma');
   if(bp)bp.addEventListener('click',function(){
     closeBoard();
@@ -6022,10 +6061,18 @@ function boardSummaryHtml(){
       '<div class="bpstep"><span class="bpsn">2</span>'+
         '<span class="bpst"><b>Proforma invoice</b>'+
           '<i>Issued against these quantities. Nothing is ordered until you approve it.</i></span></div>'+
+      /* THE QUOTE IS NEVER LOCKED BEHIND SIZES. Measured on the live funnel, 2026-09-25: 10 board
+         opens and 0 checkouts in a day, because the only button on a program board was "Request
+         proforma invoice" and it stayed disabled ("6 styles need sizes") until every style was
+         sized. The "Get my exact quote" button existed -- inside the side drawer, off-screen. A
+         buyer who opened the program from an email could see $3,741 and could not ask for a price.
+         JDP's own proposal process asks for "picks + rough headcount"; sizes are settled in the
+         quote. So the quote is always one tap away, and sizing is the optional precision step. */
       (ready
         ? '<button type="button" class="bpcta" id="bProforma">Request proforma invoice <span class="ar">\u2192</span></button>'
-        : '<button type="button" class="bpcta soft" id="bFinish">'+s.missing.length+' style'+(s.missing.length===1?' needs':'s need')+
-            ' sizes <span class="ar">\u2193</span></button>')+
+        : ('<button type="button" class="bpcta" id="bQuote">Get my free mockup &amp; quote <span class="ar">\u2192</span></button>'+
+           '<button type="button" class="bpsizes" id="bFinish">Sizes can wait \u2014 or add them now ('+s.missing.length+
+             ' style'+(s.missing.length===1?'':'s')+') <span class="ar">\u2193</span></button>'))+
     '</div></section>';
 }
 function renderBoard(){
@@ -7230,11 +7277,35 @@ function recoHeroHtml(){
     '<p class="rhsub">'+hd.p+'</p>'+
     '<div class="rhcards">'+cards+'</div></div></section>';
 }
+
+/* ---- the hero's "who and what next" -------------------------------------------------------------- */
+function heroNextHtml(){
+  var T=JDP_TRUST;
+  return '<div class="hnext">'+
+    '<div class="hnwho"><span class="hnav" aria-hidden="true">S</span>'+
+      '<span class="hnwt"><b>Steven</b><i>Just Deals Promotions \u00b7 replies in '+T.reply+'</i></span>'+
+      trustPhoneHtml('hn')+'</div>'+
+    '<div class="hnbtns"><button type="button" class="hnprim" id="hnPrograms">Start with a ready program <span class="ar">\u2193</span></button>'+
+      '<button type="button" class="hnsec" id="hnAsk">Just tell us what you need</button></div></div>';
+}
+function wireHeroNext(){
+  var p=document.getElementById('hnPrograms');
+  if(p&&!p.dataset.w){p.dataset.w='1';p.addEventListener('click',function(){
+    jdpTrack('hero_programs');
+    var r=document.getElementById('recohero');if(r)r.scrollIntoView({behavior:'smooth',block:'start'});});}
+  var a=document.getElementById('hnAsk');
+  if(a&&!a.dataset.w){a.dataset.w='1';a.addEventListener('click',function(){
+    jdpTrack('hero_ask');openSourcing('');
+    var nt=document.getElementById('coNote');
+    if(nt)nt.value='What we need (items, how many people, colours, date): ';
+    var h=document.querySelector('#cart .carth h2');if(h&&!cartCount())h.textContent='Tell us what you need';});}
+}
 function renderRecoHero(){
   var el=document.getElementById('recohero');if(!el)return;
   el.innerHTML=recoHeroHtml();
   el.querySelectorAll('[data-reco]').forEach(function(b){
     b.addEventListener('click',function(){openBoard(b.dataset.reco);});});
+  wireHeroNext();
 }
 /* ---- THE HERO HAS TO SHOW THEM THEIR OWN GEAR -----------------------------------------------
    Steven, 2026-09-09: "Make the kits have better UI for a incredible visitor experience!"
@@ -7323,6 +7394,9 @@ function wireExplore(){
     ts.addEventListener('input',push);
     ts.addEventListener('search',push);
     wireSuggest();
+    var fa=document.getElementById('faqAsk');
+    if(fa&&!fa.dataset.w){fa.dataset.w='1';fa.addEventListener('click',function(){jdpTrack('faq_ask');openSourcing('');
+      var nt=document.getElementById('coNote');if(nt)nt.value='My question: ';});}
     var x=document.getElementById('topSearchX');
     if(x){x.style.display='none';
       x.addEventListener('click',function(){ts.value='';push();ts.focus();});}
