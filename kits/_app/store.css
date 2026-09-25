@@ -2622,3 +2622,36 @@ html.sxon .subbar,html.sxon .inbar,html.sxon #catguide,html.sxon .catguide{displ
 .adsec button{flex:1;border:1px solid var(--line);background:#fff;border-radius:10px;padding:10px;font:inherit;font-size:13px;font-weight:750;color:var(--ink);cursor:pointer}
 .adtr{margin-top:9px;text-align:center;font-size:11.5px;color:var(--mut)}
 @media (max-width:600px){.addedp{right:12px;left:12px;bottom:12px;width:auto}}
+
+/* ---- CONVERSION (2026-09-25 pm): quote never locked; who + what next; FAQ --------------------- */
+.bpcta#bQuote{flex:0 0 auto}
+.bpsizes{border:0;background:transparent;font:inherit;font-size:12.5px;font-weight:700;color:var(--mut);cursor:pointer;padding:8px 4px;white-space:nowrap}
+.bpsizes:hover{color:var(--ink);text-decoration:underline}
+.hnext{margin-top:16px;display:flex;flex-direction:column;gap:12px;max-width:560px}
+.hnwho{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.hnav{width:38px;height:38px;flex:0 0 38px;border-radius:50%;display:grid;place-items:center;background:var(--a);color:#fff;font-weight:850;font-size:16px}
+.hnwt{display:flex;flex-direction:column;line-height:1.25;margin-right:6px}
+.hnwt b{font-size:14px;font-weight:850}.hnwt i{font-style:normal;font-size:12px;color:var(--mut)}
+.tphone.hn{padding:7px 11px;border:1px solid var(--line);border-radius:99px;background:#fff;font-size:12.5px}
+.hnbtns{display:flex;gap:8px;flex-wrap:wrap}
+.hnprim{border:0;border-radius:11px;background:var(--a);color:#fff;font:inherit;font-size:14px;font-weight:850;padding:12px 16px;cursor:pointer}
+.hnsec{border:1.5px solid var(--line);border-radius:11px;background:#fff;color:var(--ink);font:inherit;font-size:14px;font-weight:800;padding:11px 15px;cursor:pointer}
+.hnsec:hover{border-color:var(--ink)}
+.faq{padding:40px 0 28px}
+.faqh{font-size:22px;font-weight:850;letter-spacing:-.01em;margin:0 0 14px}
+.faql{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.faqi{border:1px solid var(--line);border-radius:12px;background:#fff;padding:0 16px}
+.faqi summary{cursor:pointer;list-style:none;padding:14px 0;font-weight:800;font-size:14.5px;display:flex;justify-content:space-between;gap:10px}
+.faqi summary::-webkit-details-marker{display:none}
+.faqi summary::after{content:"+";color:var(--mut);font-weight:700}
+.faqi[open] summary::after{content:"–"}
+.faqi p{margin:0 0 14px;font-size:13.5px;line-height:1.55;color:var(--ink)}
+.faqmore{margin:14px 0 0;font-size:13.5px;color:var(--mut)}
+.faqask{border:0;background:transparent;padding:0;font:inherit;color:var(--a);font-weight:800;cursor:pointer;text-decoration:underline}
+@media (max-width:760px){.faql{grid-template-columns:1fr}.hnbtns>button{flex:1 1 100%}}
+/* ONE primary action on a board: the quote. Copying the template and estimating sizes are real,
+   useful steps -- but they were painted in the same solid red as the quote, and the full-width copy
+   bar was the loudest thing on the page. */
+.btmpl .tmplcopy{background:#fff!important;color:var(--ink)!important;border:1.5px solid var(--line)!important;box-shadow:none!important}
+.btmpl .tmplcopy:hover{border-color:var(--ink)!important}
+.bphc .bphcgo{background:#fff!important;color:var(--ink)!important;border:1.5px solid color-mix(in srgb,var(--a) 45%,#fff)!important;box-shadow:none!important}
