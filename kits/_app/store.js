@@ -1861,134 +1861,684 @@ function colourWords(it){
   try{Object.defineProperty(it,'_cw',{value:out.join(' '),enumerable:false});}catch(e){it._cw=out.join(' ');}
   return it._cw;
 }
-/* WORDS, NOT ONE STRING.
-   The matcher used to be searchText(it).indexOf(wholeQuery), so a customer asking for
-   "stainless steel water bottles" got ZERO results -- not even the bottle literally named
-   "Eye Candy Double-Dip 20 Oz Stainless Steel Bottle", because "water" is not in its name and the
-   whole phrase had to appear contiguously. Real buyers type sentences, and half our drinkware is
-   named "Easy Breezy" or "Shot Caller", which describes nothing at all.
-   So: tokenise, drop filler words, expand synonyms, require EVERY token to be satisfied by some
-   alternative, and rank name hits above tag hits. */
-var SEARCH_STOP={a:1,an:1,the:1,for:1,with:1,and:1,or:1,of:1,in:1,on:1,to:1,is:1,are:1,me:1,my:1,we:1,
-  our:1,some:1,any:1,need:1,want:1,looking:1,look:1,have:1,has:1,do:1,you:1,got:1,get:1,please:1,
-  something:1,anything:1,options:1,option:1,style:1,styles:1,product:1,products:1,item:1,items:1,
-  friendly:1,nice:1,good:1,best:1,great:1,quality:1,cheap:1,affordable:1,branded:1,custom:1,logo:1};
-var SEARCH_SYN={
-  /* drinkware — the vocabulary customers actually use */
-  water:['bottle'],bottle:['bottle'],flask:['bottle'],canteen:['bottle'],hydration:['bottle'],
-  /* thermos gets NO expansion. Expanding to 'insulated' returned insulated JACKETS; expanding to
-     'bottle' returned single-wall bottles that keep nothing warm. Every insulated drinkware item
-     carries the word 'thermos' in its tags, so the bare token is already exactly right. */
-  vacuum:['insulated'],thermal:['insulated'],
-  steel:['stainless'],metal:['stainless','aluminum','aluminium'],ss:['stainless'],
-  travel:['tumbler'],coffee:['mug','tumbler'],tea:['mug'],cup:['cup','tumbler'],
-  drinkware:['bottle','tumbler','mug','cup'],glass:['glass'],
-  eco:['recycled','rpet'],sustainable:['recycled','rpet'],
-  /* Size words map to the capacities we actually stock, so "large water bottle" returns the big
-     ones rather than nothing -- and never returns a small one dressed up as large. */
-  large:['26 oz','27 oz','32 oz','34 oz'],big:['26 oz','27 oz','32 oz','34 oz'],
-  xl:['32 oz','34 oz'],xxl:['32 oz','34 oz'],
-  small:['8.8 oz','12 oz'],mini:['8.8 oz','12 oz'],compact:['8.8 oz','12 oz'],
-  /* How people describe the job the bottle does. */
-  sport:['bottle'],sports:['bottle'],gym:['bottle'],hiking:['bottle'],outdoor:['bottle'],
-  jobsite:['bottle'],site:['bottle'],desk:['mug','tumbler'],office:['mug','tumbler'],
-  /* general */
-  jacket:['jacket'],coat:['jacket','parka'],sweater:['fleece','sweatshirt'],hoodie:['hooded','hoodie'],
-  hivis:['hi-vis'],highvis:['hi-vis'],safety:['hi-vis','csa'],visibility:['hi-vis'],
-  hat:['cap','toque','beanie'],beanie:['toque','beanie'],winter:['insulated','toque','parka'],
-  backpack:['backpack'],bag:['bag','backpack','duffel','tote'],
-  ladies:['womens'],women:['womens'],womans:['womens'],mens:['mens']
-};
-function searchTokens(q){
-  return String(q||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').split(' ')
-    .filter(function(t){return t && t.length>1 && !SEARCH_STOP[t];});
-}
-function tokenAlts(t){
-  var a=[t];
-  if(SEARCH_SYN[t])a=a.concat(SEARCH_SYN[t]);
-  /* bottles -> bottle, mugs -> mug. But NOT thermos -> thermo, which matched ThermoBall Jacket and
-     Thermo Fleece. Words ending -ss/-us/-os/-is are not plurals. */
-  if(t.length>3&&t.charAt(t.length-1)==='s'&&!/(ss|us|os|is)$/.test(t)){
-    var sing=t.slice(0,-1);a.push(sing);
-    if(SEARCH_SYN[sing])a=a.concat(SEARCH_SYN[sing]);
+/* ==== SEARCH, REBUILT (2026-09-25) ==============================================================
+   Steven: "Are search engine is terrible and causing drop offs! Study 4imprint the leader in the
+   space and copy there search engine / navigation strategy!"
+
+   Measured against 80 real buyer queries before a line was written. The old matcher was
+   `haystack.indexOf(token)` over one long string, and every failure traced back to that:
+     * "polos" -> 0. The plural rule skipped every word ending -os (to protect "thermos"), so the
+       single most common apparel search in the category found nothing.
+     * "polo shirt" -> 0, AND the no-results panel then said "We don't stock polo -- but we do have
+       52 for 'shirt'" in a store holding 21 polos. That sentence is what a buyer read.
+     * "tshirt" -> 18 SWEATSHIRTS and not one T-shirt: "tshirt" is a substring of "sweatshirt".
+     * "fr" matched "front"/"free", "cap" matched "Seascape", "shorts" matched "Short-Sleeve",
+       "1/4 zip" returned full-zip hoodies ("1" was dropped, "zip" matched everything zipped).
+     * "high vis", "high visibility", "reflective" -> 0 in a store with 40 hi-vis styles.
+     * any typo -> 0: "jaket", "polp", "sweatshrt"; "hoody" found 1 of 19 hoodies.
+     * "embroidered", "screen print" -> 0, although every piece in the store is decorated.
+     * "carhartt" ranked duffel bags above Carhartt's own jackets.
+   And none of it was visible: typing in the top bar re-rendered a grid a full screen below the
+   fold, so the buyer saw nothing happen at all.
+
+   What 4imprint does, and what this copies:
+     1. WORD matching over a normalised vocabulary, with plurals, spelling variants and trade
+        phrasing folded to one form on BOTH sides ("T-Shirt" = "tshirt" = "t shirt" = "tee shirt").
+     2. The store's own CATEGORY STRUCTURE is part of every product's searchable text, so "polo
+        shirt", "golf shirt", "winter coat" and "hi vis hoodie" land on the aisle a buyer means.
+     3. Typo tolerance with an explicit "Showing results for ..." rather than a silent guess.
+     4. Instant suggestions under the box -- matching aisles first, then products with a photo and a
+        price -- so typing always produces something visible.
+     5. Results refinable by aisle, with counts, instead of one undifferentiated wall.
+     6. A zero-result page that never claims we lack what we stock, and always offers a person.
+   ============================================================================================ */
+
+/* ---- 1. normalisation: one canonical form for every way a buyer writes a thing ---------------- */
+var SX_PHRASE=[
+  [/[‘’ʼ]/g,"'"],
+  [/\bt[\s\-]*shirts?\b|\btee[\s\-]+shirts?\b/g,' tshirt '],
+  [/\bpolo[\s\-]+shirts?\b|\bgolf[\s\-]+shirts?\b|\bgolf[\s\-]+polos?\b/g,' polo '],
+  [/\bh(?:i|igh)[\s\-]*vi[sz](?:ibility)?\b|\bhigh[\s\-]+visibility\b|\bhivis\b|\bhiviz\b/g,' hivis '],
+  [/\b(?:quarter|qtr|1\s*\/\s*4)[\s\-]*zips?\b/g,' quarterzip '],
+  [/\b(?:half|1\s*\/\s*2)[\s\-]*zips?\b/g,' halfzip '],
+  [/\bfull[\s\-]*zips?\b/g,' fullzip '],
+  [/\blong[\s\-]*sleeved?s?\b|\bl\s*\/\s*s\b/g,' longsleeve '],
+  [/\bshort[\s\-]*sleeved?s?\b|\bs\s*\/\s*s\b/g,' shortsleeve '],
+  [/\b(\d)[\s\-]*in[\s\-]*(\d)\b/g,' $1in$2 '],
+  [/\bsoft[\s\-]*shells?\b/g,' softshell '],
+  [/\bhard[\s\-]*hats?\b/g,' hardhat '],
+  [/\brain[\s\-]*coats?\b/g,' raincoat '],
+  [/\brain[\s\-]*wear\b/g,' rainwear '],
+  [/\bwind[\s\-]*breakers?\b/g,' windbreaker '],
+  [/\bbutton[\s\-]*(?:up|down)s?\b|\bdress[\s\-]+shirts?\b|\boxford[\s\-]+shirts?\b/g,' buttonup '],
+  [/\bsweat[\s\-]*shirts?\b/g,' sweatshirt '],
+  [/\bsweat[\s\-]*pants?\b|\bjog(?:ging)?[\s\-]*pants?\b/g,' sweatpant '],
+  [/\bcrew[\s\-]*necks?\b/g,' crewneck '],
+  [/\bsnap[\s\-]*backs?\b/g,' snapback '],
+  [/\bball[\s\-]*caps?\b|\bbase[\s\-]*ball[\s\-]*caps?\b/g,' baseball cap '],
+  [/\bwork[\s\-]*wear\b/g,' workwear '],
+  [/\bgift[\s\-]*sets?\b|\bgift[\s\-]*boxe?s?\b/g,' giftset '],
+  [/\bflame[\s\-]*(?:resistant|retardant)\b|\bfire[\s\-]*(?:resistant|retardant|proof)\b|\barc[\s\-]*(?:rated|flash)\b/g,' fr '],
+  [/\bnorth[\s\-]*face\b/g,' northface '],
+  [/\bunder[\s\-]*armou?r\b/g,' underarmour '],
+  [/\bcutter[\s&\-]*(?:and[\s\-]*)?buck\b/g,' cutterbuck '],
+  [/\bcore[\s\-]*365\b/g,' core365 '],
+  [/\bwater[\s\-]*proof\b/g,' waterproof '],
+  [/\bwater[\s\-]*(?:resistant|repellent)\b/g,' waterrepellent '],
+  [/\bdri[\s\-]*fit\b/g,' drifit '],
+  [/\b(\d+(?:\.\d+)?)[\s\-]*(?:oz|ounces?)\b/g,' $1oz '],
+  [/\b(\d+)[\s\-]*(?:l|litres?|liters?)\b/g,' $1l '],
+  [/\b3m\b/g,' threem ']
+];
+/* Words one letter apart in the catalogue's own spelling, folded after stemming. */
+var SX_ALIAS={hoody:'hoodie',hoodi:'hoodie',beany:'beanie',tuque:'toque',tuques:'toque',gray:'grey',
+  tee:'tshirt',tees:'tshirt',tshirts:'tshirt',hooded:'hoodie',jumper:'sweater',gilet:'vest',
+  bodywarmer:'vest',trouser:'pant',slack:'pant',knitcap:'toque',carhart:'carhartt',
+  cutter:'cutterbuck',tnf:'northface',ua:'underarmour',colour:'color',
+  woman:'_fem',women:'_fem',womens:'_fem',lady:'_fem',ladies:'_fem',ladie:'_fem',female:'_fem',
+  girl:'_fem',her:'_fem',man:'_masc',men:'_masc',mens:'_masc',male:'_masc',guy:'_masc',
+  kid:'youth',child:'youth',children:'youth',toddler:'youth',boy:'youth',junior:'youth'};
+/* Words that are not plurals although they end in s. */
+var SX_KEEP={thermos:1,canvas:1,dress:1,glass:1,chess:1,class:1,gas:1,bus:1,plus:1,lens:1,
+  jeans:1,overalls:1,coveralls:1,bibs:1,pants:1,shorts:1,sweatpants:1,leggings:1,chaps:1,
+  alps:1,swiss:1,series:1,cross:1,boss:1,moss:1,loss:1,press:1,express:1};
+function sxStem(w){
+  if(SX_ALIAS[w])return SX_ALIAS[w];
+  if(w.length>3&&!SX_KEEP[w]&&!/\d/.test(w)){
+    if(/ies$/.test(w))w=w.slice(0,-3)+'y';
+    else if(/(?:ches|shes|xes|zes|sses)$/.test(w))w=w.slice(0,-2);
+    else if(/s$/.test(w)&&!/(?:ss|us|is)$/.test(w))w=w.slice(0,-1);
+  }else if(SX_KEEP[w]&&/(?:pants|shorts|overalls|coveralls|bibs|jeans|sweatpants|leggings)$/.test(w)){
+    w=w.slice(0,-1);                       /* "pants" and "pant" are one word; "shorts" is not "short" */
+    if(w==='short')w='shorts';
   }
+  return SX_ALIAS[w]||w;
+}
+function sxNorm(s){
+  s=' '+String(s||'').toLowerCase();
+  try{s=s.normalize('NFD').replace(/[̀-ͯ]/g,'');}catch(e){}
+  for(var i=0;i<SX_PHRASE.length;i++)s=s.replace(SX_PHRASE[i][0],SX_PHRASE[i][1]);
+  return s.replace(/&/g,' and ').replace(/[^a-z0-9._]+/g,' ');
+}
+function sxWords(s){
+  var raw=sxNorm(s).split(' '),out=[];
+  for(var i=0;i<raw.length;i++){var w=raw[i].replace(/^[._]+|[._]+$/g,'');
+    if(!w||(w.length<2&&!/\d/.test(w)))continue;
+    out.push(sxStem(w));}
+  return out;
+}
+
+/* ---- 2. what a buyer means by an aisle ------------------------------------------------------- */
+/* Extra words a buyer uses for each aisle, beyond the aisle's own name. Every word here is folded
+   through sxWords, so plurals and spellings need no second entry. */
+var SX_SUBWORDS={
+  'Polos':'polo golf collared shirt','Shirts':'buttonup woven shirt oxford twill dress',
+  'Tees':'tshirt shirt','T-Shirts':'tshirt shirt','Hi-Vis T-Shirts':'tshirt shirt',
+  'Quarter & Half-Zips':'quarterzip halfzip pullover sweater','Crewnecks & Sweatshirts':'sweatshirt crewneck sweater',
+  'Hoodies':'hoodie sweatshirt','Sweatshirts & Hoodies':'hoodie sweatshirt','Hoodies & Thermals':'hoodie sweatshirt thermal',
+  'Fleece':'fleece sweater','Fleece & Softshell':'fleece softshell',
+  'Shells & Rainwear':'jacket coat rain raincoat rainwear shell windbreaker waterproof',
+  'Softshell Jackets':'jacket coat softshell','Shirt Jackets & Shackets':'jacket shacket overshirt',
+  'Insulated & Quilted':'jacket coat insulated quilted puffer winter warm','Winter Parkas & 3-in-1':'jacket coat parka winter warm 3in1',
+  'Winter Parkas':'jacket coat parka winter warm','Parkas':'jacket coat parka winter warm',
+  'Shells & 3-in-1':'jacket coat shell 3in1 rain','Canvas & Shackets':'jacket coat canvas shacket',
+  'Hi-Vis Jackets':'jacket coat','Jackets & Coats':'jacket coat','Rain & Gear':'rain raincoat rainwear',
+  'Safety Vests':'vest','Hi-Vis Vests':'vest','Quilted & Puffer':'vest puffer quilted','Vests':'vest',
+  'Hard Hats & Head Protection':'hardhat helmet','Work Shirts':'shirt work',
+  'Caps & Hats':'cap hat','Trucker & Snapback':'cap hat trucker snapback mesh','Performance & Golf':'cap hat golf visor',
+  'Beanies & Toques':'beanie toque knit winter hat','Headwear':'hat cap',
+  'Work Pants':'pant work cargo','Pants & Bibs':'pant bib overall','Bibs & Coveralls':'bib overall coverall',
+  'Joggers & Sweatpants':'jogger sweatpant pant','Shorts':'shorts',
+  'Flame-Resistant':'fr','Bags & Accessories':'bag backpack',
+  'Kits & Gift Sets':'gift giftset kit bundle','Water Bottles':'bottle water drinkware','Tumblers':'tumbler drinkware cup',
+  'Mugs':'mug coffee cup drinkware','Drinkware':'drinkware bottle mug tumbler','Notebooks & Pens':'notebook journal pen stationery',
+  'Tech':'tech charger speaker earbud usb wireless','Lifestyle':'lifestyle','Bags':'bag backpack tote duffel cooler'
+};
+var SX_MEGAWORDS={outerwear:'jacket coat outerwear',vests:'vest',hivis:'hivis safety reflective csa ansi visibility',
+  carhartt:'carhartt workwear',headwear:'hat headwear',bottoms:'pant bottom',ruggedwear:'rugged workwear',
+  layers:'layer',accessories:'accessory',fr:'fr'};
+/* Query words that ADD a meaning rather than a spelling: typing "coat" should also find jackets. */
+var SX_SYN={coat:['jacket','parka'],winter:['insulated','parka','toque','warm'],warm:['insulated','fleece','parka'],
+  puffer:['quilted','insulated'],sweater:['fleece','sweatshirt','quarterzip','crewneck'],
+  safety:['hivis','csa'],reflective:['hivis'],visibility:['hivis'],
+  hat:['cap','toque','beanie'],beanie:['toque'],toque:['beanie'],
+  bag:['backpack','duffel','tote','cooler'],backpack:['bag'],
+  bottle:['bottle'],water:['bottle'],flask:['bottle'],canteen:['bottle'],hydration:['bottle'],
+  vacuum:['insulated'],steel:['stainless'],metal:['stainless','aluminum'],
+  coffee:['mug','tumbler'],tea:['mug'],cup:['tumbler','mug'],travel:['tumbler'],
+  drinkware:['bottle','tumbler','mug'],eco:['recycled','rpet'],sustainable:['recycled','rpet'],
+  pullover:['quarterzip','halfzip','hoodie','sweatshirt'],windbreaker:['shell','rain'],
+  raincoat:['rain','shell'],shell:['softshell'],golf:['polo'],collared:['polo'],
+  large:['26oz','27oz','32oz','34oz'],big:['26oz','27oz','32oz','34oz'],small:['12oz'],mini:['12oz'],
+  helmet:['hardhat'],overall:['coverall','bib'],coverall:['overall','bib'],cargo:['pant'],
+  jogger:['sweatpant'],sweatpant:['jogger']};
+/* Words that describe the store, not a product: every piece here is decorated with the buyer's
+   logo, so "embroidered polo" means "polo". Remembered, so the results can say so. */
+var SX_NEUTRAL={embroidered:1,embroidery:1,embroider:1,stitched:1,printed:1,print:1,printing:1,
+  screen:1,screenprint:1,silkscreen:1,dtf:1,logo:1,custom:1,customized:1,customised:1,personalized:1,
+  personalised:1,branded:1,branding:1,promo:1,promotional:1,decorated:1,imprinted:1,company:1,
+  corporate:1,staff:1,employee:1,a:1,an:1,the:1,for:1,with:1,and:1,or:1,of:1,in:1,on:1,to:1,is:1,are:1,
+  me:1,my:1,we:1,our:1,some:1,any:1,need:1,want:1,looking:1,look:1,have:1,has:1,do:1,you:1,got:1,
+  get:1,please:1,something:1,anything:1,option:1,style:1,product:1,item:1,nice:1,good:1,best:1,
+  great:1,quality:1,buy:1,order:1,shop:1,find:1,show:1,all:1,new:1,_masc:1,piece:1,pc:1,your:1};
+var SX_CHEAP={cheap:1,cheapest:1,budget:1,affordable:1,inexpensive:1,value:1,economical:1,lowcost:1};
+
+/* ---- 3. the index: built once per catalogue, rebuilt only if the catalogue changes ------------ */
+var SX={n:-1,docs:{},vocab:{},aisles:[],codes:{}};
+function sxAddWords(set,text,w){var ws=sxWords(text);for(var i=0;i<ws.length;i++){if(!(set[ws[i]]>=w))set[ws[i]]=w;}}
+function sxBuild(){
+  if(SX.n===ALLKEYS.length&&SX.b===BUCKETS)return SX;
+  var docs={},vocab={},aisles=[],codes={},member={};
+  /* aisle vocabulary, and which aisles each product lives in (a product can live in two) */
+  Object.keys(BUCKETS).forEach(function(m){Object.keys(BUCKETS[m]).forEach(function(s){
+    var set={};
+    sxAddWords(set,s,1);sxAddWords(set,SX_SUBWORDS[s]||'',1);sxAddWords(set,SX_MEGAWORDS[m]||'',1);
+    /* The parent department contributes only its CURATED words (hi-vis, carhartt, jacket...), never
+       its display name: "Polos, Shirts & Tees" folded into every sub-aisle gave each tee the word
+       "polo", and "polo" returned 43 products instead of 21. */
+    aisles.push({mega:m,sub:s,words:set,keys:BUCKETS[m][s]});
+    (BUCKETS[m][s]||[]).forEach(function(k){(member[k]=member[k]||[]).push(aisles.length-1);});
+  });});
+  ALLKEYS.forEach(function(k){
+    var it=BYKEY[k];if(!it)return;
+    var f={};
+    sxAddWords(f,it.name,10);
+    sxAddWords(f,(it.brand||'')+' '+(it.sku||''),7);
+    (member[k]||[]).forEach(function(ai){var ws=aisles[ai].words;for(var w in ws){if(!(f[w]>=6))f[w]=6;}});
+    sxAddWords(f,(it.tags||'')+' '+(it.fabric||'')+' '+(it.psub||'')+' '+(it.dwtype||'')+' '+(it.dwmat||'')+
+      ' '+(it.dwoz?it.dwoz+'oz':'')+(it.dwins?' insulated vacuum thermos':'')+' '+(it.use||'')+
+      ' '+(it.csa?'hivis csa safety':'')+' '+((it.warm&&it.warm.band)||''),3);
+    if(it.fab&&typeof it.fab==='object'){
+      sxAddWords(f,((it.fab.mix||[]).map(function(r){return r[0];}).join(' '))+' '+(it.fab.knit||'')+' '+
+        (it.fab.finishes||[]).join(' '),3);
+    }else if(typeof it.fab==='string')sxAddWords(f,it.fab,3);
+    sxAddWords(f,colourWords(it),2);
+    if(hasLadies(it)||it.unisex)f._fem=1;
+    var code=String(it.msku||'').toLowerCase().replace(/[^a-z0-9]/g,'');if(code)codes[code]=k;
+    var wc=String(it.wsku||'').toLowerCase().replace(/[^a-z0-9]/g,'');if(wc)codes[wc]=k;
+    docs[k]={f:f,a:member[k]||[]};
+    for(var w in f){if(w.charAt(0)!=='_')vocab[w]=(vocab[w]||0)+1;}
+  });
+  for(var ai=0;ai<aisles.length;ai++){for(var w2 in aisles[ai].words)vocab[w2]=vocab[w2]||1;}
+  /* Spelling correction may only land on a word a buyer would plausibly have MEANT: an aisle word,
+     a brand, or a word in several product names. A bare edit-distance over the whole vocabulary
+     turned "sock" into "lock" and answered a socks search with hard hats. */
+  var fz={};
+  for(var ai2=0;ai2<aisles.length;ai2++){for(var w3 in aisles[ai2].words)fz[w3]=1;}
+  ALLKEYS.forEach(function(k){var it=BYKEY[k];if(!it)return;sxWords((it.brand||'')+' '+(it.sku||'')).forEach(function(w){fz[w]=1;});});
+  var nameDf={};ALLKEYS.forEach(function(k){var d=docs[k];if(!d)return;for(var w in d.f){if(d.f[w]>=10)nameDf[w]=(nameDf[w]||0)+1;}});
+  for(var w4 in nameDf){if(nameDf[w4]>=4&&w4.length>=4)fz[w4]=1;}
+  SX={n:ALLKEYS.length,b:BUCKETS,docs:docs,vocab:vocab,aisles:aisles,codes:codes,vlist:Object.keys(vocab),
+      fz:Object.keys(fz).filter(function(w){return w.charAt(0)!=='_'&&!/^\d/.test(w);})};
+  return SX;
+}
+
+/* ---- 4. understanding the query -------------------------------------------------------------- */
+function sxEdit(a,b,max){                                   /* Damerau-Levenshtein, bounded */
+  var la=a.length,lb=b.length;if(Math.abs(la-lb)>max)return max+1;
+  var d=[],i,j;for(i=0;i<=la;i++){d[i]=[i];}for(j=0;j<=lb;j++)d[0][j]=j;
+  for(i=1;i<=la;i++){var rowMin=1e9;
+    for(j=1;j<=lb;j++){var c=a.charAt(i-1)===b.charAt(j-1)?0:1;
+      var v=Math.min(d[i-1][j]+1,d[i][j-1]+1,d[i-1][j-1]+c);
+      if(i>1&&j>1&&a.charAt(i-1)===b.charAt(j-2)&&a.charAt(i-2)===b.charAt(j-1))v=Math.min(v,d[i-2][j-2]+1);
+      d[i][j]=v;if(v<rowMin)rowMin=v;}
+    if(rowMin>max)return max+1;}
+  return d[la][lb];
+}
+/* Resolve one word to the catalogue words that satisfy it, each with a confidence. `last` marks the
+   word still being typed, which alone may complete as a prefix ("jack" -> jacket). */
+function sxResolve(t,last){
+  var V=SX.vocab,alts={},how='exact';
+  if(V[t])alts[t]=1;
+  (SX_SYN[t]||[]).forEach(function(s){s=sxStem(s);if(V[s]&&!alts[s])alts[s]=0.8;});
+  if(!Object.keys(alts).length||(last&&t.length>=2)){
+    var pre=0;
+    for(var i=0;i<SX.vlist.length;i++){var w=SX.vlist[i];
+      if(w.length>t.length&&w.indexOf(t)===0&&(last||t.length>=4)){if(!alts[w]){alts[w]=0.7;pre++;}}}
+    if(pre&&!V[t])how='prefix';
+  }
+  if(!Object.keys(alts).length&&t.length>=4&&!/\d/.test(t)){
+    var max=t.length<=5?1:2,best=null;
+    for(var j=0;j<SX.fz.length;j++){var w2=SX.fz[j];if(Math.abs(w2.length-t.length)>max)continue;
+      if(w2.charAt(0)!==t.charAt(0))continue;
+      var e=sxEdit(t,w2,max);
+      if(e<=max&&(!best||e<best.e||(e===best.e&&V[w2]>V[best.w])))best={w:w2,e:e};}
+    if(best){alts[best.w]=0.6;how='fuzzy';
+      (SX_SYN[best.w]||[]).forEach(function(s){s=sxStem(s);if(V[s]&&!alts[s])alts[s]=0.5;});
+      return {t:t,alts:alts,how:how,fix:best.w};}
+  }
+  return {t:t,alts:alts,how:Object.keys(alts).length?how:'none'};
+}
+function sxParse(q,live){
+  sxBuild();
+  var raw=String(q||''),P={q:raw,toks:[],neutral:[],fem:false,cheap:false,max:null,code:null,unknown:[]};
+  var m=raw.toLowerCase().match(/(?:under|below|less than|<|max(?:imum)?|up to)\s*\$?\s*(\d+(?:\.\d+)?)|\$\s*(\d+(?:\.\d+)?)\s*(?:or less|and under|max)/);
+  if(m){P.max=parseFloat(m[1]||m[2]);raw=raw.replace(m[0],' ');}
+  var compact=raw.toLowerCase().replace(/[^a-z0-9]/g,'');
+  if(compact.length>=3&&SX.codes[compact]){P.code=SX.codes[compact];return P;}
+  var ws=sxWords(raw),trail=/\s$/.test(String(q||''));
+  /* the buyer's own spelling, for messages: "We don't carry gloves", not the stem "glove" */
+  var rawWs=sxNorm(raw).split(' ').map(function(w){return w.replace(/^[._]+|[._]+$/g,'');})
+    .filter(function(w){return w&&!(w.length<2&&!/\d/.test(w));});
+  ws.forEach(function(w,i){
+    if(w==='_fem'){P.fem=true;return;}
+    if(SX_CHEAP[w]){P.cheap=true;return;}
+    if(SX_NEUTRAL[w]){P.neutral.push(w);return;}
+    if(/^\d+$/.test(w)&&!P.max&&ws.length>1)return;          /* a bare number is quantity talk, not a product */
+    var r=sxResolve(w,live&&!trail&&i===ws.length-1);
+    if(r.how==='none')P.unknown.push(rawWs[i]||w);else P.toks.push(r);
+  });
+  return P;
+}
+
+/* ---- 5. scoring ------------------------------------------------------------------------------ */
+function sxScoreDoc(d,toks){
+  var s=0,allName=true;
+  for(var i=0;i<toks.length;i++){var best=0,nm=false,a=toks[i].alts;
+    for(var w in a){var fw=d.f[w];if(fw){var v=fw*a[w];if(v>best){best=v;nm=(fw>=10);}}}
+    if(!best)return 0;
+    s+=best;if(!nm)allName=false;}
+  if(toks.length&&allName)s+=6;
+  return s;
+}
+function sxPrice(k){try{return unitPrice(k,defaultDecos(k),moq());}catch(e){return (BYKEY[k]||{}).blank||0;}}
+/* The whole search, as one pure function of the query: products, the aisles that match, and what
+   was understood. The suggestion box, the results page and the no-results page all read this, so
+   they can never disagree about what a query means. */
+function sxRun(q,opts){
+  opts=opts||{};
+  var P=sxParse(q,opts.live),hits=[],k,d,sc;
+  if(P.code){return {P:P,keys:[P.code],aisles:[],relaxed:null};}
+  var toks=P.toks;
+  if(!toks.length&&!P.fem&&!P.cheap&&P.max==null){return {P:P,keys:[],aisles:[],relaxed:null,empty:!P.unknown.length};}
+  /* A word we do not carry at all ("gloves"), next to words that are only modifiers ("blue",
+     "ladies", "under $40"): answering with every blue product would pretend. Say we do not carry it. */
+  if(P.unknown.length){
+    var content0=toks.filter(function(t){for(var w in t.alts){if(!isColourWord(w))return true;}return false;});
+    if(!content0.length)return {P:P,keys:[],aisles:[],relaxed:null};
+  }
+  var run=function(tk){
+    var out=[];
+    for(var i=0;i<ALLKEYS.length;i++){k=ALLKEYS[i];d=SX.docs[k];if(!d)continue;
+      if(P.fem&&!d.f._fem)continue;
+      sc=tk.length?sxScoreDoc(d,tk):1;if(!sc)continue;
+      var pr=null;
+      if(P.max!=null){pr=sxPrice(k);if(pr>P.max)continue;}
+      var it=BYKEY[k];
+      if(it.rec||k===CFG.feature)sc+=1.5;
+      out.push({k:k,s:sc,p:pr});}
+    return out;};
+  hits=run(toks);
+  /* One word that the catalogue does not use, or a combination nothing satisfies: drop the word that
+     costs the fewest matches and SAY which word was dropped. Never the other way round -- the old
+     fallback kept "shirt" and dropped "polo". */
+  var relaxed=P.unknown.length?{dropped:P.unknown.join(' '),toks:toks,unknown:true}:null;
+  if(!hits.length&&toks.length>1){
+    var best=null;
+    for(var i=0;i<toks.length;i++){var sub=toks.slice(0,i).concat(toks.slice(i+1)),h=run(sub);
+      if(h.length&&(!best||h.length<best.h.length||(h.length===best.h.length&&toks[i].t.length<best.t.t.length)))best={h:h,t:toks[i],toks:sub};}
+    if(best){hits=best.h;relaxed={dropped:best.t.t,toks:best.toks};}
+  }
+  var sortCheap=P.cheap||(opts.sort==='price');
+  /* Equal relevance falls back to the order the aisles themselves use -- top picks, then price low to
+     high -- so a search reads like the shelf it came from rather than an arbitrary list. */
+  hits.forEach(function(h){if(h.p==null)h.p=sxPrice(h.k);});
+  hits.sort(function(a,b){
+    if(sortCheap)return (a.p-b.p)||(b.s-a.s);
+    if(b.s!==a.s)return b.s-a.s;
+    return a.p-b.p;});
+  var keys=hits.map(function(h){return h.k;});
+  return {P:P,keys:keys,aisles:sxAisles(P,keys,relaxed?relaxed.toks:toks),relaxed:relaxed};
+}
+/* Aisles that answer the query as a CATEGORY: every product word is an aisle word. "jackets" is the
+   Jackets aisle; "hi vis hoodie" is Hi-Vis > Sweatshirts & Hoodies; "navy polo" is still Polos,
+   because colour is a filter on an aisle, not an aisle. Ranked by how much of the result they hold. */
+function sxAisles(P,keys,toks){
+  var inRes={},out=[],i,j;keys.forEach(function(k){inRes[k]=1;});
+  var content=toks.filter(function(t){var a=t.alts;for(var w in a){if(SX.vocab[w]&&!isColourWord(w))return true;}return false;});
+  if(!content.length)return [];
+  for(i=0;i<SX.aisles.length;i++){var A=SX.aisles[i],ok=true;
+    for(j=0;j<content.length;j++){var a=content[j].alts,hit=false;
+      for(var w in a){if(A.words[w]&&a[w]>=0.6){hit=true;break;}}
+      if(!hit){ok=false;break;}}
+    if(!ok)continue;
+    var n=0;(A.keys||[]).forEach(function(k){if(inRes[k])n++;});
+    if(n)out.push({mega:A.mega,sub:A.sub,n:n,total:(A.keys||[]).length});}
+  /* The whole department, when the query names it: "jackets" is the Jackets department (every
+     jacket, across its five sub-aisles), not whichever sub-aisle happens to be biggest. */
+  CATS.forEach(function(m){
+    var set={};sxAddWords(set,megaName(m),1);sxAddWords(set,shortCat(m),1);sxAddWords(set,SX_MEGAWORDS[m]||'',1);
+    for(var j2=0;j2<content.length;j2++){var a2=content[j2].alts,hit2=false;
+      for(var w5 in a2){if(set[w5]&&a2[w5]>=0.6){hit2=true;break;}}
+      if(!hit2)return;}
+    var n2=0,seen={};Object.keys(BUCKETS[m]||{}).forEach(function(s){(BUCKETS[m][s]||[]).forEach(function(k){if(inRes[k]&&!seen[k]){seen[k]=1;n2++;}});});
+    if(n2)out.push({mega:m,sub:null,n:n2,total:TOTALS[m]||n2});
+  });
+  /* biggest first; on a tie the more specific aisle wins ("polo" is Polos, not Polos, Shirts & Tees) */
+  /* a department that adds nothing beyond one of its own aisles is noise ("Polos" 21 and "Polos,
+     Shirts & Tees" 21 side by side) -- keep the specific one */
+  out=out.filter(function(a){return a.sub||!out.some(function(b){return b.sub&&b.mega===a.mega&&b.n===a.n;});});
+  out.sort(function(a,b){return (b.n-a.n)||((a.sub?0:1)-(b.sub?0:1));});
+  return out;
+}
+var SX_COLOURS=null;
+function isColourWord(w){
+  if(!SX_COLOURS){SX_COLOURS={};ALLKEYS.forEach(function(k){sxWords(colourWords(BYKEY[k]||{})).forEach(function(c){SX_COLOURS[c]=(SX_COLOURS[c]||0)+1;});});
+    /* a colour word that is also a product word ("heather", "cardinal") stays a product word */
+    Object.keys(SX_COLOURS).forEach(function(c){var nm=0;ALLKEYS.forEach(function(k){var d=SX.docs[k];if(d&&d.f[c]>=6)nm++;});if(nm>2)delete SX_COLOURS[c];});}
+  return !!SX_COLOURS[w];
+}
+/* "Showing results for ..." -- the query as we understood it, only when that differs. */
+function sxUnderstood(P){
+  var fixed=P.toks.filter(function(t){return t.how==='fuzzy';});
+  if(!fixed.length)return '';
+  return P.toks.map(function(t){return t.fix||t.t;}).join(' ');
+}
+
+/* ---- 6. the suggestion box: something visible on the first keystroke ------------------------- */
+var SXD={i:-1,open:false,q:'',t:null};
+var SX_POPULAR=['polo','hoodie','jacket','hi vis','t shirt','carhartt','cap','quarter zip','winter parka',
+  'safety vest','softshell','water bottle'];
+function sxRecent(){try{return JSON.parse(localStorage.getItem('jdp_sx_recent')||'[]').slice(0,5);}catch(e){return [];}}
+function sxRemember(q){
+  q=String(q||'').trim();if(q.length<2)return;
+  try{var r=sxRecent().filter(function(x){return x.toLowerCase()!==q.toLowerCase();});
+    r.unshift(q);localStorage.setItem('jdp_sx_recent',JSON.stringify(r.slice(0,5)));}catch(e){}
+}
+function sxAisleLabel(a){
+  if(!a.sub)return {b:megaName(a.mega),i:'all '+(shortCat(a.mega)||'').toLowerCase()};
+  /* The same sub-aisle name lives in two departments ("Insulated & Quilted" in Jackets and in
+     Rugged Wear), so the department always rides along. */
+  return {b:a.sub,i:'in '+shortCat(a.mega)};
+}
+function sxThumb(k){
+  var it=BYKEY[k]||{},c=(it.cols||[])[0]||{};
+  return c.front?gurl(c.front):'';
+}
+/* Bold the part of a product name the buyer typed -- the cue 4imprint uses to show WHY a row is here. */
+function sxMark(name,q){
+  var t=esc(name),ws=sxNorm(q).split(' ').filter(function(w){return w.length>=2;});
+  ws.forEach(function(w){
+    var re=new RegExp('(^|[\\s\\-/(])('+w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')','ig');
+    t=t.replace(re,'$1<b>$2</b>');});
+  return t;
+}
+function sxDropHtml(q){
+  var h='',i=0;
+  if(!String(q||'').trim()){
+    var rec=sxRecent();
+    if(rec.length){
+      h+='<div class="sxh">Recent</div><div class="sxchips">'+rec.map(function(r){
+        return '<button type="button" class="sxchip rec" data-sxq="'+esc(r)+'" data-sxi="'+(i++)+'">'+esc(r)+'</button>';}).join('')+'</div>';}
+    var pop=SX_POPULAR.map(function(p){return {q:p,n:sxRun(p).keys.length};}).filter(function(p){return p.n>0;}).slice(0,10);
+    h+='<div class="sxh">Popular in this store</div><div class="sxchips">'+pop.map(function(p){
+      return '<button type="button" class="sxchip" data-sxq="'+esc(p.q)+'" data-sxi="'+(i++)+'">'+esc(p.q)+'<i>'+p.n+'</i></button>';}).join('')+'</div>';
+    return h;
+  }
+  var R=sxRun(q,{live:true});
+  if(!R.keys.length){
+    var P=R.P;
+    h+='<div class="sxnone"><b>'+(P.unknown.length?('We don’t carry “'+esc(P.unknown.join(' '))+'” in this store'):
+      ('No products match “'+esc(q)+'”'))+'</b>'+
+      '<span>'+(P.neutral.length&&!P.toks.length?'Every piece here is decorated with your logo — what would you like it on?':
+        'We source well beyond this store — press Enter and tell us what you need.')+'</span></div>';
+    var pop2=SX_POPULAR.slice(0,6).map(function(p){return {q:p,n:sxRun(p).keys.length};}).filter(function(p){return p.n>0;});
+    h+='<div class="sxh">Try</div><div class="sxchips">'+pop2.map(function(p){
+      return '<button type="button" class="sxchip" data-sxq="'+esc(p.q)+'" data-sxi="'+(i++)+'">'+esc(p.q)+'<i>'+p.n+'</i></button>';}).join('')+'</div>';
+    return h;
+  }
+  var fix=sxUnderstood(R.P);
+  if(fix)h+='<div class="sxfix">Showing results for <b>'+esc(fix)+'</b></div>';
+  else if(R.relaxed&&R.relaxed.unknown)h+='<div class="sxfix">We don’t carry <b>'+esc(R.relaxed.dropped)+'</b> — showing the rest</div>';
+  var ais=R.aisles.slice(0,4);
+  if(ais.length){
+    h+='<div class="sxh">Shop the aisle</div>';
+    ais.forEach(function(a){var L=sxAisleLabel(a);
+      h+='<button type="button" class="sxrow sxa" data-sxa="'+esc(a.mega+'\u0001'+(a.sub||''))+'" data-sxi="'+(i++)+'">'+
+        '<span class="sxai" aria-hidden="true"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18M3 12h18M3 17h12"/></svg></span>'+
+        '<span class="sxt"><b>'+esc(L.b)+'</b><i>'+esc(L.i)+'</i></span><span class="sxn">'+a.n+'</span></button>';});
+  }
+  h+='<div class="sxh">Products</div>';
+  R.keys.slice(0,6).forEach(function(k){var it=BYKEY[k];if(!it)return;
+    var pr=(it.layer==='promo')?(it.price_cad||0):sxPrice(k),img=sxThumb(k);
+    h+='<button type="button" class="sxrow sxp" data-sxk="'+esc(k)+'" data-sxi="'+(i++)+'">'+
+      '<span class="sxim">'+(img?'<img src="'+img+'" alt="" loading="lazy">':'')+'</span>'+
+      '<span class="sxt"><b class="sxnm">'+sxMark(it.name,q)+'</b><i>'+esc(it.brand||it.sku||'')+
+        (it.csa?' · CSA hi-vis':'')+'</i></span>'+
+      '<span class="sxpr">'+money(pr)+'<i>/pc'+(it.layer==='promo'?'':' at '+moq())+'</i></span></button>';});
+  h+='<button type="button" class="sxall" data-sxall="1" data-sxi="'+(i++)+'">See all '+R.keys.length+
+    ' result'+(R.keys.length===1?'':'s')+' for “'+esc(q)+'”<span aria-hidden="true"> →</span></button>';
+  return h;
+}
+function sxDropEl(){return document.getElementById('sxdd');}
+function sxDropShow(q){
+  var dd=sxDropEl();if(!dd)return;
+  SXD.q=q;SXD.i=-1;dd.innerHTML=sxDropHtml(q);dd.hidden=false;SXD.open=true;
+  var ts=document.getElementById('topSearch');if(ts)ts.setAttribute('aria-expanded','true');
+}
+function sxDropHide(){
+  var dd=sxDropEl();if(dd){dd.hidden=true;dd.innerHTML='';}SXD.open=false;SXD.i=-1;
+  var ts=document.getElementById('topSearch');if(ts)ts.setAttribute('aria-expanded','false');
+}
+function sxSetQuery(q){
+  var ts=document.getElementById('topSearch');
+  if(ts){ts.value=q;try{ts.dispatchEvent(new Event('input',{bubbles:true}));}catch(e){}}
+  else{VIEW.q=q;renderGrid();}
+}
+/* Enter, "See all", a popular search: show the full results AND take the buyer to them. The old box
+   updated a grid a full screen below the fold, so a buyer typing at the top of the page saw nothing. */
+function sxSubmit(q){
+  if(q!=null)sxSetQuery(q);
+  var ts=document.getElementById('topSearch'),cur=ts?ts.value:VIEW.q;
+  sxRemember(cur);sxDropHide();if(ts)ts.blur();
+  var ex=cur?sxExactAisle(sxResultsFor(cur)):null;
+  if(ex){sxGoAisle(ex.mega,ex.sub);return;}
+  scrollToResults();
+}
+function sxGoAisle(mega,sub){
+  sxDropHide();
+  var ts=document.getElementById('topSearch');
+  if(ts&&ts.value)sxRemember(ts.value);
+  sxSetQuery('');
+  setCat(mega,!sub);
+  if(sub)setSub(sub);
+}
+function sxActivate(el){
+  if(!el)return;
+  if(el.dataset.sxq!=null){sxSubmit(el.dataset.sxq);return;}
+  if(el.dataset.sxa!=null){var p=el.dataset.sxa.split('\u0001');sxGoAisle(p[0],p[1]||null);return;}
+  if(el.dataset.sxk){var ts=document.getElementById('topSearch');if(ts)sxRemember(ts.value);sxDropHide();openSheet(el.dataset.sxk);return;}
+  if(el.dataset.sxall){sxSubmit();return;}
+}
+function sxMove(d){
+  var dd=sxDropEl();if(!dd||!SXD.open)return;
+  var rows=dd.querySelectorAll('[data-sxi]');if(!rows.length)return;
+  SXD.i=(SXD.i+d+rows.length)%rows.length;
+  rows.forEach(function(r,j){r.classList.toggle('on',j===SXD.i);});
+  var r=rows[SXD.i];if(r&&r.scrollIntoView)r.scrollIntoView({block:'nearest'});
+}
+function wireSuggest(){
+  var ts=document.getElementById('topSearch'),dd=sxDropEl();
+  if(!ts||!dd||ts.dataset.sxw)return;ts.dataset.sxw='1';
+  ts.setAttribute('role','combobox');ts.setAttribute('aria-controls','sxdd');ts.setAttribute('aria-expanded','false');
+  ts.setAttribute('enterkeyhint','search');
+  ts.addEventListener('focus',function(){sxDropShow(ts.value);});
+  ts.addEventListener('input',function(){
+    clearTimeout(SXD.t);var v=ts.value;
+    SXD.t=setTimeout(function(){if(document.activeElement===ts)sxDropShow(v);},60);});
+  ts.addEventListener('keydown',function(e){
+    if(e.key==='ArrowDown'){e.preventDefault();if(!SXD.open)sxDropShow(ts.value);sxMove(1);}
+    else if(e.key==='ArrowUp'){e.preventDefault();sxMove(-1);}
+    else if(e.key==='Enter'){e.preventDefault();
+      var rows=dd.querySelectorAll('[data-sxi]');
+      if(SXD.open&&SXD.i>=0&&rows[SXD.i])sxActivate(rows[SXD.i]);else sxSubmit();}
+    else if(e.key==='Escape'){if(SXD.open){e.stopPropagation();sxDropHide();}}
+  });
+  /* mousedown, not click: a click lands after the input's blur, which has already closed the box */
+  dd.addEventListener('mousedown',function(e){var el=e.target.closest('[data-sxi]');if(!el)return;e.preventDefault();sxActivate(el);});
+  document.addEventListener('mousedown',function(e){
+    if(!SXD.open)return;if(e.target===ts||dd.contains(e.target))return;sxDropHide();});
+  ts.addEventListener('blur',function(){setTimeout(function(){if(document.activeElement!==ts)sxDropHide();},150);});
+}
+
+/* ---- 7. the results page --------------------------------------------------------------------- */
+function sxResultsFor(q){
+  var R=sxRun(q);
+  if(!R.keys.length){var L=sxRun(q,{live:true});if(L.keys.length)R=L;}   /* a half-typed last word */
+  return R;
+}
+/* Refine by aisle: where this query's products live, with counts -- 4imprint's category facet. */
+function sxFacets(keys){
+  sxBuild();
+  var tally={},order=[];
+  keys.forEach(function(k){var d=SX.docs[k];if(!d)return;
+    d.a.forEach(function(ai){if(tally[ai]==null){tally[ai]=0;order.push(ai);}tally[ai]++;});});
+  order.sort(function(a,b){return tally[b]-tally[a];});
+  return order.map(function(ai){var A=SX.aisles[ai];return {ai:ai,mega:A.mega,sub:A.sub,n:tally[ai]};});
+}
+function sxResultsHead(q,R,keys,total){
+  var h='<h2 class="glbl">Search results</h2><span class="gsub">'+total+' match'+(total===1?'':'es')+
+    ' for “'+esc(q)+'”</span>';
+  /* The query IS an aisle: offer the aisle itself, with its guide, filters and warmth bands. */
+  var top=R.aisles[0];
+  if(top&&top.n>=Math.max(3,Math.round(R.keys.length*0.6))){
+    var L=sxAisleLabel(top);
+    h+='<button type="button" class="sxgo" data-sxgo="'+esc(top.mega+'\u0001'+(top.sub||''))+'">Browse the '+
+      esc(L.b)+' aisle <span aria-hidden="true">→</span></button>';
+  }
+  var notes=[],fix=sxUnderstood(R.P);
+  if(fix)notes.push('Showing results for <b>'+esc(fix)+'</b>.');
+  if(R.relaxed)notes.push('We don’t carry <b>'+esc(R.relaxed.dropped)+'</b>'+
+    (R.relaxed.unknown?'':' in that combination')+' — these match the rest of your search.'+
+    (R.relaxed.unknown?' <button type="button" class="sxask" data-sxask="'+esc(R.relaxed.dropped)+'">Ask us to source '+esc(R.relaxed.dropped)+' →</button>':''));
+  if(R.P.neutral.some(function(w){return /embroid|print|screen|stitch|logo|decorat|brand|custom|imprint|personal/.test(w);}))
+    notes.push('Every piece is decorated with your logo — the method and placement are shown on each card.');
+  if(R.P.max!=null)notes.push('Under <b>'+money(R.P.max)+'</b>/pc at '+moq()+' pieces, logo included.');
+  if(R.P.cheap)notes.push('Lowest price first.');
+  if(notes.length)h+='<div class="sxnote">'+notes.join(' ')+'</div>';
+  var fac=sxFacets(R.keys);
+  if(fac.length>1){
+    var dup={};fac.forEach(function(f){dup[f.sub]=(dup[f.sub]||0)+1;});
+    h+='<div class="sxfacets" role="group" aria-label="Refine by aisle">'+
+      '<button type="button" class="sxfc'+(VIEW.qa==null?' on':'')+'" data-sxf="">All <i>'+R.keys.length+'</i></button>'+
+      fac.slice(0,9).map(function(f){
+        return '<button type="button" class="sxfc'+(VIEW.qa===f.ai?' on':'')+'" data-sxf="'+f.ai+'">'+esc(f.sub)+
+          (dup[f.sub]>1||/^(Insulated|Shells|Shirts|Vests|Fleece)/.test(f.sub)?'<em> · '+esc(shortCat(f.mega))+'</em>':'')+
+          ' <i>'+f.n+'</i></button>';}).join('')+'</div>';
+  }
+  return h;
+}
+function wireResultsHead(hd){
+  var ak=hd.querySelector('[data-sxask]');if(ak)ak.addEventListener('click',function(){openSourcing(ak.dataset.sxask);});
+  hd.querySelectorAll('[data-sxf]').forEach(function(b){b.addEventListener('click',function(){
+    VIEW.qa=b.dataset.sxf===''?null:parseInt(b.dataset.sxf,10);renderGrid();});});
+  var g=hd.querySelector('[data-sxgo]');
+  if(g)g.addEventListener('click',function(){var p=g.dataset.sxgo.split('\u0001');sxGoAisle(p[0],p[1]||null);});
+}
+
+/* ---- 9. refine like 4imprint: sort, brand, colour, fit -- with counts, applied instantly ------- */
+var SX_FAM=[['Black',/black|charcoal black|jet/],['Grey',/grey|gray|charcoal|graphite|granite|heather|steel|carbon|smoke|dolphin|gunmetal|silver/],
+  ['White',/white|ivory|natural|cream|oat/],['Navy',/navy|midnight|indigo|ink/],['Blue',/blue|royal|azure|sky|cobalt|teal|aqua|turquoise|denim|ocean/],
+  ['Red',/red|cardinal|burgundy|maroon|wine|crimson|scarlet|brick|bordeaux/],['Green',/green|olive|forest|sage|moss|hunter|kelly|lime|army/],
+  ['Orange',/orange|rust|burnt|copper|amber/],['Yellow',/yellow|gold|mustard|safety yellow|lemon/],
+  ['Brown',/brown|tan|khaki|sand|carhartt brown|coffee|chocolate|mocha|desert|timber|bark|camel|wheat/],
+  ['Purple',/purple|violet|plum|lavender/],['Pink',/pink|rose|coral|fuchsia|berry|magenta/]];
+function sxFamilies(it){
+  if(it._fam)return it._fam;
+  var out=[],cw=colourWords(it).toLowerCase();
+  SX_FAM.forEach(function(f){if(f[1].test(cw))out.push(f[0]);});
+  try{Object.defineProperty(it,'_fam',{value:out,enumerable:false});}catch(e){it._fam=out;}
+  return out;
+}
+function sxBrand(it){return String(it.brand||it.sku||'').trim();}
+function sxRefine(keys){
+  var b=VIEW.qb,c=VIEW.qc,f=VIEW.qfit;
+  var out=keys.filter(function(k){var it=BYKEY[k]||{};
+    if(b&&sxBrand(it)!==b)return false;
+    if(c&&sxFamilies(it).indexOf(c)<0)return false;
+    if(f==='womens'&&!(hasLadies(it)||it.unisex))return false;
+    return true;});
+  if(VIEW.qs==='plh'||VIEW.qs==='phl'){
+    var pr={};out.forEach(function(k){pr[k]=sxPrice(k);});
+    out.sort(function(a,z){return VIEW.qs==='plh'?(pr[a]-pr[z]):(pr[z]-pr[a]);});}
+  return out;
+}
+function sxSelect(id,label,opts,cur){
+  return '<label class="sxsel"><span>'+esc(label)+'</span><select data-sxs="'+id+'">'+
+    opts.map(function(o){return '<option value="'+esc(o.v)+'"'+(String(cur||'')===String(o.v)?' selected':'')+'>'+
+      esc(o.t)+(o.n!=null?' ('+o.n+')':'')+'</option>';}).join('')+'</select></label>';
+}
+function sxToolsHtml(keys){
+  var br={},fam={},fem=0;
+  keys.forEach(function(k){var it=BYKEY[k]||{},bn=sxBrand(it);if(bn)br[bn]=(br[bn]||0)+1;
+    sxFamilies(it).forEach(function(f){fam[f]=(fam[f]||0)+1;});if(hasLadies(it)||it.unisex)fem++;});
+  var brs=Object.keys(br).sort(function(a,b){return br[b]-br[a];});
+  var h='<div class="sxtools">'+
+    sxSelect('qs','Sort',[{v:'',t:'Best match'},{v:'plh',t:'Price: low to high'},{v:'phl',t:'Price: high to low'}],VIEW.qs);
+  if(brs.length>1)h+=sxSelect('qb','Brand',[{v:'',t:'All brands'}].concat(brs.map(function(b){return {v:b,t:b,n:br[b]};})),VIEW.qb);
+  var fs=SX_FAM.map(function(f){return f[0];}).filter(function(f){return fam[f];});
+  if(fs.length>1)h+=sxSelect('qc','Colour',[{v:'',t:'Any colour'}].concat(fs.map(function(f){return {v:f,t:f,n:fam[f]};})),VIEW.qc);
+  if(fem&&fem<keys.length)h+=sxSelect('qfit','Fit',[{v:'',t:'All fits'},{v:'womens',t:'Ladies’ & unisex',n:fem}],VIEW.qfit);
+  var any=VIEW.qb||VIEW.qc||VIEW.qfit;
+  if(any)h+='<button type="button" class="sxclr" data-sxclr="1">Clear filters</button>';
+  return h+'</div>';
+}
+function wireSxTools(hd){
+  hd.querySelectorAll('[data-sxs]').forEach(function(s){s.addEventListener('change',function(){
+    VIEW[s.dataset.sxs]=s.value||null;renderGrid();});});
+  var c=hd.querySelector('[data-sxclr]');if(c)c.addEventListener('click',function(){VIEW.qb=VIEW.qc=VIEW.qfit=null;renderGrid();});
+}
+/* 4imprint sends "safety vest" and "mug" straight to the category page. Same here, but ONLY when
+   the aisle holds exactly the products the search found -- the aisle page then shows the same set
+   with its buying guide and warmth / budget bars, which a results page cannot. "jacket" (five
+   aisles) and "navy polo" (a colour inside an aisle) stay as results. */
+function sxExactAisle(R){
+  var P=R.P,a=R.aisles[0];
+  if(!a||!a.sub||R.relaxed||P.fem||P.cheap||P.max!=null)return null;
+  if(P.toks.some(function(t){for(var w in t.alts){if(isColourWord(w))return true;}return false;}))return null;
+  if(a.n!==R.keys.length||a.total!==a.n)return null;
   return a;
 }
-/* 0 = no match; higher = better. */
-function searchScore(it,toks){
-  if(!toks.length)return 0;
-  var hay=searchText(it),nm=(it.name||'').toLowerCase(),score=1;
-  for(var i=0;i<toks.length;i++){
-    var alts=tokenAlts(toks[i]),hit=false;
-    for(var j=0;j<alts.length;j++){
-      if(hay.indexOf(alts[j])>=0){
-        hit=true;
-        if(nm.indexOf(alts[j])>=0)score+=3;                   // a hit in the product NAME counts most
-        if(toks[i]===alts[j])score+=1;                        // exact word beats a synonym
-        break;
-      }
-    }
-    if(!hit)return 0;                                          // every token must be satisfied
-  }
-  return score;
+/* Zero results: 4imprint offers a person ("Need help?"). The store's own quote request already
+   reaches the team with a note, so it opens as a sourcing request with the search written in. */
+function openSourcing(q){
+  sxDropHide();
+  openCart();openCheckout();
+  var empty=!cartCount();
+  var h=document.querySelector('#cart .carth h2');if(h&&empty)h.textContent='Ask us to source it';
+  if(empty){var s=document.querySelector('#cart .cosum');if(s)s.style.display='none';
+    var w=document.querySelector('#cart .cohow');if(w)w.style.display='none';
+    var sb=document.getElementById('emailKit');
+    if(sb)sb.innerHTML=sb.innerHTML.replace(/Send my list[^<]*/,'Send my request ');}
+  var n=document.getElementById('coNote');
+  if(n){n.value='Please source: '+q+'\nHow many / colours / when needed: ';
+    var d=n.closest('details');if(d)d.open=true;}
+  var e=document.getElementById('coEmail');if(e&&!e.value)e.focus();else if(n)n.focus();
 }
-/* RELAXED RETRY. "glass water bottle" fails on one word only -- we do not stock glass. Rather than
-   a dead end, find the largest subset of the query that DOES match and offer it explicitly, naming
-   the word we had to drop. That way we never quietly pretend to have what was asked for, and a buyer
-   still lands on the 22 bottles we really do carry. */
-function relaxSearch(toks){
-  if(!toks||toks.length<2)return null;
-  var best=null,i,j,sub2,n;
-  for(i=0;i<toks.length;i++){
-    sub2=toks.slice(0,i).concat(toks.slice(i+1));
-    n=0;
-    for(j=0;j<ALLKEYS.length;j++){if(searchScore(BYKEY[ALLKEYS[j]],sub2)>0)n++;}
-    if(n>0&&(!best||n>best.n))best={dropped:toks[i],toks:sub2,n:n};
-  }
-  return best;
-}
-function noResultsHtml(q,toks){
-  var r=relaxSearch(toks),h='<div class="nrin">';
-  h+='<h3>Nothing here matches \u201c'+esc(q)+'\u201d</h3>';
-  if(r){
-    h+='<p class="nrdrop">We don\u2019t stock <b>'+esc(r.dropped)+'</b> \u2014 but we do have '+
-       '<b>'+r.n+'</b> for \u201c'+esc(r.toks.join(' '))+'\u201d.</p>'+
-       '<button type="button" class="nrgo" data-nrq="'+esc(r.toks.join(' '))+'">'+
-       'Show those '+r.n+' \u2192</button>';
-  }
-  /* The browse chips must be RELEVANT. Listing the first eight shelves in the catalogue offered
-     "Polos" and "Shirts" to someone asking for a glass water bottle. Instead, count where the
-     relaxed query's results actually live and offer those shelves, biggest first. */
-  var chips=[],c,sub3,tally={},order=[];
-  if(r){
-    for(var i2=0;i2<ALLKEYS.length;i2++){
-      var k2=ALLKEYS[i2];
-      if(searchScore(BYKEY[k2],r.toks)<=0)continue;
-      for(c in BUCKETS){for(sub3 in BUCKETS[c]){
-        if((BUCKETS[c][sub3]||[]).indexOf(k2)>=0){
-          var id=c+'\u0001'+sub3;
-          if(tally[id]==null){tally[id]=0;order.push(id);}
-          tally[id]++;
-        }}}
-    }
-    order.sort(function(a,b){return tally[b]-tally[a];});
-  }
-  if(!order.length){                                  // nothing to relax to: offer the biggest shelves
-    for(c in BUCKETS){for(sub3 in BUCKETS[c]){
-      if((BUCKETS[c][sub3]||[]).length>=3){var id2=c+'\u0001'+sub3;tally[id2]=BUCKETS[c][sub3].length;order.push(id2);}}}
-    order.sort(function(a,b){return tally[b]-tally[a];});
-  }
-  order.slice(0,6).forEach(function(id3){
-    var pr=id3.split('\u0001');
-    chips.push('<button type="button" class="nrchip" data-nrcat="'+esc(pr[0])+'" data-nrsub="'+esc(pr[1])+'">'+
-      esc(pr[1])+' <i>'+tally[id3]+'</i></button>');});
-  h+='<p class="nrbl">Or browse:</p><div class="nrchips">'+chips.join('')+'</div>';
-  h+='<p class="nrsrc"><b>Still not it?</b> We source well beyond what is shown here \u2014 tell us what '+
-     'you need and we\u2019ll quote it.</p></div>';
+
+/* ---- 8. no results: never claim we lack what we stock, always offer a person ------------------
+   The old page kept the WRONG word -- "polo shirt" became "We don't stock polo -- but we have 52
+   for 'shirt'" in a store with 21 polos. The new engine understands "polo shirt"; this page is now
+   only reached for things genuinely not carried, and it says exactly which word that was. */
+function noResultsHtml(q,R){
+  var P=(R&&R.P)||{unknown:[],neutral:[],toks:[]},h='<div class="nrin">';
+  if(P.unknown.length)
+    h+='<h3>We don\u2019t carry \u201c'+esc(P.unknown.join(' '))+'\u201d in this store</h3>';
+  else if(P.neutral.length&&!P.toks.length)
+    h+='<h3>Every piece here carries your logo</h3>'+
+       '<p class="nrdrop">Embroidered or printed, placement shown on every card. What would you like it on?</p>';
+  else h+='<h3>Nothing here matches \u201c'+esc(q)+'\u201d</h3>';
+  var pop=SX_POPULAR.map(function(p){return {q:p,n:sxRun(p).keys.length};}).filter(function(p){return p.n>0;}).slice(0,8);
+  h+='<p class="nrbl">Popular in this store:</p><div class="nrchips">'+pop.map(function(p){
+    return '<button type="button" class="nrchip" data-nrq="'+esc(p.q)+'">'+esc(p.q)+' <i>'+p.n+'</i></button>';}).join('')+'</div>';
+  h+='<div class="nrask"><div><b>Can\u2019t find it?</b><span>We source well beyond what is shown here. '+
+     'Tell us what you need and a real person will quote it \u2014 no obligation.</span></div>'+
+     '<button type="button" class="nraskb" data-nrask="'+esc(q)+'">Ask us to source it \u2192</button></div></div>';
   return h;
 }
 function wireNoResults(el){
   if(!el)return;
+  var ab=el.querySelector('[data-nrask]');if(ab)ab.addEventListener('click',function(){openSourcing(ab.dataset.nrask);});
   el.querySelectorAll('[data-nrq]').forEach(function(b){b.addEventListener('click',function(){
     var ts=document.getElementById('topSearch');
     if(ts){ts.value=b.dataset.nrq;try{ts.dispatchEvent(new Event('input',{bubbles:true}));}catch(e){}}
@@ -2001,17 +2551,23 @@ function wireNoResults(el){
 function renderGrid(){
   var grid=document.getElementById('grid'),hd=document.getElementById('gridhd'),nr=document.getElementById('noResults');
   if(!grid)return;var q=(VIEW.q||'').trim().toLowerCase();
+  /* While a search is showing, the aisle chips and the warmth / budget bars describe a shelf the
+     buyer is not looking at; the results carry their own "refine by aisle" row instead. */
+  document.documentElement.classList.toggle('sxon',!!q);
   if(q){
-    var _toks=searchTokens(q);
-    var matches=ALLKEYS.map(function(k){var it=BYKEY[k];return it?[k,searchScore(it,_toks)]:[k,0];})
-      .filter(function(r){return r[1]>0;})
-      .sort(function(a,b){return b[1]-a[1];})
-      .map(function(r){return r[0];});
-    hd.innerHTML=matches.length?('<h2 class="glbl">Search results</h2><span class="gsub">'+matches.length+' match'+(matches.length===1?'':'es')+' for “'+esc(VIEW.q)+'”</span>'):'';
+    if(VIEW._sxq!==q){VIEW._sxq=q;VIEW.qa=null;VIEW.qb=VIEW.qc=VIEW.qfit=VIEW.qs=null;}
+    var R=sxResultsFor(q),matches=R.keys;
+    if(VIEW.qa!=null&&SX.aisles[VIEW.qa]){
+      var inA={};(SX.aisles[VIEW.qa].keys||[]).forEach(function(k){inA[k]=1;});
+      matches=matches.filter(function(k){return inA[k];});}
+    var _pre=matches;matches=sxRefine(matches);
+    hd.innerHTML=R.keys.length?(sxResultsHead(VIEW.q,R,matches,matches.length)+sxToolsHtml(_pre)):'';
+    if(R.keys.length){wireResultsHead(hd);wireSxTools(hd);}
     grid.innerHTML='<div class="menu">'+matches.map(menuCard).join('')+'</div>';
-    if(matches.length){nr.style.display='none';}
-    else{nr.style.display='';nr.innerHTML=noResultsHtml(VIEW.q,_toks);wireNoResults(nr);}
+    if(R.keys.length){nr.style.display='none';}
+    else{nr.style.display='';nr.innerHTML=noResultsHtml(VIEW.q,R);wireNoResults(nr);}
     wireCards();return;}
+  VIEW._sxq=null;VIEW.qa=null;VIEW.qb=VIEW.qc=VIEW.qfit=VIEW.qs=null;
   nr.style.display='none';
   // One place decides which keys the grid may show, so the Fit chip behaves identically in the flat,
   // grouped and single-sub layouts.
@@ -2155,8 +2711,9 @@ function shareView(){
 }
 function scrollToResults(){
   var hd=document.getElementById('gridhd');if(!hd)return;
-  var hdr=document.querySelector('.hdr'),nav=document.getElementById('navwrap');
-  var sticky=(hdr?hdr.offsetHeight:60)+(nav?nav.offsetHeight:0)+8;
+  var hdr=document.querySelector('.hdr'),nav=document.getElementById('navwrap'),tb=document.getElementById('tbar');
+  /* the sticky top bar holds the search box; landing results underneath it hid the count line */
+  var sticky=(tb?tb.offsetHeight:(hdr?hdr.offsetHeight:60))+(nav&&getComputedStyle(nav).position==='sticky'?nav.offsetHeight:0)+10;
   var y=window.pageYOffset+hd.getBoundingClientRect().top-sticky;
   window.scrollTo({top:Math.max(0,y),behavior:'smooth'});}
 function setSub(sub){VIEW.sub=sub;document.querySelectorAll('.schip').forEach(function(b){b.classList.toggle('on',b.dataset.sub===sub);});renderGrid();syncViewUrl();scrollToResults();}
@@ -5722,8 +6279,9 @@ function tbarHtml(){
         'stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/>'+
         '<path d="M21 21l-4.3-4.3"/></svg>'+
         '<input id="topSearch" type="search" autocomplete="off" aria-label="Search products" '+
-        'placeholder="What can we help you find?">'+
+        'placeholder="Search polos, hi-vis, jackets, Carhartt\u2026">'+
         '<button type="button" class="exsx" id="topSearchX" aria-label="Clear">\u2715</button>'+
+        '<div class="sxdd" id="sxdd" role="listbox" aria-label="Search suggestions" hidden></div>'+
       '</div>'+
       '<button type="button" class="tbboards" id="tbBoards">'+railIcon('boards')+
         '<span id="tbBoardsLbl">Boards</span></button>'+
@@ -6547,6 +7105,7 @@ function wireExplore(){
       var x=document.getElementById('topSearchX');if(x)x.style.display=ts.value?'':'none';};
     ts.addEventListener('input',push);
     ts.addEventListener('search',push);
+    wireSuggest();
     var x=document.getElementById('topSearchX');
     if(x){x.style.display='none';
       x.addEventListener('click',function(){ts.value='';push();ts.focus();});}
