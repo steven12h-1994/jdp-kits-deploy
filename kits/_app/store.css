@@ -2474,3 +2474,78 @@ body.giftview .gifts{margin-top:0;min-height:60vh}
 .inc-board{margin-top:8px}
 .inc-board .incl{flex-basis:auto;margin-right:2px}
 @media (max-width:560px){.shinc{flex-direction:column;align-items:stretch}.shincgo{align-self:flex-start}}
+
+/* ---- SEARCH (2026-09-25): suggestions, refine-by-aisle, and nothing hidden --------------------
+   Steven: "Are search engine is terrible and causing drop offs!" The box now answers on the first
+   keystroke, the way 4imprint's does: matching aisles, then products with a photo and a price. */
+.tbsearch{position:relative}
+.tbsearch input::-webkit-search-cancel-button{-webkit-appearance:none;appearance:none;display:none}
+.sxdd{position:absolute;left:-1px;right:-1px;top:calc(100% + 7px);z-index:120;background:#fff;
+  border:1px solid var(--line);border-radius:14px;box-shadow:0 18px 50px rgba(17,24,39,.16),0 2px 6px rgba(17,24,39,.06);
+  padding:8px;max-height:min(72vh,620px);overflow:auto;color:var(--ink);text-align:left}
+.sxdd[hidden]{display:none}
+.sxh{font:800 10.5px/1 var(--disp);letter-spacing:.09em;text-transform:uppercase;color:var(--mut);padding:10px 10px 6px}
+.sxrow{display:flex;align-items:center;gap:11px;width:100%;border:0;background:transparent;border-radius:10px;
+  padding:7px 10px;font:inherit;color:inherit;text-align:left;cursor:pointer}
+.sxrow:hover,.sxrow.on,.sxall:hover,.sxall.on,.sxchip.on{background:color-mix(in srgb,var(--a) 7%,#f6f5f2)}
+.sxrow.on,.sxall.on,.sxchip.on{box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--a) 45%,#fff)}
+.sxt{display:flex;flex-direction:column;min-width:0;flex:1;gap:1px}
+.sxt b{font-size:14px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sxt .sxnm{font-weight:600}.sxt .sxnm b{font-weight:850}
+.sxt i{font-style:normal;font-size:11.5px;color:var(--mut);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sxai{width:30px;height:30px;flex:0 0 30px;border-radius:9px;display:grid;place-items:center;
+  background:color-mix(in srgb,var(--a) 10%,#fff);color:var(--a)}
+.sxn{font-size:12px;font-weight:800;color:var(--mut);background:#f1f0ec;border-radius:99px;padding:3px 9px}
+.sxim{width:44px;height:44px;flex:0 0 44px;border-radius:9px;background:#f7f6f3;overflow:hidden;display:grid;place-items:center}
+.sxim img{width:100%;height:100%;object-fit:contain;mix-blend-mode:multiply}
+.sxpr{font-size:13.5px;font-weight:850;white-space:nowrap;text-align:right}
+.sxpr i{display:block;font-style:normal;font-size:10.5px;font-weight:600;color:var(--mut)}
+.sxall{display:flex;align-items:center;justify-content:center;gap:4px;width:100%;margin-top:6px;padding:11px;
+  border:0;border-top:1px solid var(--line);border-radius:0 0 10px 10px;background:transparent;font:inherit;
+  font-size:13.5px;font-weight:800;color:var(--a);cursor:pointer}
+.sxchips{display:flex;flex-wrap:wrap;gap:7px;padding:2px 8px 8px}
+.sxchip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:#fff;border-radius:99px;
+  padding:7px 12px;font:inherit;font-size:13px;font-weight:700;color:var(--ink);cursor:pointer;text-transform:capitalize}
+.sxchip:hover{border-color:color-mix(in srgb,var(--a) 45%,#fff)}
+.sxchip i{font-style:normal;font-size:11px;font-weight:800;color:var(--mut)}
+.sxchip.rec::before{content:"";width:11px;height:11px;border-radius:50%;border:1.8px solid var(--mut);
+  border-top-color:transparent;transform:rotate(45deg)}
+.sxfix{margin:4px 4px 2px;padding:9px 12px;border-radius:10px;background:#fff8e6;border:1px solid #f3e1a8;
+  font-size:13px;color:#5b4a14}
+.sxnone{display:flex;flex-direction:column;gap:4px;padding:12px 12px 6px}
+.sxnone b{font-size:14.5px}.sxnone span{font-size:13px;color:var(--mut)}
+/* results page */
+html.sxon .subbar,html.sxon .inbar,html.sxon #catguide,html.sxon .catguide{display:none!important}
+.sxnote{flex-basis:100%;font-size:13px;color:var(--mut);line-height:1.45}
+.sxnote b{color:var(--ink)}
+.sxfacets{flex-basis:100%;display:flex;flex-wrap:wrap;gap:7px;margin-top:4px}
+.sxfc{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:#fff;border-radius:99px;
+  padding:7px 13px;font:inherit;font-size:12.5px;font-weight:750;color:var(--ink);cursor:pointer}
+.sxfc em{font-style:normal;font-weight:600;color:var(--mut)}
+.sxfc i{font-style:normal;font-size:11px;font-weight:850;color:var(--mut)}
+.sxfc.on{background:var(--ink);border-color:var(--ink);color:#fff}.sxfc.on i,.sxfc.on em{color:rgba(255,255,255,.72)}
+.sxgo{margin-left:auto;border:1.5px solid color-mix(in srgb,var(--a) 45%,#fff);background:#fff;color:var(--a);
+  border-radius:99px;padding:8px 14px;font:inherit;font-size:13px;font-weight:800;cursor:pointer;white-space:nowrap}
+.sxgo:hover{background:color-mix(in srgb,var(--a) 7%,#fff)}
+@media (max-width:760px){
+  /* the search box is already full-width on a phone, so anchoring to it is right; pinning to the
+     viewport (the first attempt) opened the list ON TOP of the field being typed into */
+  .sxdd{max-height:calc(100vh - 150px);border-radius:12px}
+  .sxrow{padding:8px 8px}.sxim{width:40px;height:40px;flex-basis:40px}
+  .sxt b{font-size:13.5px}.sxgo{margin-left:0}
+}
+.sxtools{flex-basis:100%;display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:6px}
+.sxsel{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);border-radius:10px;background:#fff;
+  padding:4px 6px 4px 11px;font-size:12px;font-weight:700;color:var(--mut)}
+.sxsel select{border:0;background:transparent;font:inherit;font-size:13px;font-weight:750;color:var(--ink);
+  padding:4px 2px;cursor:pointer;max-width:190px;outline:0}
+.sxsel:focus-within{border-color:var(--a)}
+.sxclr{border:0;background:transparent;font:inherit;font-size:12.5px;font-weight:800;color:var(--a);cursor:pointer;padding:6px 4px}
+.nrask{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:18px;padding:16px 18px;
+  border-radius:14px;background:color-mix(in srgb,var(--a) 6%,#fff);border:1px solid color-mix(in srgb,var(--a) 22%,#fff)}
+.nrask div{display:flex;flex-direction:column;gap:3px}.nrask b{font-size:15px}.nrask span{font-size:13px;color:var(--mut)}
+.nraskb{flex:0 0 auto;border:0;border-radius:11px;background:var(--a);color:#fff;font:inherit;font-size:14px;font-weight:800;
+  padding:11px 16px;cursor:pointer;white-space:nowrap}
+@media (max-width:600px){.nrask{flex-direction:column;align-items:stretch}.sxsel select{max-width:150px}}
+.sxask{border:0;background:transparent;padding:0 0 0 4px;font:inherit;font-size:13px;font-weight:800;color:var(--a);cursor:pointer}
+.sxask:hover{text-decoration:underline}
