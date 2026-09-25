@@ -4526,6 +4526,7 @@ function renderSheet(){
       fabricHtml(item)+sampCtaHtml(SH.key)+
       fitTog+step1+qtyGrp+primaryHtml+extraHtml+
       trustPromiseHtml('sheet')+
+      altHtml(SH.key)+
       '<div class="shnote">'+(hasDecoPlace(item)?'Prices are per piece, decorated — your logo (embroidery / print) is included. One-time setup shows once in your board summary. ':'Prices are per piece (blank garment — no decoration on this item). ')+'Exact quote confirmed before anything runs.</div>'+
     '</div></div>'+
     '<div class="shfoot">'+priceClar+
@@ -4541,6 +4542,7 @@ function renderSheet(){
   var vw=document.getElementById('vwatch');if(vw){vw.addEventListener('click',function(){openVideo(item.video,item.name);});
     stampVideoDuration(item.video,'vwatch');}
   var sw=document.getElementById('shworn');if(sw)sw.addEventListener('click',function(){openScenic(gurl(item.scenic),item.name);});
+  wireAlts(sh);
   var ig=document.getElementById('shIncGo');if(ig)ig.addEventListener('click',function(){
     var t=document.getElementById('shLogo');if(!t)return;
     t.scrollIntoView({behavior:'smooth',block:'start'});
@@ -4610,6 +4612,76 @@ function applySpread(){
   sheetSizes().forEach(function(s){SH.sizes[s]=m.sizes[s]||0;});
   renderSheet();}
 function swapPreview(){var im=document.getElementById('shimg');if(im){im.classList.add('sw');setTimeout(function(){im.classList.remove('sw');},220);}}
+
+/* ---- KEEP THEM MOVING (2026-09-25) -----------------------------------------------------------
+   Two 4imprint patterns for the moment a buyer hesitates or has just said yes.
+   1. Alternatives on the product itself -- 4imprint's "More Upscale / Lower Price" tabs. A buyer who
+      likes the look but not the price, or wants something a step up, is shown the nearest options in
+      the SAME aisle instead of going back to the grid (or leaving). Nearest first: the cheaper list
+      starts just under this price, the premium list just above it.
+   2. After adding: "Added to Cart! -- Go To Checkout / Keep Shopping". Ours was a toast that faded
+      in 3.6 seconds. The panel now stays until dismissed and leads with the store's real offer --
+      a free mockup and exact quote -- one tap from the request form. */
+function altHome(it){try{var c=classify(it);return (BUCKETS[c.mega]||{})[c.sub]?{mega:c.mega,sub:c.sub}:null;}catch(e){return null;}}
+function altLists(key){
+  var it=BYKEY[key];if(!it||it.layer==='promo')return null;
+  var home=altHome(it);if(!home)return null;
+  var me=sxPrice(key),pool=(BUCKETS[home.mega][home.sub]||[]).filter(function(k){
+    var o=BYKEY[k];return k!==key&&o&&o.layer!=='promo';});
+  var withP=pool.map(function(k){return {k:k,p:sxPrice(k)};});
+  var lower=withP.filter(function(x){return x.p<me-0.49;}).sort(function(a,b){return b.p-a.p;}).slice(0,4);
+  var upper=withP.filter(function(x){return x.p>me+0.49;}).sort(function(a,b){return a.p-b.p;}).slice(0,4);
+  if(!lower.length&&!upper.length)return null;
+  return {home:home,me:me,lower:lower,upper:upper};
+}
+function altTile(x){
+  var it=BYKEY[x.k],c=(it.cols||[])[0]||{};
+  return '<button type="button" class="alt" data-altk="'+esc(x.k)+'">'+
+    '<span class="altim">'+(c.front?'<img src="'+gurl(c.front)+'" alt="" loading="lazy">':'')+'</span>'+
+    '<span class="altn">'+esc(it.name)+'</span><span class="altb">'+esc(it.brand||it.sku||'')+'</span>'+
+    '<span class="altp">'+money(x.p)+'<i>/pc at '+moq()+'</i></span></button>';
+}
+function altHtml(key){
+  var L=altLists(key);if(!L)return '';
+  var tabs=[];
+  if(L.lower.length)tabs.push({id:'lo',lab:'Lower price',rows:L.lower});
+  if(L.upper.length)tabs.push({id:'hi',lab:'More premium',rows:L.upper});
+  return '<section class="alts" id="alts"><div class="altsh"><b>Compare in '+esc(L.home.sub)+'</b>'+
+    '<div class="alttabs" role="tablist">'+tabs.map(function(t,i){
+      return '<button type="button" role="tab" class="alttab'+(i===0?' on':'')+'" data-altt="'+t.id+'">'+t.lab+' <i>'+t.rows.length+'</i></button>';}).join('')+
+    '</div></div>'+tabs.map(function(t,i){
+      return '<div class="altrow" data-altp="'+t.id+'"'+(i===0?'':' hidden')+'>'+t.rows.map(altTile).join('')+'</div>';}).join('')+
+    '</section>';
+}
+function wireAlts(root){
+  var s=root.querySelector('#alts');if(!s)return;
+  s.querySelectorAll('[data-altt]').forEach(function(b){b.addEventListener('click',function(){
+    s.querySelectorAll('[data-altt]').forEach(function(x){x.classList.toggle('on',x===b);});
+    s.querySelectorAll('[data-altp]').forEach(function(p){p.hidden=p.dataset.altp!==b.dataset.altt;});});});
+  s.querySelectorAll('[data-altk]').forEach(function(b){b.addEventListener('click',function(){
+    jdpTrack('alt',{k:b.dataset.altk});openSheet(b.dataset.altk);});});
+}
+/* the "added" panel */
+function addedPanel(key,was,colName,fit){
+  var it=BYKEY[key];if(!it)return;
+  var el=document.getElementById('addedp');
+  if(!el){el=document.createElement('div');el.id='addedp';el.className='addedp';el.setAttribute('role','status');document.body.appendChild(el);}
+  /* the colour they chose, in the cut they chose -- not the product's first colourway */
+  var cs=(fit==='womens'&&it.wcols&&it.wcols.length)?it.wcols:(it.cols||[]);
+  var c=colInList(cs,colName)||cs[0]||{},n=cartCount(),sub=cartSubtotal();
+  el.innerHTML='<button type="button" class="adx" id="adX" aria-label="Close">✕</button>'+
+    '<div class="adtop"><span class="adim">'+(c.front?'<img src="'+gurl(c.front)+'" alt="">':'')+'</span>'+
+    '<span class="adtx"><b>✓ '+(was?'Updated on':'Added to')+' '+esc(activeName())+'</b><i>'+esc(it.name)+'</i>'+
+      '<i>'+n+' style'+(n===1?'':'s')+' · est. '+money0(sub)+'</i></span></div>'+
+    '<button type="button" class="adgo" id="adGo">Get my free mockup &amp; quote →</button>'+
+    '<div class="adsec"><button type="button" id="adBoard">View board</button><button type="button" id="adKeep">Keep shopping</button></div>'+
+    (trustOn()?'<div class="adtr">No payment now · a real person replies in '+JDP_TRUST.reply+'</div>':'');
+  el.classList.add('on');
+  var close=function(){el.classList.remove('on');};
+  document.getElementById('adX').onclick=close;document.getElementById('adKeep').onclick=close;
+  document.getElementById('adBoard').onclick=function(){close();openBoard();};
+  document.getElementById('adGo').onclick=function(){close();jdpTrack('added_go');openCart();openCheckout();};
+}
 function addFromSheet(){
   var q=effQty();
   if(q<moq()){toast('Add at least '+moq()+' pieces');return;}
@@ -4623,8 +4695,8 @@ function addFromSheet(){
   if(Object.keys(sz).length)entry.sizes=sz;   // else keep the plain qty (a quick-started item reopened & saved as-is)
   if(Object.keys(sz).length)saveSpread(sz,SH.fit,BYKEY[SH.key].name);
   CART[_ck]=entry;
-  saveCart();closeAll();refreshCartUI();syncBoardIfOpen();
-  toast((was?'Updated · ':'Added · ')+BYKEY[SH.key].name);
+  saveCart();var _k=SH.key,_col=SH.colour,_fit=SH.fit;closeAll();refreshCartUI();syncBoardIfOpen();
+  addedPanel(_k,was,_col,_fit);
 }
 /* METHOD COMES FROM THE CATALOGUE STANDARD, NEVER FROM THE KIT VIEWMODEL -- the same rule
    openSheet() already follows. The kit's stored viewmodel is written by the fleet sync, which
