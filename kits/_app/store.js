@@ -976,8 +976,8 @@ function trustOn(){return !(CFG&&CFG.trust===false);}                 /* a store
 function trustStars(r){
   /* Filled to the exact rating (4.8 -> 96%), not rounded up to five full stars. */
   var pct=Math.max(0,Math.min(100,Math.round(r/5*1000)/10));
-  return '<span class="tstars" aria-label="'+r+' out of 5 stars"><span class="tsb">★★★★★</span>'+
-    '<span class="tsf" style="width:'+pct+'%">★★★★★</span></span>';
+  return '<span class="tstars" role="img" aria-label="'+r+' out of 5 stars"><span class="tsb" aria-hidden="true">★★★★★</span>'+
+    '<span class="tsf" aria-hidden="true" style="width:'+pct+'%">★★★★★</span></span>';
 }
 function trustRatingHtml(cls){
   var T=JDP_TRUST;
