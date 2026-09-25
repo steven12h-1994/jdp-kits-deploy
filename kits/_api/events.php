@@ -153,9 +153,12 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET') {
         echo '</table>'; };
     $tbl('Searches that found NOTHING &mdash; what buyers want and cannot find', $q0);
     $tbl('Top searches', $q);
-    $pv = []; foreach ($prod as $k => $v) $pv[$k] = ($v['sheet'] ?? 0) . ' opened &middot; ' . ($v['add'] ?? 0) . ' added';
+    /* product NAMES, from the catalogue this same host serves, not internal keys */
+    $names = []; $cj = @json_decode((string)@file_get_contents(dirname(__DIR__) . '/_catalog/catalog.json'), true);
+    if (is_array($cj)) foreach (($cj['items'] ?? []) as $it) { if (!empty($it['key'])) $names[$it['key']] = trim(($it['name'] ?? '') . ' · ' . ($it['brand'] ?? $it['sku'] ?? ''), ' ·'); }
+    $pv = []; foreach ($prod as $k => $v) $pv[$names[$k] ?? $k] = ($v['sheet'] ?? 0) . ' opened · ' . ($v['add'] ?? 0) . ' added';
     $tbl('Products', $pv);
-    $kv = []; foreach ($kits as $k => $v) $kv[$k] = ($v['view'] ?? 0) . ' views &middot; ' . ($v['add'] ?? 0) . ' adds &middot; ' . ($v['sent'] ?? 0) . ' sent';
+    $kv = []; foreach ($kits as $k => $v) $kv[$k] = ($v['view'] ?? 0) . ' views · ' . ($v['add'] ?? 0) . ' adds · ' . ($v['sent'] ?? 0) . ' sent';
     $tbl('Stores', $kv, 60);
     exit;
 }
