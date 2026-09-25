@@ -380,7 +380,12 @@ function inkUrl(logo,ink,col,method,colours){var t=(ink&&ink!=='auto')?ink:autoI
 // (e.g. a product re-shot on a model) is re-fetched instead of served stale from cache.
 function gurl(f){return CFG.catalog_base+'/img/'+f+(CATVER?((f.indexOf('?')<0?'?':'&')+'v='+CATVER):'');}
 function colOf(item,name){for(var i=0;i<item.cols.length;i++)if(item.cols[i].name===name)return item.cols[i];return item.cols[0];}
-function colInList(cols,name){for(var i=0;i<cols.length;i++)if(cols[i].name===name)return cols[i];return cols[0];}
+function colInList(cols,name){for(var i=0;i<cols.length;i++)if(cols[i].name===name)return cols[i];
+  /* 2026-09-25: 48 Spector colourways were renamed "Navyblue" -> "Navy Blue" (and two more). A board
+     saved before that still says "Navyblue"; match ignoring spaces and case before falling back. */
+  var nk=String(name||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+  if(nk)for(var j=0;j<cols.length;j++)if(String(cols[j].name||'').toLowerCase().replace(/[^a-z0-9]/g,'')===nk)return cols[j];
+  return cols[0];}
 // colInList falls back to cols[0] so callers always have something to render. When the question is
 // "does this set actually contain that colour", that fallback is a wrong answer -- hence this.
 function hasCol(cols,name){for(var i=0;i<(cols||[]).length;i++)if(cols[i].name===name)return true;return false;}
@@ -6826,6 +6831,33 @@ var GIFT_BANDS=[
 /* Curated, and every line carries the reason it is here -- that reason is the buyer guidance. Kit
    contents are quoted from the catalogue's own `contents` field, never described from memory. */
 var GIFT_PICKS=[
+  /* --- Spector drinkware, journals and home sets: Steven, 2026-09-25 -------------------------
+     "We need to add the following products and add these to gifts as well." These are Steven's own
+     picks, so they carry `gift:true` in the catalogue and pass the gate below even as single pieces
+     and under the price floor. Every line is taken from Spector's own product description. Three of
+     the singles are the components of the kits beside them, so a buyer can give the piece or the box. */
+  {k:'sp_lf141',
+   why:'A 12 oz insulated recycled-steel tumbler, an aluminium stovetop moka pot and a steel spoon, in a black gift box. The gift for the coffee person — with a minimum of just 16.'},
+  {k:'sp_lf111',
+   why:'A 3-litre black porcelain serving bowl with stainless servers, boxed, in black or black with gold. A gift for the home rather than the desk — for a milestone or a client thank-you.'},
+  {k:'sp_gf142',
+   why:'Two Second Wind insulated steel mugs with acacia wood handles, in a matte black magnetic gift box. A pair, ready to hand over, at a 25-piece minimum.'},
+  {k:'sp_gf977',
+   why:'A soft-cover spiral journal, a Sierra pen and a Golden Hour insulated steel mug, boxed together. The desk set for a whole team — the minimum is 100 pieces.'},
+  {k:'sp_gf969',
+   why:'The Marlowe hard-cover journal, a Sierra pen and a Prime Time stainless steel bottle in one box. A complete desk kit — the minimum is 100 pieces.'},
+  {k:'sp_dw423',
+   why:'An 8.8 oz double-wall vacuum-insulated mug in recycled stainless steel, with an acacia wood handle and a magnetic lid. The mug inside Paired Peaks, on its own.'},
+  {k:'sp_dw422',
+   why:'A 12 oz recycled stainless steel mug, double-wall vacuum insulated with a snug lid, in seven colours. The mug inside The Space Between, on its own.'},
+  {k:'sp_dw802',
+   why:'A 460 ml matte ceramic mug with a metal plate accent and chevron detailing, in a black tuck-in box. The everyday mug that stays on the desk.'},
+  {k:'sp_dw800',
+   why:'A 12 oz ceramic mug with a square metal detail for your logo, in a black tuck-in box — in burgundy, black, bone, evergreen and navy blue.'},
+  {k:'sp_st4864',
+   why:'A 6.1" × 8.5" hard-cover journal: 256 lined FSC-certified pages with a date feature, a ribbon marker and 100 g paper. The journal inside The Desk Reset, on its own.'},
+  {k:'sp_st4863',
+   why:'A 7.5" × 9.75" soft pebbled journal with 160 dated, perforated FSC-certified pages on 100 g paper, in eight colours. A considered thank-you at a smaller budget.'},
   /* --- Spector kits ---------------------------------------------------------------------------
      Steven, 2026-09-15: "we do not want luggage tag kits. we want kits that are premium and are in
      demand! also use some that have bags / backpacks."
@@ -6918,9 +6950,13 @@ var GIFT_PICKS=[
 var GIFT_TYPES=[
   {id:'all',  lab:'Everything'},
   {id:'wear', lab:'Apparel'},
-  {id:'kit',  lab:'Ready-boxed kits'}
+  {id:'kit',  lab:'Ready-boxed kits'},
+  {id:'keep', lab:'Mugs & journals'}
 ];
-function giftType(g){var it=BYKEY[g.k];return (it&&it.layer==='promo')?'kit':'wear';}
+/* A kit is a boxed set -- a Spector "Gift Set", or a home set Spector ships in a gift box. A single
+   mug or journal is its own kind of gift, and calling it a "ready-boxed kit" would mislead. */
+function giftType(g){var it=BYKEY[g.k];if(!it||it.layer!=='promo')return 'wear';
+  return (it.sku==='Gift Set'||/gift box/i.test(it.pack||''))?'kit':'keep';}
 var GV={band:'all',type:'all'};
 /* THE BAND PRICE MUST BE THE PRICE ON THE CARD -- the store minimum for apparel, and for a Spector
    kit its own published minimum, where the price already includes the branding. */
@@ -6941,12 +6977,13 @@ function giftBand(p){
 function giftEligible(it){
   if(!it)return false;
   if(['office','premium','bags'].indexOf(it.layer)>=0)return true;     // apparel and bags
+  if(it.layer==='promo'&&it.gift===true)return true;                    // chosen as a gift by Steven
   return it.layer==='promo'&&it.sku==='Gift Set';                       // a Spector kit, not a single
 }
 function giftPool(){
   return GIFT_PICKS.filter(function(g){return giftEligible(BYKEY[g.k]);})
     .map(function(g){return {k:g.k,why:g.why,p:giftPrice(g.k)};})
-    .filter(function(g){return g.p>=GIFT_FLOOR;})
+    .filter(function(g){return g.p>=GIFT_FLOOR||(BYKEY[g.k]||{}).gift===true;})
     .sort(function(a,b){return a.p-b.p;});
 }
 function giftMatches(band,type){
