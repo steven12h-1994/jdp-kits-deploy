@@ -1,13 +1,13 @@
 {
   "generator": "client-app",
-  "version": "1790543554",
-  "slug": "qualtech",
-  "client": "Qualtech Group",
+  "version": "1790543552",
+  "slug": "blackburnmedia",
+  "client": "Blackburn Media Inc",
   "files": [
     "index.html",
     "client.json",
     "img/favicon.png",
-    "img/lg_full_0064ac.png",
+    "img/lg_full_6286c4.png",
     "img/lg_full_brand.png",
     "img/lg_full_dark.png",
     "img/lg_full_white.png",
