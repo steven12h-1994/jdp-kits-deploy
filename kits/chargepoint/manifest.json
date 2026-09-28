@@ -1,0 +1,17 @@
+{
+  "generator": "client-app",
+  "version": "1790615701",
+  "slug": "chargepoint",
+  "client": "ChargePoint",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_7c98ab.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_ef7622.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}
