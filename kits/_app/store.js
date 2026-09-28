@@ -6454,12 +6454,30 @@ function railHtml(){
       '<span>Quote</span></button>'+
     '</nav>';
 }
+/* Home = the store's front page, exactly as a first-time visitor lands on it: no board, no sheet,
+   no gift view, no search, top of the page, and a clean address bar. */
+function goHome(){
+  try{closeBoards();}catch(e){}try{closeBoard();}catch(e){}try{closeAll();}catch(e){}
+  try{setGiftView(false);}catch(e){}
+  try{if(typeof sxDropHide==='function')sxDropHide();}catch(e){}
+  var ts=document.getElementById('topSearch');
+  if(ts&&ts.value){ts.value='';try{ts.dispatchEvent(new Event('input',{bubbles:true}));}catch(e){}}
+  if(VIEW.q){VIEW.q='';try{renderGrid();}catch(e){}}
+  try{history.replaceState(null,'',location.pathname);}catch(e){}
+  window.scrollTo({top:0,behavior:'smooth'});setRail('explore');
+}
+function wireHome(){
+  var h=document.getElementById('tbHome');if(!h||h.dataset.w)return;h.dataset.w='1';
+  h.addEventListener('click',function(e){
+    if(e.metaKey||e.ctrlKey||e.shiftKey||e.button===1)return;   /* let "open in new tab" work */
+    e.preventDefault();jdpTrack('logo_home');goHome();});
+}
 function wireRail(){
+  wireHome();
   document.querySelectorAll('.railb').forEach(function(b){
     b.addEventListener('click',function(){
       var w=b.dataset.rail;
-      if(w==='explore'){closeBoards();closeBoard();closeAll();setGiftView(false);
-        window.scrollTo({top:0,behavior:'smooth'});setRail('explore');return;}
+      if(w==='explore'){goHome();return;}
       if(w==='boards'){closeBoard();openBoards();return;}
       if(w==='share'){shareList();return;}
       if(w==='gifts'){closeBoards();closeBoard();closeAll();setGiftView(true);return;}
@@ -6515,7 +6533,10 @@ function catMenuHtml(){
 }
 function tbarHtml(){
   return '<div class="tbar" id="tbar"><div class="tbin">'+
-      heroMarkHtml('tbmark')+
+      /* THE LOGO GOES HOME. Steven, 2026-09-28: "when users click there logo they do not go to home
+         screen!" It was a bare <img>. Every storefront buyer expects the top-left mark to be home. */
+      '<a class="tbhome" id="tbHome" href="'+esc(location.pathname)+'" aria-label="'+esc((CFG.client||'Store')+' \u2014 home')+'">'+
+        heroMarkHtml('tbmark')+'</a>'+
       '<button type="button" class="tbcats" id="tbCats" aria-expanded="false">'+
         '<span class="tbbg"><i></i><i></i><i></i></span>Categories</button>'+
       '<div class="tbsearch">'+
@@ -6891,6 +6912,11 @@ var GIFT_BANDS=[
 /* Curated, and every line carries the reason it is here -- that reason is the buyer guidance. Kit
    contents are quoted from the catalogue's own `contents` field, never described from memory. */
 var GIFT_PICKS=[
+  /* --- Steven 2026-09-28: "add these products and also add these products to gifts" ------------ */
+  {k:'st_altitude',
+   why:'An ultralight quilted jacket with feather-free thermal polyfill and a water-repellent micro-ripstop shell. Warm without bulk, in black or navy, in men\u2019s and ladies\u2019 cuts.'},
+  {k:'cbc_traverse_qz',
+   why:'A 200 gsm double-knit quarter-zip in recycled polyester with stretch and UPF 50+ \u2014 ten colours, men\u2019s and ladies\u2019 cuts. The polished layer for the office, the course or travel.'},
   /* --- Carhartt, Steven 2026-09-28: "add the following carhartt to the gifts section" -------------
      Every line is taken from Carhartt's own product page. */
   {k:'ch_102208',
