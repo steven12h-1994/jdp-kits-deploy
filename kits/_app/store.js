@@ -6891,6 +6891,14 @@ var GIFT_BANDS=[
 /* Curated, and every line carries the reason it is here -- that reason is the buyer guidance. Kit
    contents are quoted from the catalogue's own `contents` field, never described from memory. */
 var GIFT_PICKS=[
+  /* --- Carhartt, Steven 2026-09-28: "add the following carhartt to the gifts section" -------------
+     Every line is taken from Carhartt's own product page. */
+  {k:'ch_102208',
+   why:'Carhartt rates it Warmth Level 2 — Warmer: a lightweight Cordura® shell over 100 g insulation, water repellent and windproof. Your logo goes on the right chest, opposite Carhartt\u2019s own patch.'},
+  {k:'ch_102286',
+   why:'The same Rain Defender® shell and 100 g insulation as the jacket, with the arms free. Carhartt builds it to go over a hoodie or under a heavier coat.'},
+  {k:'ch_104277',
+   why:'12 oz washed cotton duck lined with sherpa — with sherpa-lined front pockets and a zip map pocket. The classic Carhartt work vest, with your logo opposite the patch.'},
   /* --- Spector drinkware, journals and home sets: Steven, 2026-09-25 -------------------------
      "We need to add the following products and add these to gifts as well." These are Steven's own
      picks, so they carry `gift:true` in the catalogue and pass the gate below even as single pieces
