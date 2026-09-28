@@ -1,0 +1,16 @@
+{
+  "generator": "client-app",
+  "version": "1790609819",
+  "slug": "ag-jeans",
+  "client": "AG Jeans",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_a51e36.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}
