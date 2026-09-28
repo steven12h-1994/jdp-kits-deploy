@@ -2676,3 +2676,6 @@ html.sxon .subbar,html.sxon .inbar,html.sxon #catguide,html.sxon .catguide{displ
 @media (max-width:760px){.jhelp{right:12px;bottom:76px}.jhbtn span{display:none}.jhbtn{padding:13px}}
 @media (max-width:600px){html.hascart .jhelp{display:none}}
 @media print{.jhelp{display:none}}
+/* the store mark is the home link (2026-09-28) */
+.tbhome{display:inline-flex;align-items:center;flex:0 0 auto;border-radius:8px;text-decoration:none}
+.tbhome:focus-visible{outline:2px solid var(--a);outline-offset:3px}
