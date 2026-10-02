@@ -7310,23 +7310,22 @@ function pvCardHtml(ck,n){
   return '<li class="bcard pvc" data-bk="'+esc(ck)+'">'+
     '<span class="pvn" aria-hidden="true">'+n+'</span>'+
     '<div class="bimgwrap pvimg" data-pvopen="'+esc(ck)+'">'+stage+
-      (it.csa?('<span class="pvcsa">'+esc(String(it.csa).split(' · ')[0])+'</span>'):'')+'</div>'+
+      (it.csa?('<span class="pvcsa">'+esc(String(it.csa).split(' · ')[0])+'</span>'):'')+
+      (cuts?('<span class="pvcuts">'+esc(cuts)+'</span>'):'')+'</div>'+
     '<div class="pvbody">'+
-      (brand?('<div class="pvbrand">'+esc(brand)+(cuts?(' · '+cuts):'')+'</div>'):'')+
+      (brand?('<div class="pvbrand">'+esc(brand)+'</div>'):'')+
       '<h3 class="pvname">'+esc(it.name)+'</h3>'+
-      incHtml(it,decos,'board')+
-      (why?('<p class="pvwhy">'+esc(why)+'</p>'):'')+
-      bColourRowHtml(ck)+
-      '<div class="pvprice"><b>'+money(u[0])+'</b><span>per piece at '+tiers[0]+'+ · logo included</span>'+
+      '<div class="pvprice"><b>'+money(u[0])+'</b><span>/pc at '+tiers[0]+'+ · logo included</span>'+
         '<i>'+tiers.slice(1).map(function(t,i){return money(u[i+1])+' at '+t+'+';}).join(' · ')+'</i></div>'+
+      incHtml(it,decos,'board')+
+      bColourRowHtml(ck)+
+      (why?('<p class="pvwhy">'+esc(why)+'</p>'):'')+
       (gal.length?('<div class="pvgal">'+gal.map(function(g){
           return '<button type="button" class="pvgth" data-pvopen="'+esc(ck)+'" style="background-image:url(\''+gurl(g)+
             '\')" aria-label="See the '+esc(it.name)+' worn"></button>';}).join('')+'</div>'):'')+
       '<button type="button" class="pvmore" data-pvopen="'+esc(ck)+'">Details, colours &amp; sizes ›</button>'+
     '</div></li>';
 }
-/* `n` is passed in from the input rather than re-read from storage, so the figure follows the
-   typing even where localStorage is unavailable (private mode, an embedded preview). */
 function pvEstHtml(id,n){
   if(n==null)n=getHC();
   n=parseInt(n,10)||0;
@@ -7338,23 +7337,31 @@ function pvEstHtml(id,n){
 }
 function programHtml(id){
   var L=LISTS[id];if(!L)return '';
-  var ks=Object.keys(L.items||{}),n=getHC();
+  var ks=Object.keys(L.items||{}),n=getHC(),pp0=pvPerPerson(id,0),T=JDP_TRUST;
   var cards=ks.map(function(ck,i){return pvCardHtml(ck,i+1);}).join('');
+  /* "mockup &" drops out on a phone so the bar's input and button share one row. */
+  var cta=function(idb,cls){return '<button type="button" class="pvcta '+(cls||'')+'" id="'+idb+'">Get my free <span class="pvl">mockup &amp; </span>quote <span class="ar">→</span></button>';};
   return '<div class="pvwrap">'+
     '<header class="pvhd">'+
       '<button type="button" class="pvback" id="pvBack">‹ Back to the store</button>'+
       pvTabsHtml(id)+
-      '<button type="button" class="bx pvx" id="pvClose" aria-label="Close">✕</button>'+
+      cta('pvQuoteTop','pvhdcta')+
     '</header>'+
-    '<div class="pvtitle">'+
-      '<div class="pveyb">Pre-approved program · '+esc(CFG.client||'your team')+'</div>'+
-      '<h1 class="pvh1">'+esc(L.name)+'</h1>'+
-      (L.sub?('<p class="pvsub">'+esc(L.sub)+'</p>'):'')+
-      '<div class="pvfacts">'+
-        '<span><b>'+ks.length+'</b> pieces</span>'+
-        '<span><b>'+money0(pvPerPerson(id,0))+'</b> per person</span>'+
-        '<span class="pvfnote">One of each, with your logo, at the '+moq()+'-piece minimum. Prices drop at 48+ and 144+.</span>'+
-      '</div></div>'+
+    /* THE HERO BAND. The number a buyer is looking for and the one thing to do next, in the first
+       screen -- not three scrolls down behind four product cards. */
+    '<section class="pvhero"><div class="pvheroin">'+
+      '<div class="pvherotx">'+
+        '<div class="pveyb">Pre-approved program · '+esc(CFG.client||'your team')+'</div>'+
+        '<h1 class="pvh1">'+esc(L.name)+'</h1>'+
+        (L.sub?('<p class="pvsub">'+esc(L.sub)+'</p>'):'')+
+      '</div>'+
+      '<div class="pvheroact">'+
+        '<div class="pvstat"><b>'+money0(pp0)+'</b><span>per person · one of each, logo included</span></div>'+
+        cta('pvQuoteHero','pvherocta')+
+        '<div class="pvtrust">Free mockup · exact quote · no payment now · a real person replies in '+esc(T.reply)+'</div>'+
+      '</div>'+
+    '</div></section>'+
+    '<div class="pvkit"><span>The kit</span><i>'+ks.length+' pieces · priced at the '+moq()+'-piece minimum · prices drop at 48+ and 144+</i></div>'+
     '<ol class="pvgrid">'+cards+'</ol>'+
     '<div class="pvfoot">'+
       '<button type="button" class="pvlink" id="pvAdopt">Change this program — add or remove pieces</button>'+
@@ -7362,11 +7369,11 @@ function programHtml(id){
       '<button type="button" class="pvlink" id="pvShare">Share this program ↗</button>'+
     '</div>'+
     '<div class="pvbar"><div class="pvbarin">'+
-      '<label class="pvpeople"><span>How many people?</span>'+
-        '<input id="pvHC" type="number" inputmode="numeric" min="1" placeholder="e.g. 25"'+(n?(' value="'+n+'"'):'')+
-        ' aria-label="Number of people"></label>'+
       '<div class="pvest" id="pvEst">'+pvEstHtml(id,n)+'</div>'+
-      '<button type="button" class="pvcta" id="pvQuote">Get my free mockup &amp; quote <span class="ar">→</span></button>'+
+      '<label class="pvpeople"><span>How many people?</span>'+
+        '<input id="pvHC" type="number" inputmode="numeric" min="1" placeholder="People, e.g. 25"'+(n?(' value="'+n+'"'):'')+
+        ' aria-label="Number of people"></label>'+
+      cta('pvQuote','')+
     '</div></div>'+
   '</div>';
 }
@@ -7402,7 +7409,7 @@ function closeProgram(){
 }
 function wireProgram(el,id){
   var back=function(){closeProgram();};
-  ['pvBack','pvClose'].forEach(function(b){var e=document.getElementById(b);if(e)e.addEventListener('click',back);});
+  ['pvBack'].forEach(function(b){var e=document.getElementById(b);if(e)e.addEventListener('click',back);});
   el.querySelectorAll('[data-pvsw]').forEach(function(b){b.addEventListener('click',function(){
     if(b.dataset.pvsw===id)return;jdpTrack('program_switch');openProgram(b.dataset.pvsw);});});
   el.querySelectorAll('[data-pvopen]').forEach(function(b){b.addEventListener('click',function(e){
@@ -7427,8 +7434,7 @@ function wireProgram(el,id){
     hc.addEventListener('change',function(){upd();var n=parseInt(hc.value,10)||0;if(n>0)jdpTrack('program_people',{n:n});});
     hc.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();var q=document.getElementById('pvQuote');if(q)q.click();}});
   }
-  var q=document.getElementById('pvQuote');
-  if(q)q.addEventListener('click',function(){
+  var quote=function(){
     var n=parseInt(hc&&hc.value,10)||0;
     if(n>0){try{applyHeadcount(n);}catch(e){}}
     jdpTrack('program_quote',{p:id.replace(/^prog_/,''),n:n});
@@ -7439,7 +7445,8 @@ function wireProgram(el,id){
     openCheckout();
     var nt=document.getElementById('coNote');
     if(nt&&!nt.value)nt.value=((LISTS[id]||{}).name||'Program')+(n?(' — about '+n+' people'):'')+'. Sizes to confirm. ';
-  });
+  };
+  ['pvQuote','pvQuoteTop','pvQuoteHero'].forEach(function(b){var e=document.getElementById(b);if(e)e.addEventListener('click',quote);});
   var ad=document.getElementById('pvAdopt');
   if(ad)ad.addEventListener('click',function(){jdpTrack('program_adopt');adoptProgram(id);});
   var sh=document.getElementById('pvShare');
