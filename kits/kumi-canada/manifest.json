@@ -1,0 +1,16 @@
+{
+  "generator": "client-app",
+  "version": "1790958187",
+  "slug": "kumi-canada",
+  "client": "Kumi Canada",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_005eae.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}
