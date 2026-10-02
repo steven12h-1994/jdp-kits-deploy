@@ -2709,6 +2709,9 @@ function hivisIntroHtml(){
 function applyViewLink(){
   var s=location.search,c,sub2;
   if(/[?&]view=gifts\b/.test(s)){setGiftView(true);return true;}
+  /* A program has a plain, permanent address -- the link a rep pastes into an email. */
+  var pm=/[?&]program=([a-z0-9_-]+)/.exec(s);
+  if(pm){try{openProgram(pm[1]);}catch(e){}return true;}
   var qm=s.match(/[?&]q=([^&#]*)/);
   if(qm){
     var q=qdec(qm[1]);
@@ -3210,7 +3213,7 @@ function buildStore(){
     clearTimeout(QURLT);QURLT=setTimeout(syncViewUrl,450);});
     si.addEventListener('keydown',function(e){if(e.key==='Escape')closeSearch();});}
   setCat(VIEW.cat,false);       // initial focused render
-  document.addEventListener('keydown',function(e){if(e.key==='Escape'){if(mediaOpen())closeMedia();else closeAll();}});
+  document.addEventListener('keydown',function(e){if(e.key==='Escape'){if(mediaOpen())closeMedia();else{var _sh=document.getElementById('sheet'),_ct=document.getElementById('cart');var _top=(_sh&&_sh.classList.contains('on'))||(_ct&&_ct.classList.contains('on'));if(!_top&&programOpen())closeProgram();else closeAll();}}});
   if(C.feed&&!document.getElementById('beholdjs')){var bs=document.createElement('script');bs.id='beholdjs';bs.type='module';bs.src='https://w.behold.so/widget.js';document.head.appendChild(bs);}
   var tv=document.getElementById('toastView');
   if(tv)tv.addEventListener('click',function(){
@@ -6094,7 +6097,7 @@ function renderBoard(){
   var ids=listIds();
   var chips=ids.map(function(id){
     return '<button type="button" class="bchip'+(id===ALID?' on':'')+'" data-bsw="'+esc(id)+'">'+
-      esc(listName(id))+' <i>'+listLen(id)+'</i>'+(isTemplate(id)?'<em>template</em>':'')+'</button>';}).join('');
+      esc(listName(id))+' <i>'+listLen(id)+'</i>'+(isTemplate(id)?('<em>'+(((LISTS||{})[id]||{}).prog?'program':'template')+'</em>'):'')+'</button>';}).join('');
   var cards=Object.keys(CART).map(boardCardHtml).join('');
   var tmpl=isTemplate(ALID)?('<div class="btmpl"><b>This is our starter template.</b> Anything you save '+
       'goes to your own board \u2014 this one stays as it is.'+
@@ -6378,7 +6381,7 @@ function boardTileHtml(id){
                 :'<div class="btc empty"></div>';}
   return '<button type="button" class="btile" data-bopen="'+esc(id)+'">'+
     '<div class="btcollage'+(th.length?'':' blank')+'">'+cells+
-      (isTemplate(id)?'<span class="bttag">Template</span>':'')+'</div>'+
+      (isTemplate(id)?('<span class="bttag">'+(((LISTS||{})[id]||{}).prog?'Program':'Template')+'</span>'):'')+'</div>'+
     '<div class="btmeta"><b>'+esc(listName(id))+'</b>'+
       '<span>'+n+' item'+(n===1?'':'s')+(t.pieces?(' \u00b7 '+t.pieces+' pcs'):'')+
       (t.sub?(' \u00b7 est. '+money(t.sub)):'')+'</span></div></button>';
@@ -6403,7 +6406,7 @@ function renderBoardsIndex(){
         '<div class="btmeta"><b>Create a board</b><span>Group gear by team, site or season</span></div>'+
       '</button></div></div>';
   el.querySelectorAll('[data-bopen]').forEach(function(b){b.addEventListener('click',function(){
-    closeBoards();openBoard(b.dataset.bopen);});});
+    closeBoards();var _L=(LISTS||{})[b.dataset.bopen];if(_L&&_L.prog)openProgram(b.dataset.bopen);else openBoard(b.dataset.bopen);});});
   ['biNew','biNew2'].forEach(function(idb){
     var e=document.getElementById(idb);
     if(e)e.addEventListener('click',function(){
@@ -6457,7 +6460,7 @@ function railHtml(){
 /* Home = the store's front page, exactly as a first-time visitor lands on it: no board, no sheet,
    no gift view, no search, top of the page, and a clean address bar. */
 function goHome(){
-  try{closeBoards();}catch(e){}try{closeBoard();}catch(e){}try{closeAll();}catch(e){}
+  try{closeBoards();}catch(e){}try{closeBoard();}catch(e){}try{closeProgram();}catch(e){}try{closeAll();}catch(e){}
   try{setGiftView(false);}catch(e){}
   try{if(typeof sxDropHide==='function')sxDropHide();}catch(e){}
   var ts=document.getElementById('topSearch');
@@ -6478,10 +6481,10 @@ function wireRail(){
     b.addEventListener('click',function(){
       var w=b.dataset.rail;
       if(w==='explore'){goHome();return;}
-      if(w==='boards'){closeBoard();openBoards();return;}
+      if(w==='boards'){closeBoard();closeProgram();openBoards();return;}
       if(w==='share'){shareList();return;}
-      if(w==='gifts'){closeBoards();closeBoard();closeAll();setGiftView(true);return;}
-      if(w==='quote'){closeBoards();closeBoard();
+      if(w==='gifts'){closeBoards();closeBoard();closeProgram();closeAll();setGiftView(true);return;}
+      if(w==='quote'){closeBoards();closeBoard();closeProgram();
         document.getElementById('ov').classList.add('on');
         document.getElementById('cart').classList.add('on');
         document.body.style.overflow='hidden';openCheckout();return;}
@@ -6624,56 +6627,48 @@ function catTileImg(cat){
    A key that is not in a given store is skipped, and a program with fewer than three surviving
    pieces does not render, so a scoped-down store degrades to fewer cards rather than to a gap. */
 var PROG_SPECS=[
+  /* Steven, 2026-10-02: "change the program product selection to these products in this order."
+     Four pieces per program, his order. `col` is the colourway the program opens on where the
+     neutral rule would pick the wrong one for the job (a white polo is a neutral; it is not the
+     premium read of that polo). Every `why` is built from the catalogue's own published facts. */
   {id:'crew',name:'Crew Uniform Program',
    who:'the crew on the tools',
-   sub:'One program for the whole company — the crew on the tools and the people selling the work.',
+   sub:'For the crew on the tools: a hoodie, a vest and two jackets that carry your logo all year.',
    items:[
-     {k:'crewtee',   lab:'Everyday tee',
-      why:'Gets worn to destruction, so buy it by the box. Screen printed at the left chest, which is a fraction of the cost of embroidery and what a crew actually wants.'},
-     {k:'st_sonora', lab:'Polo',
-      why:'The piece that carries you from the shop floor into a customer meeting without changing. Soft knit, holds its shape through a laundry cycle.'},
      {k:'vault',     lab:'Hoodie',
-      why:'The layer they genuinely live in from September to May, which makes it the piece your logo gets seen on most. Order deeper than you think.'},
+      why:'The layer a crew lives in from September to May, so it is the piece your logo is seen on most. 280 gsm cotton-polyester fleece in 18 colours — order deeper than you think.'},
      {k:'chill',     lab:'Puffy vest',
-      why:'Warmth with the arms free — the layer that stays on indoors and under a jacket outside. The most-worn thing on this list after the hoodie.'},
+      why:'Warmth with the arms free — 180 g polyester insulation that stays on indoors and goes under a jacket outside. Men’s and ladies’ cuts.'},
      {k:'softshell', lab:'Softshell jacket',
-      why:'Wind and light rain without the bulk of a parka. The jacket that goes on for a site walk and comes off in the van.'},
-     {k:'cs_cyclone',lab:'Insulated jacket',
-      why:'Insulated softshell rated to 8000 mm waterproof, 100 g through the body and 80 g in the sleeves — real winter warmth that still moves like a softshell.'}
+      why:'Lightweight wind and rain cover for the nine months a parka is too much — 8,000 mm water-repellent and windproof, five colours, both cuts.'},
+     {k:'cs_l03170', lab:'Insulated jacket',
+      why:'The same idea for winter: 100 g recycled insulation through the body and 80 g in the sleeves, an 8,000 mm windproof shell and a removable hood.'}
    ]},
   {id:'premium',name:'Premium · In Front of the Client',
    who:'the people in front of your clients',
    sub:'Sales, management and anyone whose first impression is the company’s.',
    items:[
-     {k:'cbc_advantage_polo', lab:'Polo',
-      why:'Cutter & Buck’s cotton-blend piqué in a recycled build — the polo that still looks pressed at the end of a client day. GRS-certified recycled polyester and OEKO-TEX Standard 100, which is worth saying out loud on a tender.'},
-     {k:'cb_qzip',            lab:'Half-zip',
-      why:'The layer that reads as considered rather than casual. Soft-knit, no logo-on-fleece bulk, and it sits properly under a jacket.'},
-     {k:'cbc_evoke_fleece',   lab:'Full-zip fleece',
-      why:'Honeycomb-textured recycled fleece that reads as a jacket, not a sweatshirt. For the meeting that starts in a boardroom and ends on a site.'},
-     {k:'st_cruise',          lab:'Softshell jacket',
-      why:'Stormtech’s client-facing shell: bonded, structured, and cut so it still looks sharp over a polo.'},
-     {k:'vest',               lab:'Quilted vest',
-      why:'The most-requested piece in any office program — put-together indoors and outdoors both, and it flatters every build on the team.'},
-     {k:'st_matrix',           lab:'3-in-1 system jacket',
-      why:'The top of the range: an H2XTREME waterproof shell, a zip-out thermal liner, and both together. Three jackets on one line, and the liner carries your mark too — so the logo is still there when the shell comes off indoors.'}
+     {k:'vest',               lab:'Quilted vest', col:'Black',
+      why:'Stormtech’s quilted thermal vest — windproof and water-repellent, and the office-program staple because it looks put-together indoors and out. Men’s and ladies’ cuts.'},
+     {k:'cbc_traverse_qz',    lab:'Quarter-zip', col:'Black',
+      why:'A 200 gsm double-knit quarter-zip in 70% recycled polyester with stretch, moisture wicking and UPF 50+. Ten colours, men’s and ladies’ — the layer that reads considered, not casual.'},
+     {k:'st_cruise',          lab:'Softshell jacket', col:'Black',
+      why:'Stormtech’s waterproof Cruise softshell — the client-facing shell, structured and cut to look sharp over a polo. Men’s and ladies’ cuts.'},
+     {k:'cbc_advantage_polo', lab:'Polo', col:'Liberty Navy',
+      why:'Cutter & Buck’s cotton-blend piqué — 52% cotton, 45% recycled polyester, 3% spandex — the polo that still looks pressed at the end of a client day. GRS-certified recycled, OEKO-TEX Standard 100.'}
    ]},
   {id:'hivis',name:'CSA Hi-Vis Program',
    who:'the crews who have to be site-legal',
-   sub:'Everything a crew needs to be site-legal, from a summer tee to −20°C.',
+   sub:'Site-legal from the first cold morning to deep winter — four pieces, one program.',
    items:[
-     {k:'tvest',  lab:'Tear-away vest',
-      why:'The vest we recommend. Tear-away seams are the point: if it snags on machinery it lets go instead of pulling the wearer in. Logo embroidered onto the left-chest tape, company name across the back.'},
-     {k:'tee',    lab:'Hi-vis tee',
-      why:'CSA Z96 Class 1. Front and back printing is what gets a crew recognised on a shared site — from behind as often as from the front.'},
-     {k:'tt4',    lab:'Hi-vis long sleeve',
-      why:'The same shirt with the arms covered, for shoulder seasons and anywhere sleeves are the site rule.'},
      {k:'hoodie', lab:'Hi-vis hoodie',
       why:'CSA Z96 Class 2. Compliance and warmth in one layer, so nobody covers their hi-vis with a personal hoodie and stops being compliant.'},
      {k:'tj2',    lab:'Hi-vis softshell',
-      why:'Class 2 wind and rain protection that is not a parka — the nine-month jacket.'},
-     {k:'tj3',    lab:'3-in-1 winter jacket',
-      why:'One purchase, three jackets: liner alone, shell alone, or both at −20°C. The line that stops a crew buying their own coats in January — and the liner is branded too, so the logo does not disappear indoors.'}
+      why:'CSA Z96 Class 2 wind and rain protection that is not a parka — the nine-month jacket.'},
+     {k:'tp1',    lab:'Winter parka',
+      why:'CSA Z96 Class 2 winter parka — the line that stops a crew buying their own coats in January.'},
+     {k:'tt4',    lab:'Hi-vis long sleeve',
+      why:'CSA Z96 Class 1 cotton with the arms covered — for shoulder seasons and any site where sleeves are the rule.'}
    ]}
 ];
 
@@ -6685,7 +6680,7 @@ var PROG_SPECS=[
    option kept open. */
 /* On hi-vis the high-visibility colour IS the product; everywhere else a neutral is what a uniform
    program is built on. */
-var PROG_NEUTRAL=/^(black|true black|navy|true navy|dark navy|midnight|charcoal|graphite|gunmetal|steel|slate|grey|gray|heather grey|ash grey|white|ivory|stone|khaki|gravel|tan)\b/i;
+var PROG_NEUTRAL=/^(black|true black|navy|true navy|dark navy|liberty navy|midnight|charcoal|graphite|gunmetal|steel|slate|grey|gray|heather grey|ash grey|elemental grey|white|ivory|stone|khaki|gravel|tan)\b/i;
 var PROG_HIVIS=/^(hi-?vis|fluorescent|safety)\b|\b(orange|yellow|lime)\b/i;
 /* A neutral means NO ACCENT ANYWHERE IN THE NAME. Testing only the first word let "Black/Red" and
    then "Black Bright Red" through -- both start with black, and both are two-tone garments with a
@@ -6708,6 +6703,15 @@ function progColour(k){
   hit=cols.filter(function(c){return progPlain(c.name);})[0];
   return hit?hit.name:def;
 }
+/* A program may name its opening colourway. It is used only if this store actually carries it in
+   the men's run; otherwise the neutral rule decides, exactly as before. */
+function progColourFor(k,pref){
+  if(pref){
+    var it=BYKEY[k],cols=(it&&(curColsOf(it,'mens')||it.cols))||[];
+    for(var i=0;i<cols.length;i++)if(cols[i]&&cols[i].name===pref)return pref;
+  }
+  return progColour(k);
+}
 function progBuild(spec){
   /* Explicit keys, in the order they were chosen. A key the store does not carry is dropped rather
      than substituted -- a program is a merchandising decision, and quietly swapping in a different
@@ -6715,7 +6719,7 @@ function progBuild(spec){
   var rows=[];
   (spec.items||[]).forEach(function(it){
     if(!BYKEY[it.k])return;
-    rows.push({k:it.k,lab:it.lab,why:it.why});
+    rows.push({k:it.k,lab:it.lab,why:it.why,col:it.col||null});
   });
   return rows;
 }
@@ -6766,7 +6770,7 @@ function seedPrograms(){
            until then. */
         var _it=BYKEY[r.k]||{};
         var _q=(_it.layer==='promo')?(_it.moq||moq()):moq();
-        items[r.k]={qty:_q,colour:progColour(r.k),decos:recCartDecos(r.k),
+        items[r.k]={qty:_q,colour:progColourFor(r.k,r.col),decos:recCartDecos(r.k),
                     why:r.lab+' — '+r.why};});
       var id='prog_'+spec.id;
       LISTS[id]={name:spec.name,items:items,updated:0,starter:true,prog:1,
@@ -7249,6 +7253,222 @@ function giftViewOn(){
   try{return document.body.classList.contains('giftview');}catch(e){return false;}
 }
 
+
+/* ---- THE PROGRAM VIEW ---------------------------------------------------------------------------
+   Steven, 2026-10-02: "Our programs are the most clicked but also the most confusing and the worst
+   UI."
+   Measured on the live store before this change: tapping a program card dropped the buyer into the
+   full BOARD EDITOR -- a "starter template" banner, four board chips, a 72-piece $3,741 total, a
+   headcount estimator, a two-step proforma wizard and six editing cards with size grids, notes and
+   Edit/Remove -- all of it above the first garment. That is the tool WE use to assemble a board,
+   shown to someone who only asked to see a program.
+   A program is a proposal. Four pieces, big, with their logo on. A price per person. One question
+   (how many people) and one button. Everything else is one tap away rather than in the way, and the
+   board editor is untouched -- "Change this program" copies the pieces into the buyer's own board,
+   where sizes, notes, add and remove already live. */
+var PV_ID=null;
+function programOpen(){var e=document.getElementById('progv');return !!(e&&e.classList.contains('on'));}
+function pvProgId(id){return /^prog_/.test(id||'')?id:'prog_'+id;}
+function pvShort(n){return String(n||'').replace(/\s*·.*$/,'').replace(/ Program$/,'');}
+/* One of each, per person, at the tier the headcount buys. Promo lines are skipped exactly as
+   boardPerPerson() skips them. */
+function pvPerPerson(id,n){
+  var L=(LISTS||{})[id];if(!L)return 0;
+  var t=0,q=Math.max(moq(),n||0);
+  Object.keys(L.items||{}).forEach(function(ck){
+    var it=BYKEY[bkey(ck)];if(!it||it.layer==='promo')return;
+    var c=L.items[ck]||{};
+    try{t+=unitPrice(ck,(c.decos&&c.decos.length)?c.decos:defaultDecos(ck),q);}catch(e){}
+  });
+  return t;
+}
+function pvSetup(){try{return cartSetup();}catch(e){return 0;}}   /* CART is the open program */
+function pvTabsHtml(cur){
+  var ids=programIds();if(ids.length<2)return '';
+  return '<div class="pvtabs" role="tablist" aria-label="Programs">'+ids.map(function(id){
+    var L=LISTS[id],on=id===cur;
+    return '<button type="button" role="tab" class="pvtab'+(on?' on':'')+'" aria-selected="'+(on?'true':'false')+
+      '" data-pvsw="'+esc(id)+'">'+esc(pvShort(L.name))+'</button>';}).join('')+'</div>';
+}
+function pvCardHtml(ck,n){
+  var it=BYKEY[bkey(ck)];if(!it)return '';
+  var c=CART[ck]||{};
+  var cols=curColsOf(it,c.fit)||it.cols||[];
+  var col=colInList(cols,c.colour)||cols[0]||{};
+  var pl=(c.fit==='womens'&&it.wplaces&&it.wplaces.length)?it.wplaces:it.places;
+  var decos=(c.decos&&c.decos.length)?c.decos:defaultDecos(ck);
+  var o=null;try{o=overlayHtml(it,{decos:decos},col.name,'front',cols,pl);}catch(e){o=null;}
+  var stage=o?('<div class="bstage"><img class="g" src="'+o.g+'" alt="'+esc(it.name)+'" loading="lazy" decoding="async">'+o.lg+'</div>')
+             :('<img class="bimg" src="'+gurl(col.front)+'" alt="'+esc(it.name)+'" loading="lazy">');
+  var tiers=(CFG.pricing&&CFG.pricing.cols)||[12,48,144];
+  var u=tiers.map(function(t){try{return unitPrice(ck,decos,t);}catch(e){return 0;}});
+  var gal=(it.gallery||[]).slice(0,3);
+  var cuts=(it.wcols&&it.wcols.length)?'Men’s & ladies’ cuts':(it.unisex?'Unisex':'');
+  var brand=it.brand||it.sku||'';
+  /* The seeded note is stored as "Label — reason"; the label is the card's own heading here. */
+  var why=String(c.why||'').replace(/^[^—]{0,40}—\s*/,'');
+  return '<li class="bcard pvc" data-bk="'+esc(ck)+'">'+
+    '<span class="pvn" aria-hidden="true">'+n+'</span>'+
+    '<div class="bimgwrap pvimg" data-pvopen="'+esc(ck)+'">'+stage+
+      (it.csa?('<span class="pvcsa">'+esc(String(it.csa).split(' · ')[0])+'</span>'):'')+'</div>'+
+    '<div class="pvbody">'+
+      (brand?('<div class="pvbrand">'+esc(brand)+(cuts?(' · '+cuts):'')+'</div>'):'')+
+      '<h3 class="pvname">'+esc(it.name)+'</h3>'+
+      incHtml(it,decos,'board')+
+      (why?('<p class="pvwhy">'+esc(why)+'</p>'):'')+
+      bColourRowHtml(ck)+
+      '<div class="pvprice"><b>'+money(u[0])+'</b><span>per piece at '+tiers[0]+'+ · logo included</span>'+
+        '<i>'+tiers.slice(1).map(function(t,i){return money(u[i+1])+' at '+t+'+';}).join(' · ')+'</i></div>'+
+      (gal.length?('<div class="pvgal">'+gal.map(function(g){
+          return '<button type="button" class="pvgth" data-pvopen="'+esc(ck)+'" style="background-image:url(\''+gurl(g)+
+            '\')" aria-label="See the '+esc(it.name)+' worn"></button>';}).join('')+'</div>'):'')+
+      '<button type="button" class="pvmore" data-pvopen="'+esc(ck)+'">Details, colours &amp; sizes ›</button>'+
+    '</div></li>';
+}
+/* `n` is passed in from the input rather than re-read from storage, so the figure follows the
+   typing even where localStorage is unavailable (private mode, an embedded preview). */
+function pvEstHtml(id,n){
+  if(n==null)n=getHC();
+  n=parseInt(n,10)||0;
+  var pp0=pvPerPerson(id,0);
+  if(!n)return '<b>'+money0(pp0)+' per person</b><i>one of each at '+moq()+'+ · enter a headcount for a closer number</i>';
+  var q=Math.max(moq(),n),pp=pvPerPerson(id,n),setup=pvSetup();
+  return '<b>'+money0(pp)+' per person</b><i>est. '+money0(pp*q)+(q>n?(' at the '+moq()+'-piece minimum'):(' for '+q+' people'))+
+    (setup>0?(' + '+money0(setup)+' one-time setup'):'')+'</i>';
+}
+function programHtml(id){
+  var L=LISTS[id];if(!L)return '';
+  var ks=Object.keys(L.items||{}),n=getHC();
+  var cards=ks.map(function(ck,i){return pvCardHtml(ck,i+1);}).join('');
+  return '<div class="pvwrap">'+
+    '<header class="pvhd">'+
+      '<button type="button" class="pvback" id="pvBack">‹ Back to the store</button>'+
+      pvTabsHtml(id)+
+      '<button type="button" class="bx pvx" id="pvClose" aria-label="Close">✕</button>'+
+    '</header>'+
+    '<div class="pvtitle">'+
+      '<div class="pveyb">Pre-approved program · '+esc(CFG.client||'your team')+'</div>'+
+      '<h1 class="pvh1">'+esc(L.name)+'</h1>'+
+      (L.sub?('<p class="pvsub">'+esc(L.sub)+'</p>'):'')+
+      '<div class="pvfacts">'+
+        '<span><b>'+ks.length+'</b> pieces</span>'+
+        '<span><b>'+money0(pvPerPerson(id,0))+'</b> per person</span>'+
+        '<span class="pvfnote">One of each, with your logo, at the '+moq()+'-piece minimum. Prices drop at 48+ and 144+.</span>'+
+      '</div></div>'+
+    '<ol class="pvgrid">'+cards+'</ol>'+
+    '<div class="pvfoot">'+
+      '<button type="button" class="pvlink" id="pvAdopt">Change this program — add or remove pieces</button>'+
+      '<span class="pvsep">·</span>'+
+      '<button type="button" class="pvlink" id="pvShare">Share this program ↗</button>'+
+    '</div>'+
+    '<div class="pvbar"><div class="pvbarin">'+
+      '<label class="pvpeople"><span>How many people?</span>'+
+        '<input id="pvHC" type="number" inputmode="numeric" min="1" placeholder="e.g. 25"'+(n?(' value="'+n+'"'):'')+
+        ' aria-label="Number of people"></label>'+
+      '<div class="pvest" id="pvEst">'+pvEstHtml(id,n)+'</div>'+
+      '<button type="button" class="pvcta" id="pvQuote">Get my free mockup &amp; quote <span class="ar">→</span></button>'+
+    '</div></div>'+
+  '</div>';
+}
+function programUrl(id){return location.origin+location.pathname+'?program='+String(id).replace(/^prog_/,'');}
+function openProgram(id){
+  id=pvProgId(id);
+  if(!LISTS)loadLists();
+  if(!LISTS||!LISTS[id]){try{seedPrograms();}catch(e){}}
+  if(!LISTS||!LISTS[id]){openBoards();return;}
+  jdpTrack('program',{p:id.replace(/^prog_/,'')});
+  switchList(id);                              /* CART = this program: quote, setup and share read it */
+  PV_ID=id;
+  closeBoard();closeBoards();
+  var el=document.getElementById('progv');
+  if(!el){el=document.createElement('div');el.id='progv';el.className='boardov progov';document.body.appendChild(el);}
+  el.innerHTML=programHtml(id);
+  wireProgram(el,id);
+  el.classList.add('on');el.scrollTop=0;document.body.style.overflow='hidden';
+  try{history.replaceState({},'',programUrl(id));}catch(e){}
+}
+function refreshProgram(){
+  var el=document.getElementById('progv');if(!el||!PV_ID||!LISTS||!LISTS[PV_ID])return;
+  var st=el.scrollTop;
+  if(ALID!==PV_ID)switchList(PV_ID);
+  el.innerHTML=programHtml(PV_ID);wireProgram(el,PV_ID);el.scrollTop=st;
+}
+function closeProgram(){
+  var el=document.getElementById('progv');if(!el||!el.classList.contains('on'))return;
+  el.classList.remove('on');PV_ID=null;
+  document.body.style.overflow='';
+  try{if(/[?&]program=/.test(location.search))history.replaceState({},'',viewUrl());}catch(e){}
+  setRail('explore');
+}
+function wireProgram(el,id){
+  var back=function(){closeProgram();};
+  ['pvBack','pvClose'].forEach(function(b){var e=document.getElementById(b);if(e)e.addEventListener('click',back);});
+  el.querySelectorAll('[data-pvsw]').forEach(function(b){b.addEventListener('click',function(){
+    if(b.dataset.pvsw===id)return;jdpTrack('program_switch');openProgram(b.dataset.pvsw);});});
+  el.querySelectorAll('[data-pvopen]').forEach(function(b){b.addEventListener('click',function(e){
+    e.stopPropagation();openSheet(b.dataset.pvopen);});});
+  /* Colour: the same swatch row and painter the board uses, so the mockup is re-composited with
+     the ink that suits the new garment colour, not just re-photographed. */
+  el.querySelectorAll('.bsw').forEach(function(b){
+    var ck=b.getAttribute('data-bswk'),nm=b.getAttribute('data-bcol');
+    var restore=function(){var c=CART[ck];if(c)bPaintColour(ck,c.colour,false);};
+    b.addEventListener('click',function(e){e.stopPropagation();bPaintColour(ck,nm,true);jdpTrack('program_colour');});
+    b.addEventListener('mouseenter',function(){bPaintColour(ck,nm,false);});
+    b.addEventListener('focus',function(){bPaintColour(ck,nm,false);});
+    b.addEventListener('mouseleave',restore);
+    b.addEventListener('blur',restore);
+  });
+  el.querySelectorAll('[data-bmore]').forEach(function(b){b.addEventListener('click',function(e){
+    e.stopPropagation();var box=b.closest('.bcols');if(box)box.classList.add('all');b.remove();});});
+  var hc=document.getElementById('pvHC'),est=document.getElementById('pvEst');
+  var upd=function(){var n=parseInt(hc.value,10)||0;setHC(n);if(est)est.innerHTML=pvEstHtml(id,n);};
+  if(hc){
+    hc.addEventListener('input',upd);
+    hc.addEventListener('change',function(){upd();var n=parseInt(hc.value,10)||0;if(n>0)jdpTrack('program_people',{n:n});});
+    hc.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();var q=document.getElementById('pvQuote');if(q)q.click();}});
+  }
+  var q=document.getElementById('pvQuote');
+  if(q)q.addEventListener('click',function(){
+    var n=parseInt(hc&&hc.value,10)||0;
+    if(n>0){try{applyHeadcount(n);}catch(e){}}
+    jdpTrack('program_quote',{p:id.replace(/^prog_/,''),n:n});
+    closeProgram();
+    document.getElementById('ov').classList.add('on');
+    document.getElementById('cart').classList.add('on');
+    document.body.style.overflow='hidden';
+    openCheckout();
+    var nt=document.getElementById('coNote');
+    if(nt&&!nt.value)nt.value=((LISTS[id]||{}).name||'Program')+(n?(' — about '+n+' people'):'')+'. Sizes to confirm. ';
+  });
+  var ad=document.getElementById('pvAdopt');
+  if(ad)ad.addEventListener('click',function(){jdpTrack('program_adopt');adoptProgram(id);});
+  var sh=document.getElementById('pvShare');
+  if(sh)sh.addEventListener('click',function(){
+    /* A program is the same on every device, so its link is a plain ?program= -- nothing to sync,
+       nothing that can go stale, and it survives being pasted into an email. */
+    var u=programUrl(id);jdpTrack('program_share');
+    var done=function(){toast('Link copied — paste it into an email');};
+    try{
+      if(navigator.share&&matchMedia('(hover:none)').matches){navigator.share({title:(LISTS[id]||{}).name,url:u}).catch(function(){});return;}
+      if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(u).then(done,function(){window.prompt('Copy this link',u);});return;}
+    }catch(e){}
+    window.prompt('Copy this link',u);
+  });
+}
+/* "Change this program": the pieces go into the buyer's own board, where the full editor -- sizes,
+   notes, add and remove -- already exists. The program itself never changes: it is a template, and
+   the next visitor gets it intact. */
+function adoptProgram(id){
+  var src=(LISTS[id]||{}).items||{},tid=personalListId(),n=0;
+  Object.keys(src).forEach(function(ck){
+    if(LISTS[tid].items[ck])return;
+    try{LISTS[tid].items[ck]=JSON.parse(JSON.stringify(src[ck]));n++;}catch(e){}});
+  ALID=tid;CART=LISTS[tid].items;LISTS[tid].updated=Date.now();persistLists();
+  renderCart();refreshCartUI();
+  closeProgram();openBoard(tid);
+  toast(n?('Copied '+n+' piece'+(n===1?'':'s')+' into '+activeName()+' — change anything'):('Already in '+activeName()));
+}
+
 function recoHeroHtml(){
   /* THE PRE-APPROVED PROGRAMS, ALWAYS. Steven, 2026-09-10: "'We've already picked your shortlist'
      is a bad idea. I prefer just to show the pre approved programs and allow customers to build
@@ -7379,7 +7599,7 @@ function renderRecoHero(){
   var el=document.getElementById('recohero');if(!el)return;
   el.innerHTML=recoHeroHtml();
   el.querySelectorAll('[data-reco]').forEach(function(b){
-    b.addEventListener('click',function(){openBoard(b.dataset.reco);});});
+    b.addEventListener('click',function(){openProgram(b.dataset.reco);});});
   wireHeroNext();
   if(!document.getElementById('jhelp')){var d=document.createElement('div');d.innerHTML=helpDockHtml();
     if(d.firstChild){document.body.appendChild(d.firstChild);wireHelpDock();}}
@@ -7729,7 +7949,8 @@ function syncBoardsFromServer(){
 function syncBoardIfOpen(){
   if(boardOpen())renderBoard();
   else if(boardsOpen())renderBoardsIndex();
-  if(boardOpen()||boardsOpen())document.body.style.overflow='hidden';
+  else if(programOpen())refreshProgram();
+  if(boardOpen()||boardsOpen()||programOpen())document.body.style.overflow='hidden';
 }
 function closeAll(){['ov','sheet','cart','lead','vmodal'].forEach(function(id){var e=document.getElementById(id);if(e)e.classList.remove('on');});var mv=document.getElementById('vmodal');if(mv)mv.innerHTML='';document.body.style.overflow='';}
 
