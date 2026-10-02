@@ -2597,9 +2597,13 @@ html.sxon .subbar,html.sxon .inbar,html.sxon #catguide,html.sxon .catguide{displ
 .alttab.on{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.1)}
 .altrow{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
 .altrow[hidden]{display:none}
-.alt{display:flex;flex-direction:column;gap:2px;text-align:left;border:1px solid var(--line);background:#fff;border-radius:12px;
+/* SCOPED to the alternative-product tiles (data-altk). A bare .alt also matched three unrelated
+   elements that use "alt" as a modifier -- .mfit.alt ("Unisex — one cut"), .fpill.alt ("Clear all")
+   and .curpub.alt -- and turned the unisex chip into a 12px-radius column box at inherited body size
+   that read as an empty text field on every unisex card. */
+.alt[data-altk]{display:flex;flex-direction:column;gap:2px;text-align:left;border:1px solid var(--line);background:#fff;border-radius:12px;
   padding:6px 6px 9px;font:inherit;color:var(--ink);cursor:pointer;min-width:0}
-.alt:hover{border-color:color-mix(in srgb,var(--a) 45%,#fff)}
+.alt[data-altk]:hover{border-color:color-mix(in srgb,var(--a) 45%,#fff)}
 .altim{display:block;aspect-ratio:1;border-radius:8px;background:#f7f6f3;overflow:hidden;margin-bottom:5px}
 .altim img{width:100%;height:100%;object-fit:contain;mix-blend-mode:multiply}
 .altn{font-size:12px;font-weight:750;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
@@ -2803,3 +2807,58 @@ html.sxon .subbar,html.sxon .inbar,html.sxon #catguide,html.sxon .catguide{displ
 @media (max-width:700px){
   .pvgrid{grid-template-columns:minmax(0,1fr);gap:16px}
 }
+
+
+/* ================= "SEE ALL" THAT LOOKS LIKE MORE PRODUCT (2026-10-02) ===========================
+   Steven: "See all 10 Quarter & Half-Zips -> and other buttons like this are not clearly visual and
+   users do not see that we have more options!" The shelf heading was 12.5px grey caps (injected by
+   store.js) and the only way on was a small white pill. Selectors carry .grid to outrank the
+   injected base rules regardless of which loads last. */
+.grid .subhdrow{display:flex;align-items:center;gap:14px;margin:34px 2px 14px}
+.grid .subgrp:first-child .subhdrow{margin-top:10px}
+.grid .subhdrow .subhd{flex:1;min-width:0;margin:0;font-size:21px;font-weight:800;letter-spacing:-.01em;
+  text-transform:none;color:var(--ink);display:flex;align-items:center;gap:10px}
+.grid .subhdrow .subhd:after{content:'';flex:1;height:1px;background:var(--line)}
+.grid .subhdrow .subn{flex:none;background:color-mix(in srgb,var(--a) 10%,#fff);color:var(--a);border-radius:999px;
+  padding:4px 10px;font:800 12px/1 ui-sans-serif,system-ui;letter-spacing:0;text-transform:none}
+.seetop{flex:none;display:inline-flex;align-items:center;gap:6px;padding:9px 14px;border:0;border-radius:999px;
+  background:color-mix(in srgb,var(--a) 10%,#fff);color:var(--a);font:800 13.5px/1 ui-sans-serif,system-ui;cursor:pointer;
+  transition:background .15s,transform .15s;white-space:nowrap}
+.seetop:hover{background:color-mix(in srgb,var(--a) 18%,#fff)}
+.seetop:hover span{transform:translateX(2px)}
+.seetop span{display:inline-block;transition:transform .15s}
+.seemore{display:flex;align-items:center;gap:18px;width:100%;margin:16px 0 4px;padding:14px 16px 14px 14px;
+  border:1.5px solid color-mix(in srgb,var(--a) 28%,var(--line));border-radius:18px;cursor:pointer;text-align:left;
+  background:linear-gradient(100deg,color-mix(in srgb,var(--a) 9%,#fff) 0%,#fff 70%);font:inherit;color:var(--ink);
+  box-shadow:0 1px 2px rgba(0,0,0,.04);transition:border-color .15s,box-shadow .18s,transform .18s}
+.seemore:hover{border-color:var(--a);box-shadow:0 14px 34px -16px color-mix(in srgb,var(--a) 70%,#000);transform:translateY(-1px)}
+.seemore:focus-visible{outline:2px solid var(--a);outline-offset:3px}
+.smths{display:flex;flex:none;padding-left:10px}
+.smth{margin-left:-12px;background:#fff;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.14)}
+.smtx{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.smtx b{font-size:17px;font-weight:800;letter-spacing:-.01em;line-height:1.2}
+.smtx i{font-style:normal;font-size:13px;color:var(--mut)}
+.smgo{flex:none;display:inline-flex;align-items:center;gap:7px;padding:13px 20px;border-radius:12px;background:var(--a);
+  color:#fff;font:800 14.5px/1 ui-sans-serif,system-ui;white-space:nowrap;transition:filter .15s}
+.seemore:hover .smgo{filter:brightness(1.08)}
+.smgo span{display:inline-block;transition:transform .15s}
+.seemore:hover .smgo span{transform:translateX(3px)}
+@media (max-width:820px){
+  .grid .subhdrow{margin:26px 0 12px;gap:10px}
+  .grid .subhdrow .subhd{font-size:18px}
+  .grid .subhdrow .subhd:after{display:none}
+  .seetop{padding:8px 12px;font-size:13px}
+  .seemore{flex-wrap:wrap;gap:10px 12px;padding:14px}
+  .smtx{flex-basis:100%;order:2}
+  .smths{order:1}
+  .smgo{order:3}
+  .smth{width:46px!important;height:46px!important}
+  .smtx b{font-size:16px}
+  .smgo{flex-basis:100%;justify-content:center;padding:13px 16px}
+}
+/* the search box's "See all" was a link-coloured line under six rows; it is now a filled bar with
+   the hidden count up front */
+.sxall{gap:8px;margin:8px 8px 8px;width:calc(100% - 16px);padding:12px 14px;border:0;border-radius:11px;
+  background:var(--a);color:#fff;font-size:14px;font-weight:800}
+.sxall:hover,.sxall.on{background:var(--a);filter:brightness(1.08);box-shadow:none}
+.sxmore{padding:3px 8px;border-radius:999px;background:rgba(255,255,255,.22);font-size:12px;font-weight:800}
