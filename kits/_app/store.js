@@ -1386,6 +1386,23 @@ function classify(it){
 /* ---------- FILTERED BROWSE MODEL (one category at a time; no endless scroll) ---------- */
 /* How many of each group the All view previews before offering that group's own tab. */
 var GRP_PREVIEW=4;
+/* THE PREVIEW FILLS WHOLE ROWS. Four cards on a three-column screen left one garment alone on a
+   second row -- it read as a broken layout and pushed the "see more" further down. The count now
+   follows the columns the grid will actually draw: one full row on desktop and tablet (3 to 6), two
+   rows on a phone (2 columns -> 4). Mirrors the .menu rules: 2 columns at <=560px, otherwise
+   auto-fill minmax(230px,1fr) with an 18px gap. */
+var GRP_N_USED=0;
+function grpPreviewN(){
+  try{
+    var vw=window.innerWidth||document.documentElement.clientWidth||1280;
+    if(vw<=560)return 4;
+    var g=document.getElementById('grid'),W=(g&&g.clientWidth)||Math.min(vw,1240);
+    var cols=Math.max(1,Math.floor((W+18)/(230+18)));
+    return cols>=3?Math.min(cols,6):4;
+  }catch(e){return GRP_PREVIEW;}
+}
+(function(){var t=null;try{window.addEventListener('resize',function(){clearTimeout(t);t=setTimeout(function(){
+  try{if(GRP_N_USED&&grpPreviewN()!==GRP_N_USED&&VIEW&&VIEW.cat&&VIEW.sub==='all'&&!VIEW.q)renderGrid();}catch(e){}},220);});}catch(e){}})();
 /* Has the buyer narrowed the range themselves? Sort is excluded: re-ordering is not narrowing. */
 function narrowed(){return !!(VIEW.warm||VIEW.band||VIEW.col||(VIEW.fit&&VIEW.fit!=='all'));}
 var VIEW={cat:null,sub:'all',q:'',world:'all',fit:'all',col:null,band:null,warm:null,sort:null};
@@ -2382,8 +2399,9 @@ function sxDropHtml(q){
       '<span class="sxt"><b class="sxnm">'+sxMark(it.name,q)+'</b><i>'+esc(it.brand||it.sku||'')+
         (it.csa?' · CSA hi-vis':'')+'</i></span>'+
       '<span class="sxpr">'+money(pr)+'<i>/pc'+(it.layer==='promo'?'':' at '+moq())+'</i></span></button>';});
-  h+='<button type="button" class="sxall" data-sxall="1" data-sxi="'+(i++)+'">See all '+R.keys.length+
-    ' result'+(R.keys.length===1?'':'s')+' for “'+esc(q)+'”<span aria-hidden="true"> →</span></button>';
+  h+='<button type="button" class="sxall" data-sxall="1" data-sxi="'+(i++)+'">'+
+    (R.keys.length>6?('<span class="sxmore">+'+(R.keys.length-6)+' more</span>'):'')+
+    'See all '+R.keys.length+' result'+(R.keys.length===1?'':'s')+' for “'+esc(q)+'”<span aria-hidden="true"> →</span></button>';
   return h;
 }
 function sxDropEl(){return document.getElementById('sxdd');}
@@ -2666,21 +2684,51 @@ function renderGrid(){
        scannable in a couple of screens and nothing is more than one click away. The preview is
        taken AFTER sortList(), whose default order is top picks first then the keener price, so what
        shows is the strongest of each group rather than an arbitrary slice. */
+    var _pn=grpPreviewN();GRP_N_USED=_pn;
     inner=subs.map(function(s){var ks=fitOK(BUCKETS[VIEW.cat][s]);if(!ks.length)return '';
       /* The cap exists to tame the UNFILTERED wall. Once the buyer has narrowed -- by warmth,
          budget, colour or fit -- they have already done the choosing, and hiding four of their
          fourteen winter jackets behind a "See all" is the opposite of helpful. So the preview
          applies only while nothing is filtered. */
-      var shown=narrowed()?ks:ks.slice(0,GRP_PREVIEW),rest=ks.length-shown.length;
-      return '<div class="subgrp"><h3 class="subhd">'+esc(s)+' <span class="subn">'+ks.length+'</span></h3>'+subGuideHtml(s)+
+      var shown=narrowed()?ks:ks.slice(0,_pn),rest=ks.length-shown.length;
+      /* "SEE ALL" HAS TO LOOK LIKE MORE PRODUCT, NOT A TAG. Steven, 2026-10-02: "See all 10 Quarter &
+         Half-Zips -> and other buttons like this are not clearly visual and users do not see that we
+         have more options!" It was a small white pill under the fourth card, below a grey 12px
+         all-caps heading -- so a shelf of four read as the whole range. Now the heading is a real
+         heading with "See all N" in the accent at its right (where Amazon and 4imprint put it), and
+         the shelf ends in a full-width strip that SHOWS the hidden styles, says how many, and carries
+         a filled button. Same destination as before: setSub(s). */
+      return '<div class="subgrp"><div class="subhdrow"><h3 class="subhd">'+esc(s)+' <span class="subn">'+ks.length+' styles</span></h3>'+
+          (rest>0?('<button type="button" class="seetop" data-seesub="'+esc(s)+'">See all '+ks.length+' <span aria-hidden="true">\u2192</span></button>'):'')+
+        '</div>'+subGuideHtml(s)+
         '<div class="menu">'+shown.map(menuCard).join('')+'</div>'+
-        (rest>0?('<button type="button" class="seeall" data-seesub="'+esc(s)+'">See all '+ks.length+
-                 ' '+esc(s)+' <i>\u2192</i></button>'):'')+
+        (rest>0?seeMoreHtml(s,ks,shown.length):'')+
         '</div>';}).join('');}
   else{var flat=[];subs.forEach(function(s){flat=flat.concat(BUCKETS[VIEW.cat][s]);});flat=fitOK(flat);inner='<div class="menu">'+flat.map(menuCard).join('')+'</div>';}
   grid.innerHTML=(VIEW.cat==='hivis'?hivisIntroHtml():'')+inner+moreCatsHtml();wireCards();
   grid.querySelectorAll('[data-seesub]').forEach(function(b){
     b.addEventListener('click',function(){setSub(b.dataset.seesub);});});}
+/* The strip at the foot of a previewed shelf: up to five of the HIDDEN styles as photos, the count,
+   the entry price across the shelf (the same at-the-minimum figure the cards print), and a filled
+   button. The whole strip is the target. */
+function grpThumb(k){
+  var it=BYKEY[k];if(!it)return '';
+  try{var c=colInList(browseCols(it),browseColour(k,it))||(it.cols||[])[0]||{};return c.front?gurl(c.front):'';}
+  catch(e){var c0=(it.cols||[])[0]||{};return c0.front?gurl(c0.front):'';}
+}
+function seeMoreHtml(s,ks,nShown){
+  var hid=ks.slice(nShown),rest=hid.length;
+  var th=hid.slice(0,5).map(grpThumb).filter(Boolean).map(function(u){
+    return '<span class="smth" style="width:56px;height:56px;flex:none;border-radius:50%;overflow:hidden;display:block">'+
+      '<img src="'+u+'" alt="" loading="lazy" style="width:100%;height:100%;object-fit:contain"></span>';}).join('');
+  var lo=0;ks.forEach(function(k){var it=BYKEY[k]||{},p=(it.layer==='promo')?(it.price_cad||0):sxPrice(k);if(p&&(!lo||p<lo))lo=p;});
+  return '<button type="button" class="seemore" data-seesub="'+esc(s)+'" aria-label="See all '+ks.length+' '+esc(s)+'">'+
+    (th?('<span class="smths">'+th+'</span>'):'')+
+    '<span class="smtx"><b>+'+rest+' more '+esc(s)+'</b>'+
+      '<i>'+ks.length+' styles on this shelf'+(lo?(' \u00b7 from '+money(lo)+'/pc with your logo'):'')+'</i></span>'+
+    '<span class="smgo">See all '+ks.length+' <span aria-hidden="true">\u2192</span></span>'+
+  '</button>';
+}
 // Compliance-forward intro for the Hi-Vis category — safety buyers shop by STANDARD & CLASS first.
 // Certified for BOTH Canada (CSA Z96-22) and the U.S. (ANSI/ISEA 107-2020), with a plain-English class guide.
 function hivisIntroHtml(){
