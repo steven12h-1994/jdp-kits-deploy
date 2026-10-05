@@ -2862,3 +2862,82 @@ html.sxon .subbar,html.sxon .inbar,html.sxon #catguide,html.sxon .catguide{displ
   background:var(--a);color:#fff;font-size:14px;font-weight:800}
 .sxall:hover,.sxall.on{background:var(--a);filter:brightness(1.08);box-shadow:none}
 .sxmore{padding:3px 8px;border-radius:999px;background:rgba(255,255,255,.22);font-size:12px;font-weight:800}
+
+/* ================= GIFT PAGE v3 (2026-10-04) ======================================================
+   Steven's critique: winners not surfaced, promo items first, near-duplicates, apparel not dominant,
+   homepage entry unclear. Appended last so it wins the earlier gift rules. */
+.gftop{margin:26px 0 0}
+.gftophd{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin:0 0 14px}
+.gftophd .gfeyb{margin-bottom:6px}
+.gftoph{margin:0;font-family:var(--disp);font-size:30px;line-height:1.05;text-transform:uppercase;color:#fff;letter-spacing:.004em}
+.gftops{margin:6px 0 0;font-size:14px;line-height:1.55;color:rgba(255,255,255,.78);max-width:62ch}
+.gftopgrid{grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;margin-top:0}
+.gfpick{position:relative;box-shadow:0 0 0 2px var(--amber),0 18px 40px -18px rgba(0,0,0,.6)}
+.gfpicklab{display:flex;align-items:center;gap:7px;padding:9px 14px;background:var(--amber);color:#1b160e;
+  font:800 11.5px/1 Inter;letter-spacing:.08em;text-transform:uppercase}
+.gfpicklab:before{content:"\2605";font-size:12px}
+.gfalso{margin:0 13px 13px;padding-top:9px;border-top:1px dashed var(--line);display:flex;flex-direction:column;gap:6px}
+.gfalso .gfwk{margin-bottom:1px}
+.gfalt{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 6px;padding:7px 10px;border:1px solid var(--line);border-radius:9px;
+  background:#fff;text-align:left;font:inherit;font-size:12.5px;font-weight:800;color:var(--ink);cursor:pointer;transition:border-color .14s}
+.gfalt i{font-style:normal;font-weight:600;font-size:11.5px;color:var(--mut)}
+.gfalt:hover{border-color:var(--a)}
+.gfguide{margin-top:30px}
+.gfsec{margin:34px 0 0}
+.gfsechd{display:flex;flex-direction:column;gap:4px;padding-bottom:12px;border-bottom:1px solid rgba(255,255,255,.14);margin-bottom:16px}
+.gfsechd h3{margin:0;display:flex;align-items:center;gap:10px;font-family:var(--disp);font-size:24px;line-height:1.1;
+  text-transform:uppercase;color:#fff;letter-spacing:.004em}
+.gfsechd h3 span{font:800 12px/1 Inter;letter-spacing:0;padding:4px 9px;border-radius:999px;background:rgba(255,255,255,.12);color:rgba(255,255,255,.85)}
+.gfsechd p{margin:0;font-size:13.5px;color:rgba(255,255,255,.7)}
+.gfsec .gfgrid{margin-top:0}
+/* the small thank-yous recede: same cards, a quieter header */
+.gfsec-keep .gfsechd h3{font-size:19px;color:rgba(255,255,255,.85)}
+/* ---- the homepage door ---- */
+.gfentry.gfentry2{display:flex;align-items:center;gap:26px;padding:22px 24px;border-radius:20px;
+  background:linear-gradient(115deg,#fff 0%,#fff 42%,color-mix(in srgb,var(--amber) 16%,#fff) 100%);
+  color:var(--ink);border:1.5px solid color-mix(in srgb,var(--amber) 45%,var(--line));
+  box-shadow:0 1px 2px rgba(0,0,0,.04),0 18px 40px -26px rgba(0,0,0,.45)}
+.gfentry.gfentry2:hover{transform:translateY(-2px);border-color:var(--amber);box-shadow:0 22px 46px -22px rgba(0,0,0,.45)}
+.gfentry2 .gfetx{flex:0 1 430px;display:flex;flex-direction:column;gap:8px}
+.gfeeyb{display:inline-flex;align-items:center;gap:7px;font:800 11px/1 Inter;letter-spacing:.12em;text-transform:uppercase;color:var(--amber-d,#9a5b12)}
+.gfeeyb svg{width:16px;height:16px}
+.gfentry2 .gfetx b{font-family:var(--disp);font-size:30px;line-height:1.02;font-weight:800;letter-spacing:.004em;text-transform:uppercase;color:var(--ink)}
+.gfentry2 .gfetx i{font-size:14px;line-height:1.5;color:var(--mut)}
+.gferow{display:flex;align-items:center;flex-wrap:wrap;gap:8px 14px;margin-top:4px}
+.gfecta{display:inline-flex;align-items:center;gap:7px;padding:12px 18px;border-radius:11px;background:var(--ink);color:#fff;
+  font:800 14.5px/1 Inter;transition:background .15s}
+.gfentry2:hover .gfecta{background:var(--a)}
+.gfefrom{font-size:13px;font-weight:700;color:var(--ink)}
+.gfetile{box-shadow:0 1px 3px rgba(0,0,0,.08),0 10px 24px -16px rgba(0,0,0,.4);border:1px solid var(--line)}
+.gfetile .l{position:absolute;transform:translate(-50%,-50%);height:auto;max-width:none;pointer-events:none}
+/* ---- the Gifts button in the top bar ---- */
+.tbgifts{display:inline-flex;align-items:center;gap:7px;padding:10px 14px;border:1.5px solid color-mix(in srgb,var(--amber) 55%,var(--line));
+  border-radius:11px;background:color-mix(in srgb,var(--amber) 12%,#fff);font:inherit;font-size:13.5px;font-weight:800;color:var(--ink);cursor:pointer;white-space:nowrap}
+.tbgifts svg{width:18px;height:18px}
+.tbgifts:hover{border-color:var(--amber);background:color-mix(in srgb,var(--amber) 22%,#fff)}
+body.giftview .tbgifts{background:var(--amber);border-color:var(--amber)}
+@media (max-width:1100px){
+  .gftopgrid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .gfentry2 .gfetiles .gfetile:nth-child(4){display:none}
+}
+@media (max-width:820px){
+  .tbgifts{display:none}               /* the bottom tab bar carries Gifts on a phone */
+  .gfentry.gfentry2{flex-direction:column;align-items:stretch;gap:16px;padding:18px}
+  .gfentry2 .gfetx{flex:none}
+  .gfentry2 .gfetx b{font-size:24px}
+  .gfentry2 .gfetiles .gfetile:nth-child(4){display:block}
+  .gfecta{flex:1 1 auto;justify-content:center}
+  .gftoph{font-size:24px}
+}
+@media (max-width:720px){
+  .gftopgrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+  .gfsechd h3{font-size:20px}
+}
+/* The Gifts button costs ~100px of top bar. Between phone and wide desktop the bar has to shed
+   something or the search box collapses and "My board" runs off the edge (measured at 860px: 26px
+   overflow). The phone number and the Boards label go to icons there; both keep aria-labels. */
+@media (min-width:821px) and (max-width:1180px){
+  .tphone.tb span{display:none}.tphone.tb{padding:9px 10px}
+  .tbboards span{display:none}.tbboards{padding:10px 12px}
+  .tbtrust .trate{display:none}
+}
