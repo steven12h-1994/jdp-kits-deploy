@@ -3221,7 +3221,10 @@ function buildStore(){
      product has been retired from the catalogue must never take the whole storefront down. */
   try{renderGifts();}catch(e){}
   var _ge=document.getElementById('gfEntry');
-  if(_ge)_ge.addEventListener('click',function(){setGiftView(true);});
+  if(_ge)_ge.addEventListener('click',function(){jdpTrack('gift_open',{src:'banner'});setGiftView(true);});
+  var _tg=document.getElementById('tbGifts');
+  if(_tg)_tg.addEventListener('click',function(){jdpTrack('gift_open',{src:'topbar'});
+    try{closeBoards();closeBoard();closeProgram();closeAll();}catch(e){}setGiftView(true);});
   var _gb=document.getElementById('gfBack');
   if(_gb)_gb.addEventListener('click',function(){setGiftView(false);});
   /* Categories now lives in the persistent bar, so the scroll-revealed chip strip is retired
@@ -6531,7 +6534,7 @@ function wireRail(){
       if(w==='explore'){goHome();return;}
       if(w==='boards'){closeBoard();closeProgram();openBoards();return;}
       if(w==='share'){shareList();return;}
-      if(w==='gifts'){closeBoards();closeBoard();closeProgram();closeAll();setGiftView(true);return;}
+      if(w==='gifts'){jdpTrack('gift_open',{src:'rail'});closeBoards();closeBoard();closeProgram();closeAll();setGiftView(true);return;}
       if(w==='quote'){closeBoards();closeBoard();closeProgram();
         document.getElementById('ov').classList.add('on');
         document.getElementById('cart').classList.add('on');
@@ -6600,6 +6603,8 @@ function tbarHtml(){
         '<div class="sxdd" id="sxdd" role="listbox" aria-label="Search suggestions" hidden></div>'+
       '</div>'+
       trustBarHtml()+
+      /* GIFTS IN THE TOP BAR -- the second way in, always one glance away (the rail has it too). */
+      '<button type="button" class="tbgifts" id="tbGifts">'+railIcon('gifts')+'<span>Gifts</span></button>'+
       '<button type="button" class="tbboards" id="tbBoards">'+railIcon('boards')+
         '<span id="tbBoardsLbl">Boards</span></button>'+
     '</div>'+catMenuHtml()+'</div>';
@@ -7099,6 +7104,37 @@ var GIFT_TYPES=[
   {id:'kit',  lab:'Ready-boxed kits'},
   {id:'keep', lab:'Mugs & journals'}
 ];
+/* ---- THE SIX WINNERS (Steven, 2026-10-04) ------------------------------------------------------
+   "A buyer should immediately see the 5–6 gifts you recommend most, instead of having to interpret
+   50 options themselves" and "your strongest differentiator -- apparel -- is not dominant enough."
+   So the page opens on six, five of them apparel, spread across budgets, and one boxed kit for the
+   buyer who cannot collect sizes. Each `lab` names the job the gift does -- a role, never a sales
+   claim -- and the reason shown is the item's own GIFT_PICKS `why`. */
+var GIFT_TOP=[
+  {k:'vest',            lab:'The safe pick'},
+  {k:'cbc_traverse_qz', lab:'For client-facing teams'},
+  {k:'st_nautilusjkt',  lab:'A real jacket under $90'},
+  {k:'st_stavanger',    lab:'For service milestones'},
+  {k:'ch_102286',       lab:'For the trades'},
+  {k:'sp_bb192',        lab:'No sizes to collect'}
+];
+/* NEAR-DUPLICATES FOLD INTO ONE CARD. "Modern Command, Momentum Mode and Daily Ascent are all $58
+   bag/bottle/journal-style kits. That creates decision friction without adding much real choice."
+   The representative card stays; the others become "Also as" links on it, so nothing is lost and
+   nothing is repeated. Labels describe the actual difference, from the catalogue's own contents
+   and descriptions. */
+var GIFT_VARIANTS={
+  sp_bb192:[{k:'sp_bb194',lab:'a different backpack'},{k:'sp_bb193',lab:'a duffle instead'}],
+  sp_gf969:[{k:'sp_gf977',lab:'a mug instead of the bottle'}],
+  sp_dw423:[{k:'sp_dw422',lab:'12 oz, with a lid'}],
+  sp_dw802:[{k:'sp_dw800',lab:'350 ml, with a metal badge'}],
+  sp_st4864:[{k:'sp_st4863',lab:'soft cover'}]
+};
+function giftVariantKeys(){var o={};Object.keys(GIFT_VARIANTS).forEach(function(r){
+  (GIFT_VARIANTS[r]||[]).forEach(function(v){o[v.k]=r;});});return o;}
+/* Apparel first, then boxed kits, then the small thank-yous -- "journals and mugs appear before your
+   stronger apparel and kit options." Within each, cheapest first. */
+var GIFT_TYPE_ORDER={wear:0,kit:1,keep:2};
 /* A kit is a boxed set -- a Spector "Gift Set", or a home set Spector ships in a gift box. A single
    mug or journal is its own kind of gift, and calling it a "ready-boxed kit" would mislead. */
 function giftType(g){var it=BYKEY[g.k];if(!it||it.layer!=='promo')return 'wear';
@@ -7127,10 +7163,19 @@ function giftEligible(it){
   return it.layer==='promo'&&it.sku==='Gift Set';                       // a Spector kit, not a single
 }
 function giftPool(){
-  return GIFT_PICKS.filter(function(g){return giftEligible(BYKEY[g.k]);})
+  var folded=giftVariantKeys();
+  return GIFT_PICKS.filter(function(g){return giftEligible(BYKEY[g.k])&&!folded[g.k];})
     .map(function(g){return {k:g.k,why:g.why,p:giftPrice(g.k)};})
     .filter(function(g){return g.p>=GIFT_FLOOR||(BYKEY[g.k]||{}).gift===true;})
-    .sort(function(a,b){return a.p-b.p;});
+    .sort(function(a,b){
+      var ta=GIFT_TYPE_ORDER[giftType(a)],tb=GIFT_TYPE_ORDER[giftType(b)];
+      return (ta-tb)||(a.p-b.p);});
+}
+/* The six, resolved against the live pool so a retired or ineligible pick simply drops out. */
+function giftTop(){
+  var by={};giftPool().forEach(function(g){by[g.k]=g;});
+  return GIFT_TOP.filter(function(t){return by[t.k];}).map(function(t){
+    var g=by[t.k];return {k:g.k,why:g.why,p:g.p,lab:t.lab};});
 }
 function giftMatches(band,type){
   if(type===undefined)type=GV.type;
@@ -7144,14 +7189,15 @@ function giftsSectionHtml(){
     '<div class="gfhd">'+
       '<div class="gfeyb">Employee gifts</div>'+
       '<h2 class="gfh">Gifts people keep</h2>'+
-      '<p class="gfsub">Jackets, mid-layers and ready-boxed kits — chosen so they read as a gift, '+
-        'not as swag. Every piece carries your logo, and every price is per person with the '+
-        'decoration already in it.</p>'+
+      '<p class="gfsub">Premium branded apparel first — jackets, vests and quarter-zips your team '+
+        'will wear on their own time — plus ready-boxed kits for when you can’t collect sizes. '+
+        'Every price is per person, with your logo already in it.</p>'+
     '</div>'+
+    '<div class="gftop" id="gftop"></div>'+
     '<div class="gfguide" id="gfguide"></div>'+
     '<div class="gftypes" id="gftypes"></div>'+
     '<div class="gfbands" id="gfbands"></div>'+
-    '<div class="gfgrid" id="gfgrid"></div>'+
+    '<div class="gflist" id="gfgrid"></div>'+
     '<div class="gfnone" id="gfnone"></div>'+
   '</div></section>';
 }
@@ -7177,17 +7223,54 @@ function renderGifts(){
       ' data-gfband="'+esc(b.id)+'"'+(n?'':' disabled')+'>'+esc(b.lab)+'<i>'+n+'</i></button>';
   }).join('');
   var hits=giftMatches(GV.band,GV.type);
-  document.getElementById('gfgrid').innerHTML=hits.map(function(g){
-    /* The real product card, so a gift gets the same mockup, colour swatches and Add-to-board as
-       anything else in the store -- and so there is one card implementation to maintain. */
-    return '<div class="gfitem">'+menuCard(g.k)+
-      '<div class="gfwhy"><span class="gfwk">Why it works</span>'+esc(g.why)+'</div></div>';
-  }).join('');
+  /* The real product card, so a gift gets the same mockup, colour swatches and Add-to-board as
+     anything else in the store -- and so there is one card implementation to maintain. */
+  var item=function(g,lab){
+    var vs=GIFT_VARIANTS[g.k]||[];
+    var also=vs.filter(function(v){return BYKEY[v.k];}).map(function(v){
+      var p=giftPrice(v.k);
+      return '<button type="button" class="gfalt" data-gfalt="'+esc(v.k)+'">'+esc(BYKEY[v.k].name)+
+        ' <i>'+esc(v.lab)+(p?(' \u00b7 '+money(p)):'')+'</i></button>';}).join('');
+    return '<div class="gfitem'+(lab?' gfpick':'')+'">'+
+      (lab?('<div class="gfpicklab">'+esc(lab)+'</div>'):'')+menuCard(g.k)+
+      '<div class="gfwhy"><span class="gfwk">Why it works</span>'+esc(g.why)+'</div>'+
+      (also?('<div class="gfalso"><span class="gfwk">Also comes as</span>'+also+'</div>'):'')+'</div>';
+  };
+  /* THE SIX, only on the untouched page. Once the buyer filters, they are choosing for themselves
+     and the six stop competing with their result. */
+  var top=document.getElementById('gftop'),pristine=(GV.band==='all'&&GV.type==='all');
+  var six=pristine?giftTop():[],sixK={};six.forEach(function(g){sixK[g.k]=1;});
+  if(top)top.innerHTML=six.length?(
+    '<div class="gftophd"><div><span class="gfeyb">Start here</span>'+
+      '<h3 class="gftoph">Our '+nwords(six.length).toLowerCase()+' picks</h3>'+
+      '<p class="gftops">If you only look at '+six.length+', look at these — '+
+        six.filter(function(g){return giftType(g)==='wear';}).length+' premium apparel pieces across every budget, '+
+        'and a boxed kit for when sizes aren’t practical.</p></div></div>'+
+    '<div class="gfgrid gftopgrid">'+six.map(function(g){return item(g,g.lab);}).join('')+'</div>'):'';
+  var SECT={wear:'Premium branded apparel',kit:'Ready-boxed kits',keep:'Small thank-yous: mugs & journals'};
+  var SUBT={wear:'Jackets, vests, quarter-zips and fleece — the gifts people wear, with your logo on them.',
+            kit:'Boxed and ready to hand over. No sizes to collect.',
+            keep:'For a smaller budget, or alongside a bigger gift.'};
+  var html='';
+  if(GV.type==='all'){
+    ['wear','kit','keep'].forEach(function(t){
+      var list=hits.filter(function(g){return giftType(g)===t&&!sixK[g.k];});
+      if(!list.length)return;
+      html+='<section class="gfsec gfsec-'+t+'"><div class="gfsechd"><h3>'+(pristine&&t==='wear'?'More premium apparel':SECT[t])+
+        ' <span>'+list.length+'</span></h3><p>'+SUBT[t]+'</p></div>'+
+        '<div class="gfgrid">'+list.map(function(g){return item(g,'');}).join('')+'</div></section>';
+    });
+  }else html='<div class="gfgrid">'+hits.map(function(g){return item(g,'');}).join('')+'</div>';
+  document.getElementById('gfgrid').innerHTML=html;
   document.getElementById('gfnone').innerHTML=hits.length?'':
     '<div class="gfempty"><b>Nothing matches those two filters.</b> '+
     'Widen the budget, switch to Everything, or tell us the number you have in mind and we will '+
     'build to it.</div>';
   wireCards('gfgrid');
+  if(top&&six.length){wireCards('gftop');wireWornPeek('gftop');}
+  ['gfgrid','gftop'].forEach(function(id){var r=document.getElementById(id);if(!r)return;
+    r.querySelectorAll('[data-gfalt]').forEach(function(b){b.addEventListener('click',function(e){
+      e.stopPropagation();jdpTrack('gift_variant',{k:b.dataset.gfalt});openSheet(b.dataset.gfalt);});});});
   bands.querySelectorAll('[data-gfband]').forEach(function(b){b.addEventListener('click',function(){
     GV.band=b.dataset.gfband;renderGifts();});});
   if(types)types.querySelectorAll('[data-gftype]').forEach(function(b){
@@ -7276,15 +7359,33 @@ function wireWornPeek(rootId){
 
 /* The whole of the homepage's gift presence: one line. Enough to be found, small enough that the
    catalogue is still the page. */
+/* THE DOOR TO THE GIFT PAGE. Steven, 2026-10-04: "Going to gift section from homepage is not clear
+   and low converting." It was one dark line of small text advertising "from $13 a person" -- the
+   price of a journal, which undercut the whole premium position. Now it is a picture of the actual
+   gifts, with this client's logo on them, a headline, the apparel entry price and a real button. */
 function giftEntryHtml(){
   var pool=giftPool();if(!pool.length)return '';
-  var lo=pool[0].p;
-  return '<button type="button" class="gfentry" id="gfEntry">'+
-    '<span class="gfeic" aria-hidden="true">'+railIcon('gifts')+'</span>'+
-    '<span class="gfetx"><b>Employee gifts</b>'+
-      '<i>Onboarding, service milestones and the year-end thank-you \u2014 '+
-      pool.length+' ideas from '+money0(lo)+' a person</i></span>'+
-    '<span class="gfear" aria-hidden="true">\u2192</span></button>';
+  var wear=pool.filter(function(g){return giftType(g)==='wear';});
+  var lo=(wear[0]||pool[0]).p;
+  var tiles=giftTop().filter(function(g){return giftType(g)==='wear';}).slice(0,4).map(function(g){
+    var it=BYKEY[g.k],o=null;
+    try{o=overlayHtml(it,vmOf(g.k),browseColour(g.k,it),'front',browseCols(it),browsePlaces(it));}catch(e){o=null;}
+    if(!o)return '';
+    return '<span class="gfetile" style="position:relative;display:block;flex:1 1 0;min-width:0;aspect-ratio:1/1;'+
+      'border-radius:12px;overflow:hidden;background:#fff">'+
+      '<img class="g" src="'+o.g+'" alt="" loading="lazy" style="width:100%;height:100%;object-fit:contain;display:block">'+o.lg+'</span>';
+  }).join('');
+  return '<button type="button" class="gfentry gfentry2" id="gfEntry">'+
+    '<span class="gfetx">'+
+      '<span class="gfeeyb">'+railIcon('gifts')+' Employee gifts</span>'+
+      '<b>Gifts your team will actually keep</b>'+
+      '<i>Premium jackets, vests and quarter-zips with your logo — plus ready-boxed kits when you '+
+        'can’t collect sizes. Our six picks are at the top.</i>'+
+      '<span class="gferow"><span class="gfecta">Shop employee gifts <span aria-hidden="true">→</span></span>'+
+        '<span class="gfefrom">Apparel from '+money0(lo)+' a person</span></span>'+
+    '</span>'+
+    (tiles?('<span class="gfetiles" style="display:flex;gap:10px;flex:1 1 0;min-width:0">'+tiles+'</span>'):'')+
+  '</button>';
 }
 /* The view switch. A class on <body> rather than a re-render: the studio is already built and
    wired, and tearing it down and rebuilding it would lose the buyer's occasion and budget. */
