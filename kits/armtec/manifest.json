@@ -1,0 +1,17 @@
+{
+  "generator": "client-app",
+  "version": "1791219145",
+  "slug": "armtec",
+  "client": "Armtec",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_24408e.png",
+    "img/lg_full_8dabd9.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}
