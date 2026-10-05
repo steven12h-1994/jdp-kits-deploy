@@ -1,8 +1,8 @@
 {
   "generator": "client-app",
-  "version": "1791217001",
+  "version": "1791218103",
   "slug": "kuntz-electroplating",
-  "client": "Kuntz Electroplating (KEI)",
+  "client": "Kuntz Electroplating Inc.",
   "files": [
     "index.html",
     "client.json",
