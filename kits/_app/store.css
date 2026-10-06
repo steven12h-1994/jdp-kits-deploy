@@ -3189,3 +3189,50 @@ body.giftview .tbgifts{background:var(--amber);border-color:var(--amber)}
   html.qprint .qtab tr{break-inside:avoid}
   html.qprint .ffloat,html.qprint .jhelp{display:none!important}
 }
+
+/* ================= ONE QUOTE (2026-10-06) ==========================================================
+   The card's add button says what it does; the header button is the quote; programs tick pieces in
+   and out; the quote is edited where it is read. */
+.mcard .madd{width:auto;min-width:0;height:36px;padding:0 13px;gap:5px;display:inline-flex;align-items:center;font:800 13px/1 Inter,system-ui,sans-serif;
+  color:var(--ink);background:#fff;border:1.5px solid color-mix(in srgb,var(--a) 35%,#fff)}
+.mcard .madd .mqk{font-size:16px;font-weight:900;color:var(--a);line-height:1}
+.mcard .madd:hover{background:var(--a);color:#fff;border-color:var(--a)}
+.mcard .madd:hover .mqk{color:#fff}
+.mcard .madd.has,.mcard.inkit .madd{background:var(--a);color:#fff;border-color:var(--a)}
+.mcard .madd.has .mqk,.mcard.inkit .madd .mqk{color:#fff}
+.mcard .madd b{font-size:13px}
+.tbquote{position:relative;border-color:color-mix(in srgb,var(--a) 45%,var(--line))!important}
+.tbquote svg{width:18px;height:18px}
+.tbqn{position:absolute;top:-6px;right:-6px;min-width:20px;height:20px;padding:0 5px;border-radius:999px;background:var(--a);color:#fff;
+  font:800 11.5px/20px Inter,system-ui,sans-serif;text-align:center;font-style:normal}
+/* program tiles: in or out of the quote */
+.pvin{position:absolute;top:12px;right:12px;z-index:2;padding:7px 11px;border-radius:999px;border:1.5px solid var(--line);background:#fff;
+  font:800 12px/1 Inter,system-ui,sans-serif;color:var(--mut);cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.08)}
+.pvin.on{background:var(--ink);border-color:var(--ink);color:#fff}
+.progov .pvc.pvoff{opacity:.55}
+.progov .pvc.pvoff .pvimg{filter:grayscale(.6)}
+.pvadd:disabled{opacity:.5;cursor:not-allowed}
+/* quote editing */
+.qadd{display:flex;gap:8px;flex-wrap:wrap;margin:16px 0 0}
+.qtab td.qq{white-space:nowrap}
+.qqv{display:none}
+.qqin{width:64px;padding:7px 8px;border:1.5px solid #d6dbe0;border-radius:8px;font:inherit;font-size:13.5px;font-weight:700;text-align:right}
+.qqin:focus{outline:none;border-color:var(--a)}
+.qrm{display:block;margin:6px 0 0 auto;padding:0;border:0;background:none;font:inherit;font-size:11.5px;font-weight:700;color:#999;cursor:pointer;text-decoration:underline}
+.qrm:hover{color:#c62828}
+.qempty{max-width:640px;margin:60px auto;text-align:center;background:#fff;border-radius:14px;padding:36px 28px;box-shadow:0 18px 50px -30px rgba(0,0,0,.4)}
+.qempty h2{margin:0 0 8px;font-size:24px;font-weight:850}
+.qempty p{margin:0 0 6px;color:#666;font-size:14.5px;line-height:1.55}
+.qempty .qadd{justify-content:center}
+@media print{
+  html.qprint .qqin,html.qprint .qrm,html.qprint .qadd{display:none!important}
+  html.qprint .qqv{display:inline!important}
+}
+@media (max-width:820px){
+  .mcard .madd{height:32px;padding:0 10px;font-size:12px}
+  .tbquote span#tbBoardsLbl{display:none}
+}
+@media (max-width:640px){
+  .qtab td.qq{text-align:right}
+  .qqin{width:56px}
+}
