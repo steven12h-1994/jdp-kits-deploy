@@ -1687,10 +1687,11 @@ function renderSortbar(){
   var keys=(VIEW.sub==='all')?[].concat.apply([],subNames(VIEW.cat).map(function(s){return BUCKETS[VIEW.cat][s];})):((BUCKETS[VIEW.cat]||{})[VIEW.sub]||[]);
   if(keys.length<6){el.innerHTML='';el.style.display='none';VIEW.sort=null;return;}
   el.style.display='';
-  el.innerHTML='<span class="fitlbl">Sort</span>'+SORTS.map(function(o){
-    return '<button type="button" class="cfchip'+(((VIEW.sort||'')===o[0])?' on':'')+'" data-sort="'+o[0]+'">'+esc(o[1])+'</button>';}).join('');
-  el.querySelectorAll('.cfchip').forEach(function(x){x.addEventListener('click',function(){
-    VIEW.sort=x.dataset.sort||null;renderSortbar();renderGrid();renderFilterUI();});});
+  el.innerHTML='<label class="fsort"><span class="fitlbl">Sort</span><select id="fsortsel" aria-label="Sort products">'+SORTS.map(function(o){
+    return '<option value="'+o[0]+'"'+(((VIEW.sort||'')===o[0])?' selected':'')+'>'+esc(o[1])+'</option>';}).join('')+'</select></label>';
+  var sel=el.querySelector('select');
+  if(sel)sel.addEventListener('change',function(){
+    VIEW.sort=sel.value||null;jdpTrack('filter',{f:'sort',v:sel.value||'rec'});renderSortbar();renderGrid();renderFilterUI();});
 }
 function renderBandbar(){
   var el=document.getElementById('bandbar');if(!el)return;
@@ -1715,7 +1716,7 @@ function renderColbar(){
     fams.map(function(f){return '<button type="button" class="cfchip sw'+(VIEW.col===f?' on':'')+'" data-fam="'+f+'" title="'+f+'">'+
       '<span style="background:'+famSwatch(f)+'"></span>'+f+' <i>'+count[f]+'</i></button>';}).join('');
   el.querySelectorAll('.cfchip').forEach(function(b){b.addEventListener('click',function(){
-    VIEW.col=b.dataset.fam||null;
+    VIEW.col=b.dataset.fam||null;jdpTrack('filter',{f:'colour',v:VIEW.col||'any'});
     // jump every matching card to that colour so the grid reads as one coherent palette
     if(VIEW.col)Object.keys(BYKEY).forEach(function(k){var it=BYKEY[k],m=it&&itemFam(it)[VIEW.col];if(m)BCOL[k+'|'+fitOf(it)]=m;});
     renderColbar();renderGrid();renderFilterUI();});});
@@ -1798,7 +1799,7 @@ function wireFilters(){
   ['fpanel','fscrim'].forEach(function(id){
     var el=document.getElementById(id);
     if(el&&el.parentNode!==document.body)document.body.appendChild(el);});
-  btn.addEventListener('click',function(e){e.stopPropagation();setFilters(!FOPEN);});
+  btn.addEventListener('click',function(e){e.stopPropagation();goToFilters('header');});
   ['fpx','fdone'].forEach(function(id){var el=document.getElementById(id);
     if(el)el.addEventListener('click',function(){setFilters(false);});});
   var sc=document.getElementById('fscrim');
@@ -1815,6 +1816,52 @@ function wireFilters(){
     var p=document.getElementById('fpanel');
     if(p&&!p.contains(e.target)&&e.target!==btn)setFilters(false);});
 }
+/* The filters live in one card above the grid. Both Filters buttons bring her there and flash it. */
+function goToFilters(src){
+  var ib=document.getElementById('inbar');if(!ib)return;
+  jdpTrack('filter_open',{src:src||''});
+  var tb=document.getElementById('tbar'),off=(tb?tb.offsetHeight:64)+12;
+  window.scrollTo({top:Math.max(0,window.pageYOffset+ib.getBoundingClientRect().top-off),behavior:'smooth'});
+  ib.classList.remove('flash');void ib.offsetWidth;ib.classList.add('flash');
+}
+/* Show the refine card only when it has something in it, keep the pills/count current, and decide
+   whether the floating button should be on screen. Runs after every grid render. */
+function syncInbar(){
+  var ib=document.getElementById('inbar');if(!ib)return;
+  var any=['fitbar','sortbar','colbar','warmbar','bandbar'].some(function(id){
+    var e=document.getElementById(id);return e&&e.style.display!=='none'&&e.innerHTML;});
+  ib.style.display=any?'':'none';
+  try{renderFilterUI();}catch(e){}
+  syncFilterFloat();
+}
+function filterFloatEl(){
+  var f=document.getElementById('ffloat');
+  if(!f){
+    f=document.createElement('button');f.type='button';f.id='ffloat';f.className='ffloat';
+    f.setAttribute('aria-label','Filters');document.body.appendChild(f);
+    f.addEventListener('click',function(){goToFilters('float');});
+  }
+  return f;
+}
+function syncFilterFloat(){
+  var ib=document.getElementById('inbar'),grid=document.getElementById('grid');
+  var f=filterFloatEl();
+  var blocked=document.body.classList.contains('giftview')||document.documentElement.classList.contains('fopen')||
+    ['board','boards','progv','sheet','cart'].some(function(id){var e=document.getElementById(id);return e&&e.classList.contains('on');});
+  var show=false;
+  if(ib&&grid&&ib.style.display!=='none'&&!blocked){
+    var r=ib.getBoundingClientRect(),g=grid.getBoundingClientRect();
+    show=r.bottom<0&&g.bottom>window.innerHeight*0.6;     // filters scrolled away, products still on screen
+  }
+  if(show){
+    var n=activeFilters().length;
+    f.innerHTML='<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">'+
+      '<path d="M4 6h16M7 12h10M10 18h4"/></svg><span>Filters'+(VIEW.fit==='womens'?' · Ladies’':'')+'</span>'+
+      (n?'<i>'+n+'</i>':'');
+  }
+  f.classList.toggle('on',show);
+}
+(function(){var t=0;try{window.addEventListener('scroll',function(){if(t)return;t=requestAnimationFrame(function(){t=0;try{syncFilterFloat();}catch(e){}});},{passive:true});}catch(e){}})();
 var SHOWN=null;
 function renderFitbar(){
   var el=document.getElementById('fitbar');if(!el)return;
@@ -1826,10 +1873,15 @@ function renderFitbar(){
   // ignore filters.
   if(!nCut){el.innerHTML='';el.style.display='none';return;}
   el.style.display='';
-  var opts=[{id:'all',lbl:'All fits'},{id:'mens',lbl:'Men’s'},{id:'womens',lbl:'Ladies’ ('+nHer+')'}];
-  el.innerHTML='<span class="fitlbl">Fit</span>'+opts.map(function(o){
-    return '<button type="button" class="fchip'+(VIEW.fit===o.id?' on':'')+'" data-fit="'+o.id+'">'+o.lbl+'</button>';}).join('');
-  el.querySelectorAll('.fchip').forEach(function(b){b.addEventListener('click',function(){VIEW.fit=b.dataset.fit;renderFitbar();renderGrid();});});
+  var opts=[{id:'all',lbl:'Everyone'},{id:'mens',lbl:'Men’s'},{id:'womens',lbl:'Ladies’',n:nHer}];
+  var cur=(VIEW.fit&&VIEW.fit!=='all')?VIEW.fit:'all';
+  el.innerHTML='<span class="fitlbl">Fit</span><div class="fseg" role="radiogroup" aria-label="Fit">'+opts.map(function(o){
+    var on=cur===o.id;
+    return '<button type="button" role="radio" aria-checked="'+(on?'true':'false')+'" class="fchip'+(on?' on':'')+'" data-fit="'+o.id+'">'+
+      o.lbl+(o.n!=null?' <i>'+o.n+'</i>':'')+'</button>';}).join('')+'</div>'+
+    (cur==='womens'?'<span class="fithint">Showing ladies’ cuts and unisex styles, on women’s photos where we have them</span>':'');
+  el.querySelectorAll('.fchip').forEach(function(b){b.addEventListener('click',function(){
+    VIEW.fit=b.dataset.fit;jdpTrack('filter',{f:'fit',v:VIEW.fit});renderFitbar();renderGrid();});});
 }
 /* BUYER GUIDANCE. Steven, 2026-09-18, on the jackets section: "help customers decide and be
    interested and convert better!"
@@ -2644,7 +2696,9 @@ function wireNoResults(el){
     if(ts){ts.value='';try{ts.dispatchEvent(new Event('input',{bubbles:true}));}catch(e){}}
     setCat(b.dataset.nrcat,false);setSub(b.dataset.nrsub);});});
 }
-function renderGrid(){
+/* Every render ends by syncing the refine card and the floating Filters button. */
+function renderGrid(){renderGridCore();try{syncInbar();}catch(e){}}
+function renderGridCore(){
   var grid=document.getElementById('grid'),hd=document.getElementById('gridhd'),nr=document.getElementById('noResults');
   if(!grid)return;var q=(VIEW.q||'').trim().toLowerCase();
   /* While a search is showing, the aisle chips and the warmth / budget bars describe a shelf the
@@ -3141,9 +3195,7 @@ function buildStore(){
      '<div class="fscrim" id="fscrim"></div>'+
      '<div class="fpanel" id="fpanel" role="dialog" aria-label="Filter products">'+
        '<div class="fphd">Filter<button type="button" class="fpx" id="fpx" aria-label="Close">&times;</button></div>'+
-       '<div class="fpbody">'+
-         '<div class="fitbar" id="fitbar"></div><div class="fitbar colbar" id="colbar"></div>'+
-         '<div class="fitbar colbar" id="sortbar"></div></div>'+
+       '<div class="fpbody"></div>'+
        '<div class="fpfoot"><button type="button" class="fclear" id="fclear">Clear all</button>'+
          '<button type="button" class="fdone" id="fdone">Show results</button></div>'+
      '</div>'+
@@ -3173,7 +3225,15 @@ function buildStore(){
       sit in the open, directly above the grid, where the choice is actually made. Fit, colour and
       sort stay in the panel: those refine a choice, they do not make it. */
    '<main class="w"><div class="gridhd" id="gridhd"></div>'+
+     /* ALL FILTERS IN THE OPEN. Steven, 2026-10-06: "filters hiding on desktop / mobile. A lot of
+        the people selecting the items is female like a office admin ... they can not easily find the
+        filters." Fit, colour and sort sat behind a small "Filters" button in a header strip that
+        scrolls away; only budget was visible. Now every facet is one card directly above the grid,
+        with Fit as a segmented switch -- the Ladies' option is the first thing an admin choosing for
+        a mixed team needs -- and a floating Filters button follows her down the page. */
      '<div class="inbar" id="inbar">'+
+       '<div class="inrow1"><div class="fitbar" id="fitbar"></div><div class="fitbar sortbar" id="sortbar"></div></div>'+
+       '<div class="fitbar colbar" id="colbar"></div>'+
        '<div class="fitbar colbar" id="warmbar"></div>'+
        '<div class="fitbar colbar" id="bandbar"></div>'+
      '</div>'+
