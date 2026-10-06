@@ -1048,10 +1048,10 @@ function menuCard(key){
   var warm=warmCardHtml(item);
   var q=cartQtyOf(key);
   var inkit=q?' inkit':'';
-  var addlbl=q?(heartSvg(1)+'<b>'+q+'</b>'):heartSvg(0);
+  var addlbl=q?('<span class="mqk">✓</span><b>'+q+'</b>'):'<span class="mqk">+</span><span class="mqt">Quote</span>';
   return '<article class="mcard'+inkit+'" data-key="'+key+'" data-name="'+esc(searchText(item).replace(/"/g,''))+'" tabindex="0" role="button" aria-label="'+esc(item.name)+'">'+
     '<div class="mstage">'+curToggleHtml(key)+rec+(item.video?'<button class="mvid" data-vid="'+esc(item.video)+'" data-vname="'+esc(item.name)+'" aria-label="Play product video">▶ Video</button>':'')+'<img class="g" src="'+o.g+'" alt="'+esc(item.name)+'" loading="lazy" decoding="async">'+o.lg+
-      '<button class="madd'+(q?' has':'')+'" data-key="'+key+'" aria-label="'+(q?'Edit ':'Add ')+esc(item.name)+'">'+addlbl+'</button></div>'+
+      '<button class="madd'+(q?' has':'')+'" data-key="'+key+'" aria-label="'+(q?(esc(item.name)+' is in your quote — view quote'):('Add '+esc(item.name)+' to your quote'))+'">'+addlbl+'</button></div>'+
     '<div class="mb"><h3>'+esc(item.name)+'</h3>'+
       '<div class="mmeta">'+esc(item.sku)+(item.layer==='promo'?'':(item.unisex?' · Unisex':''))+'</div>'+
       (hasLadies(item)?'<div class="mfit">Men’s &amp; Ladies’ cuts</div>':(item.unisex?'<div class="mfit alt">Unisex — one cut</div>':''))+
@@ -1959,7 +1959,7 @@ function wireCards(rootId){
       if(e.target&&e.target.closest&&e.target.closest('[data-curk]'))return;
       openSheet(card.dataset.key);});
     card.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();openSheet(card.dataset.key);}});});
-  g.querySelectorAll('.madd').forEach(function(b){b.addEventListener('click',function(e){e.stopPropagation();var k=b.dataset.key;if(cartHasAny(k)){openSheet(cartAnyKey(k));}else{openSavePicker(k);}});});
+  g.querySelectorAll('.madd').forEach(function(b){b.addEventListener('click',function(e){e.stopPropagation();var k=b.dataset.key;toQuoteList();if(cartHasAny(k)){openQuote('card');}else{addToQuoteQuick(k);}});});
   // Swatch on the CARD: swap the photo in place. No re-render of the whole grid, so the shopper keeps
   // their scroll position while flicking through colours.
   g.querySelectorAll('.cdot').forEach(function(d){d.addEventListener('click',function(e){
@@ -3258,18 +3258,18 @@ function buildStore(){
       the footer" it was invisible: the person it is built for could not find it on his own store.
       The bar appears the moment the kit has something in it, which is exactly when sharing starts to
       mean anything, and it is the one piece of chrome always in reach on a phone. */
-   '<div class="cbar" id="cbar"><div class="cbarin w"><div class="cbarL"><span class="n" id="cbarN">0</span> in this board</div>'+
+   '<div class="cbar" id="cbar"><div class="cbarin w"><div class="cbarL"><span class="n" id="cbarN">0</span> items</div>'+
      '<button class="cbarshare" id="cbarShare" aria-label="Send this board to your team" title="Send this board to your team">'+
        '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" '+
        'stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/>'+
        '<circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg><span>Share</span></button>'+
-     '<button class="cbarbtn" id="openCart2">View list <span class="p" id="cbarP"></span> <span class="ar">→</span></button></div></div>'+
-   '<div class="toast" id="toast"><span class="tk">✓</span><span class="tm" id="toastM">Added</span><button class="tview" id="toastView">View board →</button></div>';
+     '<button class="cbarbtn" id="openCart2">View quote <span class="p" id="cbarP"></span> <span class="ar">→</span></button></div></div>'+
+   '<div class="toast" id="toast"><span class="tk">✓</span><span class="tm" id="toastM">Added</span><button class="tview" id="toastView">View quote →</button></div>';
   document.getElementById('app').innerHTML=html;
   var _oc=document.getElementById('openCart');
   if(_oc)_oc.addEventListener('click',function(){openBoard();});
   var cbs=document.getElementById('cbarShare');if(cbs)cbs.addEventListener('click',shareList);
-  document.getElementById('openCart2').addEventListener('click',function(){openBoard();});
+  document.getElementById('openCart2').addEventListener('click',function(){openQuote('bar');});
   wireRail();
   wireExplore();
   /* Paint the shortlist band on FIRST RENDER, not only after a successful board fetch.
@@ -3293,7 +3293,7 @@ function buildStore(){
   var _tc=document.getElementById('tbCats');
   if(_tc)_tc.addEventListener('click',function(e){e.stopPropagation();toggleCatMenu();});
   var _tb=document.getElementById('tbBoards');
-  if(_tb)_tb.addEventListener('click',function(){openBoards();});
+  if(_tb)_tb.addEventListener('click',function(){jdpTrack('quote_open',{src:'header'});openQuote('header');});
   document.addEventListener('click',function(e){
     var m=document.getElementById('catmenu');
     if(m&&m.classList.contains('on')&&!m.contains(e.target))toggleCatMenu(false);});
@@ -3329,7 +3329,7 @@ function buildStore(){
   if(C.feed&&!document.getElementById('beholdjs')){var bs=document.createElement('script');bs.id='beholdjs';bs.type='module';bs.src='https://w.behold.so/widget.js';document.head.appendChild(bs);}
   var tv=document.getElementById('toastView');
   if(tv)tv.addEventListener('click',function(){
-    document.getElementById('toast').classList.remove('on');openBoard();});
+    document.getElementById('toast').classList.remove('on');openQuote('toast');});
   ['leadOpen1','leadOpen2'].forEach(function(id){var b=document.getElementById(id);if(b)b.addEventListener('click',openLead);});
 }
 // Generic/demo store: a conversion-focused lead modal. When a published Airtable form URL is configured
@@ -4684,8 +4684,7 @@ function renderSheet(){
          THIS piece -- and the board is the secondary "keep browsing" path. Same add, same line,
          then straight into the request instead of back to the grid. */
       (canAdd
-        ? ('<button class="shaddbtn" id="shQuote"><span>Get a formal quote for this</span><span class="p">'+money(line)+'</span></button>'+
-           '<button class="shaddsec" id="shAdd">'+(CART[ckey(SH.key,SH.fit)]?'Update my board':'+ Add to board, keep browsing')+'</button>')
+        ? ('<button class="shaddbtn" id="shAdd"><span>'+(CART[ckey(SH.key,SH.fit)]&&!isTemplate(ALID)?'Update in my quote':'Add to my quote')+'</span><span class="p">'+money(line)+'</span></button>')
         : '<button class="shaddbtn" id="shAdd" disabled><span>Add '+moq()+'+ pieces</span><span class="p">'+money(line)+'</span></button>')+
       (trustOn()?('<div class="shtrust">'+trustRatingHtml('mini')+' · itemized quote · no payment now</div>')
                 :'<div class="shtrust">✓ Live pricing · exact quote · no obligation · no payment now</div>')+'</div>';
@@ -4829,22 +4828,21 @@ function addedPanel(key,was,colName,fit){
   var c=colInList(cs,colName)||cs[0]||{},n=cartCount(),sub=cartSubtotal();
   el.innerHTML='<button type="button" class="adx" id="adX" aria-label="Close">✕</button>'+
     '<div class="adtop"><span class="adim">'+(c.front?'<img src="'+gurl(c.front)+'" alt="">':'')+'</span>'+
-    '<span class="adtx"><b>✓ '+(was?'Updated on':'Added to')+' '+esc(activeName())+'</b><i>'+esc(it.name)+'</i>'+
+    '<span class="adtx"><b>✓ '+(was?'Updated in':'Added to')+' your quote</b><i>'+esc(it.name)+'</i>'+
       '<i>'+n+' style'+(n===1?'':'s')+' · est. '+money0(sub)+'</i></span></div>'+
-    '<button type="button" class="adgo" id="adGo">Get my formal quote →</button>'+
-    '<div class="adsec"><button type="button" id="adBoard">View board</button><button type="button" id="adKeep">Keep shopping</button></div>'+
+    '<button type="button" class="adgo" id="adGo">View my quote →</button>'+
+    '<div class="adsec"><button type="button" id="adKeep">Keep adding items</button></div>'+
     (trustOn()?'<div class="adtr">No payment now · a real person replies in '+JDP_TRUST.reply+'</div>':'');
   el.classList.add('on');
   var close=function(){el.classList.remove('on');};
   document.getElementById('adX').onclick=close;document.getElementById('adKeep').onclick=close;
-  document.getElementById('adBoard').onclick=function(){close();openBoard();};
-  document.getElementById('adGo').onclick=function(){close();jdpTrack('added_go');openCart();openCheckout();};
+  document.getElementById('adGo').onclick=function(){close();jdpTrack('added_go');openQuote('added');};
 }
 function addFromSheet(){
   var q=effQty();
   if(q<moq()){toast('Add at least '+moq()+' pieces');return;}
   jdpTrack('add',{k:SH.key,n:q});
-  var _moved=ensureWritable();
+  toQuoteList();var _moved=ensureWritable();
   var _ck=ckey(SH.key,SH.fit);
   var was=!!CART[_ck],decos=[];
   Object.keys(SH.D).forEach(function(pl){var d=SH.D[pl];if(d.on)decos.push({pl:pl,lg:d.lg,ink:d.ink,method:d.method,colours:d.colours||1,on:true});});
@@ -4872,6 +4870,35 @@ function recCartDecos(key){key=bkey(key);
   var vm=vmOf(key),decos=realDecos(BYKEY[key],vm.decos).map(function(d){return {pl:d.pl,lg:d.lg,ink:d.ink||'auto',method:((_st&&d.pl===_st.pl&&_m)?_m:(d.method||'embroidery')),colours:d.colours||1,on:true};});
   if(!decos.length){var p=(BYKEY[key].places||[]).filter(function(x){return x.logo;})[0];if(p)decos=[{pl:p.id,lg:(CFG.logos[0]||{}).id,ink:'auto',method:(recDecos(key)[0]||{}).method||'embroidery',colours:1,on:true}];}
   return decos;
+}
+/* ---- ONE QUOTE (2026-10-06) ------------------------------------------------------------------------
+   Steven: "editing the program and browsing + adding to get a quote is all very confusing."
+   The store ran two models at once -- Pinterest "boards" (a heart that asked which board, a header
+   reading "My board · 0", "View list") and the formal quote -- and opening a program silently made the
+   program template the active list, so anything added afterwards landed somewhere else and a program
+   plus individual items could never meet in one quote. Now there is ONE quote: the buyer's own list.
+   Programs add into it (any number of them), every card adds into it in one tap, and it is edited on
+   the quote itself. Boards still exist behind the rail for anyone who used them. */
+function quoteListId(){if(!LISTS)loadLists();return (ALID&&LISTS[ALID]&&!isTemplate(ALID))?ALID:personalListId();}
+function toQuoteList(){var id=quoteListId();if(ALID!==id)switchList(id);return id;}
+function hcQty(it,n){n=n||getHC();return n?Math.max(moq(),Math.round(n*hcFactor(it))):moq();}
+/* Size ONE line from the headcount (qty by garment type, size split) -- used when a line arrives, so a
+   later program never overwrites quantities the buyer already edited on the quote. */
+function sizeLineFromHC(ck,n){
+  var c=CART[ck],it=BYKEY[bkey(ck)];if(!c||!it)return;
+  if(it.layer==='promo'){c.qty=Math.max(it.moq||1,c.qty||0);return;}
+  var q=hcQty(it,n);
+  if(n&&!oneSize(it)){c.sizes=spreadSizes(q,c.fit,it);c.qty=sizeSum(c.sizes);}else{delete c.sizes;c.qty=q;}
+}
+function addToQuoteQuick(key){
+  var it=BYKEY[key];if(!it)return;toQuoteList();
+  if(it.layer==='promo'){quickAdd(key);}
+  else{var vm=vmOf(key),ex=CART[key];
+    var q=hcQty(it),e={qty:q,colour:(ex&&ex.colour)||browseColour(key,it)||vm.colour,decos:recCartDecos(key)};
+    if(getHC()&&!oneSize(it)){e.sizes=spreadSizes(q,'mens',it);e.qty=sizeSum(e.sizes);}
+    CART[key]=e;saveCart();refreshCartUI();syncBoardIfOpen();}
+  jdpTrack('add',{k:key,src:'card'});
+  toast('Added to your quote · '+it.name);
 }
 function quickAdd(key){
   if(!BYKEY[key])return;var it=BYKEY[key],vm=vmOf(key),ex=CART[key];
@@ -5634,8 +5661,9 @@ function refreshCartUI(){
   /* Removing the header removed the one place that named the active board, so on Explore there was
      nothing telling you where a heart would land. The bar's Boards button now carries it. */
   var tbl=document.getElementById('tbBoardsLbl');
-  if(tbl){var nm=activeName();
-    tbl.textContent=(nm.length>15?(nm.slice(0,14)+'\u2026'):nm)+' \u00b7 '+cartCount();}
+  var _qid=quoteListId(),_qn=listLen(_qid);
+  if(tbl){tbl.textContent=(_qn&&_qid===ALID)?('Quote \u00b7 '+money0(cartSubtotal())):'Quote';}
+  var tqn=document.getElementById('tbQN');if(tqn){tqn.textContent=_qn||'';tqn.style.display=_qn?'':'none';}
   var rn=document.getElementById('railN');
   if(rn){var bn=listIds().length;rn.textContent=bn>1?bn:'';rn.style.display=bn>1?'':'none';}
   var cl=document.getElementById('cartLbl');
@@ -5648,7 +5676,7 @@ function refreshCartUI(){
     var qn=cartQtyOf(k),on=qn>0;card.classList.toggle('inkit',on);
     var b=card.querySelector('.madd');
     if(b){b.classList.toggle('has',on);
-      b.innerHTML=on?(heartSvg(1)+'<b>'+qn+'</b>'):heartSvg(0);
+      b.innerHTML=on?('<span class="mqk">✓</span><b>'+qn+'</b>'):'<span class="mqk">+</span><span class="mqt">Quote</span>';
       b.setAttribute('aria-label',on?(qn+' in your board'):'Save to my board');}});
 }
 function openCart(){renderCart();document.getElementById('ov').classList.add('on');document.getElementById('cart').classList.add('on');document.body.style.overflow='hidden';}
@@ -5733,7 +5761,9 @@ function oneSize(it){
   return /beanie|toque|watch hat|\bcap\b|trucker|snapback|snap back|\bhat\b|backpack|duffel|tote|\bbag\b|cooler/i
     .test((it&&it.name)||'');
 }
-function hcKey(){return 'jdphc_'+SLUG+'_'+(((LISTS||{})[ALID]||{}).slug||ALID||'');}
+/* ONE HEADCOUNT per store: it describes the buyer's team, not a list. Per-list counts meant each
+   program and the quote each remembered a different number (2026-10-06, one-quote flow). */
+function hcKey(){return 'jdphc_'+SLUG;}
 function getHC(){var v=0;try{v=parseInt(localStorage.getItem(hcKey())||'0',10)||0;}catch(e){}return v;}
 function setHC(n){try{localStorage.setItem(hcKey(),String(n||0));}catch(e){}}
 /* Spread `total` across a size curve without losing or inventing pieces: floor everything, then
@@ -6596,10 +6626,7 @@ function wireRail(){
       if(w==='boards'){closeBoard();closeProgram();openBoards();return;}
       if(w==='share'){shareList();return;}
       if(w==='gifts'){jdpTrack('gift_open',{src:'rail'});closeBoards();closeBoard();closeProgram();closeAll();setGiftView(true);return;}
-      if(w==='quote'){closeBoards();closeBoard();closeProgram();
-        document.getElementById('ov').classList.add('on');
-        document.getElementById('cart').classList.add('on');
-        document.body.style.overflow='hidden';openCheckout();return;}
+      if(w==='quote'){closeBoards();closeBoard();closeProgram();openQuote('rail');return;}
     });});
 }
 /* Pinterest's Explore is one search field and image tiles. Ours had the search collapsed behind a
@@ -6666,8 +6693,8 @@ function tbarHtml(){
       trustBarHtml()+
       /* GIFTS IN THE TOP BAR -- the second way in, always one glance away (the rail has it too). */
       '<button type="button" class="tbgifts" id="tbGifts">'+railIcon('gifts')+'<span>Gifts</span></button>'+
-      '<button type="button" class="tbboards" id="tbBoards">'+railIcon('boards')+
-        '<span id="tbBoardsLbl">Boards</span></button>'+
+      '<button type="button" class="tbboards tbquote" id="tbBoards" aria-label="Your quote">'+railIcon('quote')+
+        '<span id="tbBoardsLbl">Quote</span><i class="tbqn" id="tbQN"></i></button>'+
     '</div>'+catMenuHtml()+'</div>';
 }
 function toggleCatMenu(force){
@@ -7476,7 +7503,9 @@ function giftViewOn(){
    (how many people) and one button. Everything else is one tap away rather than in the way, and the
    board editor is untouched -- "Change this program" copies the pieces into the buyer's own board,
    where sizes, notes, add and remove already live. */
-var PV_ID=null;
+var PV_ID=null,PV_BACK=null,PV_OFF={};
+function pvOff(id){return PV_OFF[id]||(PV_OFF[id]={});}
+function pvOnKeys(id){var off=pvOff(id);return Object.keys(((LISTS||{})[id]||{}).items||{}).filter(function(k){return !off[k];});}
 function programOpen(){var e=document.getElementById('progv');return !!(e&&e.classList.contains('on'));}
 function pvProgId(id){return /^prog_/.test(id||'')?id:'prog_'+id;}
 function pvShort(n){return String(n||'').replace(/\s*·.*$/,'').replace(/ Program$/,'');}
@@ -7485,8 +7514,9 @@ function pvShort(n){return String(n||'').replace(/\s*·.*$/,'').replace(/ Progra
 function pvPerPerson(id,n){
   var L=(LISTS||{})[id];if(!L)return 0;
   var t=0,q=Math.max(moq(),n||0);
+  var off=pvOff(id);
   Object.keys(L.items||{}).forEach(function(ck){
-    var it=BYKEY[bkey(ck)];if(!it||it.layer==='promo')return;
+    var it=BYKEY[bkey(ck)];if(!it||it.layer==='promo'||off[ck])return;
     var c=L.items[ck]||{};
     try{t+=unitPrice(ck,(c.decos&&c.decos.length)?c.decos:defaultDecos(ck),q);}catch(e){}
   });
@@ -7517,8 +7547,10 @@ function pvCardHtml(ck,n){
   var brand=it.brand||it.sku||'';
   /* The seeded note is stored as "Label — reason"; the label is the card's own heading here. */
   var why=String(c.why||'').replace(/^[^—]{0,40}—\s*/,'');
-  return '<li class="bcard pvc" data-bk="'+esc(ck)+'">'+
+  var _off=!!pvOff(PV_ID||'')[ck];
+  return '<li class="bcard pvc'+(_off?' pvoff':'')+'" data-bk="'+esc(ck)+'">'+
     '<span class="pvn" aria-hidden="true">'+n+'</span>'+
+    '<button type="button" class="pvin'+(_off?'':' on')+'" data-pvin="'+esc(ck)+'" aria-pressed="'+(_off?'false':'true')+'">'+(_off?'+ Add to quote':'✓ In quote')+'</button>'+
     '<div class="bimgwrap pvimg" data-pvopen="'+esc(ck)+'">'+stage+
       (it.csa?('<span class="pvcsa">'+esc(String(it.csa).split(' · ')[0])+'</span>'):'')+
       (cuts?('<span class="pvcuts">'+esc(cuts)+'</span>'):'')+'</div>'+
@@ -7550,7 +7582,8 @@ function programHtml(id){
   var ks=Object.keys(L.items||{}),n=getHC(),pp0=pvPerPerson(id,0),T=JDP_TRUST;
   var cards=ks.map(function(ck,i){return pvCardHtml(ck,i+1);}).join('');
   /* "mockup &" drops out on a phone so the bar's input and button share one row. */
-  var cta=function(idb,cls){return '<button type="button" class="pvcta '+(cls||'')+'" id="'+idb+'">Get my <span class="pvl">formal </span>quote <span class="ar">→</span></button>';};
+  var _non=pvOnKeys(id).length;
+  var cta=function(idb,cls){return '<button type="button" class="pvcta pvadd '+(cls||'')+'" id="'+idb+'"'+(_non?'':' disabled')+'>Add '+_non+' piece'+(_non===1?'':'s')+' <span class="pvl">to my quote </span><span class="ar">→</span></button>';};
   return '<div class="pvwrap">'+
     '<header class="pvhd">'+
       '<button type="button" class="pvback" id="pvBack">‹ Back to the store</button>'+
@@ -7569,15 +7602,14 @@ function programHtml(id){
         '<div class="pvstat"><b>'+money0(pp0)+'</b><span>per person · one of each, logo included</span></div>'+
         /* ONE FIELD NEXT TO THE PRICE. 51 program opens, 0 quotes: the button opened a drawer with
            a second form. Now the email goes in right here and the program goes with it. */
-        '<button type="button" class="pvcta pvherocta" id="pvQuoteHero">Get my formal quote <span class="ar">→</span></button>'+
-        '<div class="pvtrust">Itemized PDF for your approver · confirmed in writing in '+esc(T.reply)+' · no payment now</div>'+
+        cta('pvQuoteHero','pvherocta')+
+        '<div class="pvtrust">Untick anything you don’t need · add more items or another program after · itemized PDF for your approver</div>'+
       '</div>'+
     '</div></section>'+
     '<div class="pvkit"><span>The kit</span><i>'+ks.length+' pieces · priced at the '+moq()+'-piece minimum · prices drop at 48+ and 144+</i></div>'+
     '<ol class="pvgrid">'+cards+'</ol>'+
     '<div class="pvfoot">'+
-      '<button type="button" class="pvlink" id="pvAdopt">Change this program — add or remove pieces</button>'+
-      '<span class="pvsep">·</span>'+
+
       '<button type="button" class="pvlink" id="pvShare">Share this program ↗</button>'+
     '</div>'+
     '<div class="pvbar"><div class="pvbarin">'+
@@ -7590,8 +7622,24 @@ function programHtml(id){
   '</div>';
 }
 function programUrl(id){return location.origin+location.pathname+'?program='+String(id).replace(/^prog_/,'');}
+/* Copy the ticked pieces (with the colours chosen on the tiles) into the buyer's ONE quote, sized to
+   the headcount, and open the quote. Programs stack: Crew + Hi-Vis becomes one quote. */
+function addProgramToQuote(id,n){
+  var src=(LISTS[id]||{}).items||{},keys=pvOnKeys(id);if(!keys.length)return;
+  var tid=(PV_BACK&&LISTS[PV_BACK]&&!isTemplate(PV_BACK))?PV_BACK:personalListId();
+  keys.forEach(function(ck){try{var e=JSON.parse(JSON.stringify(src[ck]));delete e.why;LISTS[tid].items[ck]=e;}catch(x){}});
+  ALID=tid;CART=LISTS[tid].items;LISTS[tid].updated=Date.now();persistLists();
+  if(n>0)setHC(n);
+  var hn=n||getHC();keys.forEach(function(ck){try{sizeLineFromHC(ck,hn);}catch(x){}});
+  saveCart();refreshCartUI();PV_BACK=null;
+  var el=document.getElementById('progv');if(el)el.classList.remove('on');PV_ID=null;
+  try{if(/[?&]program=/.test(location.search))history.replaceState({},'',viewUrl());}catch(x){}
+  openQuote('program');
+  toast('Added '+keys.length+' piece'+(keys.length===1?'':'s')+' from '+((LISTS[id]||{}).name||'the program'));
+}
 function openProgram(id){
   id=pvProgId(id);
+  if(!PV_ID){if(!LISTS)loadLists();PV_BACK=(ALID&&LISTS&&LISTS[ALID]&&!isTemplate(ALID))?ALID:null;}
   if(!LISTS)loadLists();
   if(!LISTS||!LISTS[id]){try{seedPrograms();}catch(e){}}
   if(!LISTS||!LISTS[id]){openBoards();return;}
@@ -7615,6 +7663,8 @@ function refreshProgram(){
 function closeProgram(){
   var el=document.getElementById('progv');if(!el||!el.classList.contains('on'))return;
   el.classList.remove('on');PV_ID=null;
+  /* Leaving a program puts the buyer back on THEIR quote -- the program was only being viewed. */
+  try{if(isTemplate(ALID)){switchList((PV_BACK&&LISTS[PV_BACK])?PV_BACK:personalListId());}}catch(e){}PV_BACK=null;
   document.body.style.overflow='';
   try{if(/[?&]program=/.test(location.search))history.replaceState({},'',viewUrl());}catch(e){}
   setRail('explore');
@@ -7648,11 +7698,12 @@ function wireProgram(el,id){
   }
   var quote=function(){
     var n=parseInt(hc&&hc.value,10)||0;
-    if(n>0){try{applyHeadcount(n);}catch(e){}}
-    jdpTrack('program_quote',{p:id.replace(/^prog_/,''),n:n});
-    closeProgram();
-    openQuote('program');
+    jdpTrack('program_quote',{p:id.replace(/^prog_/,''),n:n,k:pvOnKeys(id).length});
+    addProgramToQuote(id,n);
   };
+  el.querySelectorAll('[data-pvin]').forEach(function(b){b.addEventListener('click',function(e){
+    e.stopPropagation();var off=pvOff(id),k=b.dataset.pvin;if(off[k])delete off[k];else off[k]=1;
+    jdpTrack('program_toggle',{p:id.replace(/^prog_/,''),k:k,on:off[k]?0:1});refreshProgram();});});
   ['pvQuote','pvQuoteTop','pvQuoteHero'].forEach(function(b){var e=document.getElementById(b);if(e)e.addEventListener('click',quote);});
   var pf=document.getElementById('pvLead');
   if(pf){var pe=document.getElementById('pvEmail'),pfo=false;
@@ -8613,6 +8664,7 @@ function quoteLines(){
   }).filter(Boolean);
 }
 function quoteDocHtml(){
+  if(!cartCount())return quoteEmptyHtml();
   var L=quoteLines(),sub=0,pcs=0;L.forEach(function(l){sub+=l.e.revenue;pcs+=l.e.qty;});
   var setup=cartSetup(),sb=setupBreakdown(),T=JDP_TRUST,saved={};
   try{saved=JSON.parse(localStorage.getItem('jdpkit_contact')||'{}');}catch(e){}
@@ -8623,7 +8675,9 @@ function quoteDocHtml(){
         '<i>'+esc([l.it.brand||l.it.sku,l.sku].filter(Boolean).join(' · '))+'</i>'+
         '<span>'+esc(l.det)+'</span>'+(l.sizes?('<span>Sizes: '+esc(l.sizes)+'</span>'):'')+
         (l.vol?('<span class="qvol">Volume pricing — '+esc(l.vol)+'</span>'):'')+'</td>'+
-      '<td class="qq">'+l.e.qty+'</td><td class="qu">'+money(l.e.unit)+'</td><td class="qa">'+money(l.e.revenue)+'</td></tr>';}).join('');
+      '<td class="qq"><span class="qqv">'+l.e.qty+'</span><input class="qqin" type="number" inputmode="numeric" min="1" value="'+l.e.qty+'" data-qk="'+esc(l.ck)+'" aria-label="Quantity of '+esc(l.e.name)+'">'+
+        '<button type="button" class="qrm" data-qrm="'+esc(l.ck)+'" aria-label="Remove '+esc(l.e.name)+'">Remove</button></td>'+
+      '<td class="qu">'+money(l.e.unit)+'</td><td class="qa">'+money(l.e.revenue)+'</td></tr>';}).join('');
   var who=listName(ALID);
   return '<div class="qwrap">'+
     '<div class="qbar"><button type="button" class="qback" id="qBack">‹ Back</button>'+
@@ -8640,6 +8694,7 @@ function quoteDocHtml(){
         '<div><span>Prepared by</span><b>Steven · Just Deals Promotions</b><i>'+esc(T.phone)+'</i></div></div>'+
       '<div class="qhc"><label for="qHC">How many people?</label><input id="qHC" type="number" inputmode="numeric" min="1" placeholder="e.g. 40" value="'+(getHC()||'')+'">'+
         '<button type="button" id="qHCgo">Update quote</button><i>We estimate quantities and sizes from your headcount — fewer outer layers than people. You confirm every quantity and size before production.</i></div>'+
+      '<div class="qadd"><button type="button" class="qbtn" id="qMore">+ Add more items</button><button type="button" class="qbtn" id="qProg">+ Add a program</button></div>'+
       '<table class="qtab"><thead><tr><th>#</th><th></th><th>Item</th><th>Qty</th><th>Unit</th><th>Amount</th></tr></thead><tbody>'+rows+'</tbody></table>'+
       '<div class="qtot"><div><span>Subtotal · '+pcs+' pieces</span><b>'+money(sub)+'</b></div>'+
         (setup>0?('<div><span>One-time setup</span><b>'+money(setup)+'</b></div>'+
@@ -8666,8 +8721,39 @@ function quoteDocHtml(){
       '<div class="qside"><b>Need us set up as a vendor?</b> Attach your supplier forms above, or call '+esc(T.phone)+'.</div>'+
     '</aside></div></div>';
 }
+function quoteEmptyHtml(){
+  return '<div class="qwrap"><div class="qbar"><button type="button" class="qback" id="qBack">‹ Back</button></div>'+
+    '<div class="qempty"><h2>Your quote is empty</h2><p>Start with a ready program, add items from the catalogue, or send us your RFQ — '+
+      'then download an itemized quote for approval.</p>'+
+      '<div class="qadd"><button type="button" class="qbtn qsend" id="qProg">Start with a program</button>'+
+      '<button type="button" class="qbtn" id="qMore">Browse the catalogue</button><button type="button" class="qbtn" id="qRfq">Upload an RFQ</button></div></div></div>';
+}
+function quoteToCatalogue(){
+  closeQuote();setRail('explore');
+  var g=document.getElementById('excats')||document.querySelector('.excats')||document.getElementById('gridhd');
+  if(g)g.scrollIntoView({behavior:'smooth',block:'start'});
+  toast('Tap “+ Quote” on anything to add it');
+}
+function quoteToPrograms(){closeQuote();setRail('explore');var r=document.getElementById('recohero');if(r)r.scrollIntoView({behavior:'smooth',block:'start'});}
+function wireQuoteEdit(el){
+  var m=document.getElementById('qMore');if(m)m.addEventListener('click',function(){jdpTrack('quote_more');quoteToCatalogue();});
+  var p=document.getElementById('qProg');if(p)p.addEventListener('click',function(){jdpTrack('quote_prog');quoteToPrograms();});
+  var r=document.getElementById('qRfq');if(r)r.addEventListener('click',function(){closeQuote();openRfq();});
+  var rerender=function(){var st=el.scrollTop;el.innerHTML=quoteDocHtml();wireQuote(el);el.scrollTop=st;refreshCartUI();};
+  el.querySelectorAll('[data-qrm]').forEach(function(b){b.addEventListener('click',function(){
+    delete CART[b.dataset.qrm];markCleared();saveCart();jdpTrack('quote_remove');rerender();});});
+  el.querySelectorAll('[data-qk]').forEach(function(inp){
+    var apply=function(){var n=parseInt(inp.value,10)||0,ck=inp.dataset.qk,c=CART[ck],it=BYKEY[bkey(ck)];if(!c||!it)return;
+      var min=(it.layer==='promo')?(it.moq||1):moq();
+      if(n<min){toast('Minimum is '+min+' for this item');n=min;}
+      if(c.sizes&&!oneSize(it)){c.sizes=spreadSizes(n,c.fit,it);c.qty=sizeSum(c.sizes);}else c.qty=n;
+      saveCart();jdpTrack('quote_line_qty');rerender();};
+    inp.addEventListener('change',apply);
+    inp.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();inp.blur();}});});
+}
 function openQuote(src){
-  if(!cartCount()){openSourcing('');return;}
+  toQuoteList();
+  if(!cartCount()&&(src==='checkout')){openSourcing('');return;}
   QREF=docRef();
   jdpTrack('quote_view',{src:src||'',n:cartCount()});
   try{closeAll();}catch(e){}try{closeBoard();}catch(e){}try{closeBoards();}catch(e){}try{closeProgram();}catch(e){}
@@ -8687,6 +8773,7 @@ function quoteShareUrl(){
 }
 function wireQuote(el){
   document.getElementById('qBack').addEventListener('click',closeQuote);
+  if(!document.getElementById('qPdf')){wireQuoteEdit(el);return;}
   document.getElementById('qPdf').addEventListener('click',function(){
     jdpTrack('quote_pdf');
     var t=document.title;document.title='Quote '+QREF+' — '+(CFG.client||'')+' — Just Deals Promotions';
@@ -8703,6 +8790,7 @@ function wireQuote(el){
     var st=el.scrollTop;el.innerHTML=quoteDocHtml();wireQuote(el);el.scrollTop=st;toast('Quote updated for '+n+' people');};
   go.addEventListener('click',upd);hc.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();upd();}});
   document.getElementById('qForm').addEventListener('submit',function(e){e.preventDefault();sendFormalQuote();});
+  wireQuoteEdit(el);
   var em=document.getElementById('qEmail');if(em)em.addEventListener('input',function(){em.classList.remove('err');});
 }
 function sendFormalQuote(){
