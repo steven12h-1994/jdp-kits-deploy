@@ -35,7 +35,7 @@ declare(strict_types=1);
 header('Cache-Control: no-store');
 header('X-Content-Type-Options: nosniff');
 
-const EV_OK        = ['view','search','search0','sheet','add','board','checkout','sent','source','aisle','alt','added_go','board_quote','hero_programs','hero_ask','faq_ask','sheet_quote','help_open','help_ask','logo_home','program','program_quote','program_switch','program_colour','program_people','program_adopt','program_share','gift_open','gift_variant','filter','filter_open'];
+const EV_OK        = ['view','search','search0','sheet','add','board','checkout','sent','source','aisle','alt','added_go','board_quote','hero_programs','hero_ask','faq_ask','sheet_quote','help_open','help_ask','logo_home','program','program_quote','program_switch','program_colour','program_people','program_adopt','program_share','gift_open','gift_variant','filter','filter_open','engaged','lead_focus','exit_show'];
 const EV_PER_HOUR  = 900;        // per IP; a real buyer sends a few dozen
 
 function data_root(): string { return dirname(__DIR__, 3) . '/jdp-board-data'; }
@@ -120,7 +120,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET') {
         fclose($fh);
     }
     /* The funnel counts SESSIONS that reached each step, so one buyer opening ten products is one. */
-    $funnel = array_fill_keys(['view', 'search', 'sheet', 'add', 'checkout', 'sent'], 0);
+    $funnel = array_fill_keys(['view', 'engaged', 'search', 'sheet', 'add', 'checkout', 'sent'], 0);
     foreach ($sess as $s) { foreach ($funnel as $st => $_) { if (!empty($s[$st])) $funnel[$st]++; } }
     arsort($q); arsort($q0);
     uasort($kits, static fn($a, $b) => ($b['view'] ?? 0) <=> ($a['view'] ?? 0));
@@ -133,7 +133,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET') {
     header('Content-Type: text/html; charset=utf-8');
     header('X-Robots-Tag: noindex');
     $h = fn($x) => htmlspecialchars((string)$x, ENT_QUOTES);
-    $labels = ['view' => 'Opened a store', 'search' => 'Searched', 'sheet' => 'Opened a product', 'add' => 'Added to a board',
+    $labels = ['view' => 'Opened a store', 'engaged' => 'A real person (scrolled / tapped)', 'search' => 'Searched', 'sheet' => 'Opened a product', 'add' => 'Added to a board',
         'checkout' => 'Opened checkout', 'sent' => 'Sent a request'];
     $top = max(1, $funnel['view']);
     echo '<!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><meta name=robots content=noindex>'
