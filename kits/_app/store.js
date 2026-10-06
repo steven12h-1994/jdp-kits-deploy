@@ -2658,7 +2658,7 @@ function openSourcing(q){
     var sb=document.getElementById('emailKit');
     if(sb)sb.innerHTML=sb.innerHTML.replace(/Send my list[^<]*/,'Send my request ');}
   var n=document.getElementById('coNote');
-  if(n){n.value='Please source: '+q+'\nHow many / colours / when needed: ';
+  if(n&&q){n.value='Please source: '+q+'\nHow many / colours / when needed: ';
     var d=n.closest('details');if(d)d.open=true;}
   var e=document.getElementById('coEmail');if(e&&!e.value)e.focus();else if(n)n.focus();
 }
@@ -7566,8 +7566,12 @@ function programHtml(id){
       '</div>'+
       '<div class="pvheroact">'+
         '<div class="pvstat"><b>'+money0(pp0)+'</b><span>per person · one of each, logo included</span></div>'+
-        cta('pvQuoteHero','pvherocta')+
-        '<div class="pvtrust">Free mockup · exact quote · no payment now · a real person replies in '+esc(T.reply)+'</div>'+
+        /* ONE FIELD NEXT TO THE PRICE. 51 program opens, 0 quotes: the button opened a drawer with
+           a second form. Now the email goes in right here and the program goes with it. */
+        '<form class="pvlead" id="pvLead" novalidate><input id="pvEmail" type="email" inputmode="email" autocomplete="email" '+
+          'autocapitalize="off" spellcheck="false" enterkeyhint="send" placeholder="Your work email" value="'+esc(quickLeadEmail())+'">'+
+          '<button type="submit" class="pvcta pvherocta" id="pvQuoteHero">Email me this program <span class="ar">→</span></button></form>'+
+        '<div class="pvtrust">Free mockup with your logo · exact quote · no payment now · a real person replies in '+esc(T.reply)+'</div>'+
       '</div>'+
     '</div></section>'+
     '<div class="pvkit"><span>The kit</span><i>'+ks.length+' pieces · priced at the '+moq()+'-piece minimum · prices drop at 48+ and 144+</i></div>'+
@@ -7655,7 +7659,18 @@ function wireProgram(el,id){
     var nt=document.getElementById('coNote');
     if(nt&&!nt.value)nt.value=((LISTS[id]||{}).name||'Program')+(n?(' — about '+n+' people'):'')+'. Sizes to confirm. ';
   };
-  ['pvQuote','pvQuoteTop','pvQuoteHero'].forEach(function(b){var e=document.getElementById(b);if(e)e.addEventListener('click',quote);});
+  ['pvQuote','pvQuoteTop'].forEach(function(b){var e=document.getElementById(b);if(e)e.addEventListener('click',quote);});
+  var pf=document.getElementById('pvLead');
+  if(pf){var pe=document.getElementById('pvEmail'),pfo=false;
+    pe.addEventListener('focus',function(){if(!pfo){pfo=true;jdpTrack('lead_focus',{src:'program'});}});
+    pe.addEventListener('input',function(){pe.classList.remove('err');});
+    pf.addEventListener('submit',function(e){e.preventDefault();
+      var L=LISTS[id]||{},n=parseInt(hc&&hc.value,10)||0;
+      var items=Object.keys(L.items||{}).map(function(ck){var it=BYKEY[bkey(ck)]||{},c=L.items[ck]||{};
+        return '- '+(it.name||ck)+(c.colour?(' — '+c.colour):'');}).join('\n');
+      quickLead({src:'program',email:pe.value,input:pe,btn:document.getElementById('pvQuoteHero'),people:n,
+        what:'Program: '+(L.name||id)+'\n'+items},
+        function(em){jdpTrack('program_quote',{p:id.replace(/^prog_/,''),n:n,inline:1});pf.outerHTML=leadDoneHtml(em);});});}
   var ad=document.getElementById('pvAdopt');
   if(ad)ad.addEventListener('click',function(){jdpTrack('program_adopt');adoptProgram(id);});
   var sh=document.getElementById('pvShare');
@@ -7762,14 +7777,66 @@ function recoHeroHtml(){
 }
 
 /* ---- the hero's "who and what next" -------------------------------------------------------------- */
+/* ---- ONE FIELD, IN THE FIRST SCREEN (2026-10-06) ------------------------------------------------
+   Steven: "The company store is low converting. Identify highest leverage ideas and fix!"
+   30 days of funnel data: 765 visits -> 70 opened a product -> 12 reached the quote form -> 0 sent.
+   Meanwhile the homepage, whose hero asks for a work email and nothing else, produced the leads in
+   the inbox. A client store already knows the company, the logo and the range -- the only thing it
+   does not know is who to send the mockup to. So the hero now asks exactly that.
+   quickLead() is the one sender for every short form (hero, program, exit): FormSubmit, the same
+   relay as submitKit(), with a prefilled-email fallback so a lead is never lost. */
+function quickLeadEmail(){var s={};try{s=JSON.parse(localStorage.getItem('jdpkit_contact')||'{}');}catch(e){}return s.email||'';}
+function quickLead(o,ok){
+  var email=(o.email||'').trim();
+  if(!email||email.indexOf('@')<1||email.indexOf('.')<0){if(o.input){o.input.classList.add('err');o.input.focus();}
+    toast('Add your work email so we know where to send it');return false;}
+  persistContact({name:'',email:email,company:CFG.client||''});
+  try{localStorage.setItem('jdp_lead_sent','1');}catch(e){}
+  var lines=['Store: '+(CFG.client||'')+' — '+location.href.split('#')[0].split('?')[0],
+             'Asked from: '+o.src+(o.people?(' · about '+o.people+' people'):'')];
+  if(o.what)lines.push('',o.what);
+  var subj='🏷️ Store lead ('+o.src+') — '+email+' · '+(CFG.client||'');
+  var payload={email:email,company:CFG.client||'',_subject:subj,_template:'table',_captcha:'false',
+    request:lines.join('\n'),kit_link:location.href.split('#')[0].split('?')[0]};
+  var c={name:'',email:email,company:CFG.client||'',note:lines.join('\n')};
+  var done=false,fell=false;
+  function fin(){if(done||fell)return;done=true;jdpTrack('sent',{src:o.src,n:o.people||0});if(ok)ok(email);}
+  function fail(){if(done||fell)return;fell=true;try{mailtoFallback(c,lines.join('\n'),subj);}catch(e){}jdpTrack('sent',{src:o.src+'_mailto'});if(ok)ok(email);}
+  var to=setTimeout(fail,9000);
+  if(o.btn){o.btn.disabled=true;o.btn.dataset.lbl=o.btn.innerHTML;o.btn.innerHTML='Sending…';}
+  fetch('https://formsubmit.co/ajax/'+JDP_EMAIL,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(payload)})
+    .then(function(r){return r.json().catch(function(){return {};});})
+    .then(function(j){clearTimeout(to);if(j&&String(j.success)==='true')fin();else fail();})
+    .catch(function(){clearTimeout(to);fail();});
+  return true;
+}
+function leadDoneHtml(email,more){
+  return '<div class="qldone"><span class="qlok" aria-hidden="true">✓</span><div><b>Sent — Steven will reply to '+esc(email)+
+    '</b><i>Usually within '+esc(JDP_TRUST.reply)+'. No payment, no obligation.'+(more||'')+'</i></div></div>';
+}
+function heroProgramNames(){try{seedPrograms();return programIds().slice(0,3).map(function(id){return LISTS[id].name;});}catch(e){return [];}}
 function heroNextHtml(){
   var T=JDP_TRUST;
-  return '<div class="hnext">'+
-    '<div class="hnwho"><span class="hnav" aria-hidden="true">S</span>'+
-      '<span class="hnwt"><b>Steven</b><i>Just Deals Promotions \u00b7 replies in '+T.reply+'</i></span>'+
-      trustPhoneHtml('hn')+'</div>'+
-    '<div class="hnbtns"><button type="button" class="hnprim" id="hnPrograms">Start with a ready program <span class="ar">\u2193</span></button>'+
+  var who='<div class="hnwho"><span class="hnav" aria-hidden="true">S</span>'+
+      '<span class="hnwt"><b>Steven</b><i>Just Deals Promotions · replies in '+T.reply+'</i></span>'+
+      trustPhoneHtml('hn')+'</div>';
+  var whoS='<div class="hnwho hnwhos"><span class="hnav" aria-hidden="true">S</span>'+
+      '<span class="hnwts"><b>Steven</b> replies in '+T.reply+'</span>'+trustPhoneHtml('hn')+'</div>';
+  if(CFG.demo)   /* the demo store is the homepage's own catalogue and keeps its own lead flow */
+    return '<div class="hnext">'+who+
+      '<div class="hnbtns"><button type="button" class="hnprim" id="hnPrograms">Start with a ready program <span class="ar">↓</span></button>'+
       '<button type="button" class="hnsec" id="hnAsk">Just tell us what you need</button></div></div>';
+  return '<div class="hnext">'+
+    '<form class="hnlead" id="hnLead" novalidate>'+
+      '<label class="hnll" for="hnEmail">Get a free mockup with your logo, and exact pricing for your team</label>'+
+      '<div class="hnlrow"><input id="hnEmail" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" '+
+        'enterkeyhint="send" placeholder="Your work email" value="'+esc(quickLeadEmail())+'">'+
+      '<button type="submit" class="hnlgo" id="hnLeadGo">Email me my mockups <span class="ar">→</span></button></div>'+
+      '<div class="hnlsub">No payment · no obligation · we already have your logo</div>'+
+    '</form>'+
+    '<div class="hnlinks"><button type="button" class="hnlink" id="hnPrograms">Browse ready programs ↓</button>'+
+      '<span aria-hidden="true">·</span><button type="button" class="hnlink" id="hnAsk">Tell us what you need</button></div>'+
+    whoS+'</div>';
 }
 function wireHeroNext(){
   var p=document.getElementById('hnPrograms');
@@ -7779,9 +7846,17 @@ function wireHeroNext(){
   var a=document.getElementById('hnAsk');
   if(a&&!a.dataset.w){a.dataset.w='1';a.addEventListener('click',function(){
     jdpTrack('hero_ask');openSourcing('');
-    var nt=document.getElementById('coNote');
-    if(nt)nt.value='What we need (items, how many people, colours, date): ';
     var h=document.querySelector('#cart .carth h2');if(h&&!cartCount())h.textContent='Tell us what you need';});}
+  var f=document.getElementById('hnLead');
+  if(f&&!f.dataset.w){f.dataset.w='1';
+    var inp=document.getElementById('hnEmail'),fo=false;
+    inp.addEventListener('focus',function(){if(!fo){fo=true;jdpTrack('lead_focus',{src:'hero'});}});
+    inp.addEventListener('input',function(){inp.classList.remove('err');});
+    f.addEventListener('submit',function(e){e.preventDefault();
+      var progs=heroProgramNames();
+      quickLead({src:'hero',email:inp.value,input:inp,btn:document.getElementById('hnLeadGo'),
+        what:'Wants: a free mockup with their logo + exact pricing.'+(progs.length?('\nPrograms on their store: '+progs.join(' · ')):'')},
+        function(em){f.outerHTML=leadDoneHtml(em,' Want to add details? Use “Tell us what you need” below.');});});}
 }
 
 /* ---- ALWAYS ONE TAP FROM A PERSON (4imprint's floating "Email / Chat") ------------------------------
@@ -7807,10 +7882,66 @@ function wireHelpDock(){
     if(open)jdpTrack('help_open');});
   document.getElementById('jhAsk').addEventListener('click',function(){p.hidden=true;b.setAttribute('aria-expanded','false');
     jdpTrack('help_ask');openSourcing('');
-    var nt=document.getElementById('coNote');if(nt)nt.value='What we need (items, how many people, colours, date): ';
+
     var h=document.querySelector('#cart .carth h2');if(h&&!cartCount())h.textContent='Tell us what you need';});
   document.addEventListener('mousedown',function(e){if(!p.hidden&&!document.getElementById('jhelp').contains(e.target)){p.hidden=true;b.setAttribute('aria-expanded','false');}});
 }
+/* ---- REAL VISITORS vs LINK SCANNERS ------------------------------------------------------------
+   Outreach links are opened by mail-security scanners before a person ever sees them, and those run
+   the page. 17-36 "views" with no other event on single stores is that signature. `engaged` fires on
+   the first genuine scroll, tap or key, so the funnel can count people rather than robots. */
+(function(){var sent=false;function go(){if(sent)return;sent=true;try{jdpTrack('engaged');}catch(e){}
+  ['scroll','pointerdown','keydown'].forEach(function(t){window.removeEventListener(t,chk,true);});}
+  function chk(e){if(e.type==='scroll'&&(window.pageYOffset||0)<160)return;go();}
+  try{['scroll','pointerdown','keydown'].forEach(function(t){window.addEventListener(t,chk,{passive:true,capture:true});});}catch(e){}})();
+/* ---- ONE LAST, POLITE OFFER (desktop only) ------------------------------------------------------
+   The homepage's exit popup produced leads; the stores had nothing. Shown at most once a week per
+   browser, only on desktop (a mouse leaving through the top of the window), only after 15 seconds,
+   never once this browser has sent a request, never over an open product, board, program or quote. */
+var EXIT_T0=Date.now();
+function exitOK(){
+  if(CFG.demo||!trustOn())return false;
+  try{if(localStorage.getItem('jdp_lead_sent'))return false;
+    var t=+localStorage.getItem('jdp_exit_t')||0;if(Date.now()-t<7*86400000)return false;}catch(e){return false;}
+  if(Date.now()-EXIT_T0<15000)return false;
+  if(['board','boards','progv','sheet','cart','lead','vmodal'].some(function(i){var e=document.getElementById(i);return e&&e.classList.contains('on');}))return false;
+  return true;
+}
+function showExitOffer(){
+  try{localStorage.setItem('jdp_exit_t',String(Date.now()));}catch(e){}
+  jdpTrack('exit_show');
+  var el=document.createElement('div');el.className='xoff';el.id='xoff';
+  var shots=(typeof heroShots==='function')?heroShots():[];
+  var th=shots.map(function(k){var it=BYKEY[k],o=null;try{o=overlayHtml(it,vmOf(k),browseColour(k,it),'front',browseCols(it),browsePlaces(it));}catch(e){}
+    return o?('<span class="xth" style="position:relative;display:block;width:92px;height:92px;border-radius:12px;overflow:hidden;background:#fff">'+
+      '<img class="g" src="'+o.g+'" alt="" style="width:100%;height:100%;object-fit:contain">'+o.lg+'</span>'):'';}).join('');
+  el.innerHTML='<div class="xbox" role="dialog" aria-modal="true" aria-labelledby="xoffh">'+
+    '<button type="button" class="xx" aria-label="Close">✕</button>'+
+    (th?'<div class="xths">'+th+'</div>':'')+
+    '<h3 id="xoffh">Want these with your logo, priced for your team?</h3>'+
+    '<p>We’ll email you a free mockup and an exact quote. No payment, no obligation — and we already have your logo.</p>'+
+    '<form class="xform" id="xForm" novalidate><input id="xEmail" type="email" inputmode="email" autocomplete="email" placeholder="Your work email" value="'+esc(quickLeadEmail())+'">'+
+    '<button type="submit" id="xGo">Email me my mockups →</button></form>'+
+    '<button type="button" class="xno">No thanks, I’m just browsing</button></div>';
+  document.body.appendChild(el);
+  requestAnimationFrame(function(){el.classList.add('on');});
+  var close=function(){el.classList.remove('on');setTimeout(function(){if(el.parentNode)el.parentNode.removeChild(el);},250);};
+  el.querySelector('.xx').addEventListener('click',close);el.querySelector('.xno').addEventListener('click',close);
+  el.addEventListener('click',function(e){if(e.target===el)close();});
+  document.addEventListener('keydown',function k(e){if(e.key==='Escape'){close();document.removeEventListener('keydown',k);}});
+  var f=document.getElementById('xForm'),inp=document.getElementById('xEmail');
+  f.addEventListener('submit',function(e){e.preventDefault();
+    quickLead({src:'exit',email:inp.value,input:inp,btn:document.getElementById('xGo'),what:'Wants: a free mockup with their logo + exact pricing.'},
+      function(em){f.outerHTML=leadDoneHtml(em);var n=el.querySelector('.xno');if(n)n.textContent='Close';});});
+  setTimeout(function(){try{inp.focus();}catch(e){}},300);
+}
+(function(){try{
+  if(!window.matchMedia||!matchMedia('(hover:hover) and (pointer:fine)').matches)return;
+  document.addEventListener('mouseout',function(e){
+    if(e.relatedTarget||e.toElement||e.clientY>8)return;
+    if(document.getElementById('xoff')||!exitOK())return;
+    showExitOffer();});
+}catch(e){}})();
 function renderRecoHero(){
   var el=document.getElementById('recohero');if(!el)return;
   el.innerHTML=recoHeroHtml();
@@ -8176,7 +8307,8 @@ function contactVals(){return {
   name:((document.getElementById('coName')||{}).value||'').trim(),
   email:((document.getElementById('coEmail')||{}).value||'').trim(),
   company:((document.getElementById('coCompany')||{}).value||'').trim(),
-  note:((document.getElementById('coNote')||{}).value||'').trim()};}
+  note:(function(){var b=(typeof briefText==='function')?briefText():'',n=((document.getElementById('coNote')||{}).value||'').trim();
+    return b?(b+(n?('\n'+n):'')):n;})()};}
 function persistContact(c){try{localStorage.setItem('jdpkit_contact',JSON.stringify({name:c.name,email:c.email,company:c.company}));}catch(e){}}
 /* ---- Quote output: a proforma the customer can be sent, and the deal economics for us -------
    Steven: "when we generate a quote, we [want] the company store to automatically produce a invoice
@@ -8443,8 +8575,12 @@ function openCheckout(){
            company is known -- it is the store. So: email, and a note for anything they want to say;
            name and logo behind one optional toggle, company pre-filled inside it. */
         : '<div class="coform coone">'+
+            /* TAP, DON'T TYPE. With nothing on the board, "Tell us what you need" used to open an
+               empty essay box. Ten buyers clicked it in 30 days; none sent. Now: tap what you need,
+               say how many people, give an email. The note is still there for anything else. */
+            (n?'':briefHtml())+
             '<input id="coEmail" type="email" inputmode="email" placeholder="Your work email — where we send your mockup &amp; quote" autocomplete="email" autocapitalize="off" spellcheck="false" enterkeyhint="send" value="'+esc(saved.email||'')+'">'+
-            '<textarea id="coNote" placeholder="Anything to add? Deadlines, sizes, other items… (optional)"></textarea>'+
+            '<textarea id="coNote" placeholder="'+(n?'Anything to add? Deadlines, sizes, other items… (optional)':'Anything else? Colours, deadline, where the logo goes… (optional)')+'"></textarea>'+
             '<details class="coopt"><summary>Add your name or your logo file <i>optional</i></summary>'+
               '<input id="coName" placeholder="Your name" autocomplete="name" value="'+esc(saved.name||'')+'">'+
               '<input id="coCompany" placeholder="Company / team" autocomplete="organization" value="'+esc(saved.company||CFG.client||'')+'">')+
@@ -8468,7 +8604,7 @@ function openCheckout(){
     '</div></div>'+
     '<div class="cartf">'+
       '<button class="checkout" id="emailKit">Send — get my free mockup &amp; quote <span class="ar">→</span></button>'+
-      '<button class="copyalt" id="copyKit">or copy my list to paste into a reply</button>'+
+      (n?'<button class="copyalt" id="copyKit">or copy my list to paste into a reply</button>':'')+
       '<div class="ckpm">\u2605 <b>Price-match guarantee</b> — found a lower written quote for the same job? Send it with your board and we\u2019ll match it.</div>'+
       trustReplyHtml()+
       '<button type="button" class="svalt" data-samp="">\u270B Rather see them in person first? We\u2019ll bring samples to you</button>'+
@@ -8482,7 +8618,23 @@ function openCheckout(){
     var f=_ai.files&&_ai.files[0],l=document.getElementById('artLbl');
     if(l)l.textContent=f?(f.name+'  \u00b7  '+Math.max(1,Math.round(f.size/1024))+' KB'):'Attach your logo file';
     var w=document.querySelector('.artdrop');if(w)w.classList.toggle('has',!!f);});
-  document.getElementById('copyKit').addEventListener('click',copyKit);
+  var _ck=document.getElementById('copyKit');if(_ck)_ck.addEventListener('click',copyKit);
+  document.querySelectorAll('#cart [data-brief]').forEach(function(b){b.addEventListener('click',function(){
+    var on=b.getAttribute('aria-pressed')!=='true';b.setAttribute('aria-pressed',on?'true':'false');b.classList.toggle('on',on);});});
+}
+var BRIEF_OPTS=['Polos','T-shirts','Hoodies & fleece','Jackets','Hi-vis & safety','Hats','Workwear','Employee gifts'];
+function briefHtml(){
+  return '<div class="cobrief"><div class="cobl">What do you need? <i>tap all that apply</i></div>'+
+    '<div class="cobchips">'+BRIEF_OPTS.map(function(o){
+      return '<button type="button" class="cobchip" data-brief="'+esc(o)+'" aria-pressed="false">'+esc(o)+'</button>';}).join('')+'</div>'+
+    '<label class="cobppl"><span class="cobl">How many people?</span>'+
+      '<input id="coPeople" type="number" inputmode="numeric" min="1" placeholder="e.g. 25"></label></div>';
+}
+function briefText(){
+  var picks=[].slice.call(document.querySelectorAll('#cart [data-brief][aria-pressed="true"]')).map(function(b){return b.dataset.brief;});
+  var ppl=parseInt((document.getElementById('coPeople')||{}).value,10)||0;
+  var t=[];if(picks.length)t.push('Needs: '+picks.join(', '));if(ppl)t.push('About '+ppl+' people');
+  return t.join(' · ');
 }
 function clipCopy(s){if(navigator.clipboard&&navigator.clipboard.writeText){try{navigator.clipboard.writeText(s);return;}catch(e){}}
   var ta=document.createElement('textarea');ta.value=s;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.focus();ta.select();try{document.execCommand('copy');}catch(e){}document.body.removeChild(ta);}
