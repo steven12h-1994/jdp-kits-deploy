@@ -1011,7 +1011,7 @@ function trustPromiseHtml(where){
     '<div class="tpl">'+trustRatingHtml('mini')+'<span class="tsep">·</span><span>Canadian since '+T.since+'</span>'+
       '<span class="tsep">·</span><span>Family-owned</span></div>'+
     '<ul class="tpg">'+
-      '<li><b>Free mockup</b> of your logo on it, before anything is made</li>'+
+      '<li><b>Itemized quote</b> you can download and forward for approval</li>'+
       '<li><b>Exact pricing</b> confirmed — no payment now, no obligation</li>'+
       '<li><b>Logo Reprint Guarantee</b> · <b>Price-match</b> on a written quote</li>'+
     '</ul></div>';
@@ -1021,7 +1021,7 @@ function trustPromiseHtml(where){
 function trustReplyHtml(){
   if(!trustOn())return '';
   var T=JDP_TRUST;
-  return '<div class="treply"><b>A real person replies in '+T.reply+'</b> with your free mockup and exact quote.'+
+  return '<div class="treply"><b>A real person replies in '+T.reply+'</b> to confirm your quote in writing.'+
     ' Questions before then? '+trustPhoneHtml('inline','Call')+'</div>';
 }
 /* ---------- menu card (photo-forward, one + button) ---------- */
@@ -1847,7 +1847,7 @@ function syncFilterFloat(){
   var ib=document.getElementById('inbar'),grid=document.getElementById('grid');
   var f=filterFloatEl();
   var blocked=document.body.classList.contains('giftview')||document.documentElement.classList.contains('fopen')||
-    ['board','boards','progv','sheet','cart'].some(function(id){var e=document.getElementById(id);return e&&e.classList.contains('on');});
+    ['board','boards','progv','sheet','cart','qdoc'].some(function(id){var e=document.getElementById(id);return e&&e.classList.contains('on');});
   var show=false;
   if(ib&&grid&&ib.style.display!=='none'&&!blocked){
     var r=ib.getBoundingClientRect(),g=grid.getBoundingClientRect();
@@ -2650,7 +2650,7 @@ function sxExactAisle(R){
    reaches the team with a note, so it opens as a sourcing request with the search written in. */
 function openSourcing(q){
   sxDropHide();jdpTrack('source',{q:q});
-  openCart();openCheckout();
+  openCart();openCheckout('form');
   var empty=!cartCount();
   var h=document.querySelector('#cart .carth h2');if(h&&empty)h.textContent='Ask us to source it';
   if(empty){var s=document.querySelector('#cart .cosum');if(s)s.style.display='none';
@@ -2953,7 +2953,8 @@ function faqHtml(){
   var m=moq(),T=JDP_TRUST;
   var qa=[
     ['Is there a minimum order?','Apparel starts at '+m+' pieces per style, and you can split those across sizes. Gifts and kits show their own minimum on each card.'],
-    ['How does ordering work?','Pick a ready program or your own gear and send it to us. We reply in '+T.reply+' with a free mockup of your logo on every piece and your exact quote. No payment now, and nothing is made until you approve it.'],
+    ['How does ordering work?','Pick a ready program or your own items, set how many people, and download an itemized quote to share with whoever approves it. Send it to us and we confirm it in writing in '+T.reply+', with a proof of your logo. No payment now, and nothing is made until you approve it.'],
+    ['Can you work with our purchasing process?','Yes \u2014 add your PO number, deadline and delivery details when you send the quote, and attach any vendor set-up forms or your own RFQ. Or call '+T.phone+'.'],
     ['Do I need everyone\u2019s sizes first?','No. Tell us roughly how many people and we will estimate the size split \u2014 you confirm the sizes before anything is produced.'],
     ['Embroidered or printed?','Every card shows what its price includes. Embroidery is stitched in thread \u2014 premium and long-lasting, best on polos, jackets and caps. Screen print is the best value on tees and hi-vis.'],
     ['My logo file isn\u2019t perfect.','Send the best image you have. We redraw it to production quality at no charge, and you see the mockup before anything runs.'],
@@ -3167,7 +3168,7 @@ function buildStore(){
      'gap:32px;justify-content:space-between;flex-wrap:wrap">'+
      '<div class="herotx" style="flex:1 1 320px;min-width:0">'+
        '<h1>'+esc(poss(CFG.client))+" team store</h1>"+
-       '<p class="herosub">'+(demo?'This is a live sample. Every item shows exactly where your logo goes — swap in your brand and it becomes your team’s store. Live pricing, exact quote, no obligation.':'Your logo is already on every piece. Pick a ready program or your own gear \u2014 we send a free mockup and your exact quote, usually within 1 business day. Nothing is ordered until you approve it.')+'</p>'+
+       '<p class="herosub">'+(demo?'This is a live sample. Every item shows exactly where your logo goes — swap in your brand and it becomes your team’s store. Live pricing, exact quote, no obligation.':'Your logo is already on every piece. Pick a ready program or your own gear, set your headcount and download an itemized quote for approval \u2014 confirmed in writing by a real person, usually within 1 business day.')+'</p>'+
        /* 4imprint opens every category with a named person ("David with 4imprint, 11 years"). The
           person who actually answers these stores is Steven, so say so, with the number that reaches
           him -- and give the two ways forward, not six claims. */
@@ -3324,7 +3325,7 @@ function buildStore(){
     clearTimeout(QURLT);QURLT=setTimeout(syncViewUrl,450);});
     si.addEventListener('keydown',function(e){if(e.key==='Escape')closeSearch();});}
   setCat(VIEW.cat,false);       // initial focused render
-  document.addEventListener('keydown',function(e){if(e.key==='Escape'){if(mediaOpen())closeMedia();else{var _sh=document.getElementById('sheet'),_ct=document.getElementById('cart');var _top=(_sh&&_sh.classList.contains('on'))||(_ct&&_ct.classList.contains('on'));if(!_top&&programOpen())closeProgram();else closeAll();}}});
+  document.addEventListener('keydown',function(e){if(e.key==='Escape'){if(mediaOpen())closeMedia();else{var _sh=document.getElementById('sheet'),_ct=document.getElementById('cart');var _top=(_sh&&_sh.classList.contains('on'))||(_ct&&_ct.classList.contains('on'));if(!_top&&quoteOpen())closeQuote();else if(!_top&&programOpen())closeProgram();else closeAll();}}});
   if(C.feed&&!document.getElementById('beholdjs')){var bs=document.createElement('script');bs.id='beholdjs';bs.type='module';bs.src='https://w.behold.so/widget.js';document.head.appendChild(bs);}
   var tv=document.getElementById('toastView');
   if(tv)tv.addEventListener('click',function(){
@@ -4683,10 +4684,10 @@ function renderSheet(){
          THIS piece -- and the board is the secondary "keep browsing" path. Same add, same line,
          then straight into the request instead of back to the grid. */
       (canAdd
-        ? ('<button class="shaddbtn" id="shQuote"><span>Get a free mockup of this</span><span class="p">'+money(line)+'</span></button>'+
+        ? ('<button class="shaddbtn" id="shQuote"><span>Get a formal quote for this</span><span class="p">'+money(line)+'</span></button>'+
            '<button class="shaddsec" id="shAdd">'+(CART[ckey(SH.key,SH.fit)]?'Update my board':'+ Add to board, keep browsing')+'</button>')
         : '<button class="shaddbtn" id="shAdd" disabled><span>Add '+moq()+'+ pieces</span><span class="p">'+money(line)+'</span></button>')+
-      (trustOn()?('<div class="shtrust">'+trustRatingHtml('mini')+' · free mockup first · no payment now</div>')
+      (trustOn()?('<div class="shtrust">'+trustRatingHtml('mini')+' · itemized quote · no payment now</div>')
                 :'<div class="shtrust">✓ Live pricing · exact quote · no obligation · no payment now</div>')+'</div>';
   var sh=document.getElementById('sheet');
   // Re-render replaces this markup, so the sheet chrome must be re-bound every time, not just
@@ -4830,7 +4831,7 @@ function addedPanel(key,was,colName,fit){
     '<div class="adtop"><span class="adim">'+(c.front?'<img src="'+gurl(c.front)+'" alt="">':'')+'</span>'+
     '<span class="adtx"><b>✓ '+(was?'Updated on':'Added to')+' '+esc(activeName())+'</b><i>'+esc(it.name)+'</i>'+
       '<i>'+n+' style'+(n===1?'':'s')+' · est. '+money0(sub)+'</i></span></div>'+
-    '<button type="button" class="adgo" id="adGo">Get my free mockup &amp; quote →</button>'+
+    '<button type="button" class="adgo" id="adGo">Get my formal quote →</button>'+
     '<div class="adsec"><button type="button" id="adBoard">View board</button><button type="button" id="adKeep">Keep shopping</button></div>'+
     (trustOn()?'<div class="adtr">No payment now · a real person replies in '+JDP_TRUST.reply+'</div>':'');
   el.classList.add('on');
@@ -6197,7 +6198,7 @@ function boardSummaryHtml(){
          quote. So the quote is always one tap away, and sizing is the optional precision step. */
       (ready
         ? '<button type="button" class="bpcta" id="bProforma">Request proforma invoice <span class="ar">\u2192</span></button>'
-        : ('<button type="button" class="bpcta" id="bQuote">Get my free mockup &amp; quote <span class="ar">\u2192</span></button>'+
+        : ('<button type="button" class="bpcta" id="bQuote">Get my formal quote <span class="ar">\u2192</span></button>'+
            '<button type="button" class="bpsizes" id="bFinish">Sizes can wait \u2014 or add them now ('+s.missing.length+
              ' style'+(s.missing.length===1?'':'s')+') <span class="ar">\u2193</span></button>'))+
     '</div></section>';
@@ -6571,7 +6572,7 @@ function railHtml(){
 /* Home = the store's front page, exactly as a first-time visitor lands on it: no board, no sheet,
    no gift view, no search, top of the page, and a clean address bar. */
 function goHome(){
-  try{closeBoards();}catch(e){}try{closeBoard();}catch(e){}try{closeProgram();}catch(e){}try{closeAll();}catch(e){}
+  try{closeBoards();}catch(e){}try{closeBoard();}catch(e){}try{closeProgram();}catch(e){}try{closeQuote();}catch(e){}try{closeAll();}catch(e){}
   try{setGiftView(false);}catch(e){}
   try{if(typeof sxDropHide==='function')sxDropHide();}catch(e){}
   var ts=document.getElementById('topSearch');
@@ -7549,7 +7550,7 @@ function programHtml(id){
   var ks=Object.keys(L.items||{}),n=getHC(),pp0=pvPerPerson(id,0),T=JDP_TRUST;
   var cards=ks.map(function(ck,i){return pvCardHtml(ck,i+1);}).join('');
   /* "mockup &" drops out on a phone so the bar's input and button share one row. */
-  var cta=function(idb,cls){return '<button type="button" class="pvcta '+(cls||'')+'" id="'+idb+'">Get my free <span class="pvl">mockup &amp; </span>quote <span class="ar">→</span></button>';};
+  var cta=function(idb,cls){return '<button type="button" class="pvcta '+(cls||'')+'" id="'+idb+'">Get my <span class="pvl">formal </span>quote <span class="ar">→</span></button>';};
   return '<div class="pvwrap">'+
     '<header class="pvhd">'+
       '<button type="button" class="pvback" id="pvBack">‹ Back to the store</button>'+
@@ -7568,10 +7569,8 @@ function programHtml(id){
         '<div class="pvstat"><b>'+money0(pp0)+'</b><span>per person · one of each, logo included</span></div>'+
         /* ONE FIELD NEXT TO THE PRICE. 51 program opens, 0 quotes: the button opened a drawer with
            a second form. Now the email goes in right here and the program goes with it. */
-        '<form class="pvlead" id="pvLead" novalidate><input id="pvEmail" type="email" inputmode="email" autocomplete="email" '+
-          'autocapitalize="off" spellcheck="false" enterkeyhint="send" placeholder="Your work email" value="'+esc(quickLeadEmail())+'">'+
-          '<button type="submit" class="pvcta pvherocta" id="pvQuoteHero">Email me this program <span class="ar">→</span></button></form>'+
-        '<div class="pvtrust">Free mockup with your logo · exact quote · no payment now · a real person replies in '+esc(T.reply)+'</div>'+
+        '<button type="button" class="pvcta pvherocta" id="pvQuoteHero">Get my formal quote <span class="ar">→</span></button>'+
+        '<div class="pvtrust">Itemized PDF for your approver · confirmed in writing in '+esc(T.reply)+' · no payment now</div>'+
       '</div>'+
     '</div></section>'+
     '<div class="pvkit"><span>The kit</span><i>'+ks.length+' pieces · priced at the '+moq()+'-piece minimum · prices drop at 48+ and 144+</i></div>'+
@@ -7652,14 +7651,9 @@ function wireProgram(el,id){
     if(n>0){try{applyHeadcount(n);}catch(e){}}
     jdpTrack('program_quote',{p:id.replace(/^prog_/,''),n:n});
     closeProgram();
-    document.getElementById('ov').classList.add('on');
-    document.getElementById('cart').classList.add('on');
-    document.body.style.overflow='hidden';
-    openCheckout();
-    var nt=document.getElementById('coNote');
-    if(nt&&!nt.value)nt.value=((LISTS[id]||{}).name||'Program')+(n?(' — about '+n+' people'):'')+'. Sizes to confirm. ';
+    openQuote('program');
   };
-  ['pvQuote','pvQuoteTop'].forEach(function(b){var e=document.getElementById(b);if(e)e.addEventListener('click',quote);});
+  ['pvQuote','pvQuoteTop','pvQuoteHero'].forEach(function(b){var e=document.getElementById(b);if(e)e.addEventListener('click',quote);});
   var pf=document.getElementById('pvLead');
   if(pf){var pe=document.getElementById('pvEmail'),pfo=false;
     pe.addEventListener('focus',function(){if(!pfo){pfo=true;jdpTrack('lead_focus',{src:'program'});}});
@@ -7827,16 +7821,50 @@ function heroNextHtml(){
       '<div class="hnbtns"><button type="button" class="hnprim" id="hnPrograms">Start with a ready program <span class="ar">↓</span></button>'+
       '<button type="button" class="hnsec" id="hnAsk">Just tell us what you need</button></div></div>';
   return '<div class="hnext">'+
-    '<form class="hnlead" id="hnLead" novalidate>'+
-      '<label class="hnll" for="hnEmail">Get a free mockup with your logo, and exact pricing for your team</label>'+
-      '<div class="hnlrow"><input id="hnEmail" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" '+
-        'enterkeyhint="send" placeholder="Your work email" value="'+esc(quickLeadEmail())+'">'+
-      '<button type="submit" class="hnlgo" id="hnLeadGo">Email me my mockups <span class="ar">→</span></button></div>'+
-      '<div class="hnlsub">No payment · no obligation · we already have your logo</div>'+
-    '</form>'+
-    '<div class="hnlinks"><button type="button" class="hnlink" id="hnPrograms">Browse ready programs ↓</button>'+
-      '<span aria-hidden="true">·</span><button type="button" class="hnlink" id="hnAsk">Tell us what you need</button></div>'+
+    /* HOW AN ENTERPRISE ORDER WORKS, in three steps they can see. The offer is the document their
+       approver needs, not a mockup. RFQ upload for buyers who arrive with a spec already written. */
+    '<div class="hnsteps"><div class="hnsh">Get a formal quote in minutes</div>'+
+      '<ol><li><span><b>Choose</b> a ready program or your own items</span></li><li><span><b>Set</b> how many people</span></li>'+
+        '<li><span><b>Download</b> an itemized quote (PDF) for approval</span></li></ol>'+
+      '<div class="hnbtns"><button type="button" class="hnprim" id="hnPrograms">Start with a program <span class="ar">↓</span></button>'+
+        '<button type="button" class="hnsec" id="hnRfq">Upload an RFQ or spec</button></div>'+
+      '<div class="hnlsub">No payment · no obligation · confirmed in writing by a real person in '+T.reply+'</div></div>'+
+    '<div class="hnlinks"><button type="button" class="hnlink" id="hnAsk">Not sure? Tell us what you need</button></div>'+
     whoS+'</div>';
+}
+/* ---- RFQ UPLOAD: for the buyer who arrives with a spec already written ------------------------------
+   Enterprise purchasing often starts from a document -- an RFQ, a spec sheet, last year's order. Let
+   them hand it over in one step instead of rebuilding it item by item in our store. FormSubmit's
+   plain endpoint delivers the file as a real attachment (verified for logo uploads in submitKit). */
+function openRfq(){
+  var saved={};try{saved=JSON.parse(localStorage.getItem('jdpkit_contact')||'{}');}catch(e){}
+  var el=document.createElement('div');el.className='xoff';el.id='rfqm';
+  el.innerHTML='<div class="xbox rfqbox" role="dialog" aria-modal="true" aria-labelledby="rfqh"><button type="button" class="xx" aria-label="Close">✕</button>'+
+    '<h3 id="rfqh">Send us your RFQ or spec</h3><p>Attach the document and we’ll reply with a formal, itemized quote — usually within '+esc(JDP_TRUST.reply)+'.</p>'+
+    '<form class="xform rfqform" id="rfqForm" novalidate>'+
+      '<label class="rfqfile"><span id="rfqLbl">Choose a file — PDF, Word, Excel or CSV</span><input id="rfqFile" type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.png,.jpg,.jpeg"></label>'+
+      '<input id="rfqEmail" type="email" inputmode="email" autocomplete="email" placeholder="Your work email" value="'+esc(saved.email||'')+'">'+
+      '<textarea id="rfqNote" rows="3" placeholder="Deadline, quantities or anything else (optional)"></textarea>'+
+      '<button type="submit" id="rfqGo">Send my RFQ →</button></form></div>';
+  document.body.appendChild(el);requestAnimationFrame(function(){el.classList.add('on');});
+  var close=function(){el.classList.remove('on');setTimeout(function(){if(el.parentNode)el.parentNode.removeChild(el);},250);};
+  el.querySelector('.xx').addEventListener('click',close);el.addEventListener('click',function(e){if(e.target===el)close();});
+  var fi=document.getElementById('rfqFile');fi.addEventListener('change',function(){var f=fi.files&&fi.files[0];
+    document.getElementById('rfqLbl').textContent=f?(f.name+' · '+Math.max(1,Math.round(f.size/1024))+' KB'):'Choose a file — PDF, Word, Excel or CSV';});
+  document.getElementById('rfqForm').addEventListener('submit',function(e){e.preventDefault();
+    var em=document.getElementById('rfqEmail'),email=(em.value||'').trim(),f=fi.files&&fi.files[0],note=(document.getElementById('rfqNote').value||'').trim();
+    if(!email||email.indexOf('@')<1||email.indexOf('.')<0){em.classList.add('err');em.focus();toast('Add your work email');return;}
+    if(!f&&!note){toast('Attach your RFQ, or tell us what you need');return;}
+    persistContact({name:'',email:email,company:CFG.client||''});try{localStorage.setItem('jdp_lead_sent','1');}catch(x){}
+    var btn=document.getElementById('rfqGo');btn.disabled=true;btn.textContent='Sending…';
+    var fd=new FormData();
+    [['email',email],['company',CFG.client||''],['_subject','RFQ — '+(CFG.client||'')+' — '+email],['_template','table'],['_captcha','false'],
+     ['request','RFQ / spec from the '+(CFG.client||'')+' store'+(note?('\n'+note):'')],['kit_link',location.href.split('#')[0].split('?')[0]]].forEach(function(p){fd.append(p[0],p[1]);});
+    if(f)fd.append('attachment',f,f.name);
+    var fin=function(){jdpTrack('sent',{src:'rfq'});var fm=document.getElementById('rfqForm');
+      if(fm)fm.outerHTML=leadDoneHtml(email,' We’ll reply with a formal, itemized quote.');};
+    fetch('https://formsubmit.co/'+JDP_EMAIL,{method:'POST',body:fd,mode:'no-cors'}).then(fin).catch(function(){
+      mailtoFallback({name:'',email:email,company:CFG.client||'',note:note},'RFQ from the '+(CFG.client||'')+' store\n'+note+(f?('\n(attach: '+f.name+')'):''),'RFQ — '+(CFG.client||''));});});
 }
 function wireHeroNext(){
   var p=document.getElementById('hnPrograms');
@@ -7847,6 +7875,8 @@ function wireHeroNext(){
   if(a&&!a.dataset.w){a.dataset.w='1';a.addEventListener('click',function(){
     jdpTrack('hero_ask');openSourcing('');
     var h=document.querySelector('#cart .carth h2');if(h&&!cartCount())h.textContent='Tell us what you need';});}
+  var rq=document.getElementById('hnRfq');
+  if(rq&&!rq.dataset.w){rq.dataset.w='1';rq.addEventListener('click',function(){jdpTrack('rfq_open');openRfq();});}
   var f=document.getElementById('hnLead');
   if(f&&!f.dataset.w){f.dataset.w='1';
     var inp=document.getElementById('hnEmail'),fo=false;
@@ -7855,7 +7885,7 @@ function wireHeroNext(){
     f.addEventListener('submit',function(e){e.preventDefault();
       var progs=heroProgramNames();
       quickLead({src:'hero',email:inp.value,input:inp,btn:document.getElementById('hnLeadGo'),
-        what:'Wants: a free mockup with their logo + exact pricing.'+(progs.length?('\nPrograms on their store: '+progs.join(' · ')):'')},
+        what:'Wants: a formal quote.'+(progs.length?('\nPrograms on their store: '+progs.join(' · ')):'')},
         function(em){f.outerHTML=leadDoneHtml(em,' Want to add details? Use “Tell us what you need” below.');});});}
 }
 
@@ -7871,10 +7901,10 @@ function helpDockHtml(){
       '<div class="jhhd"><b>Questions? Talk to a person.</b><i>Steven replies in '+T.reply+'.</i></div>'+
       '<button type="button" class="jhgo" id="jhAsk">Send us what you need \u2192</button>'+
       trustPhoneHtml('jh','Call')+
-      '<div class="jhft">Free mockup &amp; exact quote \u00b7 no payment now</div></div>'+
+      '<div class="jhft">Formal quote \u00b7 no payment now</div></div>'+
     '<button type="button" class="jhbtn" id="jhBtn" aria-expanded="false" aria-controls="jhPan">'+
       '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg>'+
-      '<span>Questions? Free mockup</span></button></div>';
+      '<span>Questions? Talk to Steven</span></button></div>';
 }
 function wireHelpDock(){
   var b=document.getElementById('jhBtn'),p=document.getElementById('jhPan');if(!b||b.dataset.w)return;b.dataset.w='1';
@@ -7904,7 +7934,7 @@ function exitOK(){
   try{if(localStorage.getItem('jdp_lead_sent'))return false;
     var t=+localStorage.getItem('jdp_exit_t')||0;if(Date.now()-t<7*86400000)return false;}catch(e){return false;}
   if(Date.now()-EXIT_T0<15000)return false;
-  if(['board','boards','progv','sheet','cart','lead','vmodal'].some(function(i){var e=document.getElementById(i);return e&&e.classList.contains('on');}))return false;
+  if(['board','boards','progv','sheet','cart','lead','vmodal','qdoc','rfqm'].some(function(i){var e=document.getElementById(i);return e&&e.classList.contains('on');}))return false;
   return true;
 }
 function showExitOffer(){
@@ -7918,10 +7948,10 @@ function showExitOffer(){
   el.innerHTML='<div class="xbox" role="dialog" aria-modal="true" aria-labelledby="xoffh">'+
     '<button type="button" class="xx" aria-label="Close">✕</button>'+
     (th?'<div class="xths">'+th+'</div>':'')+
-    '<h3 id="xoffh">Want these with your logo, priced for your team?</h3>'+
-    '<p>We’ll email you a free mockup and an exact quote. No payment, no obligation — and we already have your logo.</p>'+
+    '<h3 id="xoffh">Need a formal quote for approval?</h3>'+
+    '<p>Leave your work email and Steven will send an itemized quote for your team — usually within '+esc(JDP_TRUST.reply)+'. No payment, no obligation.</p>'+
     '<form class="xform" id="xForm" novalidate><input id="xEmail" type="email" inputmode="email" autocomplete="email" placeholder="Your work email" value="'+esc(quickLeadEmail())+'">'+
-    '<button type="submit" id="xGo">Email me my mockups →</button></form>'+
+    '<button type="submit" id="xGo">Send me a formal quote →</button></form>'+
     '<button type="button" class="xno">No thanks, I’m just browsing</button></div>';
   document.body.appendChild(el);
   requestAnimationFrame(function(){el.classList.add('on');});
@@ -7931,7 +7961,7 @@ function showExitOffer(){
   document.addEventListener('keydown',function k(e){if(e.key==='Escape'){close();document.removeEventListener('keydown',k);}});
   var f=document.getElementById('xForm'),inp=document.getElementById('xEmail');
   f.addEventListener('submit',function(e){e.preventDefault();
-    quickLead({src:'exit',email:inp.value,input:inp,btn:document.getElementById('xGo'),what:'Wants: a free mockup with their logo + exact pricing.'},
+    quickLead({src:'exit',email:inp.value,input:inp,btn:document.getElementById('xGo'),what:'Wants: a formal, itemized quote for their team.'},
       function(em){f.outerHTML=leadDoneHtml(em);var n=el.querySelector('.xno');if(n)n.textContent='Close';});});
   setTimeout(function(){try{inp.focus();}catch(e){}},300);
 }
@@ -8548,7 +8578,166 @@ function orderText(c){c=c||{};
   lines.push('','',dealEconomicsText());
   return lines.join('\n');
 }
-function openCheckout(){
+
+/* ---- THE FORMAL QUOTE (2026-10-06) ----------------------------------------------------------------
+   Steven: "we have enterprise buyers on here. they are confused. free mock ups is not the offer we
+   want. ... make the enterprise jobs easier and more simple."
+   An enterprise buyer's job is not "see a mockup", it is "get something my manager / procurement can
+   approve". The store has always built a proforma for every request -- but only inside the email to
+   Steven, so the buyer never held the one document they needed. Now every quote button in the store
+   (product, added panel, board, program, the Quote tab) opens that document: itemized, with their
+   logo on each line, volume pricing, setup and total, a reference number, JDP's published contact
+   details, and three actions -- download it as a PDF, share it with an approver, or send it to us to
+   confirm. Nothing is gated: they see the numbers first.
+   Commercial honesty, same as proformaText(): no validity window, payment terms or turnaround are
+   stated, because JDP publishes none. Taxes and freight are excluded, as the proforma already says. */
+var JDP_ADDR='4490 Chesswood Drive, Unit 6, Toronto, ON';
+var QREF='';
+function quoteOpen(){var e=document.getElementById('qdoc');return !!(e&&e.classList.contains('on'));}
+function quoteLines(){
+  var tiers=(CFG.pricing&&CFG.pricing.cols)||[12,48,144];
+  return Object.keys(CART).map(function(ck){
+    var e=lineEconomics(ck);if(!e)return null;
+    var it=BYKEY[bkey(ck)],c=CART[ck];
+    var thumb='';
+    if(!e.promo){var cols=curColsOf(it,c.fit),pl=(c.fit==='womens'&&it.wplaces&&it.wplaces.length)?it.wplaces:it.places;
+      try{var o=overlayHtml(it,{decos:c.decos||[]},c.colour,'front',cols,pl);
+        thumb='<span class="qth" style="position:relative;display:block;width:64px;height:64px;overflow:hidden;border-radius:8px;background:#fff">'+
+          '<img class="g" src="'+o.g+'" alt="" style="width:100%;height:100%;object-fit:contain">'+o.lg+'</span>';}catch(x){}}
+    else{var pc=colInList(it.cols,c.colour)||it.cols[0]||{};
+      thumb='<span class="qth" style="display:block;width:64px;height:64px;border-radius:8px;background:#fff url('+gurl(pc.front)+') center/contain no-repeat"></span>';}
+    var vol=e.promo?'':tiers.slice(1).map(function(t){return t+'+: '+money(unitPrice(ck,c.decos,t));}).join(' · ');
+    return {ck:ck,e:e,it:it,c:c,thumb:thumb,vol:vol,
+      det:[c.colour,fitTag(it,c),e.promo?'logo included':decoSummary(it,c)].filter(Boolean).join(' · '),
+      sizes:sizesSummary(c,it),sku:fitSku(it,c)};
+  }).filter(Boolean);
+}
+function quoteDocHtml(){
+  var L=quoteLines(),sub=0,pcs=0;L.forEach(function(l){sub+=l.e.revenue;pcs+=l.e.qty;});
+  var setup=cartSetup(),sb=setupBreakdown(),T=JDP_TRUST,saved={};
+  try{saved=JSON.parse(localStorage.getItem('jdpkit_contact')||'{}');}catch(e){}
+  var mark=heroMarkHtml('qmark');
+  var rows=L.map(function(l,i){
+    return '<tr><td class="qn">'+(i+1)+'</td><td class="qimg">'+l.thumb+'</td>'+
+      '<td class="qitem"><b>'+esc(l.e.name)+'</b>'+
+        '<i>'+esc([l.it.brand||l.it.sku,l.sku].filter(Boolean).join(' · '))+'</i>'+
+        '<span>'+esc(l.det)+'</span>'+(l.sizes?('<span>Sizes: '+esc(l.sizes)+'</span>'):'')+
+        (l.vol?('<span class="qvol">Volume pricing — '+esc(l.vol)+'</span>'):'')+'</td>'+
+      '<td class="qq">'+l.e.qty+'</td><td class="qu">'+money(l.e.unit)+'</td><td class="qa">'+money(l.e.revenue)+'</td></tr>';}).join('');
+  var who=listName(ALID);
+  return '<div class="qwrap">'+
+    '<div class="qbar"><button type="button" class="qback" id="qBack">‹ Back</button>'+
+      '<div class="qbarbtns"><button type="button" class="qbtn" id="qPdf"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>Download PDF</button>'+
+      '<button type="button" class="qbtn" id="qShare">Share with an approver ↗</button>'+
+      '<a class="qbtn qsend" href="#qact">Send to confirm →</a></div></div>'+
+    '<div class="qgrid">'+
+    '<article class="qpaper" id="qpaper">'+
+      '<header class="qhd"><div><div class="qbrand">Just Deals Promotions</div>'+
+        '<div class="qaddr">'+esc(JDP_ADDR)+'<br>'+esc(T.phone)+' · '+esc(T.email)+'</div></div>'+
+        '<div class="qmeta"><h2>Quote</h2><dl><dt>Reference</dt><dd>'+esc(QREF)+'</dd><dt>Date</dt><dd>'+esc(docDate())+'</dd>'+
+        (who&&!/^my board$/i.test(who)?('<dt>For</dt><dd>'+esc(who)+'</dd>'):'')+'</dl></div></header>'+
+      '<div class="qparty"><div><span>Prepared for</span>'+(mark?('<div class="qmk">'+mark+'</div>'):'')+'<b>'+esc(CFG.client||'')+'</b></div>'+
+        '<div><span>Prepared by</span><b>Steven · Just Deals Promotions</b><i>'+esc(T.phone)+'</i></div></div>'+
+      '<div class="qhc"><label for="qHC">How many people?</label><input id="qHC" type="number" inputmode="numeric" min="1" placeholder="e.g. 40" value="'+(getHC()||'')+'">'+
+        '<button type="button" id="qHCgo">Update quote</button><i>We estimate quantities and sizes from your headcount — fewer outer layers than people. You confirm every quantity and size before production.</i></div>'+
+      '<table class="qtab"><thead><tr><th>#</th><th></th><th>Item</th><th>Qty</th><th>Unit</th><th>Amount</th></tr></thead><tbody>'+rows+'</tbody></table>'+
+      '<div class="qtot"><div><span>Subtotal · '+pcs+' pieces</span><b>'+money(sub)+'</b></div>'+
+        (setup>0?('<div><span>One-time setup</span><b>'+money(setup)+'</b></div>'+
+          '<div class="qsb">'+sb.map(function(x){return esc(x.label)+' — '+money(x.amount);}).join('<br>')+'<br>Charged once per design, location and method — not per piece.</div>'):'')+
+        '<div class="qgt"><span>Total (before tax &amp; freight)</span><b>'+money(sub+setup)+'</b></div></div>'+
+      '<div class="qnotes"><b>Notes</b><ul>'+
+        '<li>Your logo decoration is included in every unit price above.</li>'+
+        '<li>Nothing is produced until you approve a proof of your logo and this quote.</li>'+
+        '<li>Taxes and freight are not included. Just Deals Promotions confirms this quote in writing — usually within '+esc(T.reply)+'.</li>'+
+        '<li>Price-match: send us a lower written quote for the same job and we will match it. Every order carries our Logo Reprint Guarantee.</li>'+
+      '</ul></div>'+
+      '<footer class="qfoot">Just Deals Promotions · Canadian since '+T.since+' · '+esc(T.teams)+' teams · '+T.rating.toFixed(1)+'★ on Google ('+T.reviews+' reviews)</footer>'+
+    '</article>'+
+    '<aside class="qact" id="qact"><h3>Send to Just Deals to confirm</h3>'+
+      '<p>We check it, confirm it in writing and send a proof of your logo. No payment now, no obligation.</p>'+
+      '<form id="qForm" novalidate>'+
+        '<label>Work email<input id="qEmail" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" value="'+esc(saved.email||'')+'" placeholder="you@company.com"></label>'+
+        '<label>Your name <i>optional</i><input id="qName" autocomplete="name" value="'+esc(saved.name||'')+'"></label>'+
+        '<label>Company<input id="qCompany" autocomplete="organization" value="'+esc(saved.company||CFG.client||'')+'"></label>'+
+        '<label>PO number, deadline or notes <i>optional</i><textarea id="qNote" rows="3" placeholder="PO #, in-hands date, delivery address, anything procurement needs"></textarea></label>'+
+        '<label class="qfile">Attach a file <i>optional — PO, vendor forms, RFQ or your logo</i><input id="qFile" type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.ai,.eps,.svg,.png,.jpg,.jpeg"></label>'+
+        '<button type="submit" class="qgo" id="qGo">Send for confirmation →</button>'+
+      '</form>'+
+      '<div class="qside"><b>Need us set up as a vendor?</b> Attach your supplier forms above, or call '+esc(T.phone)+'.</div>'+
+    '</aside></div></div>';
+}
+function openQuote(src){
+  if(!cartCount()){openSourcing('');return;}
+  QREF=docRef();
+  jdpTrack('quote_view',{src:src||'',n:cartCount()});
+  try{closeAll();}catch(e){}try{closeBoard();}catch(e){}try{closeBoards();}catch(e){}try{closeProgram();}catch(e){}
+  try{renderCart();}catch(e){}
+  var el=document.getElementById('qdoc');
+  if(!el){el=document.createElement('div');el.id='qdoc';el.className='boardov qdocov';document.body.appendChild(el);}
+  el.innerHTML=quoteDocHtml();wireQuote(el);
+  el.classList.add('on');el.scrollTop=0;document.body.style.overflow='hidden';
+}
+function closeQuote(){var el=document.getElementById('qdoc');if(!el||!el.classList.contains('on'))return;
+  el.classList.remove('on');document.body.style.overflow='';}
+function quoteShareUrl(){
+  var L=LISTS[ALID]||{};
+  if(L.prog)return programUrl(ALID);
+  try{pushBoardNow();}catch(e){}
+  try{return shareListUrl();}catch(e){return location.href;}
+}
+function wireQuote(el){
+  document.getElementById('qBack').addEventListener('click',closeQuote);
+  document.getElementById('qPdf').addEventListener('click',function(){
+    jdpTrack('quote_pdf');
+    var t=document.title;document.title='Quote '+QREF+' — '+(CFG.client||'')+' — Just Deals Promotions';
+    document.documentElement.classList.add('qprint');
+    setTimeout(function(){try{window.print();}catch(e){}document.documentElement.classList.remove('qprint');document.title=t;},50);});
+  document.getElementById('qShare').addEventListener('click',function(){
+    var u=quoteShareUrl();jdpTrack('quote_share');
+    var done=function(){toast('Link copied — your approver sees the same items and prices');};
+    try{if(navigator.share&&matchMedia('(hover:none)').matches){navigator.share({title:'Quote '+QREF,url:u}).catch(function(){});return;}
+      if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(u).then(done,function(){window.prompt('Copy this link',u);});return;}}catch(e){}
+    window.prompt('Copy this link',u);});
+  var hc=document.getElementById('qHC'),go=document.getElementById('qHCgo');
+  var upd=function(){var n=parseInt(hc.value,10)||0;if(n<1){hc.focus();return;}applyHeadcount(n);jdpTrack('quote_qty',{n:n});
+    var st=el.scrollTop;el.innerHTML=quoteDocHtml();wireQuote(el);el.scrollTop=st;toast('Quote updated for '+n+' people');};
+  go.addEventListener('click',upd);hc.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();upd();}});
+  document.getElementById('qForm').addEventListener('submit',function(e){e.preventDefault();sendFormalQuote();});
+  var em=document.getElementById('qEmail');if(em)em.addEventListener('input',function(){em.classList.remove('err');});
+}
+function sendFormalQuote(){
+  var v=function(id){return ((document.getElementById(id)||{}).value||'').trim();};
+  var c={name:v('qName'),email:v('qEmail'),company:v('qCompany')||CFG.client||'',note:v('qNote')};
+  if(!c.email||c.email.indexOf('@')<1||c.email.indexOf('.')<0){var e=document.getElementById('qEmail');e.classList.add('err');e.focus();
+    toast('Add your work email so we can confirm your quote');return;}
+  persistContact(c);try{localStorage.setItem('jdp_lead_sent','1');}catch(x){}
+  var body=orderText(c),subj='Quote '+QREF+' — '+(c.company||CFG.client)+(c.name?' — '+c.name:'')+' — please confirm';
+  var payload={name:c.name||'(not given)',email:c.email,company:c.company,_subject:subj,_template:'table',_captcha:'false',
+    reference:QREF,kit:body,kit_link:location.href.split('#')[0].split('?')[0],their_list:quoteShareUrl()};
+  var btn=document.getElementById('qGo');btn.disabled=true;btn.innerHTML='Sending…';
+  var done=false,fell=false;
+  var ok=function(){if(done||fell)return;done=true;jdpTrack('sent',{src:'quote',n:cartCount()});
+    var a=document.getElementById('qact');
+    if(a)a.innerHTML='<div class="qok"><span>✓</span><h3>Sent — reference '+esc(QREF)+'</h3>'+
+      '<p>Steven will confirm this quote in writing to <b>'+esc(c.email)+'</b>, usually within '+esc(JDP_TRUST.reply)+'. No payment now.</p>'+
+      '<button type="button" class="qbtn" id="qPdf2"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>Keep a PDF copy</button></div>';
+    var p2=document.getElementById('qPdf2');if(p2)p2.addEventListener('click',function(){document.getElementById('qPdf').click();});};
+  var fail=function(){if(done||fell)return;fell=true;mailtoFallback(c,body,subj);};
+  var to=setTimeout(fail,12000);
+  var f=document.getElementById('qFile'),file=(f&&f.files&&f.files[0])||null;
+  if(file){var fd=new FormData();Object.keys(payload).forEach(function(k){fd.append(k,payload[k]);});
+    fd.append('attachment',file,file.name);
+    fetch('https://formsubmit.co/'+JDP_EMAIL,{method:'POST',body:fd,mode:'no-cors'})
+      .then(function(){clearTimeout(to);ok();}).catch(function(){clearTimeout(to);fail();});return;}
+  fetch('https://formsubmit.co/ajax/'+JDP_EMAIL,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(payload)})
+    .then(function(r){return r.json().catch(function(){return {};});})
+    .then(function(j){clearTimeout(to);if(j&&String(j.success)==='true')ok();else fail();})
+    .catch(function(){clearTimeout(to);fail();});
+}
+
+function openCheckout(mode){
+  /* A board with items goes to the formal quote; an empty one (or a sourcing request) to the form. */
+  if(mode!=='form'&&cartCount()&&!CFG.demo){openQuote('checkout');return;}
   jdpTrack('checkout',{n:cartCount()});
   var n=cartCount(),sub=cartSubtotal(),setup=cartSetup();var saved={};
   try{saved=JSON.parse(localStorage.getItem('jdpkit_contact')||'{}');}catch(e){}
@@ -8603,7 +8792,7 @@ function openCheckout(){
       '</details></div>'+
     '</div></div>'+
     '<div class="cartf">'+
-      '<button class="checkout" id="emailKit">Send — get my free mockup &amp; quote <span class="ar">→</span></button>'+
+      '<button class="checkout" id="emailKit">Send my request <span class="ar">→</span></button>'+
       (n?'<button class="copyalt" id="copyKit">or copy my list to paste into a reply</button>':'')+
       '<div class="ckpm">\u2605 <b>Price-match guarantee</b> — found a lower written quote for the same job? Send it with your board and we\u2019ll match it.</div>'+
       trustReplyHtml()+
