@@ -424,7 +424,72 @@ function tierQty(ck){
 function unitAt(item,q){var cs=CFG.pricing.cols,pr=item.prices,i=0;for(var k=0;k<cs.length;k++){if(q>=cs[k])i=k;}return pr[i];}
 function moq(){return (CFG.pricing.cols&&CFG.pricing.cols[0])||12;}
 /* ---- decoration-aware pricing (mirrors the server rate card) ---- */
-var MLAB={embroidery:'Embroidery',screen:'Screen print',heat_transfer:'Heat transfer'};
+var MLAB={embroidery:'Embroidery',screen:'Screen print',heat_transfer:'Heat transfer',patch:'Faux leather patch'};
+
+/* ---- UNITED STATES MARKET (2026-10-07) ----------------------------------------------------------
+   Steven: "we need to set up United States pricing and shopping experience for enterprise. ... In
+   canada we have our own decorator. In the united states we use the suppliers decorator."
+   A store is a US store when its config says market:'US' (set from the Kit Queue's Country), or for
+   preview with ?market=us. In a US store:
+     * the range is the Stormtech styles that carry a US cost (catalogue `usd`, from Stormtech USA's
+       Fall 2026 price list, wholesale after the 17.5% discount); everything else is hidden, and a
+       ladies' cut only shows where Stormtech USA lists the W style;
+     * decoration is costed from Stormtech's own 2026 decoration price list (their decorator) --
+       embroidery, heat transfer and faux suede/leather patches. Stormtech does not offer screen
+       print, so anything that would be screen printed is heat transfer instead;
+     * every price is in USD.
+   JDP's margin model is unchanged (costMult/volFactor on the garment, the 30% floor); decoration is
+   marked up by DECO_MK_US. Canadian stores are untouched by any of this. */
+function isUS(){
+  try{
+    if(/[?&]market=us\b/i.test(location.search))return true;
+    if(/[?&]market=ca\b/i.test(location.search))return false;
+  }catch(e){}
+  return String((typeof CFG!=='undefined'&&CFG&&(CFG.market||CFG.country))||'').toUpperCase()==='US';
+}
+/* Stormtech USA decoration price list, 2026 (V 2026.02, effective Jan 1 2026). Net distributor costs. */
+var STUS_BREAKS=[12,18,96,296,500,1000];          // 12-17 · 18-95 · 96-295 · 296-499 · 500-999 · 1000+
+var STUS={
+  emb:{apparel:[6.50,5.00,4.75,4.50,4.00,3.50],bag:[7.50,6.00,5.75,5.50,5.00,4.50],
+       extra1k:[1.00,1.00,1.00,1.00,0.75,0.75]},     // each additional 1,000 stitches over 8,000
+  ht:{apparel:[[6.50,5.00,4.75,4.50,4.25,4.25],[8.50,6.50,5.50,5.00,4.50,4.50],[10.00,8.50,7.75,7.00,6.50,6.50],[12.00,10.50,9.75,9.00,8.50,8.50]],
+      bag:[[7.50,6.00,5.75,5.50,4.75,4.75],[9.50,7.50,6.50,6.00,5.50,5.50],[11.00,9.50,8.75,8.00,7.25,7.25],[13.00,11.50,10.75,10.00,9.25,9.25]]},
+  patch:{apparel:[6.50,6.00,5.75,5.50,5.00,4.50],bag:[7.00,6.50,6.25,6.00,5.50,5.00]},
+  setup:{embroidery:50,heat_transfer:50,patch:50},   // digitizing / setup, per logo (our COST)
+  seal:5.00                                         // waterproof seal on waterproof jackets, per piece
+};
+/* What we CHARGE in a US store. Setup is charged at the same rates as our Canadian stores. */
+var DECO_MK_US=1.5;
+var SETUP_US={embroidery:60,heat_transfer:75,patch:60};
+/* A standard left-chest / sleeve / name mark is costed at Stormtech's base (up to 8,000 stitches). A
+   full-back embroidery is costed at an assumed 20,000 stitches -- the same "about 2.5x a chest mark"
+   our Canadian rate card uses. Quotes are confirmed in writing, so a dense logo is re-priced then. */
+var US_BACK_STITCH_EXTRA_K=12;
+function usTier(q){var i=0;for(var k=0;k<STUS_BREAKS.length;k++){if((q||12)>=STUS_BREAKS[k])i=k;}return i;}
+function usInches(p){var m=String((p&&p.size)||'').match(/([\d.]+)\s*"/);return m?parseFloat(m[1]):4;}
+function usHtBand(p){var w=usInches(p);return w<=4?0:(w<=8?1:(w<=11?2:3));}
+function usKind(item){return itemCategory(item)==='bag'?'bag':'apparel';}
+function usWaterproof(item){var f=((item&&item.warm&&item.warm.flags)||[]).join(' ').toLowerCase();return /waterproof/.test(f);}
+function usDecoCost(d,item,q){
+  var t=usTier(q),k=usKind(item),p=item?placeOf(item,d.pl):null,m=usMethod(d.method);
+  if(m==='heat_transfer')return STUS.ht[k][usHtBand(p)][t];
+  if(m==='patch')return STUS.patch[k][t];
+  var c=STUS.emb[k][t];
+  if(p&&p.face==='back')c+=US_BACK_STITCH_EXTRA_K*STUS.emb.extra1k[t];
+  if(usWaterproof(item))c+=STUS.seal;
+  return c;
+}
+function usMethod(m){return (m==='screen')?'heat_transfer':(m||'embroidery');}
+/* One mapping for every place a decoration is created, so a US store never shows, prices or books
+   a screen print. Canadian stores: identity. */
+function mth(m){return isUS()?usMethod(m):m;}
+function usBlank(key,womens){var u=(BYKEY[key]||{}).usd;if(!u)return 0;return (womens&&u.w!=null)?u.w:u.m;}
+/* The US range: items with a US cost; ladies' cut only where Stormtech USA lists it. */
+function usFilterCatalogue(items){
+  return (items||[]).filter(function(it){return !!it.usd;}).map(function(it){
+    if(it.usd.w==null&&it.wcols){it.wcols=null;it.womens=false;it.wplaces=null;}
+    return it;});
+}
 function blankOf(key){var r=CFG.rates||{};return (r.blank&&r.blank[key]!=null)?r.blank[key]:((BYKEY[key]||{}).blank||0);}
 /* Screen print cost per piece by INK COUNT.
    Steven, 2026-09-07: "screen print pricing could be multiple colors if they want Original logo
@@ -463,7 +528,7 @@ function logoLabel(L){
   return L.label||LOGO_LAB[L.id]||('Logo '+String(L.id||'').toUpperCase());
 }
 function screenSetupFor(colours){var s=(CFG.rates||{}).setup||{};return (s.screen||0)*Math.max(1,parseInt(colours,10)||1);}
-function decoCost(d,item){var r=CFG.rates||{};
+function decoCost(d,item,q){if(isUS())return usDecoCost(d,item,q);var r=CFG.rates||{};
   if(d.method==='screen')return screenPc(d.colours||1);
   if(d.method==='heat_transfer')return r.ht||0;
   var p=item?placeOf(item,d.pl):null,mult=(p&&p.face==='back')?((r.emb_mult&&r.emb_mult.back)||1):1;
@@ -498,7 +563,7 @@ var DECO_MK={embroidery:[2.02,1.61,1.31],screen:[3.67,3.00,2.33],heat_transfer:[
    raise the figure here and the saving passes to the customer automatically. */
 function blankBreak(q){return (q<48)?1.00:((q<144)?0.97:0.94);}
 function decoMk(method,q){var t=DECO_MK[method]||DECO_MK.embroidery;return (q<48)?t[0]:((q<144)?t[1]:t[2]);}
-function decoCharge(d,item,q){return decoCost(d,item)*decoMk(d.method||'embroidery',q);}
+function decoCharge(d,item,q){if(isUS())return usDecoCost(d,item,q)*DECO_MK_US;return decoCost(d,item)*decoMk(d.method||'embroidery',q);}
 // Carhartt — transparent premium brand: leaner market-benchmarked markup (competitive with marks.com / carhartt.com).
 function isCarhartt(item){return String((item&&(item.brand||item.sku))||'').toLowerCase().indexOf('carhartt')===0;}
 function costMultCarh(c){if(c<=15)return 1.72;if(c<=30)return 1.60;if(c<=60)return 1.50;if(c<=100)return 1.42;if(c<=180)return 1.36;return 1.31;}
@@ -518,14 +583,14 @@ function realDecos(item,decos){
   return activeDecos(decos).filter(function(d){return !!vpl[d.pl];});
 }
 function hasDecoPlace(item){return !!((item.places||[]).some(function(p){return p.logo;}));}
-function unitPrice(key,decos,q){key=bkey(key);var r=CFG.rates;
+function unitPrice(key,decos,q){var _wfit=/#w$/.test(String(key));key=bkey(key);var r=CFG.rates;
   var _it=BYKEY[key]; if(_it&&_it.layer==='promo')return _it.price_cad||0;   // promo: flat Debco CAD price (customer price)
   if(!r||r.blank==null){return unitAt(BYKEY[key],q);}
-  var item=BYKEY[key],c0=blankOf(key),c=c0*blankBreak(q),dec=0,decc=0;
+  var item=BYKEY[key],c0=isUS()?usBlank(key,_wfit):blankOf(key),c=c0*blankBreak(q),dec=0,decc=0;
   var vpl={};(item.places||[]).forEach(function(p){if(p.logo)vpl[p.id]=1;});   // only decorate on real logo places (pants have none -> no deco charge)
   var _ly=stdLayers(key);   // 3-in-1 systems carry the mark on shell AND liner: two runs, two charges
   activeDecos(decos).forEach(function(d){if(!vpl[d.pl])return;
-    dec+=decoCost(d,item)*_ly;                    // what it costs us -- drives the margin floor
+    dec+=decoCost(d,item,q)*_ly;                  // what it costs us -- drives the margin floor
     decc+=decoCharge(d,item,q)*_ly;});            // what the customer pays
   var carh=isCarhartt(item);
   /* The multiple is keyed to the LIST cost (c0), not the discounted cost -- otherwise a garment
@@ -662,7 +727,7 @@ function recDecos(key){
   var st=stdOf(key);
   if(!st||!st.method||!st.pl)return [];
   return [{pl:st.pl,on:true,lg:(CFG.logos&&CFG.logos[0]&&CFG.logos[0].id)||null,
-           ink:'auto',method:st.method,colours:presetInks(st.method,1)}];
+           ink:'auto',method:mth(st.method),colours:presetInks(mth(st.method),1)}];
 }
 
 /* ---------- persistence ---------- */
@@ -898,7 +963,7 @@ function overlayHtml(item,vm,colName,faces,colsOverride,placesOverride){
    The pictogram shows WHERE (a dot on the chest, a band across the back, the front of a cap); the
    words say HOW. It keys off the placement's human LABEL, not its id -- hi-vis items use id `front`
    for what is actually a left-chest mark, and the label is what the buyer reads. */
-var INC_HOW={embroidery:'Embroidered',screen:'Printed',heat_transfer:'Heat transfer'};
+var INC_HOW={embroidery:'Embroidered',screen:'Printed',heat_transfer:'Heat transfer',patch:'Leather patch'};
 function incParts(it,decos){
   var logos=(CFG&&CFG.logos)||[],prime=(logos[0]||{}).id;
   return realDecos(it,decos).map(function(d){
@@ -1008,7 +1073,7 @@ function trustPromiseHtml(where){
   if(!trustOn())return '';
   var T=JDP_TRUST;
   return '<div class="tprom tprom-'+(where||'sheet')+'">'+
-    '<div class="tpl">'+trustRatingHtml('mini')+'<span class="tsep">·</span><span>Canadian since '+T.since+'</span>'+
+    '<div class="tpl">'+trustRatingHtml('mini')+'<span class="tsep">·</span><span>'+(isUS()?'Since ':'Canadian since ')+T.since+'</span>'+
       '<span class="tsep">·</span><span>Family-owned</span></div>'+
     '<ul class="tpg">'+
       '<li><b>Itemized quote</b> you can download and forward for approval</li>'+
@@ -2956,11 +3021,14 @@ function faqHtml(){
     ['How does ordering work?','Pick a ready program or your own items, set how many people, and download an itemized quote to share with whoever approves it. Send it to us and we confirm it in writing in '+T.reply+', with a proof of your logo. No payment now, and nothing is made until you approve it.'],
     ['Can you work with our purchasing process?','Yes \u2014 add your PO number, deadline and delivery details when you send the quote, and attach any vendor set-up forms or your own RFQ. Or call '+T.phone+'.'],
     ['Do I need everyone\u2019s sizes first?','No. Tell us roughly how many people and we will estimate the size split \u2014 you confirm the sizes before anything is produced.'],
-    ['Embroidered or printed?','Every card shows what its price includes. Embroidery is stitched in thread \u2014 premium and long-lasting, best on polos, jackets and caps. Screen print is the best value on tees and hi-vis.'],
+    (isUS()?['Embroidered, heat transfer or patch?','Every card shows what its price includes. Embroidery is stitched in thread \u2014 premium and long-lasting, best on polos, jackets and vests. Heat transfer is full-colour and best value on tees and performance fabrics. A faux leather patch gives jackets and bags a premium, tactile finish.']
+      :['Embroidered or printed?','Every card shows what its price includes. Embroidery is stitched in thread \u2014 premium and long-lasting, best on polos, jackets and caps. Screen print is the best value on tees and hi-vis.']),
+    (isUS()?['What currency are your prices in?','US dollars. Every price in this store is in USD, per piece, with your logo decoration included. Taxes and freight are quoted separately.']:null),
     ['My logo file isn\u2019t perfect.','Send the best image you have. We redraw it to production quality at no charge, and you see the mockup before anything runs.'],
     ['How long will it take?','Tell us the date you need it by when you send your request, and we will confirm it in writing before anything is produced.'],
     ['What if I find a better price?','Send us the written quote for the same job and we will match it. Every order also carries our Logo Reprint Guarantee.']
   ];
+  qa=qa.filter(Boolean);
   return '<section class="faq"><div class="w"><h2 class="faqh">Questions before your first order</h2>'+
     '<div class="faql">'+qa.map(function(x,i){
       return '<details class="faqi"'+(i<2?' open':'')+'><summary>'+esc(x[0])+'</summary><p>'+esc(x[1])+'</p></details>';}).join('')+
@@ -3168,7 +3236,7 @@ function buildStore(){
      'gap:32px;justify-content:space-between;flex-wrap:wrap">'+
      '<div class="herotx" style="flex:1 1 320px;min-width:0">'+
        '<h1>'+esc(poss(CFG.client))+" team store</h1>"+
-       '<p class="herosub">'+(demo?'This is a live sample. Every item shows exactly where your logo goes — swap in your brand and it becomes your team’s store. Live pricing, exact quote, no obligation.':'Your logo is already on every piece. Pick a ready program or your own gear, set your headcount and download an itemized quote for approval \u2014 confirmed in writing by a real person, usually within 1 business day.')+'</p>'+
+       '<p class="herosub">'+(demo?'This is a live sample. Every item shows exactly where your logo goes — swap in your brand and it becomes your team’s store. Live pricing, exact quote, no obligation.':'Your logo is already on every piece. Pick a ready program or your own gear, set your headcount and download an itemized quote for approval \u2014 confirmed in writing by a real person, usually within 1 business day.'+(isUS()?' All prices in US dollars.':''))+'</p>'+
        /* 4imprint opens every category with a named person ("David with 4imprint, 11 years"). The
           person who actually answers these stores is Steven, so say so, with the number that reaches
           him -- and give the two ways forward, not six claims. */
@@ -3372,6 +3440,12 @@ var METHOD_OPTS=[
   {m:'screen',c:2,lab:'Screen print — 2 colour',sub:'Printed in two inks — a little more of your logo’s detail.'},
   {m:'heat_transfer',c:1,lab:'Heat transfer',sub:'Full-colour design pressed on with heat — best for detailed logos & rain gear.'}
 ];
+var METHOD_OPTS_US=[
+  {m:'embroidery',c:1,lab:'Embroidery',sub:'Stitched in thread — premium & long-lasting. Best on polos, jackets & vests.'},
+  {m:'heat_transfer',c:1,lab:'Heat transfer',sub:'Full-colour, high-definition transfer — best for detailed logos & performance fabrics.'},
+  {m:'patch',c:1,lab:'Faux leather patch',sub:'A laser-etched faux leather or suede patch — a premium, tactile finish.'}
+];
+function methodOpts(){return isUS()?METHOD_OPTS_US:METHOD_OPTS;}
 var MENS_SIZES=['S','M','L','XL','2XL','3XL'],WOMENS_SIZES=['XS','S','M','L','XL','2XL'];
 var ALLSIZES=['XS','S','M','L','XL','2XL','3XL'];
 /* ---- NOT EVERY GARMENT IS SIZED S-3XL -------------------------------------------------------
@@ -4127,12 +4201,35 @@ function configKey(it){
   if(c==='fleece'&&SWEATSHIRT_RE.test(n)&&!NOT_SWEATSHIRT_RE.test(n))return 'sweat';
   return c;
 }
+/* US decoration setups: the same cards, with screen print replaced by Stormtech's heat transfer, and
+   a faux leather patch offered on outerwear, fleece, vests and bags. */
+var US_CFG_TEXT={
+  sp:{name:'{P} heat transfer',sub:'A full-colour heat transfer — crisp detail on performance fabrics and the best value on tees.'},
+  spfb:{name:'Chest + back heat transfer',sub:'Full-colour heat transfers front and back — small mark on the chest, large one across the shoulders.'},
+  fb:{sub:'Embroidered chest, large full-colour heat transfer across the back.'},
+  fo:{sub:'One full-colour heat transfer on the front.'},
+  frp:{name:'Larger front heat transfer',sub:'A bigger full-colour heat transfer — for event and giveaway bags.'}
+};
+var US_PATCH_CATS={outer:1,fleece:1,sweat:1,vest:1,bag:1};
+function usConfigs(list,ck){
+  var out=list.map(function(c){
+    var t=US_CFG_TEXT[c.id]||{},n=JSON.parse(JSON.stringify(c));
+    n.spots=n.spots.map(function(sp){sp.method=usMethod(sp.method);if(sp.method!=='screen')delete sp.colours;return sp;});
+    if(c.spots.some(function(sp){return sp.method==='screen';})){if(t.name)n.name=t.name;if(t.sub)n.sub=t.sub;}
+    else if(t.sub&&c.id==='fb'){n.sub=t.sub;}
+    return n;});
+  if(US_PATCH_CATS[ck])out.push({id:'pt',name:'Faux leather patch',
+    sub:'A laser-etched faux leather or suede patch in place of embroidery — a premium, tactile finish.',
+    spots:[{pl:'PRIMARY',method:'patch'}]});
+  return out;
+}
 function configsFor(key){
   var it=BYKEY[key];if(!it)return [];
   var prim=(stdOf(key)||{}).pl||((it.places||[]).filter(function(p){return p.logo;})[0]||{}).id;
   if(!prim)return [];
   var avail={};(it.places||[]).forEach(function(p){if(p.logo)avail[p.id]=p;});
   var list=CONFIGS[configKey(it)]||CONFIGS.other;
+  if(isUS())list=usConfigs(list,configKey(it));
   return list.map(function(c){
     var ok=true;
     var decos=c.spots.map(function(s){
@@ -4182,7 +4279,7 @@ function cfgDecosPure(cfg){
      correct inside a sheet and wrong on a grid card, where SH belongs to whatever was opened last. */
   var lg=(CFG.logos&&CFG.logos[0]&&CFG.logos[0].id)||null;
   return cfg.decos.map(function(d){
-    return {pl:d.pl,on:true,lg:lg,ink:'auto',method:d.method,colours:presetInks(d.method,d.colours)};});
+    return {pl:d.pl,on:true,lg:lg,ink:'auto',method:mth(d.method),colours:presetInks(mth(d.method),d.colours)};});
 }
 function stdCfgId(key){var it=BYKEY[bkey(key)]||{};return it.stdcfg||null;}
 function stdCfgOf(key){
@@ -4263,7 +4360,7 @@ function configWhere(cfg,it){
     var p=placeOf(it,d.pl),lab=(p&&p.label)||d.pl;
     var sz=(p&&p.size)?(' '+p.size):'';
     var m=(d.method==='screen')?('screen print'+((d.colours||1)>1?(' '+d.colours+'-colour'):'')):
-          (d.method==='heat_transfer'?'heat transfer':'embroidery');
+          (d.method==='heat_transfer'?'heat transfer':(d.method==='patch'?'faux leather patch':'embroidery'));
     return lab+sz+' · '+m;
   }).join('   •   ');
 }
@@ -4412,7 +4509,7 @@ function priceIf(pl,opt,on){
   return unitPrice(SH.key,decos,effQty());   // ALWAYS price at the current quantity — keeps finish prices in sync with the size step + footer
 }
 // Our recommended decoration for a placement (from the build) — used to guide the customer.
-function recFor(pl){var d=recDecos(SH.key).filter(function(x){return x.pl===pl;})[0];return d?{m:d.method||'embroidery',c:d.colours||1}:{m:'embroidery',c:1};}
+function recFor(pl){var d=recDecos(SH.key).filter(function(x){return x.pl===pl;})[0];return d?{m:mth(d.method||'embroidery'),c:d.colours||1}:{m:'embroidery',c:1};}
 function isRec(pl,opt){var r=recFor(pl);return opt.m===r.m&&(opt.m!=='screen'||opt.c===(r.c||1));}
 // A "choose one" finish group for a location (Uber-Eats style radio rows). The recommended finish is
 // tagged so an unsure customer has clear guidance; each row explains the method in plain language.
@@ -4430,7 +4527,7 @@ function finishGroup(pl,primary){
   if(!primary){var off=!SH.D[pl].on;
     rows+='<button class="frow'+(off?' on':'')+'" data-pl="'+pl+'" data-off="1"><span class="fr"></span>'+
       '<span class="ft"><b>No logo here</b></span><span class="fp inc">Included</span></button>';}
-  METHOD_OPTS.forEach(function(opt){var sel=decoIsSel(pl,opt),u=priceIf(pl,opt,true),rec=isRec(pl,opt);
+  methodOpts().forEach(function(opt){var sel=decoIsSel(pl,opt),u=priceIf(pl,opt,true),rec=isRec(pl,opt);
     rows+='<button class="frow'+(sel?' on':'')+'" data-pl="'+pl+'" data-m="'+opt.m+'" data-c="'+opt.c+'">'+
       '<span class="fr"></span><span class="ft"><b>'+opt.lab+(rec?' <span class="frec">★ Recommended</span>':'')+'</b><span>'+opt.sub+'</span></span>'+
       tag(u)+'</button>';});
@@ -4869,8 +4966,8 @@ function recCartDecos(key){key=bkey(key);
   /* An item naming a default configuration books THAT, not the single-placement standard. */
   var _dc=stdCfgOf(key);
   if(_dc)return realDecos(BYKEY[key],cfgDecosPure(_dc));
-  var _st=stdOf(key),_m=(_st&&_st.method)||null;
-  var vm=vmOf(key),decos=realDecos(BYKEY[key],vm.decos).map(function(d){return {pl:d.pl,lg:d.lg,ink:d.ink||'auto',method:((_st&&d.pl===_st.pl&&_m)?_m:(d.method||'embroidery')),colours:d.colours||1,on:true};});
+  var _st=stdOf(key),_m=(_st&&_st.method)?mth(_st.method):null;
+  var vm=vmOf(key),decos=realDecos(BYKEY[key],vm.decos).map(function(d){return {pl:d.pl,lg:d.lg,ink:d.ink||'auto',method:((_st&&d.pl===_st.pl&&_m)?_m:mth(d.method||'embroidery')),colours:d.colours||1,on:true};});
   if(!decos.length){var p=(BYKEY[key].places||[]).filter(function(x){return x.logo;})[0];if(p)decos=[{pl:p.id,lg:(CFG.logos[0]||{}).id,ink:'auto',method:(recDecos(key)[0]||{}).method||'embroidery',colours:1,on:true}];}
   return decos;
 }
@@ -5628,12 +5725,13 @@ function cartCount(){return Object.keys(CART).length;}
 function cartSubtotal(){var t=0;Object.keys(CART).forEach(function(k){var it=BYKEY[bkey(k)];if(!it)return;var c=CART[k];
   if(it.layer==='promo'){var q=promoQuote(it,c);t+=q.goods+q.decoRun;}   // product + decoration (setup shown separately)
   else t+=unitPrice(k,c.decos,tierQty(k))*c.qty;});return t;}
-function setupBreakdown(){var r=CFG.rates||{},s=r.setup||{},seen={},out=[];
+function setupBreakdown(){var r=CFG.rates||{},s=isUS()?SETUP_US:(r.setup||{}),seen={},out=[];
   Object.keys(CART).forEach(function(k){var it=BYKEY[bkey(k)];if(!it)return;realDecos(it,CART[k].decos).forEach(function(d){
     var key=setupKey(d,it);if(seen[key])return;seen[key]=1;
     var L=logoOf(d.lg),p=placeOf(it,d.pl),plab=p?p.label:d.pl,lname=(L&&L.label)||'Logo',amt,lab;
     if(d.method==='screen'){var c=d.colours||1;amt=(s.screen||0)*c;lab=lname+' · '+plab+' · screen ('+c+'-colour)';}
     else if(d.method==='heat_transfer'){amt=s.heat_transfer||0;lab=lname+' · '+plab+' · heat-transfer artwork';}
+    else if(d.method==='patch'){amt=s.patch||0;lab=lname+' · '+plab+' · patch setup';}
     else{amt=s.embroidery||0;lab=lname+' · '+plab+' · embroidery digitizing';}
     out.push({label:lab,amount:Math.round(amt*100)/100});});});
   Object.keys(CART).forEach(function(k){var it=BYKEY[bkey(k)];if(!it||it.layer!=='promo')return;var q=promoQuote(it,CART[k]);
@@ -6689,7 +6787,7 @@ function tbarHtml(){
         'stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/>'+
         '<path d="M21 21l-4.3-4.3"/></svg>'+
         '<input id="topSearch" type="search" autocomplete="off" aria-label="Search products" '+
-        'placeholder="Search polos, hi-vis, jackets, Carhartt\u2026">'+
+        'placeholder="'+(isUS()?'Search polos, jackets, fleece, bags\u2026':'Search polos, hi-vis, jackets, Carhartt\u2026')+'">'+
         '<button type="button" class="exsx" id="topSearchX" aria-label="Clear">\u2715</button>'+
         '<div class="sxdd" id="sxdd" role="listbox" aria-label="Search suggestions" hidden></div>'+
       '</div>'+
@@ -6713,7 +6811,7 @@ function topSearchHtml(){
     'stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/>'+
     '<path d="M21 21l-4.3-4.3"/></svg>'+
     '<input id="topSearch" type="search" autocomplete="off" aria-label="Search products" '+
-    'placeholder="Search '+ALLKEYS.length+' products \u2014 polos, hi-vis, Carhartt\u2026">'+
+    'placeholder="Search '+ALLKEYS.length+' products \u2014 '+(isUS()?'polos, jackets, fleece\u2026':'polos, hi-vis, Carhartt\u2026')+'">'+
     '<button type="button" class="exsx" id="topSearchX" aria-label="Clear">\u2715</button>'+
     '</div></section>';
 }
@@ -6770,6 +6868,35 @@ function catTileImg(cat){
    named list is also auditable -- you can read it against his message and see they match.
    A key that is not in a given store is skipped, and a program with fewer than three surviving
    pieces does not render, so a scoped-down store degrades to fewer cards rather than to a gap. */
+/* US PROGRAMS: built from the Stormtech range a US store carries (Stormtech USA has no CSA hi-vis, so
+   the third program is weather rather than site compliance). Steven to confirm the picks. */
+var PROG_SPECS_US=[
+  {id:'crew',name:'Crew Uniform Program',who:'the crew on the tools',
+   sub:'For the crew on the tools: a quarter-zip, a quilted vest and two jackets that carry your logo all year.',
+   items:[
+     {k:'st_treeline',lab:'Quarter-zip',why:'Stormtech’s Treeline performance quarter-zip — the layer a crew lives in from fall to spring, so it is the piece your logo is seen on most. Men’s and ladies’ cuts.'},
+     {k:'st_sierravest',lab:'Quilted vest',col:'Black',why:'Stormtech’s Sierra thermal vest — warmth with the arms free that stays on indoors and goes under a jacket outside. Men’s and ladies’ cuts.'},
+     {k:'st_cascades',lab:'Softshell jacket',col:'Black',why:'Stormtech’s Cascades softshell — wind and light-rain cover for the months a parka is too much. Men’s and ladies’ cuts.'},
+     {k:'st_nautilusjkt',lab:'Insulated jacket',col:'Black',why:'Stormtech’s Nautilus quilted jacket — real winter warmth that still moves. Men’s and ladies’ cuts.'}
+   ]},
+  {id:'premium',name:'Premium · In Front of the Client',who:'the people in front of your clients',
+   sub:'Sales, management and anyone whose first impression is the company’s.',
+   items:[
+     {k:'vest',lab:'Quilted vest',col:'Black',why:'Stormtech’s Nautilus quilted vest — windproof and water-repellent, and the office-program staple because it looks put-together indoors and out. Men’s and ladies’ cuts.'},
+     {k:'st_avalanteqz',lab:'Quarter-zip',col:'Black',why:'Stormtech’s Avalante sweater-knit quarter-zip — heavy enough to feel considered, smart enough for a customer visit. Men’s and ladies’ cuts.'},
+     {k:'st_cruise',lab:'Softshell jacket',col:'Black',why:'Stormtech’s waterproof Cruise softshell — the client-facing shell, structured and cut to look sharp over a polo. Men’s and ladies’ cuts.'},
+     {k:'st_sonora',lab:'Polo',col:'Navy',why:'Stormtech’s Sonora knit polo — soft, holds its shape through a laundry cycle, and carries you from the office into a customer meeting. Men’s and ladies’ cuts.'}
+   ]},
+  {id:'weather',name:'All-Weather Program',who:'the teams who work outside',
+   sub:'From the first wet morning to deep winter — a shell, a softshell, a quilted jacket and a 3-in-1.',
+   items:[
+     {k:'st_axis',lab:'Waterproof shell',col:'Black',why:'Stormtech’s Axis jacket — a waterproof, breathable shell for rain days. Men’s and ladies’ cuts.'},
+     {k:'st_cirrus',lab:'Softshell jacket',col:'Black',why:'Stormtech’s Cirrus bonded softshell — wind cover with stretch for people in and out of vehicles. Men’s and ladies’ cuts.'},
+     {k:'st_stavanger',lab:'Quilted jacket',col:'Black',why:'Stormtech’s Stavanger quilted jacket — built for real cold. Men’s and ladies’ cuts.'},
+     {k:'st_vortex',lab:'3-in-1 parka',col:'Black',why:'Stormtech’s Vortex HD 3-in-1 — a waterproof shell and a zip-out liner, worn three ways; your logo goes on both layers. Men’s and ladies’ cuts.'}
+   ]}
+];
+function progSpecs(){return isUS()?PROG_SPECS_US:PROG_SPECS;}
 var PROG_SPECS=[
   /* Steven, 2026-10-02: "change the program product selection to these products in this order."
      Four pieces per program, his order. `col` is the colourway the program opens on where the
@@ -6878,7 +7005,7 @@ var PROGSEEDED=false;
    customer has adopted or renamed is never ours to delete. */
 function retireDeadPrograms(){
   if(!LISTS)return;
-  var live={};PROG_SPECS.forEach(function(sp){live['prog_'+sp.id]=1;});
+  var live={};progSpecs().forEach(function(sp){live['prog_'+sp.id]=1;});
   var hit=false;
   Object.keys(LISTS).forEach(function(id){
     var L=LISTS[id];
@@ -6903,7 +7030,7 @@ function seedPrograms(){
   PROGSEEDED=true;
   try{retireDeadPrograms();}catch(e){}
   try{
-    PROG_SPECS.forEach(function(spec){
+    progSpecs().forEach(function(spec){
       var rows=progBuild(spec);
       if(rows.length<3)return;                 // fewer than three is not a program
       var items={};
@@ -7201,6 +7328,10 @@ var GIFT_TYPES=[
    So the page opens on six, five of them apparel, spread across budgets, and one boxed kit for the
    buyer who cannot collect sizes. Each `lab` names the job the gift does -- a role, never a sales
    claim -- and the reason shown is the item's own GIFT_PICKS `why`. */
+var GIFT_TOP_US=[
+  {k:'vest',lab:'The safe pick'},{k:'st_avalanteqz',lab:'For client-facing teams'},{k:'st_nautilusjkt',lab:'The everyday jacket'},
+  {k:'st_stavanger',lab:'For service milestones'},{k:'st_oxide',lab:'For the trades'},{k:'st_saltspring',lab:'No sizes to collect'}
+];
 var GIFT_TOP=[
   {k:'vest',            lab:'The safe pick'},
   {k:'cbc_traverse_qz', lab:'For client-facing teams'},
@@ -7265,7 +7396,7 @@ function giftPool(){
 /* The six, resolved against the live pool so a retired or ineligible pick simply drops out. */
 function giftTop(){
   var by={};giftPool().forEach(function(g){by[g.k]=g;});
-  return GIFT_TOP.filter(function(t){return by[t.k];}).map(function(t){
+  return (isUS()?GIFT_TOP_US:GIFT_TOP).filter(function(t){return by[t.k];}).map(function(t){
     var g=by[t.k];return {k:g.k,why:g.why,p:g.p,lab:t.lab};});
 }
 function giftMatches(band,type){
@@ -7281,7 +7412,7 @@ function giftsSectionHtml(){
       '<div class="gfeyb">Employee gifts</div>'+
       '<h2 class="gfh">Gifts people keep</h2>'+
       '<p class="gfsub">Premium branded apparel first — jackets, vests and quarter-zips your team '+
-        'will wear on their own time — plus ready-boxed kits for when you can’t collect sizes. '+
+        'will wear on their own time — plus '+(isUS()?'bags and coolers':'ready-boxed kits')+' for when you can’t collect sizes. '+
         'Every price is per person, with your logo already in it.</p>'+
     '</div>'+
     '<div class="gftop" id="gftop"></div>'+
@@ -7297,8 +7428,8 @@ function renderGifts(){
   var pool=giftPool();
   document.getElementById('gfguide').innerHTML=
     '<p class="gfgt"><b>How to choose.</b> Start with what you can spend per person — that alone '+
-    'narrows this to a handful. Apparel needs sizes and lands in your brand colour; a boxed kit '+
-    'needs neither, which is why kits win for a whole-payroll gift and apparel wins for anyone '+
+    'narrows this to a handful. Apparel needs sizes and lands in your brand colour; '+(isUS()?'a bag':'a boxed kit')+' '+
+    'needs neither, which is why '+(isUS()?'bags':'kits')+' win for a whole-payroll gift and apparel wins for anyone '+
     'you want seen in it.</p>';
   /* Each row counts against the OTHER row's current choice, so the numbers describe what a click
      would actually return. A count that ignored the sibling filter would promise 15 and show 4. */
@@ -7336,7 +7467,7 @@ function renderGifts(){
       '<h3 class="gftoph">Our '+nwords(six.length).toLowerCase()+' picks</h3>'+
       '<p class="gftops">If you only look at '+six.length+', look at these — '+
         six.filter(function(g){return giftType(g)==='wear';}).length+' premium apparel pieces across every budget, '+
-        'and a boxed kit for when sizes aren’t practical.</p></div></div>'+
+        (isUS()?'and a bag for when sizes aren’t practical.':'and a boxed kit for when sizes aren’t practical.')+'</p></div></div>'+
     '<div class="gfgrid gftopgrid">'+six.map(function(g){return item(g,g.lab);}).join('')+'</div>'):'';
   var SECT={wear:'Premium branded apparel',kit:'Ready-boxed kits',keep:'Small thank-yous: mugs & journals'};
   var SUBT={wear:'Jackets, vests, quarter-zips and fleece — the gifts people wear, with your logo on them.',
@@ -7470,7 +7601,7 @@ function giftEntryHtml(){
     '<span class="gfetx">'+
       '<span class="gfeeyb">'+railIcon('gifts')+' Employee gifts</span>'+
       '<b>Gifts your team will actually keep</b>'+
-      '<i>Premium jackets, vests and quarter-zips with your logo — plus ready-boxed kits when you '+
+      '<i>Premium jackets, vests and quarter-zips with your logo — plus '+(isUS()?'bags and coolers':'ready-boxed kits')+' when you '+
         'can’t collect sizes. Our six picks are at the top.</i>'+
       '<span class="gferow"><span class="gfecta">Shop employee gifts <span aria-hidden="true">→</span></span>'+
         '<span class="gfefrom">Apparel from '+money0(lo)+' a person</span></span>'+
@@ -8049,10 +8180,14 @@ function renderRecoHero(){
    thing a visitor sees says "this store covers my whole company". Falls back silently to nothing if
    a store cannot fill three, because a lopsided one-photo hero looks broken. */
 function heroShots(){
-  var order=CFG.order||{},want=[['polo','woven','tee'],['hivis'],['fleece','outer','vest']],out=[],used={};
+  /* A US store carries no hi-vis (Stormtech USA has none), so its middle slot is a fleece layer. */
+  var order=CFG.order||{},want=isUS()?[['polo','woven','tee'],['fleece'],['outer','vest']]:[['polo','woven','tee'],['hivis'],['fleece','outer','vest']],out=[],used={};
   var pool=[];
   ['office','premium','field','bags'].forEach(function(L){
     (order[L]||[]).forEach(function(k){if(BYKEY[k]&&!isCarhartt(k))pool.push(k);});});
+  /* A US store's line-up was built from the Canadian range, so draw from the US range itself:
+     the store's own picks first, then every other Stormtech style. */
+  if(isUS())Object.keys(BYKEY).forEach(function(k){if(pool.indexOf(k)<0&&BYKEY[k].usd)pool.push(k);});
   want.forEach(function(cats){
     var best=null;
     pool.forEach(function(k){
@@ -8060,7 +8195,7 @@ function heroShots(){
       var it=BYKEY[k];
       if(cats.indexOf(itemCategory(it))<0)return;
       if(!hasDecoPlace(it))return;                 // the point is the logo; a blank piece proves nothing
-      if(!(it.rec||k===CFG.feature))return;        // only pieces we actually stand behind
+      if(!(it.rec||k===CFG.feature||isUS()))return;        // only pieces we actually stand behind (the US range is curated already)
       best=k;});
     if(best){used[best]=1;out.push(best);}});
   return out.length===3?out:[];
@@ -8450,11 +8585,11 @@ function lineEconomics(ck){
   }
   var q=c.qty||0,tq=tierQty(ck);
   var unit=unitPrice(ck,c.decos,tq);
-  var gPc=blankOf(base)*blankBreak(tq);
+  var gPc=(isUS()?usBlank(base,/#w$/.test(String(ck))):blankOf(base))*blankBreak(tq);
   var layers=stdLayers(base);
   var vpl={};(it.places||[]).forEach(function(p){if(p.logo)vpl[p.id]=1;});
   var dPc=0;
-  activeDecos(c.decos).forEach(function(d){if(!vpl[d.pl])return;dPc+=decoCost(d,it)*layers;});
+  activeDecos(c.decos).forEach(function(d){if(!vpl[d.pl])return;dPc+=decoCost(d,it,tq)*layers;});
   var cogs=gPc+dPc;
   return {key:ck,name:it.name,sku:it.sku,promo:false,qty:q,unit:unit,revenue:unit*q,
           garmentCost:gPc*q,decoCost:dPc*q,cogsPc:cogs,cogs:cogs*q,
@@ -8465,7 +8600,7 @@ function lineEconomics(ck){
 function proformaText(c){
   c=c||{};
   var L=[];
-  L.push('PROFORMA INVOICE  (estimate — not a demand for payment)');
+  L.push('PROFORMA INVOICE  (estimate — not a demand for payment)'+(isUS()?'  ·  ALL AMOUNTS IN USD':''));
   L.push('Reference '+docRef()+'   ·   '+docDate());
   L.push('');
   L.push('From:  Just Deals Promotions');
@@ -8593,6 +8728,7 @@ function orderText(c){c=c||{};
   var sub=cartSubtotal(),setup=cartSetup();
   var boardUrl=(typeof shareListUrl==='function')?shareListUrl():location.href.split('#')[0];
   var lines=['KIT REQUEST — '+CFG.client,''];
+  if(isUS())lines.push('*** US STORE — prices in USD. Garments + decoration by STORMTECH USA (supplier decorator), per their 2026 decoration price list. ***','');
   /* The money and the link first. Nobody should scroll six thousand characters to find the total. */
   lines.push('SUMMARY');
   lines.push('  '+styles+' styles · '+pieces+' pieces');
@@ -8698,18 +8834,19 @@ function quoteDocHtml(){
       '<div class="qhc"><label for="qHC">How many people?</label><input id="qHC" type="number" inputmode="numeric" min="1" placeholder="e.g. 40" value="'+(getHC()||'')+'">'+
         '<button type="button" id="qHCgo">Update quote</button><i>We estimate quantities and sizes from your headcount — fewer outer layers than people. You confirm every quantity and size before production.</i></div>'+
       '<div class="qadd"><button type="button" class="qbtn" id="qMore">+ Add more items</button><button type="button" class="qbtn" id="qProg">+ Add a program</button></div>'+
-      '<table class="qtab"><thead><tr><th>#</th><th></th><th>Item</th><th>Qty</th><th>Unit</th><th>Amount</th></tr></thead><tbody>'+rows+'</tbody></table>'+
+      '<table class="qtab"><thead><tr><th>#</th><th></th><th>Item</th><th>Qty</th><th>Unit'+(isUS()?' (USD)':'')+'</th><th>Amount'+(isUS()?' (USD)':'')+'</th></tr></thead><tbody>'+rows+'</tbody></table>'+
       '<div class="qtot"><div><span>Subtotal · '+pcs+' pieces</span><b>'+money(sub)+'</b></div>'+
         (setup>0?('<div><span>One-time setup</span><b>'+money(setup)+'</b></div>'+
           '<div class="qsb">'+sb.map(function(x){return esc(x.label)+' — '+money(x.amount);}).join('<br>')+'<br>Charged once per design, location and method — not per piece.</div>'):'')+
-        '<div class="qgt"><span>Total (before tax &amp; freight)</span><b>'+money(sub+setup)+'</b></div></div>'+
+        '<div class="qgt"><span>Total'+(isUS()?' in USD':'')+' (before tax &amp; freight)</span><b>'+money(sub+setup)+(isUS()?' <small class="qcur">USD</small>':'')+'</b></div></div>'+
       '<div class="qnotes"><b>Notes</b><ul>'+
+        (isUS()?'<li>All prices are in US dollars (USD).</li>':'')+
         '<li>Your logo decoration is included in every unit price above.</li>'+
         '<li>Nothing is produced until you approve a proof of your logo and this quote.</li>'+
         '<li>Taxes and freight are not included. Just Deals Promotions confirms this quote in writing — usually within '+esc(T.reply)+'.</li>'+
         '<li>Price-match: send us a lower written quote for the same job and we will match it. Every order carries our Logo Reprint Guarantee.</li>'+
       '</ul></div>'+
-      '<footer class="qfoot">Just Deals Promotions · Canadian since '+T.since+' · '+esc(T.teams)+' teams · '+T.rating.toFixed(1)+'★ on Google ('+T.reviews+' reviews)</footer>'+
+      '<footer class="qfoot">Just Deals Promotions · '+(isUS()?'Since ':'Canadian since ')+T.since+' · '+esc(T.teams)+' teams · '+T.rating.toFixed(1)+'★ on Google ('+T.reviews+' reviews)</footer>'+
     '</article>'+
     '<aside class="qact" id="qact"><h3>Send to Just Deals to confirm</h3>'+
       '<p>We check it, confirm it in writing and send a proof of your logo. No payment now, no obligation.</p>'+
@@ -9085,7 +9222,9 @@ function go(cfg){
   // no-cache: always revalidate the shared catalogue so customers get the current products/photos
   // (returns 304 when unchanged). Image URLs are versioned via CATVER below.
   fetch((cfg.catalog_base||CATALOG_BASE)+'/catalog.json?v='+(cfg.ver||'1'),{cache:'no-cache'}).then(function(r){return r.json();}).then(function(cat){
-    CFG.catalog_base=cfg.catalog_base||CATALOG_BASE;CAT=cat;CATVER=cat.version||cat.v||'';(cat.items||[]).forEach(function(it){BYKEY[it.key]=it;});
+    CFG.catalog_base=cfg.catalog_base||CATALOG_BASE;CAT=cat;CATVER=cat.version||cat.v||'';
+    if(isUS()){cat.items=usFilterCatalogue(cat.items);document.documentElement.classList.add('mkt-us');}
+    (cat.items||[]).forEach(function(it){BYKEY[it.key]=it;});
     // Learn each logo's ink BEFORE first paint so garments render a thread colour that actually reads.
     Promise.all((cfg.logos||[]).map(probeInk)).then(function(){
       assignColourways();
