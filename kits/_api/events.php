@@ -35,7 +35,7 @@ declare(strict_types=1);
 header('Cache-Control: no-store');
 header('X-Content-Type-Options: nosniff');
 
-const EV_OK        = ['view','search','search0','sheet','add','board','checkout','sent','source','aisle','alt','added_go','board_quote','hero_programs','hero_ask','faq_ask','sheet_quote','help_open','help_ask','logo_home','program','program_quote','program_switch','program_colour','program_people','program_adopt','program_share','gift_open','gift_variant','filter','filter_open','engaged','lead_focus','exit_show','quote_view','quote_pdf','quote_share','quote_qty','rfq_open','quote_open','quote_more','quote_prog','quote_remove','quote_line_qty','program_toggle','market','market_open','market_hint'];
+const EV_OK        = ['view','search','search0','sheet','add','board','checkout','sent','source','aisle','alt','added_go','board_quote','hero_programs','hero_ask','faq_ask','sheet_quote','help_open','help_ask','logo_home','program','program_quote','program_switch','program_colour','program_people','program_adopt','program_share','gift_open','gift_variant','filter','filter_open','engaged','lead_focus','exit_show','quote_view','quote_pdf','quote_share','quote_qty','rfq_open','quote_open','quote_more','quote_prog','quote_remove','quote_line_qty','program_toggle','market','market_open','market_hint','band_quote','work_more'];
 const EV_PER_HOUR  = 900;        // per IP; a real buyer sends a few dozen
 
 function data_root(): string { return dirname(__DIR__, 3) . '/jdp-board-data'; }
