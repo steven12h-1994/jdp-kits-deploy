@@ -480,7 +480,7 @@ function mktPillHtml(){
   var m=isUS()?'US':'CA',I=MKT_INFO[m];
   var globe='<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z"/></svg>';
   return '<div class="tbmkt"><button type="button" class="tbmktb" id="tbMkt" aria-haspopup="true" aria-expanded="false" aria-label="Ship to '+I.name+', prices in '+I.cur+'. Change country">'+
-    globe+'<span class="tbmkts">Ship to</span><b>'+(m==='US'?'US':'Canada')+'</b><i>'+I.cur+'</i><span class="tbmkcv" aria-hidden="true">▾</span></button>'+
+    (m==='CA'?leafSvg(15,'leaf tbleaf'):globe)+'<span class="tbmkts">Ship to</span><b>'+(m==='US'?'US':'Canada')+'</b><i>'+I.cur+'</i><span class="tbmkcv" aria-hidden="true">▾</span></button>'+
     '<div class="tbmktp" id="tbMktP" hidden role="dialog" aria-label="Choose a country">'+
       '<div class="tbmkth">Where are you ordering for?</div>'+
       ['CA','US'].map(function(k){var J=MKT_INFO[k],on=k===m;
@@ -3100,9 +3100,9 @@ function faqHtml(){
     ['What if I find a better price?','Send us the written quote for the same job and we will match it. Every order also carries our Logo Reprint Guarantee.']
   ];
   qa=qa.filter(Boolean);
-  return '<section class="faq"><div class="w"><h2 class="faqh">Questions before your first order</h2>'+
+  return '<section class="faq"><div class="w"><h2 class="faqh">Common questions</h2>'+
     '<div class="faql">'+qa.map(function(x,i){
-      return '<details class="faqi"'+(i<2?' open':'')+'><summary>'+esc(x[0])+'</summary><p>'+esc(x[1])+'</p></details>';}).join('')+
+      return '<details class="faqi"><summary>'+esc(x[0])+'</summary><p>'+esc(x[1])+'</p></details>';}).join('')+
     '</div><p class="faqmore">Still a question? '+trustPhoneHtml('inline','Call Steven')+' \u2014 or '+
     '<button type="button" class="faqask" id="faqAsk">send it with your request</button>.</p></div></section>';
 }
@@ -3136,6 +3136,65 @@ function whyJdpHtml(){
     '<div class="whycta"><button class="reccta" id="whyCta">Build your board — get an exact quote <span class="ar">\u2192</span></button>'+
       '<span class="whyctan">No payment now · no obligation</span></div>'+
   '</div></section>';}
+
+
+/* ---- HOME ADVANTAGE: Canadian since 1989 -------------------------------------------------------------
+   Steven, 2026-10-07: "Canadian companies like that we are in canada. we need to leverage this!" and
+   "the overall page is getting very busy now and there is so much text ... do not overload them with
+   text at the bottom."
+   The fact was already published (JDP_TRUST.since, "Canadian since 1989", "Family-owned", "Ships coast to
+   coast", the Toronto address) but it only surfaced as small print inside the product sheet. It now leads,
+   in three places and no more: a maple-leaf proof line under the store name, the leaf on the Ship-to
+   switch, and ONE closing band that replaces four stacked bottom sections (ROI stats essay, "Why Just
+   Deals" essay with a stale "Build your board" button, the open FAQ and a three-screen photo wall).
+   Every word in the band is a published fact or a structural one (a Canadian decorator invoicing in CAD
+   means no border and no conversion); nothing is a new promise. US stores get the same band in US terms. */
+var LEAF_PATH='m-90 2030 45-863a95 95 0 0 0-111-98l-859 151 116-320a65 65 0 0 0-20-73l-941-762 212-99a65 65 0 0 0 34-79l-186-572 542 115a65 65 0 0 0 73-38l105-247 423 454a65 65 0 0 0 111-57l-204-1052 327 189a65 65 0 0 0 91-27l332-652 332 652a65 65 0 0 0 91 27l327-189-204 1052a65 65 0 0 0 111 57l423-454 105 247a65 65 0 0 0 73 38l542-115-186 572a65 65 0 0 0 34 79l212 99-941 762a65 65 0 0 0-20 73l116 320-859-151a95 95 0 0 0-111 98l45 863z';
+function leafSvg(sz,cls){return '<svg class="'+(cls||'leaf')+'" viewBox="-2015 -2000 4030 4030" width="'+sz+'" height="'+sz+'" aria-hidden="true"><path fill="#d52b1e" d="'+LEAF_PATH+'"/></svg>';}
+function homeProofHtml(){
+  if(!trustOn()||CFG.demo)return '';
+  var T=JDP_TRUST;
+  var bits=isUS()
+    ?['Family-owned since '+T.since,'Decorated by Stormtech USA','Priced in USD']
+    :['Canadian since '+T.since,'Decorated in Canada','Priced in CAD'];
+  return '<div class="hproof">'+(isUS()?'':leafSvg(15,'leaf hpleaf'))+bits.map(function(b,i){
+    return (i?'<span class="hpsep" aria-hidden="true">·</span>':'')+'<span>'+esc(b)+'</span>';}).join('')+'</div>';
+}
+var STAR_SVG='<svg class="hbst" viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path fill="#f5b301" d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.6-4.9-4.6 6.6-.8z"/></svg>';
+function homeBandHtml(){
+  if(!trustOn()||CFG.demo)return '';
+  var T=JDP_TRUST,us=isUS();
+  var tiles=us
+    ?[[T.teams,'teams outfitted'],[STAR_SVG+T.rating.toFixed(1),T.reviews+' Google reviews'],['USD','every price, logo included'],['1','quote, one contact']]
+    :[[T.teams,'teams outfitted'],[STAR_SVG+T.rating.toFixed(1),T.reviews+' Google reviews'],['CAD','every price, no conversion'],['CSA','Z96 certified hi-vis']];
+  var checks=us
+    ?['Itemized quote for approval','We match any lower written quote','A real person answers']
+    :['No border, no brokerage','We match any lower written quote','A real person answers'];
+  return '<section class="hband'+(us?' hbus':'')+'" id="hband"><div class="w hbin">'+
+    '<div class="hbl">'+
+      (us?'':'<span class="hbleaf">'+leafSvg(30,'leaf')+'</span>')+
+      '<span class="hbey">'+(us?'Family-owned since '+T.since:'Proudly Canadian')+'</span>'+
+      '<h2>'+(us?'Quoted by people you can call.':'Canadian since '+T.since+'.')+'</h2>'+
+      '<p>'+(us?'Your logo decorated by Stormtech USA and priced in US dollars, with one contact from quote to delivery.'
+                :'Family-owned in Toronto. Decorated in Canada, priced in Canadian dollars and shipped coast to coast.')+'</p>'+
+      '<ul class="hbchk">'+checks.map(function(c){return '<li>'+esc(c)+'</li>';}).join('')+'</ul>'+
+      '<div class="hbcta"><button type="button" class="hbbtn" id="hbQuote">Get your formal quote <span class="ar">→</span></button>'+
+        trustPhoneHtml('hb','or call Steven')+'</div>'+
+    '</div>'+
+    '<div class="hbr">'+tiles.map(function(t){return '<div class="hbt"><b>'+t[0]+'</b><span>'+esc(t[1])+'</span></div>';}).join('')+'</div>'+
+  '</div></section>';
+}
+function wireHomeBand(){
+  var b=document.getElementById('hbQuote');
+  if(b&&!b.dataset.w){b.dataset.w='1';b.addEventListener('click',function(){
+    jdpTrack('band_quote',{n:cartCount()});
+    if(cartCount()>0){openQuote('band');return;}
+    var r=document.getElementById((typeof giftViewOn==='function'&&giftViewOn())?'gfgrid':'recohero');if(r)r.scrollIntoView({behavior:'smooth',block:'start'});});}
+  var m=document.getElementById('socMore');
+  if(m&&!m.dataset.w){m.dataset.w='1';m.addEventListener('click',function(){
+    var c=document.getElementById('socClip');if(!c)return;var on=c.classList.toggle('open');
+    m.textContent=on?'Show less':'See more of our work';if(on)jdpTrack('work_more');});}
+}
 
 function shopCatsHtml(){
   if(!CATS||CATS.length<2)return '';
@@ -3307,7 +3366,8 @@ function buildStore(){
      'gap:32px;justify-content:space-between;flex-wrap:wrap">'+
      '<div class="herotx" style="flex:1 1 320px;min-width:0">'+
        '<h1>'+esc(poss(CFG.client))+" team store</h1>"+
-       '<p class="herosub">'+(demo?'This is a live sample. Every item shows exactly where your logo goes — swap in your brand and it becomes your team’s store. Live pricing, exact quote, no obligation.':'Your logo is already on every piece. Pick a ready program or your own gear, set your headcount and download an itemized quote for approval \u2014 confirmed in writing by a real person, usually within 1 business day.'+(isUS()?' All prices in US dollars.':' All prices in Canadian dollars.'))+'</p>'+
+       '<p class="herosub">'+(demo?'This is a live sample. Every item shows exactly where your logo goes — swap in your brand and it becomes your team’s store. Live pricing, exact quote, no obligation.':'Your logo is already on every piece. Choose your gear and download an itemized quote your approver can sign.')+'</p>'+
+       homeProofHtml()+
        /* 4imprint opens every category with a named person ("David with 4imprint, 11 years"). The
           person who actually answers these stores is Steven, so say so, with the number that reaches
           him -- and give the two ways forward, not six claims. */
@@ -3379,13 +3439,16 @@ function buildStore(){
      '</div>'+
      '<div class="grid" id="grid"></div>'+
      '<div class="noresults" id="noResults" style="display:none">No products match your search. Try another term.</div></main>'+
+   /* THE BOTTOM, CALMED (2026-10-07). Was: open FAQ -> ROI stats essay -> "Why Just Deals" essay ->
+      a ~3,000px photo wall -> footer, ~400 words after the buyer had already seen the product. Now:
+      one row of real work (expandable), the home-advantage band that closes, the FAQ as questions only. */
+   (C.feed?('<section class="social"><div class="w"><div class="sochd"><h2 class="seclbl">Recent work from our shop floor</h2>'+
+     '<button type="button" class="socmore" id="socMore">See more of our work</button></div>'+
+     '<div class="socclip" id="socClip"><behold-widget feed-id="'+esc(C.feed)+'"></behold-widget></div></div></section>'):'')+
+   homeBandHtml()+
    (CFG.demo||!trustOn()?'':faqHtml())+
-   whyGearHtml()+
-   whyJdpHtml()+
-   (C.feed?('<section class="social"><div class="w"><h2 class="seclbl">Recent work — from our shop floor</h2>'+
-     '<p class="socsub">'+esc(C.work_lead||'Real kits we’ve decorated for crews across the country.')+'</p>'+
-     '<behold-widget feed-id="'+esc(C.feed)+'"></behold-widget></div></section>'):'')+
-   '<footer><div class="w">Just Deals Promotions · Branded Workwear &amp; Safety Apparel<br>Prepared for '+esc(CFG.client)+' · Concept visuals on representative product photography · Pricing confirmed by exact quote.</div></footer>'+
+   '<footer><div class="w">Just Deals Promotions'+(trustOn()?(' · '+(isUS()?'Family-owned since ':'Canadian since ')+JDP_TRUST.since+' · '+JDP_ADDR):'')+
+     '<br>Prepared for '+esc(CFG.client)+' · Concept visuals on representative product photography · Pricing confirmed by formal quote.</div></footer>'+
    '<div class="ov" id="ov"></div>'+
    '<div class="vmodal" id="vmodal"></div>'+
    '<div class="sheet" id="sheet"></div>'+
@@ -3449,6 +3512,7 @@ function buildStore(){
   var ar=document.getElementById('addRec');if(ar)ar.addEventListener('click',addRecommended);
   var shr=document.getElementById('shReview');if(shr)shr.addEventListener('click',openCart);
   if(curateOn())markCurCards();
+  try{wireHomeBand();}catch(e){}
   var wc=document.getElementById('whyCta');if(wc)wc.addEventListener('click',function(){
     if(cartCount()>0){openBoard();}else{VIEW.sub='all';renderGrid();scrollToResults();}});
   // "Shop the collection" hero tiles -> jump into a category (and reveal their images, which sit outside #grid).
@@ -8019,9 +8083,7 @@ function recoHeroHtml(){
             :(who[0]||'');
   var hd={lbl:'Built for '+esc(CFG.client||'your team'),
           h:'Pre-approved programs, ready to send',
-          p:nwords(Math.min(ids.length,3))+' programs we already stock and decorate'+
-            (whoTxt?(' \u2014 '+whoTxt):'')+
-            '. Every line is priced at your minimum, and every one is yours to change.'};
+          p:nwords(Math.min(ids.length,3))+' ready-made programs, priced at your minimum. Change any piece.'};
   return '<section class="recohero'+(generated?' gen':'')+'"><div class="w">'+
     '<div class="rhlbl">'+hd.lbl+'</div>'+
     '<h2 class="rhh">'+hd.h+'</h2>'+
@@ -8087,9 +8149,8 @@ function heroNextHtml(){
         '<li><span><b>Download</b> an itemized quote (PDF) for approval</span></li></ol>'+
       '<div class="hnbtns"><button type="button" class="hnprim" id="hnPrograms">Start with a program <span class="ar">↓</span></button>'+
         '<button type="button" class="hnsec" id="hnRfq">Upload an RFQ or spec</button></div>'+
-      '<div class="hnlsub">No payment · no obligation · confirmed in writing by a real person in '+T.reply+'</div></div>'+
-    '<div class="hnlinks"><button type="button" class="hnlink" id="hnAsk">Not sure? Tell us what you need</button></div>'+
-    whoS+'</div>';
+      '<div class="hnlsub">No payment · no obligation · confirmed in writing by a real person</div></div>'+
+    whoS.replace(/<\/div>$/,'<button type="button" class="hnlink hnask2" id="hnAsk">Not sure? Ask Steven</button></div>')+'</div>';
 }
 /* ---- RFQ UPLOAD: for the buyer who arrives with a spec already written ------------------------------
    Enterprise purchasing often starts from a document -- an RFQ, a spec sheet, last year's order. Let

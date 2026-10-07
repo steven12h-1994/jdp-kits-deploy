@@ -3282,3 +3282,63 @@ body.giftview .tbgifts{background:var(--amber);border-color:var(--amber)}
 .mkthint>span{flex:1 1 auto;min-width:0}
 .mkthgo,.mkthx{flex:none;white-space:nowrap}
 @media (max-width:560px){.mkthint{flex-wrap:wrap}.mkthint>span{flex-basis:100%}}
+/* ===== HOME ADVANTAGE + CALM BOTTOM (2026-10-07) ===================================================
+   "Canadian companies like that we are in canada" + "do not overload them with text at the bottom".
+   Hero carries one proof line; the page closes on ONE dark band; work photos are a single row. */
+.hproof{display:flex;align-items:center;flex-wrap:wrap;gap:4px 9px;margin:12px 0 0;font-size:13.5px;font-weight:750;color:var(--ink);letter-spacing:.005em}
+.hproof .hpsep{color:#c9bfae;font-weight:400}
+.leaf{flex:none;display:block}
+.hpleaf{margin-right:1px}
+.tbmktb .tbleaf{margin-right:1px}
+.hband{background:var(--ink);color:#fff;padding:60px 0;margin-top:18px;position:relative;overflow:hidden}
+.hband::after{content:"";position:absolute;right:-120px;top:-140px;width:520px;height:520px;border-radius:50%;
+  background:radial-gradient(closest-side,rgba(255,255,255,.07),rgba(255,255,255,0));pointer-events:none}
+.hbin{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:56px;align-items:center;position:relative;z-index:1}
+.hbleaf{display:inline-flex;width:54px;height:54px;border-radius:15px;background:#fff;align-items:center;justify-content:center;margin-bottom:18px;box-shadow:0 10px 24px -12px rgba(0,0,0,.6)}
+.hbey{display:block;font-size:11.5px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:rgba(255,255,255,.6);margin-bottom:8px}
+.hband h2{font-family:var(--disp);font-size:46px;line-height:1.02;margin:0 0 14px;color:#fff;letter-spacing:-.005em}
+.hband p{font-size:16.5px;line-height:1.55;color:rgba(255,255,255,.8);margin:0 0 20px;max-width:44ch}
+.hbchk{list-style:none;padding:0;margin:0 0 28px;display:flex;flex-wrap:wrap;gap:8px}
+.hbchk li{font-size:13px;font-weight:700;padding:7px 13px 7px 31px;border-radius:999px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);position:relative;color:#fff}
+.hbchk li::before{content:"";position:absolute;left:13px;top:50%;width:9px;height:5px;border:solid #8fe0a0;border-width:0 0 2px 2px;transform:translateY(-75%) rotate(-45deg)}
+.hbcta{display:flex;align-items:center;gap:20px;flex-wrap:wrap}
+.hbbtn{background:#fff;color:var(--ink);font-weight:850;font-size:15.5px;padding:15px 24px;border-radius:12px;border:0;cursor:pointer;display:inline-flex;gap:10px;align-items:center;transition:transform .12s,box-shadow .12s;box-shadow:0 14px 30px -16px rgba(0,0,0,.7)}
+.hbbtn:hover{transform:translateY(-1px)}
+.hband .tphone.hb{color:rgba(255,255,255,.85);font-size:14px}
+.hband .tphone.hb b{color:#fff}
+.hband .tphone.hb svg{color:#fff}
+.hbr{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.hbt{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:18px;padding:24px 22px}
+.hbt b{display:flex;align-items:baseline;font-family:var(--disp);font-size:40px;line-height:1;color:#fff;font-weight:800}
+.hbt span{display:block;margin-top:9px;font-size:13px;color:rgba(255,255,255,.64);font-weight:600;line-height:1.35}
+.hbst{color:#f5b301;font-size:.72em;margin-right:5px}
+@media(max-width:960px){.hbin{grid-template-columns:1fr;gap:30px}.hband h2{font-size:36px}}
+@media(max-width:560px){.hband{padding:42px 0}.hband h2{font-size:31px}.hband p{font-size:15px}
+  .hbt{padding:17px 16px;border-radius:15px}.hbt b{font-size:30px}.hbbtn{flex:1 1 100%;justify-content:center}
+  .hbcta{gap:12px}.hbcta .tphone.hb{margin:0 auto}.hbleaf{width:46px;height:46px;margin-bottom:14px}}
+/* Work photos: one row, expandable. The widget's grid lives in a closed shadow root, so the row is
+   clipped from outside: one square tile = (content width - 2 gaps) / 3. */
+.social{padding:40px 0 34px}
+.social .w{container-type:inline-size}
+.sochd{display:flex;align-items:baseline;justify-content:space-between;gap:14px;margin-bottom:14px}
+.sochd .seclbl{margin:0}
+.socmore{background:none;border:0;padding:4px 0;font:inherit;font-size:14px;font-weight:800;color:var(--a);text-decoration:underline;text-underline-offset:3px;cursor:pointer;white-space:nowrap}
+.socclip{overflow:hidden;max-height:calc((100cqw - 20px) / 3);transition:max-height .35s ease}
+.socclip.open{max-height:4000px}
+/* FAQ as reference, not reading: every answer closed, tighter rhythm. */
+.faq{padding:44px 0 30px}
+.faqh{margin-bottom:16px}
+footer{border-top:1px solid var(--line)}
+@media(max-width:560px){.sochd{flex-direction:column;gap:2px}.hproof{font-size:12.5px}}
+body.giftview .social{display:none!important}
+@media print{.hband,.social{display:none}}
+.hbt b .hbst{width:.62em;height:.62em;margin-right:6px;align-self:center;flex:none}
+.mkthint{max-width:min(780px,calc(100vw - 32px))}
+.hnwhos{flex-wrap:wrap;row-gap:8px}
+.hnask2{margin-left:4px;font-size:13.5px}
+@media (max-width:560px){
+  .mkthint{left:12px;right:12px;transform:none;max-width:none;width:auto}
+  .hproof{gap:4px 12px}.hproof .hpsep{display:none}.hproof>span{white-space:nowrap}
+}
+@media (max-width:420px){.tbmktb>b{display:none}.tbmktb>i{display:inline-block!important}}
+@media (max-width:420px){.tbtrust .tphone.tb{display:none}}
