@@ -1242,6 +1242,11 @@ var MEGA=[
   {id:'hivis',name:'Hi-Vis & Safety'},
   {id:'carhartt',name:'Carhartt Workwear'},
   {id:'headwear',name:'Headwear'},
+  /* BAGS ARE THEIR OWN AISLE (Steven, 2026-10-07: "We need to do much better for our bags section.
+     bags should be its own category"). Bags were split three ways -- Stormtech and promo under
+     Accessories > Bags, Carhartt inside its brand aisle -- so nobody shopping for a backpack saw the
+     whole range in one place. Now one category, shelved by what the bag IS. */
+  {id:'bags',name:'Bags'},
   {id:'bottoms',name:'Pants & Joggers'},
   {id:'fr',name:'Flame-Resistant'},
   {id:'accessories',name:'Accessories'}
@@ -1292,7 +1297,11 @@ var MEGASUB={
      "Easy Breezy" or "Shot Caller", is unnavigable -- a buyer looking for a water bottle had to open
      products one by one to find out which ones were bottles. Buyers shop drinkware by type first,
      then material and size. */
-  accessories:['Kits & Gift Sets','Water Bottles','Tumblers','Mugs','Drinkware','Notebooks & Pens','Tech','Lifestyle','Bags','Golf','Headwear'],
+  /* Bags by type, in the order a buyer narrows: what they carry it on (back or hand), then the
+     cooler, which is a different purchase entirely. The one tool bag shelves with the duffels -- a
+     shelf holding a single bag is not an aisle. */
+  bags:['Backpacks','Duffels & Tool Bags','Coolers & Lunch'],
+  accessories:['Kits & Gift Sets','Water Bottles','Tumblers','Mugs','Drinkware','Notebooks & Pens','Tech','Lifestyle','Golf','Headwear'],
 };
 // Hi-vis by NAME (any layer). Organized how safety buyers actually shop — vests lead (the #1 entry
 // hi-vis item), then shirts, warm mid-layers, insulated jackets, winter parkas, and rain/gear last.
@@ -1395,9 +1404,24 @@ function crossAlso(it,c){
   // A vest keeps its brand home (Carhartt, Rugged Wear) or its PPE home (Hi-Vis) AND appears in the
   // Vests category, so neither shopper loses it: one browses by brand, the other by garment.
   if(c.mega!=='vests'&&/vest/.test(n))out.push({mega:'vests',sub:vestSub(n)});
+  /* Carhartt keeps its brand aisle; its bags ALSO stand in the Bags aisle. Dog gear and throws share
+     Carhartt's "Bags & Accessories" shelf but are not bags, so the test is the bag itself. */
+  if(c.mega!=='bags'&&isBag(it,n)&&!/\bdog\b|leash|collar|throw|blanket/.test(n))out.push({mega:'bags',sub:bagSub(n)});
   return out;
 }
 // Best-sellers (rec flag) are NOT a separate section — they live in their garment sub with the ★ Top pick badge, sorted first.
+/* Which bag shelf. Cooler first: "Backpack Cooler (20-can)" is a cooler a buyer carries on their back,
+   and the person shopping for it is shopping coolers. Promo bags whose names say nothing ("Classic
+   Revival", "Vanguard") are backpacks by their photos; the two duffles say so in the name. */
+function isBag(it,n){return it.layer==='bags'||(it.layer==='promo'&&it.psub==='Bags')||/backpack|duffel|duffle|cooler|lunch bag|tool bag|\btote\b/.test(n);}
+function bagSub(n){
+  if(/cooler|lunch/.test(n))return 'Coolers & Lunch';
+  if(/duffel|duffle|tool bag|tote/.test(n))return 'Duffels & Tool Bags';
+  return 'Backpacks';
+}
+/* Steven's own list of popular bags, in his order: each shelf leads with these. */
+var BAG_LEAD=['st_nautilus110','st_nautilus70','st_deluge','st_saturna24','st_magellan30','nk_fn4106','nk_dh7710','nk_dh7709',
+  'ch_duffel40','ch_duffel120','ch_bp28','ch_ripstop25','ch_bp23','ch_lunch','ch_canvasbp','ch_toolbag','ch_bpcooler'];
 function classifyCarhartt(it,n,layer){
   if(/\bfr\b|flame[- ]resistant/.test(n))return {mega:'carhartt',sub:'Flame-Resistant'};
   if(layer==='bags'||/duffel|backpack|cooler|lunch|dog|leash|collar|throw|blanket|\bbag\b|tote/.test(n))return {mega:'carhartt',sub:'Bags & Accessories'};
@@ -1465,7 +1489,8 @@ function classify(it){
       if(_t==='tumbler')return {mega:'accessories',sub:'Tumblers'};
       if(_t==='mug'||_t==='cup')return {mega:'accessories',sub:'Mugs'};
     }
-    return {mega:'accessories',sub:it.psub||'Bags'};   // all other promo/golf/bag items
+    if(it.psub==='Bags')return {mega:'bags',sub:bagSub(n)};
+    return {mega:'accessories',sub:it.psub||'Lifestyle'};   // all other promo/golf items
   }
   // Carhartt is a dedicated brand category — route ALL Carhartt items there (keeps the shared tabs uncluttered).
   var _brand=((it.sku||'')+' '+(it.brand||'')).toLowerCase();
@@ -1476,7 +1501,7 @@ function classify(it){
   if(_brand.indexOf('red kap')>=0||_brand.indexOf('dickies')>=0||/work shirt|uniform shirt/.test(n))return classifyWorkShirt(n);
   if(/hi-?vis|safety/.test(n))return classifyHivis(n);           // hi-vis items (any brand/layer) -> Hi-Vis & Safety
   if(_brand.indexOf('rugged wear')>=0)return classifyRugged(n);  // Canada Sportswear Rugged Wear line -> its own tab
-  if(layer==='bags')return {mega:'accessories',sub:'Bags'};   // all apparel bags -> Accessories › Bags
+  if(layer==='bags')return {mega:'bags',sub:bagSub(n)};      // every Stormtech / Nike bag -> Bags
   if(layer==='field')return classifyHivis(n);   // all Ground Force traffic gear routes by garment type
   // apparel (office + premium + Stormtech). Order matters: shackets/vests before shirt/fleece;
   // layers (zip/sweatshirt/hood) before "shirt" so "…Sweatshirt" doesn't read as a shirt.
@@ -1557,10 +1582,10 @@ function browseColour(key,item){
   return (hit&&hit.name===want)?want:(cols[0]||{}).name;
 }
 var BUCKETS={},TOTALS={},CATS=[],QURLT=null,VURLOK=false;
-var SHORTCAT={tops:'Polos & Shirts',layers:'Fleece & Sweaters',outerwear:'Jackets',vests:'Vests',ruggedwear:'Rugged Wear',hivis:'Hi-Vis & Safety',carhartt:'Carhartt',headwear:'Headwear',bottoms:'Pants & Joggers',fr:'Flame-Resistant',accessories:'Accessories'};
+var SHORTCAT={tops:'Polos & Shirts',layers:'Fleece & Sweaters',outerwear:'Jackets',vests:'Vests',ruggedwear:'Rugged Wear',hivis:'Hi-Vis & Safety',carhartt:'Carhartt',headwear:'Headwear',bags:'Bags',bottoms:'Pants & Joggers',fr:'Flame-Resistant',accessories:'Accessories'};
 // Two brand worlds — how JDP sells: the jobsite crew and the front office / client-facing team.
-var AUD=[{id:'field',name:'Field & Crews',short:'Field & Crews',blurb:'CSA hi-vis, rugged workwear & hard-hat-ready layers built for the jobsite.',cats:['hivis','ruggedwear','carhartt','fr','headwear','bottoms']},
-         {id:'office',name:'Office, Sales & Client-Facing',short:'Office & Sales',blurb:'Sharp branded polos, softshells, premium brands & client gifts for the front office and sales floor.',cats:['tops','layers','outerwear','headwear','bottoms','accessories']}];
+var AUD=[{id:'field',name:'Field & Crews',short:'Field & Crews',blurb:'CSA hi-vis, rugged workwear & hard-hat-ready layers built for the jobsite.',cats:['hivis','ruggedwear','carhartt','fr','headwear','bags','bottoms']},
+         {id:'office',name:'Office, Sales & Client-Facing',short:'Office & Sales',blurb:'Sharp branded polos, softshells, premium brands & client gifts for the front office and sales floor.',cats:['tops','layers','outerwear','headwear','bags','bottoms','accessories']}];
 function audOf(w){for(var i=0;i<AUD.length;i++)if(AUD[i].id===w)return AUD[i];return null;}
 function worldOfCat(c){for(var i=0;i<AUD.length;i++)if(AUD[i].cats.indexOf(c)>=0)return AUD[i].id;return null;}
 function worldCats(){if(VIEW.world==='all')return CATS;var a=audOf(VIEW.world);return a?a.cats.filter(function(c){return CATS.indexOf(c)>=0;}):CATS;}
@@ -1573,7 +1598,7 @@ var KITS=[
   {id:'crew',name:'The Crew Kit',world:'field',tag:'Field & Crews',blurb:'Jobsite-ready — hi-vis tee, hi-vis hoodie & a warm beanie.',slots:[['hivis','Hi-Vis T-Shirts'],['hivis','Sweatshirts & Hoodies'],['carhartt','Headwear']]},
   {id:'super',name:'The Field Supervisor Kit',world:'field',tag:'Field & Crews',blurb:'Lead the site — softshell jacket, branded polo & a cap.',slots:[['outerwear','Softshell Jackets'],['tops','Polos'],['carhartt','Headwear']]},
   {id:'client',name:'The Client-Facing Kit',world:'office',tag:'Office & Sales',blurb:'Sharp & polished — quarter-zip, premium polo & a notebook.',slots:[['layers','Quarter & Half-Zips'],['tops','Polos'],['accessories','Notebooks & Pens']]},
-  {id:'newhire',name:'The New-Hire Welcome Kit',world:'office',tag:'Onboarding',blurb:'Day-one welcome — polo, backpack, bottle & a notebook.',slots:[['tops','Polos'],['accessories','Bags'],['accessories','Drinkware'],['accessories','Notebooks & Pens']]}
+  {id:'newhire',name:'The New-Hire Welcome Kit',world:'office',tag:'Onboarding',blurb:'Day-one welcome — polo, backpack, bottle & a notebook.',slots:[['tops','Polos'],['bags','Backpacks'],['accessories','Drinkware'],['accessories','Notebooks & Pens']]}
 ];
 function kitItems(kit){var out=[];kit.slots.forEach(function(s){var arr=BUCKETS[s[0]]&&BUCKETS[s[0]][s[1]];if(arr)for(var i=0;i<arr.length;i++){if(out.indexOf(arr[i])<0){out.push(arr[i]);break;}}});return out;}
 function shortCat(id){return SHORTCAT[id]||megaName(id);}
@@ -1599,7 +1624,12 @@ function buildBuckets(){
     // one. Mixed in with priced goods it ranked every promo item (srt:0) above real prices, so vendor
     // goods surfaced at the top of a category as if we had chosen them.
     var useSrt=arr.every(function(k){return (BYKEY[k]||{}).srt!=null;});
-    arr.sort(function(a,b){var pa=pkey(a,useSrt),pb=pkey(b,useSrt);return (pa[0]-pb[0])||(pa[1]-pb[1]);});});});
+    arr.sort(function(a,b){var pa=pkey(a,useSrt),pb=pkey(b,useSrt);return (pa[0]-pb[0])||(pa[1]-pb[1]);});
+    /* The Bags aisle leads with the bags Steven named as the popular ones, in his order; everything
+       else follows by the normal rule. Stable: only the named bags move. */
+    if(m==='bags'){var lead=arr.filter(function(k){return BAG_LEAD.indexOf(k)>=0;})
+        .sort(function(a,b){return BAG_LEAD.indexOf(a)-BAG_LEAD.indexOf(b);});
+      BUCKETS[m][s]=lead.concat(arr.filter(function(k){return BAG_LEAD.indexOf(k)<0;}));}});});
   CATS=MEGA.filter(function(m){return BUCKETS[m.id];}).map(function(m){return m.id;});
 }
 var ALLKEYS=[];
@@ -1746,8 +1776,11 @@ function sortList(list){
   if(!VIEW.sort){
     /* Array.prototype.sort is stable in every engine this runs on, so equal ranks keep the
        catalogue order we curated. */
+    /* Steven's popular bags (BAG_LEAD) lead any shelf they are on, ahead of the older top-pick flags
+       on two promo bags -- his 2026-10-07 list is the newer, explicit call. Everything else: 0. */
+    var bl=function(k){var i=BAG_LEAD.indexOf(bkey(k));return i<0?0:i-100;};
     return list.slice().sort(function(a,b){
-      return (recRank(a)-recRank(b))||
+      return (bl(a)-bl(b))||(recRank(a)-recRank(b))||
              /* Among the top picks, the keener price leads -- the work-pants shelf had the $92
                 Dickies ahead of the $50.50 pant Steven names as the best seller. Non-picks all
                 score 0 here, so the curated catalogue order is untouched for everything else. */
@@ -2273,11 +2306,12 @@ var SX_SUBWORDS={
   'Flame-Resistant':'fr','Bags & Accessories':'bag backpack',
   'Kits & Gift Sets':'gift giftset kit bundle','Water Bottles':'bottle water drinkware','Tumblers':'tumbler drinkware cup',
   'Mugs':'mug coffee cup drinkware','Drinkware':'drinkware bottle mug tumbler','Notebooks & Pens':'notebook journal pen stationery',
-  'Tech':'tech charger speaker earbud usb wireless','Lifestyle':'lifestyle','Bags':'bag backpack tote duffel cooler'
+  'Tech':'tech charger speaker earbud usb wireless','Lifestyle':'lifestyle','Bags':'bag backpack tote duffel cooler',
+  'Backpacks':'bag backpack laptop pack','Duffels & Tool Bags':'bag duffel duffle gym travel tool','Coolers & Lunch':'bag cooler lunch insulated'
 };
 var SX_MEGAWORDS={outerwear:'jacket coat outerwear',vests:'vest',hivis:'hivis safety reflective csa ansi visibility',
   carhartt:'carhartt workwear',headwear:'hat headwear',bottoms:'pant bottom',ruggedwear:'rugged workwear',
-  layers:'layer',accessories:'accessory',fr:'fr'};
+  layers:'layer',accessories:'accessory',bags:'bag bags backpack duffel cooler',fr:'fr'};
 /* Query words that ADD a meaning rather than a spelling: typing "coat" should also find jackets. */
 var SX_SYN={coat:['jacket','parka'],winter:['insulated','parka','toque','warm'],warm:['insulated','fleece','parka'],
   puffer:['quilted','insulated'],sweater:['fleece','sweatshirt','quarterzip','crewneck'],
@@ -6964,8 +6998,11 @@ function catKeysOf(cat){
   for(var s in b){var arr=b[s];if(arr&&arr.length)out=out.concat(arr);}
   return out;
 }
+/* A category tile shows its best foot: for Bags that is the duffel Steven listed first, not whichever
+   bag happens to be cheapest. Falls through to the normal rule if the store does not carry it. */
+var CAT_TILE_PREF={bags:['st_nautilus110','st_nautilus70','nk_dh7709']};
 function catTileImg(cat){
-  var keys=catKeysOf(cat);
+  var keys=(CAT_TILE_PREF[cat]||[]).filter(function(k){return BYKEY[k]&&catKeysOf(cat).indexOf(k)>=0;}).concat(catKeysOf(cat));
   for(var i=0;i<keys.length;i++){
     var it=BYKEY[keys[i]];if(!it)continue;
     var c=(it.cols||[])[0];
@@ -7338,6 +7375,40 @@ var GIFT_PICKS=[
    why:'The same Rain Defender® shell and 100 g insulation as the jacket, with the arms free. Carhartt builds it to go over a hoodie or under a heavier coat.'},
   {k:'ch_104277',
    why:'12 oz washed cotton duck lined with sherpa — with sherpa-lined front pockets and a zip map pocket. The classic Carhartt work vest, with your logo opposite the patch.'},
+  /* --- Bags, Steven 2026-10-07: "bags should also be a big part of gifts section" --------------
+     His own list of popular bags. Every line is taken from the maker's product page -- Stormtech
+     (stormtechperformance.com / stormtech.ca) and Carhartt via SanMar Canada -- never from memory.
+     No Nike here, by his standing gift rule of 2026-09-15; the Nike bags are in the Bags aisle. */
+  {k:'st_nautilus70',
+   why:'70 litres of heavy-duty waterproof fabric that carries as a duffel or a backpack, with a separate zippered boot pocket and an ID sleeve. One size for everyone, so there is nothing to collect.'},
+  {k:'st_nautilus110',
+   why:'The 110-litre Nautilus: waterproof, a duffel and a backpack in one, with four reinforced carry handles and an external boot pocket. The bag for a crew that goes away to site for a week.'},
+  {k:'st_deluge',
+   why:'A 100% waterproof 26-litre backpack with a laptop compartment that fits up to 17″, a reflective back panel and room for a hydration bladder. The commute in any weather.'},
+  {k:'st_saturna24',
+   why:'A roll-top cooler backpack that holds 24 cans in a leak-proof insulated compartment, with padded shoulder straps and back panel. Lunch on site, or the weekend at the lake.'},
+  {k:'st_magellan30',
+   why:'A 30-can cooler in 100% waterproof fabric with a leak-proof removable hard liner, a zipper-free flip lid and a padded shoulder strap. The team barbecue, sorted.'},
+  {k:'st_saltspring',
+   why:'A 16-can cooler bag with a zippered, insulated, leak-proof compartment, carry handles and an adjustable shoulder strap. A compact gift with no sizes to collect.'},
+  {k:'ch_canvasbp',
+   why:'Carhartt’s 21-litre backpack with a 15″ laptop sleeve, padded straps and back panel, and a front pocket with a key fob. The brand people ask for, at its most approachable price.'},
+  {k:'ch_lunch',
+   why:'A seam-sealed Carhartt lunch cooler that holds six 12-oz cans, with an insulated top compartment and a shoulder strap. The one they carry to the job every day.'},
+  {k:'ch_duffel40',
+   why:'A 40-litre Carhartt duffel in water-repellent 500D polyester, with webbing haul handles, an adjustable shoulder strap and a zippered utility pouch included.'},
+  {k:'ch_toolbag',
+   why:'A 14″ Foundry tool bag in 1200D polyester with an interior metal frame that holds it open, six exterior pockets and six interior loops. A gift a tradesperson uses every single day.'},
+  {k:'ch_bpcooler',
+   why:'A seam-sealed Carhartt backpack cooler that holds twenty 12-oz cans, with an insulated top compartment and padded shoulder straps. Lunch for the whole shift, hands-free.'},
+  {k:'ch_bp23',
+   why:'The Foundry 23L in 1200D water-repellent polyester, with a 15″ laptop and tablet sleeve, an air-mesh back panel and a key fob. The everyday Carhartt backpack.'},
+  {k:'ch_bp28',
+   why:'Two main compartments, a 15″ laptop sleeve and a tablet sleeve in 1200D water-repellent polyester, on a Duravax abrasion-resistant base. For the person who carries everything.'},
+  {k:'ch_ripstop25',
+   why:'CORDURA® ripstop with a 15″ laptop sleeve, a hideaway padded waist belt, a fleece-lined eyewear pocket and hydration compatibility. The most technical Carhartt pack we carry.'},
+  {k:'ch_duffel120',
+   why:'Carhartt’s 120-litre Foundry duffel: 1200D heavy-duty polyester, a separate end compartment and a Duravax abrasion-resistant base. For a long rotation or a week away.'},
   /* --- Spector drinkware, journals and home sets: Steven, 2026-09-25 -------------------------
      "We need to add the following products and add these to gifts as well." These are Steven's own
      picks, so they carry `gift:true` in the catalogue and pass the gate below even as single pieces
@@ -7454,9 +7525,14 @@ var GIFT_PICKS=[
    seen in it") -- but until now the page gave them no way to act on it, so the advice dead-ended in
    a 33-card grid. This is a product-type split, not an occasion filter: it answers "what am I
    buying", which the copy raises, rather than inventing a reason for the gift. */
+/* BAGS ARE A GIFT TYPE OF THEIR OWN (Steven, 2026-10-07: "bags should also be a big part of gifts
+   section"). A bag answers the same problem a boxed kit does -- no sizes to collect -- but it is one
+   good thing instead of four small ones, and it is the piece people keep carrying. So it gets its own
+   lane, directly after apparel. */
 var GIFT_TYPES=[
   {id:'all',  lab:'Everything'},
   {id:'wear', lab:'Apparel'},
+  {id:'bag',  lab:'Bags & coolers'},
   {id:'kit',  lab:'Ready-boxed kits'},
   {id:'keep', lab:'Mugs & journals'}
 ];
@@ -7468,7 +7544,7 @@ var GIFT_TYPES=[
    claim -- and the reason shown is the item's own GIFT_PICKS `why`. */
 var GIFT_TOP_US=[
   {k:'vest',lab:'The safe pick'},{k:'st_avalanteqz',lab:'For client-facing teams'},{k:'st_nautilusjkt',lab:'The everyday jacket'},
-  {k:'st_stavanger',lab:'For service milestones'},{k:'st_oxide',lab:'For the trades'},{k:'st_saltspring',lab:'No sizes to collect'}
+  {k:'st_stavanger',lab:'For service milestones'},{k:'st_oxide',lab:'For the trades'},{k:'st_nautilus70',lab:'No sizes to collect'}
 ];
 var GIFT_TOP=[
   {k:'vest',            lab:'The safe pick'},
@@ -7476,7 +7552,7 @@ var GIFT_TOP=[
   {k:'st_nautilusjkt',  lab:'A real jacket under $90'},
   {k:'st_stavanger',    lab:'For service milestones'},
   {k:'ch_102286',       lab:'For the trades'},
-  {k:'sp_bb192',        lab:'No sizes to collect'}
+  {k:'st_nautilus70',   lab:'No sizes to collect'}
 ];
 /* NEAR-DUPLICATES FOLD INTO ONE CARD. "Modern Command, Momentum Mode and Daily Ascent are all $58
    bag/bottle/journal-style kits. That creates decision friction without adding much real choice."
@@ -7494,10 +7570,10 @@ function giftVariantKeys(){var o={};Object.keys(GIFT_VARIANTS).forEach(function(
   (GIFT_VARIANTS[r]||[]).forEach(function(v){o[v.k]=r;});});return o;}
 /* Apparel first, then boxed kits, then the small thank-yous -- "journals and mugs appear before your
    stronger apparel and kit options." Within each, cheapest first. */
-var GIFT_TYPE_ORDER={wear:0,kit:1,keep:2};
+var GIFT_TYPE_ORDER={wear:0,bag:1,kit:2,keep:3};
 /* A kit is a boxed set -- a Spector "Gift Set", or a home set Spector ships in a gift box. A single
    mug or journal is its own kind of gift, and calling it a "ready-boxed kit" would mislead. */
-function giftType(g){var it=BYKEY[g.k];if(!it||it.layer!=='promo')return 'wear';
+function giftType(g){var it=BYKEY[g.k];if(it&&it.layer==='bags')return 'bag';if(!it||it.layer!=='promo')return 'wear';
   return (it.sku==='Gift Set'||/gift box/i.test(it.pack||''))?'kit':'keep';}
 var GV={band:'all',type:'all'};
 /* THE BAND PRICE MUST BE THE PRICE ON THE CARD -- the store minimum for apparel, and for a Spector
@@ -7550,7 +7626,7 @@ function giftsSectionHtml(){
       '<div class="gfeyb">Employee gifts</div>'+
       '<h2 class="gfh">Gifts people keep</h2>'+
       '<p class="gfsub">Premium branded apparel first — jackets, vests and quarter-zips your team '+
-        'will wear on their own time — plus '+(isUS()?'bags and coolers':'ready-boxed kits')+' for when you can’t collect sizes. '+
+        'will wear on their own time — plus bags, coolers'+(isUS()?'':' and ready-boxed kits')+' for when you can’t collect sizes. '+
         'Every price is per person, with your logo already in it.</p>'+
     '</div>'+
     '<div class="gftop" id="gftop"></div>'+
@@ -7566,8 +7642,8 @@ function renderGifts(){
   var pool=giftPool();
   document.getElementById('gfguide').innerHTML=
     '<p class="gfgt"><b>How to choose.</b> Start with what you can spend per person — that alone '+
-    'narrows this to a handful. Apparel needs sizes and lands in your brand colour; '+(isUS()?'a bag':'a boxed kit')+' '+
-    'needs neither, which is why '+(isUS()?'bags':'kits')+' win for a whole-payroll gift and apparel wins for anyone '+
+    'narrows this to a handful. Apparel needs sizes and lands in your brand colour; a bag'+(isUS()?'':' or a boxed kit')+' '+
+    'needs neither, which is why bags'+(isUS()?'':' and kits')+' win for a whole-payroll gift and apparel wins for anyone '+
     'you want seen in it.</p>';
   /* Each row counts against the OTHER row's current choice, so the numbers describe what a click
      would actually return. A count that ignored the sibling filter would promise 15 and show 4. */
@@ -7605,15 +7681,16 @@ function renderGifts(){
       '<h3 class="gftoph">Our '+nwords(six.length).toLowerCase()+' picks</h3>'+
       '<p class="gftops">If you only look at '+six.length+', look at these — '+
         six.filter(function(g){return giftType(g)==='wear';}).length+' premium apparel pieces across every budget, '+
-        (isUS()?'and a bag for when sizes aren’t practical.':'and a boxed kit for when sizes aren’t practical.')+'</p></div></div>'+
+        'and a bag for when sizes aren’t practical.</p></div></div>'+
     '<div class="gfgrid gftopgrid">'+six.map(function(g){return item(g,g.lab);}).join('')+'</div>'):'';
-  var SECT={wear:'Premium branded apparel',kit:'Ready-boxed kits',keep:'Small thank-yous: mugs & journals'};
+  var SECT={wear:'Premium branded apparel',bag:'Bags & coolers',kit:'Ready-boxed kits',keep:'Small thank-yous: mugs & journals'};
   var SUBT={wear:'Jackets, vests, quarter-zips and fleece — the gifts people wear, with your logo on them.',
+            bag:'Duffels, backpacks and coolers with your logo. No sizes to collect.',
             kit:'Boxed and ready to hand over. No sizes to collect.',
             keep:'For a smaller budget, or alongside a bigger gift.'};
   var html='';
   if(GV.type==='all'){
-    ['wear','kit','keep'].forEach(function(t){
+    ['wear','bag','kit','keep'].forEach(function(t){
       var list=hits.filter(function(g){return giftType(g)===t&&!sixK[g.k];});
       if(!list.length)return;
       html+='<section class="gfsec gfsec-'+t+'"><div class="gfsechd"><h3>'+(pristine&&t==='wear'?'More premium apparel':SECT[t])+
@@ -7727,7 +7804,9 @@ function giftEntryHtml(){
   var pool=giftPool();if(!pool.length)return '';
   var wear=pool.filter(function(g){return giftType(g)==='wear';});
   var lo=(wear[0]||pool[0]).p;
-  var tiles=giftTop().filter(function(g){return giftType(g)==='wear';}).slice(0,4).map(function(g){
+  /* Three apparel picks and the lead bag: the door shows both halves of what is behind it. */
+  var _gt=giftTop(),_tw=_gt.filter(function(g){return giftType(g)==='wear';}),_tb=_gt.filter(function(g){return giftType(g)==='bag';});
+  var tiles=(_tb.length?_tw.slice(0,3).concat(_tb.slice(0,1)):_tw.slice(0,4)).map(function(g){
     var it=BYKEY[g.k],o=null;
     try{o=overlayHtml(it,vmOf(g.k),browseColour(g.k,it),'front',browseCols(it),browsePlaces(it));}catch(e){o=null;}
     if(!o)return '';
@@ -7739,7 +7818,7 @@ function giftEntryHtml(){
     '<span class="gfetx">'+
       '<span class="gfeeyb">'+railIcon('gifts')+' Employee gifts</span>'+
       '<b>Gifts your team will actually keep</b>'+
-      '<i>Premium jackets, vests and quarter-zips with your logo — plus '+(isUS()?'bags and coolers':'ready-boxed kits')+' when you '+
+      '<i>Premium jackets, vests and quarter-zips with your logo — plus bags, coolers'+(isUS()?'':' and boxed kits')+' when you '+
         'can’t collect sizes. Our six picks are at the top.</i>'+
       '<span class="gferow"><span class="gfecta">Shop employee gifts <span aria-hidden="true">→</span></span>'+
         '<span class="gfefrom">Apparel from '+money0(lo)+' a person</span></span>'+
