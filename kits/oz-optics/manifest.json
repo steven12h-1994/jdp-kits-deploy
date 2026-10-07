@@ -1,0 +1,18 @@
+{
+ "generator": "client-app",
+ "version": "1791390352",
+ "slug": "oz-optics",
+ "client": "OZ Optics Ltd.",
+ "files": [
+  "index.html",
+  "client.json",
+  "img/favicon.png",
+  "img/lg_full_163887.png",
+  "img/lg_full_brand.png",
+  "img/lg_full_dark.png",
+  "img/lg_full_ffed00.png",
+  "img/lg_full_white.png",
+  "img/logo-white.png",
+  "img/lg_full_ondark.png"
+ ]
+}
