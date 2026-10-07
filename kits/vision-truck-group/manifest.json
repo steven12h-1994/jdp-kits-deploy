@@ -1,0 +1,17 @@
+{
+  "generator": "client-app",
+  "version": "1791399118",
+  "slug": "vision-truck-group",
+  "client": "Vision Truck Group",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_022c56.png",
+    "img/lg_full_3c6c8c.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}
