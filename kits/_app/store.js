@@ -1878,7 +1878,9 @@ function renderColbar(){
   var keys=(VIEW.sub==='all')?[].concat.apply([],subNames(VIEW.cat).map(function(s){return BUCKETS[VIEW.cat][s];})):((BUCKETS[VIEW.cat]||{})[VIEW.sub]||[]);
   var count={};keys.forEach(function(k){var it=BYKEY[k];if(!it)return;Object.keys(itemFam(it)).forEach(function(f){count[f]=(count[f]||0)+1;});});
   var fams=COLFAM.map(function(c){return c[0];}).filter(function(f){return count[f]>1;});
-  if(fams.length<3||keys.length<6){el.innerHTML='';el.style.display='none';VIEW.col=null;return;}
+  /* Bags are bought by type and budget, not by colour family: ten colour chips there were noise
+     in front of the products (Steven, 2026-10-07, "too confusing and complicated"). */
+  if(fams.length<3||keys.length<6||VIEW.cat==='bags'){el.innerHTML='';el.style.display='none';VIEW.col=null;return;}
   el.style.display='';
   el.innerHTML='<span class="fitlbl">Colour</span>'+
     '<button type="button" class="cfchip'+(VIEW.col?'':' on')+'" data-fam="">Any</button>'+
@@ -2101,6 +2103,8 @@ function catGuideHtml(){
      span, let the paragraph own the whole line. */
   var c=CATGUIDE[VIEW.cat];
   if(c)out+='<p class="gguide"><span>'+esc(c)+'</span></p>';
+  if(VIEW.cat==='bags')out+='<p class="gguide gbgift"><span>One size fits everyone, so a bag is the easiest gift to order for a whole team. '+
+    '<button type="button" class="gbgo" data-gogifts="bag">See our gift bags →</button></span></p>';
   /* When one tab is open its own line replaces the scale, because the buyer has already chosen
      where on that scale they are. */
   if(VIEW.sub&&VIEW.sub!=='all'&&SUBGUIDE[VIEW.sub])
@@ -3547,6 +3551,12 @@ function buildStore(){
   var shr=document.getElementById('shReview');if(shr)shr.addEventListener('click',openCart);
   if(curateOn())markCurCards();
   try{wireHomeBand();}catch(e){}
+  /* Any "see our gift bags" door in the catalogue opens the gift page on that lane. Delegated, once,
+     because the grid header re-renders on every filter change. */
+  if(!window.__jdpGoGifts){window.__jdpGoGifts=1;document.addEventListener('click',function(e){
+    var b=e.target&&e.target.closest&&e.target.closest('[data-gogifts]');if(!b)return;
+    e.preventDefault();GV.type=b.getAttribute('data-gogifts')||'all';GV.band='all';
+    jdpTrack('gift_lane',{t:GV.type,src:'aisle'});setGiftView(true);});}
   var wc=document.getElementById('whyCta');if(wc)wc.addEventListener('click',function(){
     if(cartCount()>0){openBoard();}else{VIEW.sub='all';renderGrid();scrollToResults();}});
   // "Shop the collection" hero tiles -> jump into a category (and reveal their images, which sit outside #grid).
@@ -7530,10 +7540,10 @@ var GIFT_PICKS=[
    good thing instead of four small ones, and it is the piece people keep carrying. So it gets its own
    lane, directly after apparel. */
 var GIFT_TYPES=[
-  {id:'all',  lab:'Everything'},
+  {id:'all',  lab:'All gifts'},
   {id:'wear', lab:'Apparel'},
   {id:'bag',  lab:'Bags & coolers'},
-  {id:'kit',  lab:'Ready-boxed kits'},
+  {id:'kit',  lab:'Boxed kits'},
   {id:'keep', lab:'Mugs & journals'}
 ];
 /* ---- THE SIX WINNERS (Steven, 2026-10-04) ------------------------------------------------------
@@ -7618,101 +7628,146 @@ function giftMatches(band,type){
   return giftPool().filter(function(g){
     return (band==='all'||giftBand(g.p)===band)&&(type==='all'||giftType(g)===type);});
 }
+/* ---- THE GIFT PAGE, v4: ONE DECISION AT A TIME (Steven, 2026-10-07) ---------------------------
+   "make our bags and gifts section incredible ... for the enterprise buyer. right now it is too
+   confusing and complicated."
+   Measured on the live page before this change: 12,654 px tall, 4,236 words, 59 full product cards,
+   nine filter chips that sat BELOW the six picks, a "How to choose" paragraph, and on every card a
+   fabric line, a warmth chip, a decoration chip and a five-line essay. Everything at once.
+   Now the page asks one thing at a time:
+     1. a three-point promise (logo on it, priced per person, no sizes for bags and kits);
+     2. the controls first -- what you are buying, and the budget per person;
+     3. untouched, it shows ONLY the six picks and one row of four "shop by type" tiles;
+     4. a type shows just that type; a budget narrows whatever is showing;
+     5. one close for the person buying for the whole company: send headcount, budget, date.
+   Cards keep image, name, brand, fit, colours and price; the reason shrinks to its first sentence. */
+var GIFT_LANE_LAB={wear:'Apparel',bag:'Bags & coolers',kit:'Boxed kits',keep:'Mugs & journals'};
+var GIFT_LANE_SUB={wear:'Jackets, vests, quarter-zips and fleece people wear on their own time.',
+                   bag:'Duffels, backpacks and coolers. One size — nothing to collect.',
+                   kit:'Boxed and ready to hand over. No sizes to collect.',
+                   keep:'A smaller thank-you, or alongside a bigger gift.'};
+function giftFirstLine(t){t=String(t||'');var m=t.match(/^[\s\S]*?[.!?](\s|$)/);return (m?m[0]:t).trim();}
 function giftsSectionHtml(){
   if(!giftPool().length)return '';
-  return '<section class="gifts" id="gifts"><div class="w">'+
+  var chk='<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+  return '<section class="gifts gx" id="gifts"><div class="w">'+
     '<button type="button" class="gfback" id="gfBack">‹ Back to the store</button>'+
     '<div class="gfhd">'+
-      '<div class="gfeyb">Employee gifts</div>'+
+      '<div class="gfeyb">Employee &amp; client gifts</div>'+
       '<h2 class="gfh">Gifts people keep</h2>'+
-      '<p class="gfsub">Premium branded apparel first — jackets, vests and quarter-zips your team '+
-        'will wear on their own time — plus bags, coolers'+(isUS()?'':' and ready-boxed kits')+' for when you can’t collect sizes. '+
-        'Every price is per person, with your logo already in it.</p>'+
+      '<ul class="gxproof"><li>'+chk+'Your logo on every gift</li><li>'+chk+'Priced per person</li>'+
+        '<li>'+chk+'Bags &amp; kits need no sizes</li></ul>'+
     '</div>'+
+    '<div class="gxbar"><div class="gftypes" id="gftypes" role="tablist" aria-label="What are you buying"></div>'+
+      '<div class="gfbands" id="gfbands" aria-label="Budget per person"></div></div>'+
     '<div class="gftop" id="gftop"></div>'+
-    '<div class="gfguide" id="gfguide"></div>'+
-    '<div class="gftypes" id="gftypes"></div>'+
-    '<div class="gfbands" id="gfbands"></div>'+
     '<div class="gflist" id="gfgrid"></div>'+
     '<div class="gfnone" id="gfnone"></div>'+
+    '<div class="gxcta"><div class="gxctx"><b>Gifting the whole company?</b>'+
+      '<span>Send the headcount, the budget per person and the date you need them. Steven puts together a formal quote.</span></div>'+
+      '<div class="gxcta2"><button type="button" class="gxbtn" id="gxQuote">Get a gift quote <span aria-hidden="true">→</span></button>'+
+      (trustOn()?trustPhoneHtml('gx','or call'):'')+'</div></div>'+
   '</div></section>';
 }
 function renderGifts(){
   var bands=document.getElementById('gfbands');if(!bands)return;
-  var pool=giftPool();
-  document.getElementById('gfguide').innerHTML=
-    '<p class="gfgt"><b>How to choose.</b> Start with what you can spend per person — that alone '+
-    'narrows this to a handful. Apparel needs sizes and lands in your brand colour; a bag'+(isUS()?'':' or a boxed kit')+' '+
-    'needs neither, which is why bags'+(isUS()?'':' and kits')+' win for a whole-payroll gift and apparel wins for anyone '+
-    'you want seen in it.</p>';
+  var types=document.getElementById('gftypes');
   /* Each row counts against the OTHER row's current choice, so the numbers describe what a click
      would actually return. A count that ignored the sibling filter would promise 15 and show 4. */
-  var types=document.getElementById('gftypes');
-  if(types)types.innerHTML='<span class="gfbl">What are you buying</span>'+GIFT_TYPES.map(function(t){
+  if(types)types.innerHTML=GIFT_TYPES.map(function(t){
     var n=giftMatches(GV.band,t.id).length;
-    return '<button type="button" class="gftype'+(GV.type===t.id?' on':'')+(n?'':' off')+'"'+
+    return '<button type="button" role="tab" aria-selected="'+(GV.type===t.id)+'" class="gftype'+(GV.type===t.id?' on':'')+(n?'':' off')+'"'+
       ' data-gftype="'+esc(t.id)+'"'+(n?'':' disabled')+'>'+esc(t.lab)+'<i>'+n+'</i></button>';
   }).join('');
-  bands.innerHTML='<span class="gfbl">Budget per person</span>'+GIFT_BANDS.map(function(b){
+  bands.innerHTML='<span class="gfbl">Per person</span>'+GIFT_BANDS.map(function(b){
     var n=giftMatches(b.id,GV.type).length;
     return '<button type="button" class="gfband'+(GV.band===b.id?' on':'')+(n?'':' off')+'"'+
-      ' data-gfband="'+esc(b.id)+'"'+(n?'':' disabled')+'>'+esc(b.lab)+'<i>'+n+'</i></button>';
+      ' data-gfband="'+esc(b.id)+'"'+(n?'':' disabled')+'>'+esc(b.lab)+'</button>';
   }).join('');
   var hits=giftMatches(GV.band,GV.type);
-  /* The real product card, so a gift gets the same mockup, colour swatches and Add-to-board as
-     anything else in the store -- and so there is one card implementation to maintain. */
+  /* The real product card, so a gift gets the same mockup, colour swatches and Add-to-quote as
+     anything else in the store -- one card implementation to maintain. */
   var item=function(g,lab){
     var vs=GIFT_VARIANTS[g.k]||[];
     var also=vs.filter(function(v){return BYKEY[v.k];}).map(function(v){
       var p=giftPrice(v.k);
       return '<button type="button" class="gfalt" data-gfalt="'+esc(v.k)+'">'+esc(BYKEY[v.k].name)+
-        ' <i>'+esc(v.lab)+(p?(' \u00b7 '+money(p)):'')+'</i></button>';}).join('');
+        ' <i>'+esc(v.lab)+(p?(' · '+money(p)):'')+'</i></button>';}).join('');
     return '<div class="gfitem'+(lab?' gfpick':'')+'">'+
       (lab?('<div class="gfpicklab">'+esc(lab)+'</div>'):'')+menuCard(g.k)+
-      '<div class="gfwhy"><span class="gfwk">Why it works</span>'+esc(g.why)+'</div>'+
+      '<div class="gfwhy">'+esc(giftFirstLine(g.why))+'</div>'+
       (also?('<div class="gfalso"><span class="gfwk">Also comes as</span>'+also+'</div>'):'')+'</div>';
   };
-  /* THE SIX, only on the untouched page. Once the buyer filters, they are choosing for themselves
-     and the six stop competing with their result. */
   var top=document.getElementById('gftop'),pristine=(GV.band==='all'&&GV.type==='all');
   var six=pristine?giftTop():[],sixK={};six.forEach(function(g){sixK[g.k]=1;});
   if(top)top.innerHTML=six.length?(
-    '<div class="gftophd"><div><span class="gfeyb">Start here</span>'+
-      '<h3 class="gftoph">Our '+nwords(six.length).toLowerCase()+' picks</h3>'+
-      '<p class="gftops">If you only look at '+six.length+', look at these — '+
-        six.filter(function(g){return giftType(g)==='wear';}).length+' premium apparel pieces across every budget, '+
-        'and a bag for when sizes aren’t practical.</p></div></div>'+
+    '<div class="gftophd"><h3 class="gftoph">Our '+nwords(six.length).toLowerCase()+' picks</h3>'+
+      '<p class="gftops">Start here — one for every kind of team and budget.</p></div>'+
     '<div class="gfgrid gftopgrid">'+six.map(function(g){return item(g,g.lab);}).join('')+'</div>'):'';
-  var SECT={wear:'Premium branded apparel',bag:'Bags & coolers',kit:'Ready-boxed kits',keep:'Small thank-yous: mugs & journals'};
-  var SUBT={wear:'Jackets, vests, quarter-zips and fleece — the gifts people wear, with your logo on them.',
-            bag:'Duffels, backpacks and coolers with your logo. No sizes to collect.',
-            kit:'Boxed and ready to hand over. No sizes to collect.',
-            keep:'For a smaller budget, or alongside a bigger gift.'};
   var html='';
-  if(GV.type==='all'){
+  if(pristine){
+    /* SHOP BY TYPE: four doors, not 53 cards. Each tile shows three of its own gifts with this
+       client's logo on them, how many there are, and where the price starts. */
+    var pool=giftPool();
+    var tiles=['wear','bag','kit','keep'].map(function(t){
+      var list=pool.filter(function(g){return giftType(g)===t;});
+      if(!list.length)return '';
+      /* Tile photos show the range, not the three cheapest: for bags that is a duffel, a backpack
+         and a cooler (Steven's lead bags first); elsewhere the first three gifts not already in the six. */
+      var rep=list.filter(function(g){return !sixK[g.k];}).concat(list);
+      if(t==='bag'){var pick=function(re){var h=rep.filter(function(g){return re.test(((BYKEY[g.k]||{}).name||'').toLowerCase());})
+          .sort(function(a,b){var ia=BAG_LEAD.indexOf(a.k),ib=BAG_LEAD.indexOf(b.k);return (ia<0?99:ia)-(ib<0?99:ib);})[0];return h;};
+        rep=[pick(/duffel/),pick(/backpack(?!.*cooler)/),pick(/cooler|lunch/)].filter(Boolean).concat(rep);}
+      var seen={};rep=rep.filter(function(g){if(seen[g.k])return false;seen[g.k]=1;return true;});
+      var th=rep.slice(0,3).map(function(g){
+        var it=BYKEY[g.k],o=null;
+        try{o=it.layer==='promo'?{g:gurl((it.cols[0]||{}).front),lg:''}:overlayHtml(it,vmOf(g.k),browseColour(g.k,it),'front',browseCols(it),browsePlaces(it));}catch(e){o=null;}
+        return o?('<span class="gxth"><img class="g" src="'+o.g+'" alt="" loading="lazy">'+o.lg+'</span>'):'';}).join('');
+      var lo=Math.min.apply(null,list.map(function(g){return g.p;}));
+      return '<button type="button" class="gxlane gxlane-'+t+'" data-gflane="'+t+'">'+
+        '<span class="gxths">'+th+'</span>'+
+        '<span class="gxlt"><b>'+esc(GIFT_LANE_LAB[t])+'</b><i>'+list.length+' gifts · from '+money0(lo)+'</i></span>'+
+        '<span class="gxla" aria-hidden="true">→</span></button>';}).join('');
+    html='<div class="gxlanes"><h3 class="gxlh">Shop by type</h3><div class="gxlrow">'+tiles+'</div></div>';
+  }else if(GV.type==='all'){
     ['wear','bag','kit','keep'].forEach(function(t){
-      var list=hits.filter(function(g){return giftType(g)===t&&!sixK[g.k];});
+      var list=hits.filter(function(g){return giftType(g)===t;});
       if(!list.length)return;
-      html+='<section class="gfsec gfsec-'+t+'"><div class="gfsechd"><h3>'+(pristine&&t==='wear'?'More premium apparel':SECT[t])+
-        ' <span>'+list.length+'</span></h3><p>'+SUBT[t]+'</p></div>'+
+      html+='<section class="gfsec gfsec-'+t+'"><div class="gfsechd"><h3>'+esc(GIFT_LANE_LAB[t])+' <span>'+list.length+'</span></h3><p>'+esc(GIFT_LANE_SUB[t])+'</p></div>'+
         '<div class="gfgrid">'+list.map(function(g){return item(g,'');}).join('')+'</div></section>';
     });
-  }else html='<div class="gfgrid">'+hits.map(function(g){return item(g,'');}).join('')+'</div>';
+  }else{
+    html='<section class="gfsec gfsec-'+GV.type+'"><div class="gfsechd"><h3>'+esc(GIFT_LANE_LAB[GV.type]||'')+' <span>'+hits.length+'</span></h3>'+
+      '<p>'+esc(GIFT_LANE_SUB[GV.type]||'')+'</p></div>'+
+      '<div class="gfgrid">'+hits.map(function(g){return item(g,'');}).join('')+'</div></section>';
+  }
   document.getElementById('gfgrid').innerHTML=html;
   document.getElementById('gfnone').innerHTML=hits.length?'':
-    '<div class="gfempty"><b>Nothing matches those two filters.</b> '+
-    'Widen the budget, switch to Everything, or tell us the number you have in mind and we will '+
-    'build to it.</div>';
+    '<div class="gfempty"><b>Nothing at that budget in this type.</b> '+
+    'Widen the budget, or tell us the number you have in mind and we will build to it.</div>';
   wireCards('gfgrid');
   if(top&&six.length){wireCards('gftop');wireWornPeek('gftop');}
   ['gfgrid','gftop'].forEach(function(id){var r=document.getElementById(id);if(!r)return;
     r.querySelectorAll('[data-gfalt]').forEach(function(b){b.addEventListener('click',function(e){
       e.stopPropagation();jdpTrack('gift_variant',{k:b.dataset.gfalt});openSheet(b.dataset.gfalt);});});});
+  var gg=document.getElementById('gfgrid');
+  if(gg)gg.querySelectorAll('[data-gflane]').forEach(function(b){b.addEventListener('click',function(){
+    GV.type=b.dataset.gflane;jdpTrack('gift_lane',{t:GV.type,src:'tile'});renderGifts();giftScrollToBar();});});
   bands.querySelectorAll('[data-gfband]').forEach(function(b){b.addEventListener('click',function(){
     GV.band=b.dataset.gfband;renderGifts();});});
   if(types)types.querySelectorAll('[data-gftype]').forEach(function(b){
-    b.addEventListener('click',function(){GV.type=b.dataset.gftype;renderGifts();});});
+    b.addEventListener('click',function(){GV.type=b.dataset.gftype;jdpTrack('gift_lane',{t:GV.type,src:'tab'});renderGifts();});});
+  var q=document.getElementById('gxQuote');
+  if(q&&!q.dataset.w){q.dataset.w='1';q.addEventListener('click',function(){
+    jdpTrack('gift_quote');openSourcing('');
+    var nt=document.getElementById('coNote');if(nt&&!nt.value)nt.value='Gift request — headcount: , budget per person: , needed by: ';});}
   wireWornPeek('gfgrid');
+}
+/* After a tile is chosen, land the buyer on the controls so the lane they picked is in view. */
+function giftScrollToBar(){
+  var b=document.querySelector('.gxbar');if(!b)return;
+  var tb=document.getElementById('tbar'),off=(tb?tb.offsetHeight:60)+12;
+  window.scrollTo({top:Math.max(0,window.pageYOffset+b.getBoundingClientRect().top-off),behavior:'smooth'});
 }
 
 /* "SEE IT WORN" ON THE CARD, without lying about colour.

@@ -3342,3 +3342,70 @@ body.giftview .social{display:none!important}
 }
 @media (max-width:420px){.tbmktb>b{display:none}.tbmktb>i{display:inline-block!important}}
 @media (max-width:420px){.tbtrust .tphone.tb{display:none}}
+/* ===== GIFT PAGE v4 — one decision at a time (2026-10-07) ======================================= */
+.gifts.gx{padding:34px 0 46px}
+.gx .gfhd{max-width:none}
+.gx .gfh{margin-bottom:14px}
+.gxproof{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:8px 20px}
+.gxproof li{display:inline-flex;align-items:center;gap:7px;font-size:14px;font-weight:700;color:rgba(255,255,255,.88)}
+.gxproof svg{color:#8fe0a0;flex:none}
+/* controls first, in one band */
+.gxbar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px 20px;
+  margin:26px 0 30px;padding:12px;border-radius:16px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12)}
+.gx .gftypes{margin:0;gap:6px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;max-width:100%}
+.gx .gftypes::-webkit-scrollbar{display:none}
+.gx .gftype{white-space:nowrap;padding:9px 15px;font-size:14px;font-weight:750}
+.gx .gfbands{margin:0;padding:0;border:0;gap:6px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+.gx .gfbands::-webkit-scrollbar{display:none}
+.gx .gfband{white-space:nowrap;padding:8px 12px;font-size:13px}
+.gx .gfbl{white-space:nowrap}
+/* six picks */
+.gx .gftophd{margin-bottom:4px}
+.gx .gftoph{font-size:28px}
+/* compact cards on the gift page: name, brand, fit, colours, price -- the sheet has the rest */
+.gx .mfab,.gx .mwarm,.gx .inc-card{display:none!important}
+.gx .gfwhy{padding:0;margin:2px 14px 14px;font-size:13px;line-height:1.5;color:var(--mut);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;border-top:0}
+.gx .gfwhy .gfwk{display:none}
+/* shop by type */
+.gxlanes{margin:40px 0 0}
+.gxlh{margin:0 0 14px;font-family:var(--disp);font-size:24px;line-height:1.1;text-transform:uppercase;color:#fff}
+.gxlrow{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+.gxlane{display:flex;flex-direction:column;gap:12px;text-align:left;background:var(--card);color:var(--ink);border:0;border-radius:18px;padding:12px 12px 16px;cursor:pointer;
+  position:relative;transition:transform .15s,box-shadow .15s;box-shadow:0 1px 2px rgba(0,0,0,.12),0 14px 30px -20px rgba(0,0,0,.6)}
+.gxlane:hover{transform:translateY(-2px);box-shadow:0 2px 4px rgba(0,0,0,.14),0 22px 40px -22px rgba(0,0,0,.7)}
+.gxlane:focus-visible{outline:3px solid var(--amber);outline-offset:3px}
+.gxths{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.gxth{position:relative;display:block;aspect-ratio:1/1;border-radius:10px;overflow:hidden;background:#f6f4f0}
+.gxth .g{width:100%;height:100%;object-fit:contain;display:block}
+.gxth .l{position:absolute;transform:translate(-50%,-50%);height:auto;max-width:none;pointer-events:none}
+.gxlt{display:flex;flex-direction:column;gap:3px;padding:0 4px;padding-right:34px}
+.gxlt b{font-size:17px;font-weight:850;line-height:1.2}
+.gxlt i{font-style:normal;font-size:13px;color:var(--mut);font-weight:600}
+.gxla{position:absolute;right:16px;bottom:18px;width:28px;height:28px;border-radius:50%;background:var(--ink);color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px}
+.gxlane-bag .gxla{background:var(--amber);color:#1b160e}
+/* one close for the whole-company buyer */
+.gxcta{display:flex;align-items:center;justify-content:space-between;gap:16px 28px;flex-wrap:wrap;margin:44px 0 0;padding:22px 24px;border-radius:18px;
+  background:#fff;color:var(--ink)}
+.gxctx{display:flex;flex-direction:column;gap:4px;max-width:62ch}
+.gxctx b{font-size:19px;font-weight:850}
+.gxctx span{font-size:14px;color:var(--mut);line-height:1.5}
+.gxcta2{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.gxbtn{background:var(--a);color:#fff;border:0;border-radius:12px;padding:14px 22px;font-weight:850;font-size:15px;cursor:pointer;display:inline-flex;gap:8px;align-items:center}
+.gxbtn:hover{filter:brightness(1.07)}
+.tphone.gx{font-size:14px;color:var(--ink)}
+/* bags aisle: the door to the gift bags */
+.gbgift span{display:inline}
+.gbgo{background:none;border:0;padding:0;font:inherit;font-weight:800;color:var(--a);text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+@media(max-width:1000px){.gxlrow{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:700px){
+  .gxbar{flex-direction:column;align-items:stretch;padding:10px;gap:10px}
+  .gx .gftype{padding:8px 13px;font-size:13.5px}
+  .gxproof li{font-size:13px}
+  .gxlrow{gap:10px}.gxlane{padding:9px 9px 13px;border-radius:15px}.gxlt b{font-size:15px}.gxla{right:10px;bottom:12px;width:24px;height:24px}
+  .gxcta{padding:18px}.gxbtn{flex:1 1 100%;justify-content:center}
+}
+@media(max-width:420px){.gxlrow{grid-template-columns:1fr 1fr}.gxths{grid-template-columns:1fr 1fr}.gxths .gxth:nth-child(3){display:none}}
+.gxbar{max-width:100%;min-width:0}
+.gxbar>.gftypes,.gxbar>.gfbands{min-width:0;max-width:100%}
+@media(max-width:700px){.gx .gfbands .gfbl{display:none}}
+@media(max-width:700px){.gx .gftophd{flex-direction:column;align-items:flex-start;gap:4px}.gx .gftoph{font-size:24px}}
