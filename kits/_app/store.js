@@ -440,11 +440,13 @@ var MLAB={embroidery:'Embroidery',screen:'Screen print',heat_transfer:'Heat tran
      * every price is in USD.
    JDP's margin model is unchanged (costMult/volFactor on the garment, the 30% floor); decoration is
    marked up by DECO_MK_US. Canadian stores are untouched by any of this. */
+/* The ?market= preview switch is read ONCE, when the page loads: the store rewrites the address bar
+   as the buyer browses, and a flag that vanished with it flipped a preview back to Canadian prices
+   halfway through (caught on the live First Solar preview, 2026-10-07). */
+var MKT_URL=(function(){try{var q=location.search;
+  if(/[?&]market=us\b/i.test(q))return true;if(/[?&]market=ca\b/i.test(q))return false;}catch(e){}return null;})();
 function isUS(){
-  try{
-    if(/[?&]market=us\b/i.test(location.search))return true;
-    if(/[?&]market=ca\b/i.test(location.search))return false;
-  }catch(e){}
+  if(MKT_URL!==null)return MKT_URL;
   return String((typeof CFG!=='undefined'&&CFG&&(CFG.market||CFG.country))||'').toUpperCase()==='US';
 }
 /* Stormtech USA decoration price list, 2026 (V 2026.02, effective Jan 1 2026). Net distributor costs. */
