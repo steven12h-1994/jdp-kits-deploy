@@ -3236,3 +3236,49 @@ body.giftview .tbgifts{background:var(--amber);border-color:var(--amber)}
   .qtab td.qq{text-align:right}
   .qqin{width:56px}
 }
+
+/* ================= SHIP TO: country switch (2026-10-07) =========================================== */
+.tbmkt{position:relative;flex:0 0 auto}
+.tbmktb{display:inline-flex;align-items:center;gap:6px;padding:9px 12px;border:1px solid var(--line);border-radius:10px;background:#fff;
+  font:inherit;font-size:13px;color:var(--ink);cursor:pointer;white-space:nowrap}
+.tbmktb:hover{border-color:var(--ink)}
+.tbmktb svg{color:var(--a);flex:none}
+.tbmkts{color:var(--mut);font-weight:600}
+.tbmktb b{font-weight:800}
+.tbmktb i{font-style:normal;font-size:11px;font-weight:800;padding:2px 6px;border-radius:6px;background:color-mix(in srgb,var(--a) 12%,#fff);color:var(--a)}
+.tbmkcv{font-size:10px;color:var(--mut)}
+.tbmktp{position:absolute;top:calc(100% + 8px);right:0;z-index:1600;width:320px;padding:12px;border-radius:14px;background:#fff;
+  border:1px solid var(--line);box-shadow:0 18px 50px rgba(0,0,0,.18)}
+.tbmktp[hidden]{display:none}
+.tbmkth{font-size:13px;font-weight:850;margin:2px 4px 10px;color:var(--ink)}
+.tbmko{display:flex;gap:10px;align-items:flex-start;width:100%;text-align:left;padding:11px 12px;margin:0 0 6px;border:1.5px solid var(--line);
+  border-radius:11px;background:#fff;font:inherit;cursor:pointer}
+.tbmko:hover{border-color:var(--ink)}
+.tbmko.on{border-color:var(--a);background:color-mix(in srgb,var(--a) 6%,#fff)}
+.tbmkr{flex:none;width:16px;height:16px;margin-top:2px;border-radius:50%;border:2px solid var(--line)}
+.tbmko.on .tbmkr{border-color:var(--a);box-shadow:inset 0 0 0 3px #fff;background:var(--a)}
+.tbmkt2 b{display:block;font-size:14px;font-weight:800;color:var(--ink)}
+.tbmkt2 b i{font-style:normal;font-size:11px;font-weight:800;color:var(--a);margin-left:4px}
+.tbmkt2 span{display:block;font-size:12px;color:var(--mut);margin-top:2px}
+.tbmkn{font-size:11.5px;line-height:1.45;color:var(--mut);margin:4px 4px 2px}
+.mkthint{position:fixed;left:50%;top:76px;transform:translateX(-50%);z-index:1550;display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  max-width:min(680px,calc(100vw - 24px));padding:10px 12px 10px 16px;border-radius:12px;background:var(--ink);color:#fff;
+  font-size:13.5px;box-shadow:0 14px 34px -10px rgba(0,0,0,.45)}
+.mkthgo{border:0;border-radius:9px;background:#fff;color:var(--ink);font:inherit;font-size:13px;font-weight:800;padding:8px 12px;cursor:pointer}
+.mkthx{border:0;background:none;color:#fff;opacity:.7;font-size:15px;cursor:pointer;padding:4px 6px}
+.qlnk{border:0;background:none;padding:0;font:inherit;font-weight:800;color:var(--a);cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+@media (min-width:821px) and (max-width:1180px){.tbmkts{display:none}}
+@media (max-width:820px){
+  .tbmkts,.tbmkcv{display:none}
+  .tbmktb{padding:9px 10px;gap:5px}
+  .tbmktp{position:fixed;left:12px;right:12px;top:auto;width:auto}
+  .mkthint{top:auto;bottom:74px}
+}
+@media print{.tbmkt,.mkthint{display:none!important}}
+/* the Ship-to pill costs ~150px of top bar; below 1400px the review count and the label go so the
+   search box keeps its room (measured: at 1264px the search shrank to ~140px without this) */
+@media (max-width:1400px){.tbmkts{display:none}.tbtrust .trate>span:not(.tstars){display:none}}
+.mkthint{flex-wrap:nowrap}
+.mkthint>span{flex:1 1 auto;min-width:0}
+.mkthgo,.mkthx{flex:none;white-space:nowrap}
+@media (max-width:560px){.mkthint{flex-wrap:wrap}.mkthint>span{flex-basis:100%}}

@@ -443,12 +443,79 @@ var MLAB={embroidery:'Embroidery',screen:'Screen print',heat_transfer:'Heat tran
 /* The ?market= preview switch is read ONCE, when the page loads: the store rewrites the address bar
    as the buyer browses, and a flag that vanished with it flipped a preview back to Canadian prices
    halfway through (caught on the live First Solar preview, 2026-10-07). */
-var MKT_URL=(function(){try{var q=location.search;
-  if(/[?&]market=us\b/i.test(q))return true;if(/[?&]market=ca\b/i.test(q))return false;}catch(e){}return null;})();
+/* ---- WHICH COUNTRY (2026-10-07) ------------------------------------------------------------------
+   Steven: "How do you want to show for canadian only, us only, and canadian and US."
+   Every store has a HOME market -- Canada, or the US for stores flagged market:'US' -- and every
+   store carries a "Ship to" switch, the way Amazon carries "Deliver to". A Canada-only buyer never
+   touches it; a US buyer lands in USD; a company in both countries switches per location. Each
+   country keeps its OWN quote, because the range, the currency and the decorator all differ.
+   Precedence: an explicit ?market= link (or a ?b=us-... shared US quote) > the buyer's own choice,
+   remembered per store > the store's home market. */
+function mktKey(){return 'jdp_mkt_'+SLUG;}
+var MKT_URL=(function(){try{var q=location.search,v=null;
+  if(/[?&]market=us\b/i.test(q)||/[?&]b=us-/i.test(q))v=true;else if(/[?&]market=ca\b/i.test(q))v=false;
+  if(v!==null){try{localStorage.setItem('jdp_mkt_'+(location.pathname.split('/').filter(Boolean).pop()||'kit'),v?'US':'CA');}catch(e){}}
+  return v;}catch(e){}return null;})();
+function homeUS(){return String((typeof CFG!=='undefined'&&CFG&&(CFG.market||CFG.country))||'').toUpperCase()==='US';}
 function isUS(){
   if(MKT_URL!==null)return MKT_URL;
-  return String((typeof CFG!=='undefined'&&CFG&&(CFG.market||CFG.country))||'').toUpperCase()==='US';
+  var c=null;try{c=localStorage.getItem(mktKey());}catch(e){}
+  if(c==='US')return true;if(c==='CA')return false;
+  return homeUS();
 }
+/* A link that carries the CURRENT country when it differs from the store's home, so whoever it is
+   sent to sees the same prices. */
+function mktParam(sep){return (isUS()===homeUS())?'':(sep+'market='+(isUS()?'us':'ca'));}
+function setMarket(us,src){
+  try{localStorage.setItem(mktKey(),us?'US':'CA');}catch(e){}
+  try{jdpTrack('market',{v:us?'US':'CA',src:src||''});}catch(e){}
+  var q=location.search.replace(/[?&](market|b)=[^&#]*/gi,'').replace(/^&/,'?');
+  location.href=location.pathname+(q&&q!=='?'?q:'')+location.hash;
+}
+var MKT_INFO={
+  CA:{name:'Canada',cur:'CAD',line:'Full range · decorated in Canada'},
+  US:{name:'United States',cur:'USD',line:'Stormtech range · decorated by Stormtech USA'}
+};
+function mktPillHtml(){
+  var m=isUS()?'US':'CA',I=MKT_INFO[m];
+  var globe='<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z"/></svg>';
+  return '<div class="tbmkt"><button type="button" class="tbmktb" id="tbMkt" aria-haspopup="true" aria-expanded="false" aria-label="Ship to '+I.name+', prices in '+I.cur+'. Change country">'+
+    globe+'<span class="tbmkts">Ship to</span><b>'+(m==='US'?'US':'Canada')+'</b><i>'+I.cur+'</i><span class="tbmkcv" aria-hidden="true">▾</span></button>'+
+    '<div class="tbmktp" id="tbMktP" hidden role="dialog" aria-label="Choose a country">'+
+      '<div class="tbmkth">Where are you ordering for?</div>'+
+      ['CA','US'].map(function(k){var J=MKT_INFO[k],on=k===m;
+        return '<button type="button" class="tbmko'+(on?' on':'')+'" data-mkt="'+k+'" aria-pressed="'+(on?'true':'false')+'">'+
+          '<span class="tbmkr" aria-hidden="true"></span><span class="tbmkt2"><b>'+J.name+' <i>'+J.cur+'</i></b><span>'+J.line+'</span></span></button>';}).join('')+
+      '<div class="tbmkn">Ordering for both countries? Each country keeps its own quote — build one, switch, build the other. We combine them under one PO.</div>'+
+    '</div></div>';
+}
+function wireMkt(){
+  var b=document.getElementById('tbMkt'),p=document.getElementById('tbMktP');if(!b||!p||b.dataset.w)return;b.dataset.w='1';
+  b.addEventListener('click',function(e){e.stopPropagation();var o=p.hidden;p.hidden=!o;b.setAttribute('aria-expanded',o?'true':'false');if(o)jdpTrack('market_open');});
+  p.querySelectorAll('[data-mkt]').forEach(function(x){x.addEventListener('click',function(){
+    var us=x.dataset.mkt==='US';if(us===isUS()){p.hidden=true;return;}setMarket(us,'pill');});});
+  document.addEventListener('click',function(e){if(!p.hidden&&!p.contains(e.target)&&e.target!==b){p.hidden=true;b.setAttribute('aria-expanded','false');}});
+  document.addEventListener('keydown',function(e){if(e.key==='Escape'&&!p.hidden){p.hidden=true;b.setAttribute('aria-expanded','false');}});
+}
+/* A ONE-TIME NUDGE when the visitor's own clock is in the other country -- never an automatic switch,
+   because a Toronto buyer ordering for a Chicago site is exactly the case we must not override. */
+var US_TZ=/^(America\/(New_York|Chicago|Denver|Los_Angeles|Phoenix|Anchorage|Detroit|Boise|Juneau|Sitka|Nome|Adak|Metlakatla|Yakutat|Menominee|Indiana\/.+|Kentucky\/.+|North_Dakota\/.+)|Pacific\/Honolulu)$/;
+var CA_TZ=/^America\/(Toronto|Vancouver|Edmonton|Winnipeg|Halifax|St_Johns|Regina|Moncton|Whitehorse|Yellowknife|Iqaluit|Glace_Bay|Goose_Bay|Swift_Current|Rankin_Inlet|Resolute|Cambridge_Bay|Inuvik|Dawson|Dawson_Creek|Creston|Fort_Nelson|Atikokan|Blanc-Sablon|Montreal|Nipigon|Thunder_Bay|Rainy_River|Pangnirtung)$/;
+function mktHint(){
+  if(MKT_URL!==null)return;
+  try{if(localStorage.getItem(mktKey())||localStorage.getItem('jdp_mkt_hint_'+SLUG))return;}catch(e){return;}
+  var tz='';try{tz=Intl.DateTimeFormat().resolvedOptions().timeZone||'';}catch(e){}
+  var want=null;if(!isUS()&&US_TZ.test(tz))want='US';else if(isUS()&&CA_TZ.test(tz))want='CA';
+  if(!want)return;
+  var I=MKT_INFO[want],el=document.createElement('div');el.className='mkthint';el.id='mktHint';
+  el.innerHTML='<span>Ordering for '+(want==='US'?'a US location':'a Canadian location')+'? See '+I.cur+' pricing and the '+(want==='US'?'US':'Canadian')+' range.</span>'+
+    '<button type="button" class="mkthgo">Switch to '+I.name+'</button><button type="button" class="mkthx" aria-label="Dismiss">✕</button>';
+  document.body.appendChild(el);jdpTrack('market_hint',{v:want});
+  var done=function(){try{localStorage.setItem('jdp_mkt_hint_'+SLUG,'1');}catch(e){}el.remove();};
+  el.querySelector('.mkthx').addEventListener('click',done);
+  el.querySelector('.mkthgo').addEventListener('click',function(){done();setMarket(want==='US','hint');});
+}
+
 /* Stormtech USA decoration price list, 2026 (V 2026.02, effective Jan 1 2026). Net distributor costs. */
 var STUS_BREAKS=[12,18,96,296,500,1000];          // 12-17 · 18-95 · 96-295 · 296-499 · 500-999 · 1000+
 var STUS={
@@ -744,7 +811,9 @@ function recDecos(key){
    the active List's items. That keeps ~25 working call sites correct instead of re-touching them.
    An existing single cart is migrated into the first List on load, so nobody loses a kit. */
 var LISTS=null,ALID='';
-function LKEY(){return LSKEY+'_lists';}
+function LKEY(){return LSKEY+'_lists'+(isUS()?'_us':'');}
+/* A US quote's board slug carries a us- prefix, so the two countries never overwrite each other on the server. */
+function mslug(s){var b=bslug(s);return (isUS()&&b&&b.indexOf('us-')!==0)?('us-'+b):b;}
 /* ITEMS MUST BE A PLAIN OBJECT, NEVER AN ARRAY.
    Steven, 2026-09-18, on dif: "board is not saving again. I created a custom board and when I went
    back on it deleted!"
@@ -3238,7 +3307,7 @@ function buildStore(){
      'gap:32px;justify-content:space-between;flex-wrap:wrap">'+
      '<div class="herotx" style="flex:1 1 320px;min-width:0">'+
        '<h1>'+esc(poss(CFG.client))+" team store</h1>"+
-       '<p class="herosub">'+(demo?'This is a live sample. Every item shows exactly where your logo goes — swap in your brand and it becomes your team’s store. Live pricing, exact quote, no obligation.':'Your logo is already on every piece. Pick a ready program or your own gear, set your headcount and download an itemized quote for approval \u2014 confirmed in writing by a real person, usually within 1 business day.'+(isUS()?' All prices in US dollars.':''))+'</p>'+
+       '<p class="herosub">'+(demo?'This is a live sample. Every item shows exactly where your logo goes — swap in your brand and it becomes your team’s store. Live pricing, exact quote, no obligation.':'Your logo is already on every piece. Pick a ready program or your own gear, set your headcount and download an itemized quote for approval \u2014 confirmed in writing by a real person, usually within 1 business day.'+(isUS()?' All prices in US dollars.':' All prices in Canadian dollars.'))+'</p>'+
        /* 4imprint opens every category with a named person ("David with 4imprint, 11 years"). The
           person who actually answers these stores is Steven, so say so, with the number that reaches
           him -- and give the two ways forward, not six claims. */
@@ -3328,7 +3397,7 @@ function buildStore(){
       the footer" it was invisible: the person it is built for could not find it on his own store.
       The bar appears the moment the kit has something in it, which is exactly when sharing starts to
       mean anything, and it is the one piece of chrome always in reach on a phone. */
-   '<div class="cbar" id="cbar"><div class="cbarin w"><div class="cbarL"><span class="n" id="cbarN">0</span> items</div>'+
+   '<div class="cbar" id="cbar"><div class="cbarin w"><div class="cbarL"><span class="n" id="cbarN">0</span> <span id="cbarNL">items</span></div>'+
      '<button class="cbarshare" id="cbarShare" aria-label="Send this board to your team" title="Send this board to your team">'+
        '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" '+
        'stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/>'+
@@ -3353,6 +3422,8 @@ function buildStore(){
   try{renderGifts();}catch(e){}
   var _ge=document.getElementById('gfEntry');
   if(_ge)_ge.addEventListener('click',function(){jdpTrack('gift_open',{src:'banner'});setGiftView(true);});
+  try{wireMkt();}catch(e){}
+  setTimeout(function(){try{mktHint();}catch(e){}},2500);
   var _tg=document.getElementById('tbGifts');
   if(_tg)_tg.addEventListener('click',function(){jdpTrack('gift_open',{src:'topbar'});
     try{closeBoards();closeBoard();closeProgram();closeAll();}catch(e){}setGiftView(true);});
@@ -5172,7 +5243,7 @@ function pushBoardSoon(){
 }
 function pushBoardNow(){
   var L=LISTS&&LISTS[ALID];if(!L||isTemplate(ALID))return;
-  var b=L.slug||bslug(L.name);if(!b)return;
+  var b=L.slug||mslug(L.name);if(!b)return;
   /* NEVER push an empty board we have never synced. The slug comes from the list NAME, and every
      visitor's default list is called "My board" -> "my-board", so on a given kit all visitors
      collide on one server board. A fresh visitor's empty list therefore used to overwrite a saved
@@ -5270,7 +5341,7 @@ function shareListUrl(){
      products -- it stays identical as the board changes, which is what makes it safe to email to an
      account before the board is finished. */
   var L=LISTS&&LISTS[ALID];
-  var b=(L&&L.slug)||bslug(activeName());
+  var b=(L&&L.slug)||mslug(activeName());
   return location.origin+location.pathname+'?b='+encodeURIComponent(b);
 }
 /* Sharing a list is the strongest buying signal this store produces, and until now it was invisible
@@ -5773,7 +5844,7 @@ function refreshCartUI(){
   if(cl){var nm=activeName();cl.textContent=nm.length>17?(nm.slice(0,16)+'\u2026'):nm;}
   var bar=document.getElementById('cbar');if(bar)bar.classList.toggle('on',n>0&&!CFG.demo);
   document.documentElement.classList.toggle('hascart',n>0);
-  var bn=document.getElementById('cbarN');if(bn)bn.textContent=n;
+  var bn=document.getElementById('cbarN');if(bn)bn.textContent=n;var bnl=document.getElementById('cbarNL');if(bnl)bnl.textContent=n===1?'item':'items';
   var bp=document.getElementById('cbarP');if(bp)bp.textContent=money0(sub);
   document.querySelectorAll('.mcard').forEach(function(card){var k=card.dataset.key;
     var qn=cartQtyOf(k),on=qn>0;card.classList.toggle('inkit',on);
@@ -6793,6 +6864,7 @@ function tbarHtml(){
         '<button type="button" class="exsx" id="topSearchX" aria-label="Clear">\u2715</button>'+
         '<div class="sxdd" id="sxdd" role="listbox" aria-label="Search suggestions" hidden></div>'+
       '</div>'+
+      mktPillHtml()+
       trustBarHtml()+
       /* GIFTS IN THE TOP BAR -- the second way in, always one glance away (the rail has it too). */
       '<button type="button" class="tbgifts" id="tbGifts">'+railIcon('gifts')+'<span>Gifts</span></button>'+
@@ -7757,7 +7829,7 @@ function programHtml(id){
     '</div></div>'+
   '</div>';
 }
-function programUrl(id){return location.origin+location.pathname+'?program='+String(id).replace(/^prog_/,'');}
+function programUrl(id){return location.origin+location.pathname+'?program='+String(id).replace(/^prog_/,'')+mktParam('&');}
 /* Copy the ticked pieces (with the colours chosen on the tiles) into the buyer's ONE quote, sized to
    the headcount, and open the quote. Programs stack: Crew + Hi-Vis becomes one quote. */
 function addProgramToQuote(id,n){
@@ -8448,7 +8520,7 @@ function syncBoardsFromServer(){
     .then(function(j){
       if(!j||!j.ok||!j.boards||!j.boards.length)return false;
       if(!LISTS)loadLists();
-      var rows=j.boards.slice(0,40);          // bounded: never a request storm on a big store
+      var rows=j.boards.filter(function(r){return isUS()===/^us-/.test(r.b||'');}).slice(0,40);          // this country's boards only; bounded
       return Promise.all(rows.map(function(row){
         var localId=null;
         for(var k in LISTS){if(LISTS[k].slug===row.b){localId=k;break;}}
@@ -8460,7 +8532,7 @@ function syncBoardsFromServer(){
         if(!localId){
           for(var k2 in LISTS){
             var L2=LISTS[k2];
-            if(!L2.slug&&!isTemplate(k2)&&bslug(L2.name||'')===row.b){localId=k2;break;}
+            if(!L2.slug&&!isTemplate(k2)&&mslug(L2.name||'')===row.b){localId=k2;break;}
           }
         }
         var local=localId?LISTS[localId]:null;
@@ -8602,7 +8674,8 @@ function lineEconomics(ck){
 function proformaText(c){
   c=c||{};
   var L=[];
-  L.push('PROFORMA INVOICE  (estimate — not a demand for payment)'+(isUS()?'  ·  ALL AMOUNTS IN USD':''));
+  L.push('PROFORMA INVOICE  (estimate — not a demand for payment)'+(isUS()?'  ·  ALL AMOUNTS IN USD':'  ·  ALL AMOUNTS IN CAD'));
+  L.push('Ship to: '+(isUS()?'United States':'Canada'));
   L.push('Reference '+docRef()+'   ·   '+docDate());
   L.push('');
   L.push('From:  Just Deals Promotions');
@@ -8730,6 +8803,7 @@ function orderText(c){c=c||{};
   var sub=cartSubtotal(),setup=cartSetup();
   var boardUrl=(typeof shareListUrl==='function')?shareListUrl():location.href.split('#')[0];
   var lines=['KIT REQUEST — '+CFG.client,''];
+  lines.push('SHIP TO: '+(isUS()?'UNITED STATES':'CANADA')+(isUS()===homeUS()?'':'  (store home: '+(homeUS()?'US':'Canada')+' — buyer switched country)'),'');
   if(isUS())lines.push('*** US STORE — prices in USD. Garments + decoration by STORMTECH USA (supplier decorator), per their 2026 decoration price list. ***','');
   /* The money and the link first. Nobody should scroll six thousand characters to find the total. */
   lines.push('SUMMARY');
@@ -8829,7 +8903,7 @@ function quoteDocHtml(){
     '<article class="qpaper" id="qpaper">'+
       '<header class="qhd"><div><div class="qbrand">Just Deals Promotions</div>'+
         '<div class="qaddr">'+esc(JDP_ADDR)+'<br>'+esc(T.phone)+' · '+esc(T.email)+'</div></div>'+
-        '<div class="qmeta"><h2>Quote</h2><dl><dt>Reference</dt><dd>'+esc(QREF)+'</dd><dt>Date</dt><dd>'+esc(docDate())+'</dd>'+
+        '<div class="qmeta"><h2>Quote</h2><dl><dt>Reference</dt><dd>'+esc(QREF)+'</dd><dt>Date</dt><dd>'+esc(docDate())+'</dd><dt>Ship to</dt><dd>'+(isUS()?'United States · USD':'Canada · CAD')+'</dd>'+
         (who&&!/^my board$/i.test(who)?('<dt>For</dt><dd>'+esc(who)+'</dd>'):'')+'</dl></div></header>'+
       '<div class="qparty"><div><span>Prepared for</span>'+(mark?('<div class="qmk">'+mark+'</div>'):'')+'<b>'+esc(CFG.client||'')+'</b></div>'+
         '<div><span>Prepared by</span><b>Steven · Just Deals Promotions</b><i>'+esc(T.phone)+'</i></div></div>'+
@@ -8860,6 +8934,8 @@ function quoteDocHtml(){
         '<label class="qfile">Attach a file <i>optional — PO, vendor forms, RFQ or your logo</i><input id="qFile" type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.ai,.eps,.svg,.png,.jpg,.jpeg"></label>'+
         '<button type="submit" class="qgo" id="qGo">Send for confirmation →</button>'+
       '</form>'+
+      '<div class="qside"><b>Ordering for both countries?</b> This is your '+(isUS()?'US':'Canadian')+' quote. '+
+        '<button type="button" class="qlnk" id="qMkt">Build the '+(isUS()?'Canadian':'US')+' quote →</button> We combine both under one PO.</div>'+
       '<div class="qside"><b>Need us set up as a vendor?</b> Attach your supplier forms above, or call '+esc(T.phone)+'.</div>'+
     '</aside></div></div>';
 }
@@ -8933,6 +9009,7 @@ function wireQuote(el){
   go.addEventListener('click',upd);hc.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();upd();}});
   document.getElementById('qForm').addEventListener('submit',function(e){e.preventDefault();sendFormalQuote();});
   wireQuoteEdit(el);
+  var qm=document.getElementById('qMkt');if(qm)qm.addEventListener('click',function(){setMarket(!isUS(),'quote');});
   var em=document.getElementById('qEmail');if(em)em.addEventListener('input',function(){em.classList.remove('err');});
 }
 function sendFormalQuote(){
