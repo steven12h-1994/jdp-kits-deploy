@@ -4072,7 +4072,10 @@ var CONFIGS={
     {id:'lcn', name:'Logo + name',       sub:'Logo left chest, name or location on the right.',
      spots:[{pl:'PRIMARY',method:'embroidery'},{pl:'rchest',method:'embroidery'}]},
     {id:'fb',  name:'Chest + full back', sub:'Adds a large back mark — crew recognition at distance.',
-     spots:[{pl:'PRIMARY',method:'embroidery'},{pl:'back',method:'screen',colours:1}]}
+     spots:[{pl:'PRIMARY',method:'embroidery'},{pl:'back',method:'screen',colours:1}]},
+    /* Steven, 2026-10-07: "embroidering on the sleeve should be a option for jackets and fleece". */
+    {id:'lcs', name:'Logo + sleeve badge', sub:'A second embroidered mark on the left sleeve — a department, division or flag.',
+     spots:[{pl:'PRIMARY',method:'embroidery'},{pl:'sleeve',method:'embroidery'}]}
   ],
   vest:[
     {id:'lc',  name:'{P} logo', sub:'One embroidered logo. What most programs order.',                tag:'Most popular',
