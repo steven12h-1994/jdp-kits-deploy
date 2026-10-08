@@ -3648,7 +3648,10 @@ function itemSizes(it,fit){
   return (fit==='womens')?WOMENS_SIZES:MENS_SIZES;
 }
 function numericRun(szs){return !!(szs&&szs.length&&/^\d+$/.test(String(szs[0])));}
-function sizeOk(s){return /^(?:XS|S|M|L|XL|[2-6]XL|\d{2})$/.test(String(s));}
+/* PAIRED and DRESS sizes too (2026-10-08): Ground Force traffic vests are made in pairs -- XXS/XS, S/M,
+   L/XL, 2XL/3XL, 4XL/5XL -- and Red Kap's women's shorts in 4-22. Separate S and M boxes for a vest cut
+   S/M would quote a size the maker does not make. */
+function sizeOk(s){return /^(?:XXS|XS|S|M|L|XL|[2-6]XL|\d{1,2})(?:\/(?:XXS|XS|S|M|L|XL|[2-6]XL))?$/.test(String(s));}
 function sheetSizes(){return itemSizes(BYKEY[bkey(SH.key)],SH.fit);}
 function sizeTotal(sz){sz=sz||SH.sizes||{};var t=0;for(var k in sz){t+=parseInt(sz[k],10)||0;}return t;}
 function effQty(){var t=sizeTotal();return t>0?t:(SH.baseQty||0);}
@@ -3662,7 +3665,8 @@ function savingsNudge(key,decos,q){var nt=nextTier(q);if(!nt)return null;var a=u
 function sizesSummary(c,it){
   if(!c||!c.sizes)return '';
   /* alpha runs order by the full scale, so a women's XS lands first even when the men's run starts at S */
-  var order=(it&&it.sizes&&it.sizes.length&&numericRun(it.sizes))?it.sizes:ALLSIZES,seen={},out=[];
+  var own=(it&&it.sizes&&it.sizes.length)?it.sizes:null;
+  var order=(own&&(numericRun(own)||own.some(function(z){return String(z).indexOf('/')>0;})))?own:ALLSIZES,seen={},out=[];
   order.forEach(function(s){if(c.sizes[s]){seen[s]=1;out.push(s+' '+c.sizes[s]);}});
   Object.keys(c.sizes).forEach(function(s){if(!seen[s]&&c.sizes[s])out.push(s+' '+c.sizes[s]);});
   return out.join(' · ');
@@ -6090,7 +6094,9 @@ function curveFor(it,fit){
      the shape of the standard curve renormalised over the sizes it actually stocks, so the pieces
      that would have gone to S land on M instead of vanishing out of the headcount. */
   var out={},tot=0;
-  szs.forEach(function(s){var v=base[s]||tail[s]||0.01;out[s]=v;tot+=v;});
+  /* a paired size carries the weight of both halves: S/M is the S share plus the M share */
+  var wt=function(z){return base[z]||tail[z]||(z==='XXS'?0.005:0.01);};
+  szs.forEach(function(s){var v=String(s).indexOf('/')>0?String(s).split('/').reduce(function(a,z){return a+wt(z);},0):wt(s);out[s]=v;tot+=v;});
   szs.forEach(function(s){out[s]=out[s]/tot;});
   return out;
 }
