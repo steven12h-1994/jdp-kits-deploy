@@ -2595,6 +2595,12 @@ function sxDropHtml(q){
     var pop=SX_POPULAR.map(function(p){return {q:p,n:sxRun(p).keys.length};}).filter(function(p){return p.n>0;}).slice(0,10);
     h+='<div class="sxh">Popular in this store</div><div class="sxchips">'+pop.map(function(p){
       return '<button type="button" class="sxchip" data-sxq="'+esc(p.q)+'" data-sxi="'+(i++)+'">'+esc(p.q)+'<i>'+p.n+'</i></button>';}).join('')+'</div>';
+    /* Browse is the other half of "help me find": the store's own categories, one tap each. */
+    var cats=(typeof CATS!=='undefined'?CATS:[]).slice(0,14);
+    if(cats.length)h+='<div class="sxh">Shop by category</div><div class="sxcats">'+cats.map(function(c){
+      return '<button type="button" class="sxcat" data-sxa="'+esc(c+'\u0001')+'" data-sxi="'+(i++)+'">'+esc(shortCat(c))+'<i>'+(TOTALS[c]||0)+'</i></button>';}).join('')+'</div>';
+    h+='<div class="sxout"><span>Looking for something specific, or have a spec?</span>'+
+      '<button type="button" class="sxoutb" data-sxrfq="1">Upload an RFQ</button><button type="button" class="sxoutb" data-sxask="1">Tell us what you need</button></div>';
     return h;
   }
   var R=sxRun(q,{live:true});
@@ -2686,6 +2692,18 @@ function wireSuggest(){
   ts.setAttribute('role','combobox');ts.setAttribute('aria-controls','sxdd');ts.setAttribute('aria-expanded','false');
   ts.setAttribute('enterkeyhint','search');
   ts.addEventListener('focus',function(){sxDropShow(ts.value);});
+  var go=document.getElementById('topSearchGo');
+  if(go)go.addEventListener('click',function(){if(ts.value.trim()){jdpTrack('search_go');sxSubmit();}else{ts.focus();}});
+  dd.addEventListener('click',function(e){var b=e.target.closest&&e.target.closest('[data-sxrfq],[data-sxask]');if(!b)return;
+    e.preventDefault();sxDropHide();
+    if(b.dataset.sxrfq){jdpTrack('rfq_open',{src:'search'});openRfq();}
+    else{jdpTrack('hero_ask',{src:'search'});openSourcing('');var nt=document.getElementById('coNote');if(nt&&!nt.value)nt.value='I\u2019m looking for: ';}});
+  /* "/" focuses search from anywhere that is not already a text field */
+  if(!window.__jdpSlash){window.__jdpSlash=1;document.addEventListener('keydown',function(e){
+    if(e.key!=='/'||e.metaKey||e.ctrlKey||e.altKey)return;
+    var t=e.target,tag=(t&&t.tagName)||'';if(/INPUT|TEXTAREA|SELECT/.test(tag)||(t&&t.isContentEditable))return;
+    var f=document.getElementById('topSearch');if(!f||f.offsetParent===null)return;
+    e.preventDefault();f.focus();f.select();jdpTrack('search_slash');});}
   ts.addEventListener('input',function(){
     clearTimeout(SXD.t);var v=ts.value;
     SXD.t=setTimeout(function(){if(document.activeElement===ts)sxDropShow(v);},60);
@@ -3199,7 +3217,10 @@ function homeProofHtml(){
     ?['Family-owned since '+T.since,'Decorated by Stormtech USA','Priced in USD']
     :['Canadian since '+T.since,'Decorated in Canada','Priced in CAD'];
   return '<div class="hproof">'+(isUS()?'':leafSvg(15,'leaf hpleaf'))+bits.map(function(b,i){
-    return (i?'<span class="hpsep" aria-hidden="true">·</span>':'')+'<span>'+esc(b)+'</span>';}).join('')+'</div>';
+    return (i?'<span class="hpsep" aria-hidden="true">·</span>':'')+'<span>'+esc(b)+'</span>';}).join('')+
+    /* the rating left the top bar to give search its room, so it sits with the other proof */
+    '<span class="hpsep" aria-hidden="true">·</span><a class="hprate" href="'+T.reviewsUrl+'" target="_blank" rel="noopener noreferrer">'+
+      '<span class="hpst" aria-hidden="true">★</span>'+T.rating.toFixed(1)+' on Google</a></div>';
 }
 var STAR_SVG='<svg class="hbst" viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path fill="#f5b301" d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.6-4.9-4.6 6.6-.8z"/></svg>';
 function homeBandHtml(){
@@ -6999,9 +7020,16 @@ function tbarHtml(){
         '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" '+
         'stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/>'+
         '<path d="M21 21l-4.3-4.3"/></svg>'+
-        '<input id="topSearch" type="search" autocomplete="off" aria-label="Search products" '+
-        'placeholder="'+(isUS()?'Search polos, jackets, fleece, bags\u2026':'Search polos, hi-vis, jackets, Carhartt\u2026')+'">'+
+        /* THE FIRST QUESTION A STORE ASKS (Steven, 2026-10-08: "search engine is hidden now and hard to
+           use. Should say 'What can we help you find?' and easy to see"). It was a 292px pale-grey strip
+           between the country pill and a 254px rating block, its placeholder cut off mid-word. Now it is
+           the widest thing in the bar, white with a real edge, with its own Search button -- and "/"
+           jumps to it from anywhere, the shortcut procurement tools have trained people to expect. */
+        '<input id="topSearch" type="search" autocomplete="off" aria-label="What can we help you find?" '+
+        'placeholder="What can we help you find?">'+
+        '<kbd class="tbkbd" aria-hidden="true" title="Press / to search">/</kbd>'+
         '<button type="button" class="exsx" id="topSearchX" aria-label="Clear">\u2715</button>'+
+        '<button type="button" class="tbsgo" id="topSearchGo" aria-label="Search"><span>Search</span></button>'+
         '<div class="sxdd" id="sxdd" role="listbox" aria-label="Search suggestions" hidden></div>'+
       '</div>'+
       mktPillHtml()+
