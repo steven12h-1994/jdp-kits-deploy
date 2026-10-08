@@ -1124,7 +1124,10 @@ function trustRatingHtml(cls){
   var T=JDP_TRUST;
   return '<a class="trate '+(cls||'')+'" href="'+T.reviewsUrl+'" target="_blank" rel="noopener noreferrer" '+
     'title="Read our Google reviews">'+trustStars(T.rating)+'<b>'+T.rating.toFixed(1)+'</b>'+
-    '<span>'+T.reviews+' Google reviews</span></a>';
+    /* NO COUNT (Steven, 2026-10-08: "38 google reviews it makes us look small"). The rating is the
+       signal; the count read as a small shop next to "12,847+ teams outfitted". The link still opens
+       the real listing, so nothing is hidden from anyone who wants to check. */
+    '<span>on Google</span></a>';
 }
 function trustPhoneHtml(cls,label){
   var T=JDP_TRUST;
@@ -3203,8 +3206,8 @@ function homeBandHtml(){
   if(!trustOn()||CFG.demo)return '';
   var T=JDP_TRUST,us=isUS();
   var tiles=us
-    ?[[T.teams,'teams outfitted'],[STAR_SVG+T.rating.toFixed(1),T.reviews+' Google reviews'],['USD','every price, logo included'],['1','quote, one contact']]
-    :[[T.teams,'teams outfitted'],[STAR_SVG+T.rating.toFixed(1),T.reviews+' Google reviews'],['CAD','every price, no conversion'],['CSA','Z96 certified hi-vis']];
+    ?[[T.teams,'teams outfitted'],[STAR_SVG+T.rating.toFixed(1),'Google rating'],['USD','every price, logo included'],['1','quote, one contact']]
+    :[[T.teams,'teams outfitted'],[STAR_SVG+T.rating.toFixed(1),'Google rating'],['CAD','every price, no conversion'],['CSA','Z96 certified hi-vis']];
   var checks=us
     ?['Itemized quote for approval','We match any lower written quote','A real person answers']
     :['No border, no brokerage','We match any lower written quote','A real person answers'];
@@ -3628,14 +3631,19 @@ var METHOD_OPTS_US=[
 ];
 function methodOpts(){return isUS()?METHOD_OPTS_US:METHOD_OPTS;}
 var MENS_SIZES=['S','M','L','XL','2XL','3XL'],WOMENS_SIZES=['XS','S','M','L','XL','2XL'];
-var ALLSIZES=['XS','S','M','L','XL','2XL','3XL'];
+var ALLSIZES=['XS','S','M','L','XL','2XL','3XL','4XL','5XL','6XL'];
 /* ---- NOT EVERY GARMENT IS SIZED S-3XL -------------------------------------------------------
    Work trousers run 30-44 at the waist and a coverall runs 38-52 at the chest. A fixed alpha run
    asks a buyer how many "2XL work pants" they need, takes the answer, and quotes a size the maker
    does not make -- a wrong order wearing the costume of a filled-in form. So any catalogue item may
    declare its OWN run in `sizes`; everything without one keeps the alpha default, which is all 489
    items that were on the store before workwear arrived. */
+/* THE MAKER'S OWN RUN, PER CUT (Steven, 2026-10-08: the Women's Orbiter "has XS option. maybe
+   others have the same."). Measured across Stormtech: men's runs to 5XL and often 6XL, several start
+   at XS, women's mostly XS-3XL -- the generic S-3XL / XS-2XL defaults hid every one of those sizes.
+   `wsizes` is the women's run; `sizes` the men's/unisex one. Defaults only when a style declares none. */
 function itemSizes(it,fit){
+  if(fit==='womens'&&it&&it.wsizes&&it.wsizes.length)return it.wsizes;
   if(it&&it.sizes&&it.sizes.length)return it.sizes;
   return (fit==='womens')?WOMENS_SIZES:MENS_SIZES;
 }
@@ -3653,7 +3661,8 @@ function savingsNudge(key,decos,q){var nt=nextTier(q);if(!nt)return null;var a=u
    the one failure here that costs money. */
 function sizesSummary(c,it){
   if(!c||!c.sizes)return '';
-  var order=(it&&it.sizes&&it.sizes.length)?it.sizes:ALLSIZES,seen={},out=[];
+  /* alpha runs order by the full scale, so a women's XS lands first even when the men's run starts at S */
+  var order=(it&&it.sizes&&it.sizes.length&&numericRun(it.sizes))?it.sizes:ALLSIZES,seen={},out=[];
   order.forEach(function(s){if(c.sizes[s]){seen[s]=1;out.push(s+' '+c.sizes[s]);}});
   Object.keys(c.sizes).forEach(function(s){if(!seen[s]&&c.sizes[s])out.push(s+' '+c.sizes[s]);});
   return out.join(' · ');
@@ -5162,14 +5171,21 @@ function recCartDecos(key){key=bkey(key);
    the quote itself. Boards still exist behind the rail for anyone who used them. */
 function quoteListId(){if(!LISTS)loadLists();return (ALID&&LISTS[ALID]&&!isTemplate(ALID))?ALID:personalListId();}
 function toQuoteList(){var id=quoteListId();if(ALID!==id)switchList(id);return id;}
-function hcQty(it,n){n=n||getHC();return n?Math.max(moq(),Math.round(n*hcFactor(it))):moq();}
+/* ONE OF EACH MEANS ONE OF EACH (2026-10-08). A program promises "one of each, per person" and its page
+   prices it that way -- $335 x 40 = $13,400 -- but the quote then scaled the vest and the jacket to 70%
+   and 60% of headcount and showed $10,644. Two totals for one decision is the fastest way to lose an
+   approver. Lines that came from a program carry `prog` and are sized at one per person; items added
+   one at a time keep the outer-layer estimate. */
+function hcFactorOf(it,c){return (c&&c.prog)?1:hcFactor(it);}
+function hcQty(it,n,c){n=n||getHC();return n?Math.max(moq(),Math.round(n*hcFactorOf(it,c))):moq();}
 /* Size ONE line from the headcount (qty by garment type, size split) -- used when a line arrives, so a
    later program never overwrites quantities the buyer already edited on the quote. */
 function sizeLineFromHC(ck,n){
   var c=CART[ck],it=BYKEY[bkey(ck)];if(!c||!it)return;
   if(it.layer==='promo'){c.qty=Math.max(it.moq||1,c.qty||0);return;}
-  var q=hcQty(it,n);
+  var q=hcQty(it,n,c);
   if(n&&!oneSize(it)){c.sizes=spreadSizes(q,c.fit,it);c.qty=sizeSum(c.sizes);}else{delete c.sizes;c.qty=q;}
+  delete c.szset;
 }
 function addToQuoteQuick(key){
   var it=BYKEY[key];if(!it)return;toQuoteList();
@@ -5352,6 +5368,8 @@ function pushBoardSoon(){
 function pushBoardNow(){
   var L=LISTS&&LISTS[ALID];if(!L||isTemplate(ALID))return;
   var b=L.slug||mslug(L.name);if(!b)return;
+  /* a frozen quote copy is written once, by quoteSnapshot(); edits made on it stay on this device */
+  if(/^(us-)?q-/.test(b)){markSync('saved');return;}
   /* NEVER push an empty board we have never synced. The slug comes from the list NAME, and every
      visitor's default list is called "My board" -> "my-board", so on a given kit all visitors
      collide on one server board. A fresh visitor's empty list therefore used to overwrite a saved
@@ -5434,7 +5452,7 @@ function openSharedBoard(b){
     if(!id){id=newListId();LISTS[id]={name:sb.name||b,items:{},updated:Date.now()};}
     LISTS[id].name=sb.name||LISTS[id].name;
     LISTS[id].items=asItems(sb.items);
-    LISTS[id].slug=b;LISTS[id].rev=sb.rev||0;LISTS[id].updated=Date.now();
+    LISTS[id].slug=b;LISTS[id].rev=sb.rev||0;LISTS[id].updated=Date.now();if(sb.by)LISTS[id].by=sb.by;
     ALID=id;CART=LISTS[id].items;persistLists();
     refreshCartUI();
     return true;
@@ -6024,6 +6042,9 @@ var SIZE_CURVE={
   mens:   {S:0.08, M:0.20, L:0.28, XL:0.24, '2XL':0.14, '3XL':0.06},
   womens: {XS:0.05, S:0.18, M:0.27, L:0.25, XL:0.16, '2XL':0.09}
 };
+/* The tails a full maker's run adds. Thin on purpose: an estimate for 40 people should not put two
+   of them in 5XL -- the buyer types the real number. */
+var SIZE_TAIL={mens:{XS:0.02,'4XL':0.015,'5XL':0.008,'6XL':0.004},womens:{'3XL':0.03,'4XL':0.01}};
 /* Not everyone gets a parka. Scaling every line to full headcount produces a total that frightens
    people off a shortlist they were otherwise ready to send. */
 function hcFactor(it){
@@ -6061,15 +6082,15 @@ function numericCurve(szs){
   return out;
 }
 function curveFor(it,fit){
-  var base=SIZE_CURVE[fit==='womens'?'womens':'mens'];
-  if(!(it&&it.sizes&&it.sizes.length))return base;
-  var szs=it.sizes;
+  var fk=fit==='womens'?'womens':'mens',base=SIZE_CURVE[fk],tail=SIZE_TAIL[fk];
+  var szs=(fk==='womens'&&it&&it.wsizes&&it.wsizes.length)?it.wsizes:((it&&it.sizes)||null);
+  if(!(szs&&szs.length))return base;
   if(numericRun(szs))return numericCurve(szs);
   /* An item declaring an alpha SUBSET -- a vest that starts at M, a belt that stops at XL -- keeps
      the shape of the standard curve renormalised over the sizes it actually stocks, so the pieces
      that would have gone to S land on M instead of vanishing out of the headcount. */
   var out={},tot=0;
-  szs.forEach(function(s){var v=base[s]||0.05;out[s]=v;tot+=v;});
+  szs.forEach(function(s){var v=base[s]||tail[s]||0.01;out[s]=v;tot+=v;});
   szs.forEach(function(s){out[s]=out[s]/tot;});
   return out;
 }
@@ -6082,7 +6103,9 @@ function spreadSizes(total,fit,it){
   for(i=0;i<keys.length;i++)if(!out[keys[i]])delete out[keys[i]];
   return out;
 }
+var KEPT_SIZES=0;
 function applyHeadcount(n){
+  KEPT_SIZES=0;
   n=Math.max(1,Math.min(100000,parseInt(n,10)||0));
   if(!n)return 0;
   var touched=0;
@@ -6100,8 +6123,11 @@ function applyHeadcount(n){
     if(it.layer==='promo'){                        // promo has its own quantity model, no size grid
       c.qty=Math.max(it.moq||n,n);touched++;return;
     }
+    /* sizes the buyer typed are a fact about their team, not an estimate: a new headcount never
+       overwrites them */
+    if(c.szset){KEPT_SIZES++;return;}
     var share=paired[bkey(ck)]||1;
-    var target=Math.max(moq(),Math.round(n*hcFactor(it)/share));
+    var target=Math.max(moq(),Math.round(n*hcFactorOf(it,c)/share));
     if(oneSize(it)){delete c.sizes;c.qty=target;}   // a toque has no size split to estimate
     else{c.sizes=spreadSizes(target,c.fit,it);c.qty=sizeSum(c.sizes);}
     touched++;
@@ -7974,6 +8000,14 @@ function pvCardHtml(ck,n){
       '<button type="button" class="pvmore" data-pvopen="'+esc(ck)+'">Details, colours &amp; sizes ›</button>'+
     '</div></li>';
 }
+/* The hero number. With a headcount it is THE total the quote will show -- one of each per person
+   plus the one-time setup -- so the program page and the quote can never disagree. */
+function pvStatHtml(id,n){
+  n=parseInt(n,10)||0;var pp0=pvPerPerson(id,0);
+  if(!n)return '<b>'+money0(pp0)+'</b><span>per person · one of each, logo included</span>';
+  var q=Math.max(moq(),n),pp=pvPerPerson(id,n),setup=pvSetup();
+  return '<b>'+money0(pp*q+setup)+'</b><span>est. total for '+(q>n?(q+' pieces each (minimum)'):(n+' people'))+' · '+money0(pp)+' per person'+(setup>0?' + setup':'')+', logo included</span>';
+}
 function pvEstHtml(id,n){
   if(n==null)n=getHC();
   n=parseInt(n,10)||0;
@@ -8005,7 +8039,8 @@ function programHtml(id){
         (L.sub?('<p class="pvsub">'+esc(L.sub)+'</p>'):'')+
       '</div>'+
       '<div class="pvheroact">'+
-        '<div class="pvstat"><b>'+money0(pp0)+'</b><span>per person · one of each, logo included</span></div>'+
+        '<div class="pvstat" id="pvStat">'+pvStatHtml(id,n)+'</div>'+
+        '<label class="pvhc2"><span>How many people?</span><input id="pvHC2" type="number" inputmode="numeric" min="1" placeholder="e.g. 40"'+(n?(' value="'+n+'"'):'')+' aria-label="Number of people"></label>'+
         /* ONE FIELD NEXT TO THE PRICE. 51 program opens, 0 quotes: the button opened a drawer with
            a second form. Now the email goes in right here and the program goes with it. */
         cta('pvQuoteHero','pvherocta')+
@@ -8033,7 +8068,7 @@ function programUrl(id){return location.origin+location.pathname+'?program='+Str
 function addProgramToQuote(id,n){
   var src=(LISTS[id]||{}).items||{},keys=pvOnKeys(id);if(!keys.length)return;
   var tid=(PV_BACK&&LISTS[PV_BACK]&&!isTemplate(PV_BACK))?PV_BACK:personalListId();
-  keys.forEach(function(ck){try{var e=JSON.parse(JSON.stringify(src[ck]));delete e.why;LISTS[tid].items[ck]=e;}catch(x){}});
+  keys.forEach(function(ck){try{var e=JSON.parse(JSON.stringify(src[ck]));delete e.why;e.prog=1;LISTS[tid].items[ck]=e;}catch(x){}});
   ALID=tid;CART=LISTS[tid].items;LISTS[tid].updated=Date.now();persistLists();
   if(n>0)setHC(n);
   var hn=n||getHC();keys.forEach(function(ck){try{sizeLineFromHC(ck,hn);}catch(x){}});
@@ -8096,14 +8131,20 @@ function wireProgram(el,id){
   el.querySelectorAll('[data-bmore]').forEach(function(b){b.addEventListener('click',function(e){
     e.stopPropagation();var box=b.closest('.bcols');if(box)box.classList.add('all');b.remove();});});
   var hc=document.getElementById('pvHC'),est=document.getElementById('pvEst');
-  var upd=function(){var n=parseInt(hc.value,10)||0;setHC(n);if(est)est.innerHTML=pvEstHtml(id,n);};
+  var hc2=document.getElementById('pvHC2'),stat=document.getElementById('pvStat');
+  var upd=function(src){var n=parseInt((src||hc).value,10)||0;setHC(n);
+    if(hc&&src&&src!==hc)hc.value=src.value;if(hc2&&src!==hc2)hc2.value=(src||hc).value;
+    if(est)est.innerHTML=pvEstHtml(id,n);if(stat)stat.innerHTML=pvStatHtml(id,n);};
+  if(hc2){hc2.addEventListener('input',function(){upd(hc2);});
+    hc2.addEventListener('change',function(){var n=parseInt(hc2.value,10)||0;if(n>0)jdpTrack('program_people',{n:n,src:'hero'});});
+    hc2.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();var q=document.getElementById('pvQuoteHero');if(q)q.click();}});}
   if(hc){
-    hc.addEventListener('input',upd);
+    hc.addEventListener('input',function(){upd(hc);});
     hc.addEventListener('change',function(){upd();var n=parseInt(hc.value,10)||0;if(n>0)jdpTrack('program_people',{n:n});});
     hc.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();var q=document.getElementById('pvQuote');if(q)q.click();}});
   }
   var quote=function(){
-    var n=parseInt(hc&&hc.value,10)||0;
+    var n=parseInt((hc&&hc.value)||(hc2&&hc2.value),10)||0;
     jdpTrack('program_quote',{p:id.replace(/^prog_/,''),n:n,k:pvOnKeys(id).length});
     addProgramToQuote(id,n);
   };
@@ -8731,6 +8772,7 @@ function syncBoardsFromServer(){
           }
         }
         var local=localId?LISTS[localId]:null;
+        if(/^(us-)?q-/.test(row.b||''))return false;   // frozen quote copies are opened by their link, never listed
         /* Local edits newer than the server copy win -- they are mid-flight and will push on the
            next save. Never overwrite what someone is typing right now.
            BUT an empty, never-synced board does not count as "work": every browser mints a default
@@ -8811,6 +8853,18 @@ function persistContact(c){try{localStorage.setItem('jdpkit_contact',JSON.string
        the store, so setup is shown as revenue with its cost flagged untracked.
      * No payment terms, validity window or turnaround is stated -- we do not invent commercial
        terms, and the real invoice number comes from JDP's own system, so this carries a reference. */
+function quoteSig(){try{return JSON.stringify(Object.keys(CART).sort().map(function(k){var c=CART[k]||{};
+  return [k,c.qty,c.colour,c.fit,c.sizes||null,(c.decos||[]).filter(function(d){return d.on;}).map(function(d){return [d.pl,d.method,d.lg,d.colours||''];})];}));}catch(e){return String(Math.random());}}
+/* ONE QUOTE, ONE REFERENCE (2026-10-08). The reference was rebuilt from the clock on every open, so the
+   PDF an approver held and the request Steven received could carry different numbers for the same quote.
+   It now belongs to the quote's contents: unchanged contents keep it, any change mints the next one. */
+function stableRef(){
+  var L=(LISTS||{})[ALID];var sig=quoteSig();
+  if(L&&L.qref&&L.qsig===sig)return L.qref;
+  var r=docRef()+'-'+Math.random().toString(36).slice(2,4).toUpperCase();
+  if(L){L.qref=r;L.qsig=sig;try{persistLists();}catch(e){}}
+  return r;
+}
 function docRef(){
   var d=new Date();
   function p(n){return (n<10?'0':'')+n;}
@@ -8894,7 +8948,7 @@ function proformaText(c){
        position they are being charged for. */
     wrapInto(L,det,66,'   ');
     /* was bkey(ck) -- same undeclared-variable bug as orderText(); the loop key here is `k`. */
-    var ss=sizesSummary(cc,BYKEY[bkey(k)]);if(ss)wrapInto(L,'sizes: '+ss,66,'   ');
+    var ss=sizesSummary(cc,BYKEY[bkey(k)]);if(ss)wrapInto(L,'sizes: '+ss+(cc.szset?'':' (estimated)'),66,'   ');
     sub+=e.revenue;
   });
   L.push(new Array(73).join('-'));
@@ -9014,7 +9068,7 @@ function orderText(c){c=c||{};
     lines.push('');}
   Object.keys(CART).forEach(function(k){var it=BYKEY[bkey(k)];if(!it)return;var cc=CART[k];var u=unitPrice(k,cc.decos,tierQty(k));
     lines.push('• '+it.name+(fitSku(it,cc)?' '+fitSku(it,cc):'')+' ('+it.sku+') — '+(fitTag(it,cc)?fitTag(it,cc)+' · ':'')+cc.colour+' · '+decoSummary(it,cc)+' · qty '+cc.qty+' @ '+money(u)+' ea = '+money(u*cc.qty));
-    /* was bkey(ck): `ck` does not exist in this loop (its variable is `k`), so this line threw a ReferenceError on every checkout from 2026-09-08 cf39435b until 2026-09-24 -- no store could send a quote, and the mailto fallback never ran because the throw came first. */var ss=sizesSummary(cc,BYKEY[bkey(k)]);if(ss)lines.push('    sizes: '+ss);});
+    /* was bkey(ck): `ck` does not exist in this loop (its variable is `k`), so this line threw a ReferenceError on every checkout from 2026-09-08 cf39435b until 2026-09-24 -- no store could send a quote, and the mailto fallback never ran because the throw came first. */var ss=sizesSummary(cc,BYKEY[bkey(k)]);if(ss)lines.push('    sizes: '+ss+(cc.szset?'  (entered by the buyer)':'  (estimated from headcount — confirm with buyer)'));});
   lines.push('','Estimated subtotal: '+money(sub));
   var sb=setupBreakdown();
   if(sb.length){lines.push('One-time setup: '+money(setup)+'  (once per design, shared across the kit)');
@@ -9068,10 +9122,28 @@ function quoteLines(){
     else{var pc=colInList(it.cols,c.colour)||it.cols[0]||{};
       thumb='<span class="qth" style="display:block;width:64px;height:64px;border-radius:8px;background:#fff url('+gurl(pc.front)+') center/contain no-repeat"></span>';}
     var vol=e.promo?'':tiers.slice(1).map(function(t){return t+'+: '+money(unitPrice(ck,c.decos,t));}).join(' · ');
-    return {ck:ck,e:e,it:it,c:c,thumb:thumb,vol:vol,
+    /* within reach of the next price break: say how many more and what each would cost */
+    var nud=null;
+    if(!e.promo){var tq=tierQty(ck),nt=nextTier(tq);
+      if(nt&&(nt-tq)<=Math.max(4,Math.ceil(nt*0.12))){   /* genuinely close only: 44->48, 128->144 -- not a sales push on every line */var ua=unitPrice(ck,c.decos,tq),ub=unitPrice(ck,c.decos,nt);
+        if(ub<ua)nud={need:nt-tq,tier:nt,unit:ub};}}
+    return {ck:ck,e:e,it:it,c:c,thumb:thumb,vol:vol,nud:nud,canSz:!e.promo&&!oneSize(it),
       det:[c.colour,fitTag(it,c),e.promo?'logo included':decoSummary(it,c)].filter(Boolean).join(' · '),
       sizes:sizesSummary(c,it),sku:fitSku(it,c)};
   }).filter(Boolean);
+}
+/* THE SIZE SPLIT, ON THE QUOTE (2026-10-08). The sizes were a read-only estimate, so a buyer with the
+   real numbers had to leave the document their approver signs to correct them. Now every apparel line
+   opens a grid of the maker's own run for that cut (XS..6XL where the maker makes them), the quantity is
+   the sum, and the line says "your sizes" from then on -- in the quote, the PDF and the email. */
+var QSZ_OPEN={};
+function qszRowHtml(l){
+  var it=l.it,c=l.c,szs=itemSizes(it,c.fit),cur=c.sizes||spreadSizes(c.qty||moq(),c.fit,it);
+  return '<tr class="qszrow" data-qszr="'+esc(l.ck)+'"'+(QSZ_OPEN[l.ck]?'':' hidden')+'><td></td><td colspan="5"><div class="qszg">'+
+    '<div class="qszh"><b>Sizes'+(c.fit==='womens'?' · women’s cut':(fitTag(it,c)?' · '+esc(fitTag(it,c)):''))+'</b><span>'+esc(it.name)+' runs '+esc(szs[0])+'–'+esc(szs[szs.length-1])+'</span></div>'+
+    '<div class="qszcells">'+szs.map(function(z){return '<label><span>'+esc(z)+'</span><input type="number" inputmode="numeric" min="0" data-qszin="'+esc(l.ck)+'" data-z="'+esc(z)+'" value="'+(cur[z]||0)+'"></label>';}).join('')+'</div>'+
+    '<div class="qszf"><span class="qszsum" data-qszsum="'+esc(l.ck)+'">Total '+sizeSum(cur)+'</span>'+
+      '<button type="button" class="qszdone" data-qszdone="'+esc(l.ck)+'">Done</button></div></div></td></tr>';
 }
 function quoteDocHtml(){
   if(!cartCount())return quoteEmptyHtml();
@@ -9083,17 +9155,25 @@ function quoteDocHtml(){
     return '<tr><td class="qn">'+(i+1)+'</td><td class="qimg">'+l.thumb+'</td>'+
       '<td class="qitem"><b>'+esc(l.e.name)+'</b>'+
         '<i>'+esc([l.it.brand||l.it.sku,l.sku].filter(Boolean).join(' · '))+'</i>'+
-        '<span>'+esc(l.det)+'</span>'+(l.sizes?('<span>Sizes: '+esc(l.sizes)+'</span>'):'')+
-        (l.vol?('<span class="qvol">Volume pricing — '+esc(l.vol)+'</span>'):'')+'</td>'+
+        '<span>'+esc(l.det)+'</span>'+
+        (l.canSz?('<span class="qsz">'+(l.sizes?('Sizes: '+esc(l.sizes)):'Sizes: not set yet')+
+          ' <em class="qszt'+(l.c.szset?' mine':'')+'">'+(l.c.szset?'your sizes':(l.sizes?'estimated':''))+'</em>'+
+          ' <button type="button" class="qszb" data-qsz="'+esc(l.ck)+'">'+(l.c.szset?'Edit sizes':'Enter sizes')+'</button></span>'):
+          (l.sizes?('<span>Sizes: '+esc(l.sizes)+'</span>'):''))+
+        (l.vol?('<span class="qvol">Volume pricing — '+esc(l.vol)+'</span>'):'')+
+        (l.nud?('<button type="button" class="qnud" data-qnud="'+esc(l.ck)+'" data-qtier="'+l.nud.tier+'">Add '+l.nud.need+' more → '+money(l.nud.unit)+' each</button>'):'')+'</td>'+
       '<td class="qq"><span class="qqv">'+l.e.qty+'</span><input class="qqin" type="number" inputmode="numeric" min="1" value="'+l.e.qty+'" data-qk="'+esc(l.ck)+'" aria-label="Quantity of '+esc(l.e.name)+'">'+
         '<button type="button" class="qrm" data-qrm="'+esc(l.ck)+'" aria-label="Remove '+esc(l.e.name)+'">Remove</button></td>'+
-      '<td class="qu">'+money(l.e.unit)+'</td><td class="qa">'+money(l.e.revenue)+'</td></tr>';}).join('');
+      '<td class="qu">'+money(l.e.unit)+'</td><td class="qa">'+money(l.e.revenue)+'</td></tr>'+
+      (l.canSz?qszRowHtml(l):'');}).join('');
   var who=listName(ALID);
   return '<div class="qwrap">'+
     '<div class="qbar"><button type="button" class="qback" id="qBack">‹ Back</button>'+
       '<div class="qbarbtns"><button type="button" class="qbtn" id="qPdf"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>Download PDF</button>'+
       '<button type="button" class="qbtn" id="qShare">Share with an approver ↗</button>'+
       '<a class="qbtn qsend" href="#qact">Send to confirm →</a></div></div>'+
+    (APPROVER?('<div class="qappr"><b>'+(((LISTS[ALID]||{}).by)?esc((LISTS[ALID]||{}).by)+' shared this quote for your approval':'This quote was shared with you for approval')+'</b>'+
+      '<span>Reference '+esc(QREF)+' · exactly as it was sent. Approve it below and Just Deals confirms in writing — or download the PDF for your records.</span></div>'):'')+
     '<div class="qgrid">'+
     '<article class="qpaper" id="qpaper">'+
       '<header class="qhd"><div><div class="qbrand">Just Deals Promotions</div>'+
@@ -9103,7 +9183,7 @@ function quoteDocHtml(){
       '<div class="qparty"><div><span>Prepared for</span>'+(mark?('<div class="qmk">'+mark+'</div>'):'')+'<b>'+esc(CFG.client||'')+'</b></div>'+
         '<div><span>Prepared by</span><b>Steven · Just Deals Promotions</b><i>'+esc(T.phone)+'</i></div></div>'+
       '<div class="qhc"><label for="qHC">How many people?</label><input id="qHC" type="number" inputmode="numeric" min="1" placeholder="e.g. 40" value="'+(getHC()||'')+'">'+
-        '<button type="button" id="qHCgo">Update quote</button><i>We estimate quantities and sizes from your headcount — fewer outer layers than people. You confirm every quantity and size before production.</i></div>'+
+        '<button type="button" id="qHCgo">Update quote</button><i>Program pieces are one per person. Items added on their own are estimated — fewer outer layers than people. Sizes are estimated until you enter your own; nothing is produced until you confirm.</i></div>'+
       '<div class="qadd"><button type="button" class="qbtn" id="qMore">+ Add more items</button><button type="button" class="qbtn" id="qProg">+ Add a program</button></div>'+
       '<table class="qtab"><thead><tr><th>#</th><th></th><th>Item</th><th>Qty</th><th>Unit'+(isUS()?' (USD)':'')+'</th><th>Amount'+(isUS()?' (USD)':'')+'</th></tr></thead><tbody>'+rows+'</tbody></table>'+
       '<div class="qtot"><div><span>Subtotal · '+pcs+' pieces</span><b>'+money(sub)+'</b></div>'+
@@ -9117,17 +9197,18 @@ function quoteDocHtml(){
         '<li>Taxes and freight are not included. Just Deals Promotions confirms this quote in writing — usually within '+esc(T.reply)+'.</li>'+
         '<li>Price-match: send us a lower written quote for the same job and we will match it. Every order carries our Logo Reprint Guarantee.</li>'+
       '</ul></div>'+
-      '<footer class="qfoot">Just Deals Promotions · '+(isUS()?'Since ':'Canadian since ')+T.since+' · '+esc(T.teams)+' teams · '+T.rating.toFixed(1)+'★ on Google ('+T.reviews+' reviews)</footer>'+
+      '<footer class="qfoot">Just Deals Promotions · '+(isUS()?'Since ':'Canadian since ')+T.since+' · '+esc(T.teams)+' teams · '+T.rating.toFixed(1)+'★ on Google</footer>'+
     '</article>'+
-    '<aside class="qact" id="qact"><h3>Send to Just Deals to confirm</h3>'+
-      '<p>We check it, confirm it in writing and send a proof of your logo. No payment now, no obligation.</p>'+
+    '<aside class="qact" id="qact"><h3>'+(APPROVER?'Approve this quote':'Send to Just Deals to confirm')+'</h3>'+
+      '<p>'+(APPROVER?'Send your approval and Just Deals confirms the order in writing and sends a proof of the logo. No payment now.':'We check it, confirm it in writing and send a proof of your logo. No payment now, no obligation.')+'</p>'+
       '<form id="qForm" novalidate>'+
-        '<label>Work email<input id="qEmail" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" value="'+esc(saved.email||'')+'" placeholder="you@company.com"></label>'+
+        '<label>Work email<input id="qEmail" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" value="'+esc(saved.email||'')+'" placeholder="you@company.com" aria-describedby="qEmailErr"></label>'+
+        '<p class="qerrm" id="qEmailErr" role="alert" hidden>Enter your work email — the written confirmation goes there.</p>'+
         '<label>Your name <i>optional</i><input id="qName" autocomplete="name" value="'+esc(saved.name||'')+'"></label>'+
         '<label>Company<input id="qCompany" autocomplete="organization" value="'+esc(saved.company||CFG.client||'')+'"></label>'+
         '<label>PO number, deadline or notes <i>optional</i><textarea id="qNote" rows="3" placeholder="PO #, in-hands date, delivery address, anything procurement needs"></textarea></label>'+
         '<label class="qfile">Attach a file <i>optional — PO, vendor forms, RFQ or your logo</i><input id="qFile" type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.ai,.eps,.svg,.png,.jpg,.jpeg"></label>'+
-        '<button type="submit" class="qgo" id="qGo">Send for confirmation →</button>'+
+        '<button type="submit" class="qgo" id="qGo">'+(APPROVER?'Approve &amp; send →':'Send for confirmation →')+'</button>'+
       '</form>'+
       '<div class="qside"><b>Ordering for both countries?</b> This is your '+(isUS()?'US':'Canadian')+' quote. '+
         '<button type="button" class="qlnk" id="qMkt">Build the '+(isUS()?'Canadian':'US')+' quote →</button> We combine both under one PO.</div>'+
@@ -9152,22 +9233,48 @@ function wireQuoteEdit(el){
   var m=document.getElementById('qMore');if(m)m.addEventListener('click',function(){jdpTrack('quote_more');quoteToCatalogue();});
   var p=document.getElementById('qProg');if(p)p.addEventListener('click',function(){jdpTrack('quote_prog');quoteToPrograms();});
   var r=document.getElementById('qRfq');if(r)r.addEventListener('click',function(){closeQuote();openRfq();});
-  var rerender=function(){var st=el.scrollTop;el.innerHTML=quoteDocHtml();wireQuote(el);el.scrollTop=st;refreshCartUI();};
+  var rerender=function(){QREF=stableRef();var st=el.scrollTop;el.innerHTML=quoteDocHtml();wireQuote(el);el.scrollTop=st;refreshCartUI();};
   el.querySelectorAll('[data-qrm]').forEach(function(b){b.addEventListener('click',function(){
     delete CART[b.dataset.qrm];markCleared();saveCart();jdpTrack('quote_remove');rerender();});});
   el.querySelectorAll('[data-qk]').forEach(function(inp){
     var apply=function(){var n=parseInt(inp.value,10)||0,ck=inp.dataset.qk,c=CART[ck],it=BYKEY[bkey(ck)];if(!c||!it)return;
       var min=(it.layer==='promo')?(it.moq||1):moq();
       if(n<min){toast('Minimum is '+min+' for this item');n=min;}
-      if(c.sizes&&!oneSize(it)){c.sizes=spreadSizes(n,c.fit,it);c.qty=sizeSum(c.sizes);}else c.qty=n;
+      if(c.sizes&&!oneSize(it)){c.sizes=spreadSizes(n,c.fit,it);c.qty=sizeSum(c.sizes);delete c.szset;}else c.qty=n;
       saveCart();jdpTrack('quote_line_qty');rerender();};
     inp.addEventListener('change',apply);
     inp.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();inp.blur();}});});
+  /* size grid: open/close, live total, commit */
+  el.querySelectorAll('[data-qsz]').forEach(function(b){b.addEventListener('click',function(){
+    var ck=b.dataset.qsz,r=el.querySelector('[data-qszr="'+cssEsc(ck)+'"]');if(!r)return;
+    QSZ_OPEN[ck]=r.hidden;r.hidden=!r.hidden;if(!r.hidden){var f=r.querySelector('input');if(f){f.focus();f.select();}jdpTrack('quote_sizes_open');}});});
+  var szRead=function(ck){var out={};el.querySelectorAll('[data-qszin="'+cssEsc(ck)+'"]').forEach(function(f){
+      var v=Math.max(0,Math.min(100000,parseInt(f.value,10)||0));if(v)out[f.dataset.z]=v;});return out;};
+  el.querySelectorAll('[data-qszin]').forEach(function(f){
+    f.addEventListener('input',function(){var ck=f.dataset.qszin,t=sizeSum(szRead(ck)),it=BYKEY[bkey(ck)];
+      var sm=el.querySelector('[data-qszsum="'+cssEsc(ck)+'"]');
+      if(sm){sm.textContent='Total '+t+(t&&t<moq()?(' · minimum is '+moq()):'');sm.classList.toggle('low',!!(t&&t<moq()));}});
+    f.addEventListener('change',function(){var ck=f.dataset.qszin,c=CART[ck];if(!c)return;var sz=szRead(ck),t=sizeSum(sz);
+      if(t>0){c.sizes=sz;c.qty=t;c.szset=1;saveCart();}});
+    f.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();var d=el.querySelector('[data-qszdone="'+cssEsc(f.dataset.qszin)+'"]');if(d)d.click();}});});
+  el.querySelectorAll('[data-qszdone]').forEach(function(b){b.addEventListener('click',function(){
+    var ck=b.dataset.qszdone,c=CART[ck];if(!c)return;var sz=szRead(ck),t=sizeSum(sz);
+    if(!t){toast('Enter at least one size');return;}
+    c.sizes=sz;c.qty=t;c.szset=1;QSZ_OPEN[ck]=false;saveCart();jdpTrack('quote_sizes',{n:t});
+    if(t<moq())toast('Below the '+moq()+'-piece minimum — priced at the minimum tier');
+    rerender();});});
+  el.querySelectorAll('[data-qnud]').forEach(function(b){b.addEventListener('click',function(){
+    var ck=b.dataset.qnud,c=CART[ck],it=BYKEY[bkey(ck)],tier=parseInt(b.dataset.qtier,10)||0;if(!c||!it||!tier)return;
+    var add=tier-tierQty(ck);if(add<=0)return;
+    if(c.sizes&&!oneSize(it)){var ex=spreadSizes(add,c.fit,it);Object.keys(ex).forEach(function(z){c.sizes[z]=(c.sizes[z]||0)+ex[z];});c.qty=sizeSum(c.sizes);}
+    else c.qty=(c.qty||0)+add;
+    saveCart();jdpTrack('quote_nudge',{t:tier});toast('Now '+c.qty+' — priced at the '+tier+'+ tier');rerender();});});
 }
+function cssEsc(v){return String(v).replace(/["\\]/g,'\\$&');}
 function openQuote(src){
-  toQuoteList();
+  if(src!=='approver')toQuoteList();
   if(!cartCount()&&(src==='checkout')){openSourcing('');return;}
-  QREF=docRef();
+  QREF=stableRef();APPROVER=(src==='approver');
   jdpTrack('quote_view',{src:src||'',n:cartCount()});
   try{closeAll();}catch(e){}try{closeBoard();}catch(e){}try{closeBoards();}catch(e){}try{closeProgram();}catch(e){}
   try{renderCart();}catch(e){}
@@ -9178,11 +9285,28 @@ function openQuote(src){
 }
 function closeQuote(){var el=document.getElementById('qdoc');if(!el||!el.classList.contains('on'))return;
   el.classList.remove('on');document.body.style.overflow='';}
+/* THE APPROVER LINK IS A FROZEN COPY (2026-10-08). It used to point at the live board -- and every
+   visitor's default board on a store is the same "my-board", so whatever a colleague changed after the
+   link was sent is what the approver saw. Now sharing (or sending) writes the quote, exactly as it
+   stands, to its own board named after the reference, and the link opens straight onto the quote
+   document. The server refuses to overwrite a board without its revision, so the copy stays as sent. */
+var APPROVER=false;
+function quoteSnapSlug(){return mslug('q '+QREF);}
+function quoteSnapshot(){
+  var b=quoteSnapSlug(),L=LISTS[ALID]||{};
+  try{
+    if(L.qsnap===b)return b;
+    var who='';try{who=(JSON.parse(localStorage.getItem('jdpkit_contact')||'{}').name||'');}catch(e){}
+    var items=JSON.parse(JSON.stringify(asItems(CART)));
+    fetch(boardsApi(),{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({kit:SLUG,b:b,name:'Quote '+QREF,items:items,by:who})}).then(function(r){
+        if(r&&(r.ok||r.status===409)){L.qsnap=b;try{persistLists();}catch(e){}}}).catch(function(){});
+  }catch(e){}
+  return b;
+}
 function quoteShareUrl(){
-  var L=LISTS[ALID]||{};
-  if(L.prog)return programUrl(ALID);
-  try{pushBoardNow();}catch(e){}
-  try{return shareListUrl();}catch(e){return location.href;}
+  var b=quoteSnapshot();
+  return location.origin+location.pathname+'?b='+encodeURIComponent(b)+'&quote=1';
 }
 function wireQuote(el){
   document.getElementById('qBack').addEventListener('click',closeQuote);
@@ -9194,28 +9318,32 @@ function wireQuote(el){
     setTimeout(function(){try{window.print();}catch(e){}document.documentElement.classList.remove('qprint');document.title=t;},50);});
   document.getElementById('qShare').addEventListener('click',function(){
     var u=quoteShareUrl();jdpTrack('quote_share');
-    var done=function(){toast('Link copied — your approver sees the same items and prices');};
+    var done=function(){toast('Link copied — your approver opens this exact quote, reference '+QREF);};
     try{if(navigator.share&&matchMedia('(hover:none)').matches){navigator.share({title:'Quote '+QREF,url:u}).catch(function(){});return;}
       if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(u).then(done,function(){window.prompt('Copy this link',u);});return;}}catch(e){}
     window.prompt('Copy this link',u);});
   var hc=document.getElementById('qHC'),go=document.getElementById('qHCgo');
   var upd=function(){var n=parseInt(hc.value,10)||0;if(n<1){hc.focus();return;}applyHeadcount(n);jdpTrack('quote_qty',{n:n});
-    var st=el.scrollTop;el.innerHTML=quoteDocHtml();wireQuote(el);el.scrollTop=st;toast('Quote updated for '+n+' people');};
+    QREF=stableRef();var st=el.scrollTop;el.innerHTML=quoteDocHtml();wireQuote(el);el.scrollTop=st;
+    toast('Quote updated for '+n+' people'+(KEPT_SIZES?(' · kept your sizes on '+KEPT_SIZES+' line'+(KEPT_SIZES===1?'':'s')):''));};
   go.addEventListener('click',upd);hc.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();upd();}});
   document.getElementById('qForm').addEventListener('submit',function(e){e.preventDefault();sendFormalQuote();});
   wireQuoteEdit(el);
   var qm=document.getElementById('qMkt');if(qm)qm.addEventListener('click',function(){setMarket(!isUS(),'quote');});
-  var em=document.getElementById('qEmail');if(em)em.addEventListener('input',function(){em.classList.remove('err');});
+  var em=document.getElementById('qEmail');if(em)em.addEventListener('input',function(){em.classList.remove('err');var er=document.getElementById('qEmailErr');if(er)er.hidden=true;});
 }
 function sendFormalQuote(){
   var v=function(id){return ((document.getElementById(id)||{}).value||'').trim();};
   var c={name:v('qName'),email:v('qEmail'),company:v('qCompany')||CFG.client||'',note:v('qNote')};
-  if(!c.email||c.email.indexOf('@')<1||c.email.indexOf('.')<0){var e=document.getElementById('qEmail');e.classList.add('err');e.focus();
-    toast('Add your work email so we can confirm your quote');return;}
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(c.email)){var e=document.getElementById('qEmail');e.classList.add('err');e.focus();
+    var er=document.getElementById('qEmailErr');if(er){er.hidden=false;er.textContent=c.email?'That email doesn’t look complete — check it and try again.':'Enter your work email — the written confirmation goes there.';}
+    return;}
+  try{quoteSnapshot();}catch(x){}
   persistContact(c);try{localStorage.setItem('jdp_lead_sent','1');}catch(x){}
-  var body=orderText(c),subj='Quote '+QREF+' — '+(c.company||CFG.client)+(c.name?' — '+c.name:'')+' — please confirm';
+  var body=orderText(c),subj=(APPROVER?'APPROVED — ':'')+'Quote '+QREF+' — '+(c.company||CFG.client)+(c.name?' — '+c.name:'')+(APPROVER?'':' — please confirm');
   var payload={name:c.name||'(not given)',email:c.email,company:c.company,_subject:subj,_template:'table',_captcha:'false',
-    reference:QREF,kit:body,kit_link:location.href.split('#')[0].split('?')[0],their_list:quoteShareUrl()};
+    reference:QREF,kit:body,kit_link:location.href.split('#')[0].split('?')[0],their_list:quoteShareUrl(),
+    sizes_from:(Object.keys(CART).some(function(k){return (CART[k]||{}).szset;})?'buyer entered sizes on some lines':'all sizes estimated from headcount')};
   var btn=document.getElementById('qGo');btn.disabled=true;btn.innerHTML='Sending…';
   var done=false,fell=false;
   var ok=function(){if(done||fell)return;done=true;jdpTrack('sent',{src:'quote',n:cartCount()});
@@ -9513,7 +9641,12 @@ function go(cfg){
       var _lb=location.search.match(/[?&]b=([^&#]+)/);
       if(_lb&&!/[?&]list=/.test(location.search)){
         openSharedBoard(qdec(_lb[1])).then(function(found){
-          if(found)openBoard(ALID);
+          /* a frozen quote link opens on the document an approver signs, not on the board editor */
+          var _snap=/^(us-)?q-/.test(qdec(_lb[1]));
+          if(found&&(_snap||/[?&]quote=1/.test(location.search))){
+            var L=LISTS[ALID];if(L&&_snap){var m=String(L.name||'').match(/^Quote (.+)$/);if(m){L.qref=m[1];L.qsig=quoteSig();L.qsnap=qdec(_lb[1]);}}
+            openQuote(_snap?'approver':'link');}
+          else if(found)openBoard(ALID);
           else toast('That board isn\u2019t available \u2014 it may have been renamed');});}refreshCartUI();if(curateOn())markCurCards();
       /* A view link only makes sense when a board is not already taking over the screen. */
       if(!/[?&](b|board)=/.test(location.search)){try{applyViewLink();}catch(e){}}

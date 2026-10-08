@@ -3409,3 +3409,47 @@ body.giftview .social{display:none!important}
 .gxbar>.gftypes,.gxbar>.gfbands{min-width:0;max-width:100%}
 @media(max-width:700px){.gx .gfbands .gfbl{display:none}}
 @media(max-width:700px){.gx .gftophd{flex-direction:column;align-items:flex-start;gap:4px}.gx .gftoph{font-size:24px}}
+/* ===== ENTERPRISE QUOTE FLOW (2026-10-08) ======================================================== */
+/* program hero: the headcount sits beside the price */
+.pvhc2{display:flex;align-items:center;gap:10px;font-size:13.5px;font-weight:800;color:var(--ink)}
+.pvhc2 input{width:110px;padding:10px 12px;border:1.5px solid #cfd5db;border-radius:10px;font:inherit;font-size:15px;font-weight:700;background:#fff}
+.pvhc2 input:focus{outline:none;border-color:var(--a);box-shadow:0 0 0 3px color-mix(in srgb,var(--a) 18%,transparent)}
+.pvstat span{max-width:36ch;line-height:1.4}
+/* quote line: sizes */
+.qitem .qsz{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px}
+.qszt{font-style:normal;font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:999px;background:#f1efe9;color:#7a6f5f}
+.qszt:empty{display:none}
+.qszt.mine{background:#e6f4ea;color:#1e6b34}
+.qszb{background:none;border:0;padding:0;font:inherit;font-size:12.5px;font-weight:800;color:var(--a);text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.qszrow td{padding-top:0!important;border-top:0!important}
+.qszg{background:#faf9f6;border:1px solid #e7e3da;border-radius:12px;padding:12px 14px;margin:0 0 6px}
+.qszh{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:4px 12px;margin-bottom:10px}
+.qszh b{font-size:13px}.qszh span{font-size:12px;color:#777}
+.qszcells{display:grid;grid-template-columns:repeat(auto-fill,minmax(58px,1fr));gap:8px}
+.qszcells label{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11.5px;font-weight:800;color:#555}
+.qszcells input{width:100%;padding:8px 4px;text-align:center;border:1.5px solid #cfd5db;border-radius:8px;font:inherit;font-size:14px;font-weight:700;background:#fff}
+.qszcells input:focus{outline:none;border-color:var(--a)}
+.qszf{display:flex;align-items:center;justify-content:space-between;margin-top:10px;gap:10px}
+.qszsum{font-size:13px;font-weight:800}.qszsum.low{color:#b45309}
+.qszdone{padding:8px 16px;border:0;border-radius:9px;background:#1b1b1b;color:#fff;font:inherit;font-size:13px;font-weight:800;cursor:pointer}
+/* quote line: the next price break */
+.qnud{display:inline-flex;margin-top:6px;padding:5px 10px;border-radius:8px;border:1px dashed #1e6b34;background:#f1faf3;color:#1e6b34;font:inherit;font-size:12px;font-weight:800;cursor:pointer}
+.qnud:hover{background:#e6f4ea}
+/* approver mode */
+.qappr{display:flex;flex-direction:column;gap:3px;margin:0 0 14px;padding:14px 18px;border-radius:14px;background:#eef6ff;border:1px solid #cfe3fb}
+.qappr b{font-size:15px}.qappr span{font-size:13px;color:#46566a}
+/* email validation, in words */
+.qerrm{margin:-4px 0 8px;font-size:12.5px;font-weight:700;color:#b42318}
+@media print{
+  html.qprint .qszb,html.qprint .qnud,html.qprint .qszrow,html.qprint .qappr{display:none!important}
+  html.qprint .qszt{background:none;padding:0;color:#555}
+}
+@media(max-width:700px){.pvhc2{width:100%}.pvhc2 input{flex:1}.qszcells{grid-template-columns:repeat(auto-fill,minmax(52px,1fr))}}
+/* phones: the size grid takes the whole row, not the narrow item column */
+@media(max-width:700px){
+  .qszrow>td:first-child{display:none}
+  .qszrow>td[colspan]{padding-left:0!important;padding-right:0!important}
+  .qszg{padding:12px}
+  .qszcells{grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
+  .qszcells input{padding:8px 2px}
+}
