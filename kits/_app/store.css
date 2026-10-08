@@ -3494,3 +3494,46 @@ body.giftview .social{display:none!important}
 @media (max-width:420px){.tbsgo span{font-size:13px}.tbsgo{padding:0 11px}}
 .tbsearch>svg,.tbsearch .tbsgo,.tbsearch .tbkbd,.tbsearch .exsx{align-self:center}
 @media (max-width:820px){.tbsearch input{align-self:stretch}}
+/* ===== PRODUCT PAGE, ENTERPRISE (2026-10-08) =====================================================
+   "when someone clicks a product it is very confusing and low converting!" */
+.pladder{margin:12px 0 4px}
+.plh{font-size:11.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#8a8275;margin-bottom:7px}
+.pladder .ptable{margin:0}
+.pqrow{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.qty.pq{display:inline-flex;align-items:center;border:1.5px solid #cfd5db;border-radius:12px;overflow:hidden;background:#fff}
+.qty.pq button{width:44px;height:46px;border:0;background:#fff;font-size:20px;font-weight:700;color:var(--ink);cursor:pointer}
+.qty.pq button:hover{background:#f4f2ee}
+.qty.pq input{width:78px;height:46px;border:0;border-left:1px solid #eee;border-right:1px solid #eee;text-align:center;font:inherit;font-size:18px;font-weight:800;color:var(--ink)}
+.pqchips{display:flex;gap:6px;flex-wrap:wrap}
+.pqc{padding:8px 12px;border:1.5px solid #e2e6ec;border-radius:999px;background:#fff;font:inherit;font-size:13px;font-weight:800;color:var(--ink);cursor:pointer}
+.pqc.on{border-color:var(--ink);background:var(--ink);color:#fff}
+.pqsz{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;margin-top:14px;padding:11px 14px;border:1.5px dashed #d8d2c6;border-radius:12px;background:#faf9f6;font:inherit;font-size:13.5px;font-weight:800;color:var(--ink);cursor:pointer;text-align:left}
+.pqsz i{font-style:normal;font-weight:600;color:#8a8275;margin-left:6px}
+.pqsz.on{border-style:solid;background:#fff}
+.pqszbox{margin-top:10px}
+.shbtns{display:flex;flex-direction:column;gap:8px}
+.shqbtn{width:100%;padding:12px 16px;border:1.5px solid var(--ink);border-radius:12px;background:#fff;font:inherit;font-size:14.5px;font-weight:800;color:var(--ink);cursor:pointer}
+.shqbtn:hover{background:var(--ink);color:#fff}
+.pdpD{padding:6px 20px 24px;border-top:1px solid var(--line);background:#fcfbf9}
+.pdph{margin:18px 0 10px;font-size:13px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#8a8275}
+.pdpsz{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline;margin:12px 0;padding:12px 14px;border-radius:12px;background:#fff;border:1px solid var(--line);font-size:14px}
+.pdpsz b{font-weight:800}
+.pdpL .shmedia{padding:10px 16px 4px}
+/* desktop: a real product page -- photo left (stays put), decision right */
+@media (min-width:1000px){
+  .sheet.pdpw{max-width:min(1140px,94vw);width:94vw}
+  .sheet.pdpw .pdp{display:grid;grid-template-columns:minmax(0,1.08fr) minmax(0,1fr);align-items:start}
+  .sheet.pdpw .pdpL{position:sticky;top:0;align-self:start;border-right:1px solid var(--line);background:#fff}
+  .sheet.pdpw .shimg{border-radius:22px 0 0 0}
+  .sheet.pdpw .shstage{width:min(100%,62vh)}
+  .sheet.pdpw .pdpR{padding:26px 30px 26px}
+  .sheet.pdpw .pdpR h2{font-size:26px;line-height:1.15}
+  .sheet.pdpw .pdpD{padding:4px 30px 28px}
+  .sheet.pdpw .pdpD>*{max-width:860px}
+  .sheet.pdpw .shfoot{display:grid;grid-template-columns:1fr minmax(320px,420px);align-items:center;gap:6px 24px;padding:14px 30px}
+  .sheet.pdpw .shfoot .shprice{padding:0}
+  .sheet.pdpw .shfoot .shtrust{grid-column:1/-1}
+  .sheet.pdpw .shbtns{flex-direction:row}
+  .sheet.pdpw .shbtns .shaddbtn{flex:1.3}
+  .sheet.pdpw .shbtns .shqbtn{flex:1;width:auto}
+}

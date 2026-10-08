@@ -425,6 +425,10 @@ function unitAt(item,q){var cs=CFG.pricing.cols,pr=item.prices,i=0;for(var k=0;k
 function moq(){return (CFG.pricing.cols&&CFG.pricing.cols[0])||12;}
 /* ---- decoration-aware pricing (mirrors the server rate card) ---- */
 var MLAB={embroidery:'Embroidery',screen:'Screen print',heat_transfer:'Heat transfer',patch:'Faux leather patch'};
+/* DTF, BY NAME (Steven, 2026-10-08: "we need DTF heat transfer option"). Our Canadian heat transfer IS
+   direct-to-film -- full colour, no screens -- so Canadian stores say so wherever the method is named.
+   US stores keep Stormtech's own wording, because their decorator's process is theirs to describe. */
+function mlabOf(m){return (m==='heat_transfer'&&!isUS())?'DTF heat transfer':(MLAB[m]||'Emb');}
 
 /* ---- UNITED STATES MARKET (2026-10-07) ----------------------------------------------------------
    Steven: "we need to set up United States pricing and shopping experience for enterprise. ... In
@@ -1039,7 +1043,7 @@ function incParts(it,decos){
   var logos=(CFG&&CFG.logos)||[],prime=(logos[0]||{}).id;
   return realDecos(it,decos).map(function(d){
     var p=placeOf(it,d.pl)||{};
-    var how=INC_HOW[d.method]||'Embroidered';
+    var how=(d.method==='heat_transfer'&&!isUS())?'DTF transfer':(INC_HOW[d.method]||'Embroidered');
     if(d.method==='screen'){var n=d.colours||1;how+=' · '+n+' colour'+(n===1?'':'s');}
     /* A second logo (a wordmark on the back, say) is named, exactly as the quote names it. */
     var art=(logos.length>1&&d.lg&&d.lg!==prime)?logoLabel(logoOf(d.lg)):'';
@@ -3643,7 +3647,7 @@ var METHOD_OPTS=[
   {m:'embroidery',c:1,lab:'Embroidery',sub:'Stitched in thread — premium & long-lasting. Best on polos, jackets & vests.'},
   {m:'screen',c:1,lab:'Screen print — 1 colour',sub:'Your logo printed in one solid ink — best value on tees & hi-vis.'},
   {m:'screen',c:2,lab:'Screen print — 2 colour',sub:'Printed in two inks — a little more of your logo’s detail.'},
-  {m:'heat_transfer',c:1,lab:'Heat transfer',sub:'Full-colour design pressed on with heat — best for detailed logos & rain gear.'}
+  {m:'heat_transfer',c:1,lab:'DTF heat transfer',sub:'Full-colour direct-to-film transfer — every colour of your logo, photo-sharp detail, soft and flexible. Best for detailed logos, performance fabrics & rain gear.'}
 ];
 var METHOD_OPTS_US=[
   {m:'embroidery',c:1,lab:'Embroidery',sub:'Stitched in thread — premium & long-lasting. Best on polos, jackets & vests.'},
@@ -4262,6 +4266,17 @@ var CFG_SHIRT=[
    ask -- it is how a crew is identified across a yard from behind. The polo/dress-shirt set has no
    back option (nobody prints across the back of a client-facing polo) and the hi-vis set describes
    the back print in terms of reflective tape these garments do not have. Hence a third set. */
+/* POLOS GET A BACK (Steven, 2026-10-08: "chest + back for polo"). The shared shirt set had no back
+   option on the reasoning that nobody prints across a client-facing polo -- but event staff, crews and
+   anyone working a floor are read from behind. A polo's back is a performance knit, so the back mark is
+   a full-colour DTF transfer (light, flexible, no stitching through thin fabric); the chest stays
+   embroidered. The DTF chest card is for detailed or many-colour logos stitching cannot hold. */
+var CFG_POLO=CFG_SHIRT.concat([
+  {id:'cb',  name:'Chest + back', sub:'Embroidered logo on the chest, full-colour DTF transfer across the upper back \u2014 for staff seen from behind: events, retail floors, crews.',
+   spots:[{pl:'PRIMARY',method:'embroidery'},{pl:'back',method:'heat_transfer'}]},
+  {id:'dtf', name:'{P} DTF transfer', sub:'A full-colour DTF heat transfer instead of stitching \u2014 every colour and fine detail of your logo, soft on performance fabric.',
+   spots:[{pl:'PRIMARY',method:'heat_transfer'}]}
+]);
 var CFG_WORKSHIRT=CFG_SHIRT.concat([
   {id:'lcb', name:'Logo + name across the back',
    sub:'Logo left chest, company name screen printed across the back yoke — how a crew is recognised from behind.',
@@ -4329,12 +4344,14 @@ var CFG_SWEAT=[
   {id:'fb',   name:'Chest + full back', sub:'Embroidered chest, large screen print across the back.',
    spots:[{pl:'PRIMARY',method:'embroidery'},{pl:'back',method:'screen',colours:1}]},
   {id:'lcs',  name:'Logo + sleeve badge', sub:'A second mark on the left sleeve.',
-   spots:[{pl:'PRIMARY',method:'embroidery'},{pl:'sleeve',method:'embroidery'}]}
+   spots:[{pl:'PRIMARY',method:'embroidery'},{pl:'sleeve',method:'embroidery'}]},
+  {id:'dtf',  name:'{P} DTF print', sub:'Full-colour DTF transfer \u2014 every colour of your logo, no per-colour screens.',
+   spots:[{pl:'PRIMARY',method:'heat_transfer'}]}
 ];
 var SWEATSHIRT_RE=/hood|crewneck|sweatshirt/;
 var NOT_SWEATSHIRT_RE=/parka|bomber|\bjacket\b|quilted|insulated|3-in-1|6-in-1|shacket|\bvest\b|\bcoat\b|softshell|shell\b/;
 var CONFIGS={
-  polo:CFG_SHIRT, woven:CFG_SHIRT, workshirt:CFG_WORKSHIRT, coverall:CFG_WORKSHIRT,
+  polo:CFG_POLO, woven:CFG_SHIRT, workshirt:CFG_WORKSHIRT, coverall:CFG_WORKSHIRT,
   hivisvest:CFG_HIVIS_VEST, hivistee:CFG_HIVIS_TEE, sweat:CFG_SWEAT,
   /* Steven, 2026-09-08: "Tees default and most popular is left chest print." The print carried
      "Best value" while the EMBROIDERY carried "Most popular" -- backwards for a tee, and the tag
@@ -4345,7 +4362,9 @@ var CONFIGS={
     {id:'lc', name:'{P} logo',   sub:'Embroidered instead — a heavier stitched finish that matches your polo and jacket program.',
      spots:[{pl:'PRIMARY',method:'embroidery'}]},
     {id:'fb', name:'Chest + full back', sub:'Small logo on the chest, large print across the back.',
-     spots:[{pl:'PRIMARY',method:'screen',colours:1},{pl:'back',method:'screen',colours:1}]}
+     spots:[{pl:'PRIMARY',method:'screen',colours:1},{pl:'back',method:'screen',colours:1}]},
+    {id:'dtf', name:'{P} DTF print', sub:'Full-colour DTF transfer \u2014 every colour of your logo with no screens to set up per colour. Strong on small runs and detailed artwork.',
+     spots:[{pl:'PRIMARY',method:'heat_transfer'}]}
   ],
   fleece:[
     {id:'lc',  name:'{P} logo',     sub:'One embroidered logo. What most programs order.',            tag:'Most popular',
@@ -4364,7 +4383,11 @@ var CONFIGS={
      spots:[{pl:'PRIMARY',method:'embroidery'},{pl:'back',method:'screen',colours:1}]},
     /* Steven, 2026-10-07: "embroidering on the sleeve should be a option for jackets and fleece". */
     {id:'lcs', name:'Logo + sleeve badge', sub:'A second embroidered mark on the left sleeve — a department, division or flag.',
-     spots:[{pl:'PRIMARY',method:'embroidery'},{pl:'sleeve',method:'embroidery'}]}
+     spots:[{pl:'PRIMARY',method:'embroidery'},{pl:'sleeve',method:'embroidery'}]},
+    /* a waterproof shell is the classic DTF garment: a transfer seals onto the face fabric where
+       stitching would put needle holes through the membrane */
+    {id:'dtf', name:'{P} DTF transfer', sub:'A full-colour DTF heat transfer instead of stitching \u2014 no needle holes, so waterproof shells stay waterproof.',
+     spots:[{pl:'PRIMARY',method:'heat_transfer'}]}
   ],
   vest:[
     {id:'lc',  name:'{P} logo', sub:'One embroidered logo. What most programs order.',                tag:'Most popular',
@@ -4423,7 +4446,9 @@ var US_CFG_TEXT={
   spfb:{name:'Chest + back heat transfer',sub:'Full-colour heat transfers front and back — small mark on the chest, large one across the shoulders.'},
   fb:{sub:'Embroidered chest, large full-colour heat transfer across the back.'},
   fo:{sub:'One full-colour heat transfer on the front.'},
-  frp:{name:'Larger front heat transfer',sub:'A bigger full-colour heat transfer — for event and giveaway bags.'}
+  frp:{name:'Larger front heat transfer',sub:'A bigger full-colour heat transfer — for event and giveaway bags.'},
+  cb:{sub:'Embroidered logo on the chest, full-colour heat transfer across the upper back — for staff seen from behind.'},
+  dtf:{name:'{P} heat transfer',sub:'A full-colour heat transfer instead of stitching — every colour and fine detail of your logo.'}
 };
 var US_PATCH_CATS={outer:1,fleece:1,sweat:1,vest:1,bag:1};
 function usConfigs(list,ck){
@@ -4431,8 +4456,11 @@ function usConfigs(list,ck){
     var t=US_CFG_TEXT[c.id]||{},n=JSON.parse(JSON.stringify(c));
     n.spots=n.spots.map(function(sp){sp.method=usMethod(sp.method);if(sp.method!=='screen')delete sp.colours;return sp;});
     if(c.spots.some(function(sp){return sp.method==='screen';})){if(t.name)n.name=t.name;if(t.sub)n.sub=t.sub;}
-    else if(t.sub&&c.id==='fb'){n.sub=t.sub;}
+    else if(t.sub&&(c.id==='fb'||c.id==='cb'||c.id==='dtf')){n.sub=t.sub;if(t.name)n.name=t.name;}
     return n;});
+  /* screen print becomes heat transfer in the US, so a "print" card and the DTF card can end up as the
+     same setup -- keep the first, never show the buyer two identical choices */
+  var seen={};out=out.filter(function(c){var sig=JSON.stringify(c.spots);if(seen[sig])return false;seen[sig]=1;return true;});
   if(US_PATCH_CATS[ck])out.push({id:'pt',name:'Faux leather patch',
     sub:'A laser-etched faux leather or suede patch in place of embroidery — a premium, tactile finish.',
     spots:[{pl:'PRIMARY',method:'patch'}]});
@@ -4575,7 +4603,7 @@ function configWhere(cfg,it){
     var p=placeOf(it,d.pl),lab=(p&&p.label)||d.pl;
     var sz=(p&&p.size)?(' '+p.size):'';
     var m=(d.method==='screen')?('screen print'+((d.colours||1)>1?(' '+d.colours+'-colour'):'')):
-          (d.method==='heat_transfer'?'heat transfer':(d.method==='patch'?'faux leather patch':'embroidery'));
+          (d.method==='heat_transfer'?(isUS()?'heat transfer':'DTF heat transfer'):(d.method==='patch'?'faux leather patch':'embroidery'));
     return lab+sz+' · '+m;
   }).join('   •   ');
 }
@@ -4869,9 +4897,15 @@ function renderPromoSheet(){
   var qin=document.getElementById('pqin');if(qin)qin.addEventListener('change',function(){SH.qty=Math.max(min,parseInt(qin.value,10)||min);renderPromoSheet();});
   document.getElementById('shAdd').addEventListener('click',function(){var was=!!CART[SH.key];CART[SH.key]={qty:q.qty,colour:SH.colour,mi:SH.mi,locs:SH.locs,promo:true};saveCart();closeAll();refreshCartUI();syncBoardIfOpen();toast((was?'Updated · ':'Added · ')+item.name);});
 }
+function pdpSizesHtml(it){
+  if(!it||oneSize(it))return '';
+  var rng=function(a){return a&&a.length?(a.length>2&&!numericRun(a)?(a[0]+'\u2013'+a[a.length-1]):a.join(', ')):'';};
+  var m=itemSizes(it,'mens'),w=hasLadies(it)?itemSizes(it,'womens'):null;
+  return '<div class="pdpsz"><b>Available sizes</b><span>'+(w?('Men\u2019s '+esc(rng(m))+' \u00b7 Women\u2019s '+esc(rng(w))):esc(rng(m)))+'</span></div>';
+}
 function renderSheet(){
   var item=BYKEY[SH.key];
-  if(item&&item.layer==='promo')return renderPromoSheet();
+  if(item&&item.layer==='promo'){var _ps=document.getElementById('sheet');if(_ps)_ps.classList.remove('pdpw');return renderPromoSheet();}
   if(!document.getElementById('jdpStepCss')){var _st=document.createElement('style');_st.id='jdpStepCss';_st.textContent=
     ".step{margin-top:22px;padding-top:20px;border-top:1px solid #eee}"+
     ".shb .step:first-of-type{border-top:0;margin-top:4px;padding-top:0}"+
@@ -4922,17 +4956,17 @@ function renderSheet(){
      do not run -- which is what made this read-only in the first place. */
   var _cfgCards=configCardsHtml();
   var primaryHtml=_cfgCards
-    ? ('<section class="step" id="shLogo"><div class="steph"><span class="stepn">3</span><span class="stept">Your logo</span>'+
+    ? ('<section class="step" id="shLogo"><div class="steph"><span class="stepn">2</span><span class="stept">Your logo</span>'+
         '<i>choose a setup</i></div>'+_cfgCards+sysHtml(item)+'</section>')
     : (_st&&_st.method)
-    ? ('<section class="step" id="shLogo"><div class="steph"><span class="stepn">3</span><span class="stept">Your logo</span>'+
+    ? ('<section class="step" id="shLogo"><div class="steph"><span class="stepn">2</span><span class="stept">Your logo</span>'+
         '<i>included</i></div><div class="decostd">'+
         '<span class="dsic" aria-hidden="true">\u25C6</span>'+
         '<span class="dstx"><b>'+esc(_st.loc)+'</b><i>Embroidered \u00b7 '+esc(_st.size)+' \u00b7 included in the price</i></span>'+
         '</div>'+sysHtml(item)+'<div class="decofoot">Our standard setup for this product. The image above is a '+
         'visual guide, not an exact production rendering. Your logo, placement and size are confirmed '+
         'on your quote. Need another location? Add it in the notes and we\u2019ll price it.</div></section>')
-    : (hasDecoPlace(item)?'':'<section class="step" id="shLogo"><div class="steph"><span class="stepn">3</span><span class="stept">Your logo</span></div>'+
+    : (hasDecoPlace(item)?'':'<section class="step" id="shLogo"><div class="steph"><span class="stepn">2</span><span class="stept">Your logo</span></div>'+
         '<div class="decofoot">This piece is supplied blank. Tell us in the notes if you\u2019d like it decorated and we\u2019ll quote it.</div></section>');
   var extraHtml='';
   var decos=sheetDecos();
@@ -4949,11 +4983,23 @@ function renderSheet(){
     '<div class="qty sm szqty"><button data-sz="'+s+'" data-d="-1" aria-label="Less '+s+'">–</button><input class="szin" data-sz="'+s+'" type="number" inputmode="numeric" value="'+(SH.sizes[s]||0)+'" min="0"><button data-sz="'+s+'" data-d="1" aria-label="More '+s+'">+</button></div></div>';}).join('');
   var totHint = under ? (' <span>· add '+(moq()-q)+' more to reach the '+moq()+' minimum</span>')
     : (sizeTotal()===0&&SH.baseQty>0 ? ' <span>· set your split below (optional)</span>' : '');
-  var qtyGrp='<section class="step"><div class="steph"><span class="stepn">2</span><span class="stept">How many of each size?</span><i>'+moq()+' min</i></div>'+
-    '<div class="szgrid">'+grid+'</div>'+spreadReuseHtml()+
-    '<div class="sztot'+(under?' under':'')+'">Total <b>'+q+' pcs</b>'+totHint+'</div>'+
-    '<div class="pthead">Price per piece — the more you order, the less each costs</div>'+
-    '<div class="ptable">'+ptable+'</div>'+nudHtml+'</section>';
+  /* ONE NUMBER FIRST, THE SPLIT IF YOU HAVE IT (2026-10-08). The quantity step was six size steppers --
+     a wall of decisions before the buyer had settled the logo -- for a split most enterprise buyers do
+     not have yet and can set on the quote. So: one quantity box with quick picks at the price breaks,
+     and "Split by size" opens the maker's own run for anyone who does know. */
+  var szOn=sizeTotal()>0,szOpen=SH.szOpen||szOn;
+  var quick=[moq(),24].concat(tiers.slice(1)).filter(function(v,i,a){return a.indexOf(v)===i;}).sort(function(a,b){return a-b;});
+  var qtyGrp='<section class="step" id="shQty"><div class="steph"><span class="stepn">3</span><span class="stept">How many?</span><i>'+moq()+' minimum</i></div>'+
+    '<div class="pqrow"><div class="qty pq"><button type="button" id="pqm" aria-label="Fewer">–</button>'+
+      '<input id="pqin" type="number" inputmode="numeric" min="1" value="'+q+'" aria-label="Quantity"'+(szOn?' title="Total of your size split"':'')+'>'+
+      '<button type="button" id="pqp" aria-label="More">+</button></div>'+
+      '<div class="pqchips">'+quick.map(function(v){return '<button type="button" class="pqc'+(q===v?' on':'')+'" data-pq="'+v+'">'+v+'</button>';}).join('')+'</div></div>'+
+    (under?'<div class="sztot under">Add '+(moq()-q)+' more to reach the '+moq()+'-piece minimum</div>':'')+nudHtml+
+    '<button type="button" class="pqsz'+(szOpen?' on':'')+'" id="pqSz" aria-expanded="'+(szOpen?'true':'false')+'">'+
+      (szOn?'Your size split · '+esc(sizesSummary({sizes:SH.sizes},item)):'Split by size <i>optional — or set sizes on your quote</i>')+'<span aria-hidden="true">'+(szOpen?'▴':'▾')+'</span></button>'+
+    (szOpen?('<div class="pqszbox"><div class="szgrid">'+grid+'</div>'+spreadReuseHtml()+
+      '<div class="sztot'+(under?' under':'')+'">Total <b>'+q+' pcs</b>'+totHint+'</div></div>'):'')+
+    '</section>';
   var canAdd=q>=moq();
   // Preserve the customiser's scroll position across re-renders so tapping a finish / size doesn't jump.
   var _prev=document.querySelector('#sheet .shscroll'),_top=_prev?_prev.scrollTop:0;
@@ -4969,28 +5015,33 @@ function renderSheet(){
     (item.scenic?'<button class="shworn" id="shworn" aria-label="See it worn"><img src="'+gurl(item.scenic)+'" alt="" loading="lazy"><span class="swt"><b>See it worn</b><i>real in-the-field photo</i></span><span class="swgo">\u2192</span></button>':'')+
     (item.video?'<button class="vwatch" id="vwatch"><svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>Watch video<span class="vwdur"></span></button>':'')+
   '</div>'):'';
+  document.getElementById('sheet').classList.add('pdpw');
   document.getElementById('sheet').innerHTML=
     '<button class="shx" id="shx" aria-label="Close">✕</button>'+backChipHtml()+
-    '<div class="shscroll">'+
+    '<div class="shscroll"><div class="pdp"><div class="pdpL">'+
       '<div class="shimg" id="shimg"><div class="shstage"><img class="g" src="'+(SH.gimg?gurl(SH.gimg):o.g)+'" alt="">'+(SH.gimg?'':o.lg)+'</div>'+faceTog+'</div>'+
-      galleryStrip(item)+
-      '<div class="shb"><h2>'+esc(item.name)+'</h2><div class="shsku">'+esc(item.sku)+(hasLadies(item)?(SH.fit==='womens'?' · Ladies’':' · Men’s'):(item.unisex?' · Unisex':''))+(item.layer==='field'&&item.csa?' · CSA hi-vis':'')+shareBtnHtml(SHEETKEY)+'</div>'+
+      galleryStrip(item)+mediaRow+'</div>'+
+      '<div class="shb pdpR"><h2>'+esc(item.name)+'</h2><div class="shsku">'+esc(item.sku)+(hasLadies(item)?(SH.fit==='womens'?' · Ladies’':' · Men’s'):(item.unisex?' · Unisex':''))+(item.layer==='field'&&item.csa?' · CSA hi-vis':'')+shareBtnHtml(SHEETKEY)+'</div>'+
       '<div class="shfrom"><b>'+money(unit)+'</b> <small>/pc</small> <i>at '+(q||moq())+' pcs</i>'+(hasDecoPlace(item)?'':' · blank')+
         (fromP<unit?('<span class="shvol">'+money(fromP)+'/pc at '+topcol+'+</span>'):'')+'</div>'+
       /* What that price includes, BEFORE the blurb -- it used to live in step 3, below colour and
          sizes, so a buyer read a price and had to scroll past two decisions to learn what it was
          for. Built from the same `decos` the price above was computed from, so it follows every
          change they make; "Change" goes straight to the logo step. */
+      /* the price ladder belongs next to the price, not three steps down */
+      '<div class="pladder"><div class="plh">Price per piece · your logo included</div><div class="ptable">'+ptable+'</div></div>'+
       (item.layer==='promo'?'':('<div class="shinc">'+incHtml(item,decos,'sheet')+
         (hasDecoPlace(item)?'<button type="button" class="shincgo" id="shIncGo">Change<span aria-hidden="true"> \u2193</span></button>':'')+
       '</div>'))+
-      (item.blurb?'<p class="shblurb">'+esc(item.blurb)+'</p>':'')+
-      mediaRow+
-      fabricHtml(item)+sampCtaHtml(SH.key)+
-      fitTog+step1+qtyGrp+primaryHtml+extraHtml+
+      fitTog+step1+primaryHtml+extraHtml+qtyGrp+
       trustPromiseHtml('sheet')+
-      altHtml(SH.key)+
-      '<div class="shnote">'+(hasDecoPlace(item)?'Prices are per piece, decorated — your logo (embroidery / print) is included. One-time setup shows once in your board summary. ':'Prices are per piece (blank garment — no decoration on this item). ')+'Exact quote confirmed before anything runs.</div>'+
+    '</div></div>'+
+    /* DETAILS, BELOW THE DECISION. Description, fabric, the size run, samples and alternatives are
+       all worth having -- after the buyer can see colour, logo and quantity, not before them. */
+    '<div class="pdpD"><h3 class="pdph">Product details</h3>'+
+      (item.blurb?'<p class="shblurb">'+esc(item.blurb)+'</p>':'')+
+      pdpSizesHtml(item)+fabricHtml(item)+sampCtaHtml(SH.key)+altHtml(SH.key)+
+      '<div class="shnote">'+(hasDecoPlace(item)?'Prices are per piece, decorated — your logo is included. One-time setup shows once on your quote. ':'Prices are per piece (blank garment — no decoration on this item). ')+'Exact quote confirmed in writing before anything runs.</div>'+
     '</div></div>'+
     '<div class="shfoot">'+priceClar+
       /* ONE TAP FROM A PRODUCT TO A REQUEST. Live funnel, 2026-09-25: 21 product opens, 0 adds.
@@ -5046,6 +5097,18 @@ function renderSheet(){
     else{var chg=!SH.D[pl].on||SH.D[pl].method!==b.dataset.m;SH.D[pl].on=true;SH.D[pl].method=b.dataset.m;SH.D[pl].colours=parseInt(b.dataset.c,10)||1;if(chg)SH.D[pl].ink='auto';
       var p=placeOf(item,pl);if(p&&(p.face||'front')!==SH.face&&hasBack)SH.face=p.face||'front';}
     swapPreview();renderSheet();});});
+  var pqSet=function(n){n=Math.max(1,Math.min(100000,parseInt(n,10)||0));
+    if(sizeTotal()>0&&n!==sizeTotal()){sheetSizes().forEach(function(z){SH.sizes[z]=0;});SH.szOpen=false;toast('Size split cleared \u2014 set it again here or on your quote');}
+    SH.baseQty=n;renderSheet();};
+  var pqin=document.getElementById('pqin');
+  if(pqin){pqin.addEventListener('change',function(){pqSet(pqin.value);});
+    pqin.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();pqin.blur();}});}
+  var pqm=document.getElementById('pqm'),pqp=document.getElementById('pqp');
+  if(pqm)pqm.addEventListener('click',function(){pqSet(effQty()-1);});
+  if(pqp)pqp.addEventListener('click',function(){pqSet(effQty()+1);});
+  sh.querySelectorAll('[data-pq]').forEach(function(b){b.addEventListener('click',function(){jdpTrack('sheet_qty',{n:+b.dataset.pq});pqSet(b.dataset.pq);});});
+  var pqs=document.getElementById('pqSz');
+  if(pqs)pqs.addEventListener('click',function(){SH.szOpen=(sizeTotal()>0)?true:!SH.szOpen;if(SH.szOpen)jdpTrack('sheet_sizes_open');renderSheet();});
   sh.querySelectorAll('.szqty button').forEach(function(b){b.addEventListener('click',function(){var s=b.dataset.sz,d=parseInt(b.dataset.d,10);SH.sizes[s]=Math.max(0,(parseInt(SH.sizes[s],10)||0)+d);renderSheet();});});
   var _sr=document.getElementById('spreadre');if(_sr)_sr.addEventListener('click',applySpread);
   sh.querySelectorAll('.szin').forEach(function(inp){inp.addEventListener('change',function(e){SH.sizes[e.target.dataset.sz]=Math.max(0,parseInt(e.target.value,10)||0);renderSheet();});});
@@ -5972,7 +6035,7 @@ function fitSku(it,c){return (c&&c.fit==='womens'&&it&&it.wsku)?it.wsku:((it&&it
 function decoSummary(it,c){
   var logos=(typeof CFG!=='undefined'&&CFG.logos)||[],prime=(logos[0]||{}).id;
   return (c.decos||[]).map(function(d){
-    var p=placeOf(it,d.pl),m=MLAB[d.method]||'Emb';
+    var p=placeOf(it,d.pl),m=mlabOf(d.method);
     /* "4C" was printer's shorthand on a customer-facing line; say it the way the row above it does. */
     if(d.method==='screen'){var _n=d.colours||1;m+=' · '+_n+' colour'+(_n===1?'':'s');}
     var art=(logos.length>1&&d.lg&&d.lg!==prime)?(' · '+logoLabel(logoOf(d.lg))):'';
