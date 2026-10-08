@@ -636,7 +636,19 @@ var DECO_MK={embroidery:[2.02,1.61,1.31],screen:[3.67,3.00,2.33],heat_transfer:[
    raise the figure here and the saving passes to the customer automatically. */
 function blankBreak(q){return (q<48)?1.00:((q<144)?0.97:0.94);}
 function decoMk(method,q){var t=DECO_MK[method]||DECO_MK.embroidery;return (q<48)?t[0]:((q<144)?t[1]:t[2]);}
-function decoCharge(d,item,q){if(isUS())return usDecoCost(d,item,q)*DECO_MK_US;return decoCost(d,item)*decoMk(d.method||'embroidery',q);}
+/* THE SLEEVE BADGE IS A SMALL MARK (Steven, 2026-10-08: "Logo + sleeve badge price looks expensive
+   relative to market"). It was charged exactly like a full left-chest logo -- $4.20 cost x 2.02 = $8.50 a
+   piece at 12+, plus its own $60 digitizing -- about $13.50 a piece on a 12-piece order. Market, checked:
+   an additional embroidery location runs ~$5.80 (Trimark 12-99), small-stitch embroidery $7.10 at 12-71
+   (Print Co), and small-logo digitizing $15-50. A ~2.5" sleeve badge is a fraction of a chest logo's
+   stitches, so it now carries a small-mark markup on the SAME $4.20 cost basis ($5.88 / $5.46 / $5.04)
+   and a $30 setup. The cost basis is deliberately not lowered: margin reports stay conservative. */
+var SMALL_MK=[1.40,1.30,1.20],SMALL_SETUP=30;
+function isSmallMark(d,item){if(!d||d.method!=='embroidery')return false;var p=item?placeOf(item,d.pl):null;
+  return d.pl==='sleeve'||!!(p&&/sleeve/i.test(p.label||''));}
+function decoCharge(d,item,q){if(isUS())return usDecoCost(d,item,q)*DECO_MK_US;
+  if(isSmallMark(d,item))return decoCost(d,item)*((q<48)?SMALL_MK[0]:((q<144)?SMALL_MK[1]:SMALL_MK[2]));
+  return decoCost(d,item)*decoMk(d.method||'embroidery',q);}
 // Carhartt — transparent premium brand: leaner market-benchmarked markup (competitive with marks.com / carhartt.com).
 function isCarhartt(item){return String((item&&(item.brand||item.sku))||'').toLowerCase().indexOf('carhartt')===0;}
 function costMultCarh(c){if(c<=15)return 1.72;if(c<=30)return 1.60;if(c<=60)return 1.50;if(c<=100)return 1.42;if(c<=180)return 1.36;return 1.31;}
@@ -6019,6 +6031,7 @@ function setupBreakdown(){var r=CFG.rates||{},s=isUS()?SETUP_US:(r.setup||{}),se
     if(d.method==='screen'){var c=d.colours||1;amt=(s.screen||0)*c;lab=lname+' · '+plab+' · screen ('+c+'-colour)';}
     else if(d.method==='heat_transfer'){amt=s.heat_transfer||0;lab=lname+' · '+plab+' · heat-transfer artwork';}
     else if(d.method==='patch'){amt=s.patch||0;lab=lname+' · '+plab+' · patch setup';}
+    else if(!isUS()&&isSmallMark(d,it)){amt=(s.embroidery_small!=null)?s.embroidery_small:SMALL_SETUP;lab=lname+' · '+plab+' · small-mark digitizing';}
     else{amt=s.embroidery||0;lab=lname+' · '+plab+' · embroidery digitizing';}
     out.push({label:lab,amount:Math.round(amt*100)/100});});});
   Object.keys(CART).forEach(function(k){var it=BYKEY[bkey(k)];if(!it||it.layer!=='promo')return;var q=promoQuote(it,CART[k]);
@@ -9022,7 +9035,7 @@ function proformaText(c){
   var L=[];
   L.push('PROFORMA INVOICE  (estimate — not a demand for payment)'+(isUS()?'  ·  ALL AMOUNTS IN USD':'  ·  ALL AMOUNTS IN CAD'));
   L.push('Ship to: '+(isUS()?'United States':'Canada'));
-  L.push('Reference '+docRef()+'   ·   '+docDate());
+  L.push('Reference '+(QREF||docRef())+'   ·   '+docDate());   /* the quote's own reference, not a fresh clock value */
   L.push('');
   L.push('From:  Just Deals Promotions');
   L.push('To:    '+((c.company||CFG.client||'')||'—'));
@@ -9063,6 +9076,69 @@ function proformaText(c){
   return L.join('\n');
 }
 
+/* HOW ONE PRICE WAS BUILT -- the same arithmetic as unitPrice(), step by step, so the profit report
+   explains a number rather than just stating it. If unitPrice() changes, this must change with it
+   (harness/profit.js asserts the two agree on every catalogue apparel line). */
+function priceParts(ck){
+  var key=bkey(ck),it=BYKEY[key],c=CART[ck]||{};if(!it||it.layer==='promo')return null;
+  var q=tierQty(ck),wf=/#w$/.test(String(ck));
+  var c0=isUS()?usBlank(key,wf):blankOf(key),bb=blankBreak(q),cg=c0*bb;
+  var vpl={};(it.places||[]).forEach(function(p){if(p.logo)vpl[p.id]=1;});
+  var ly=stdLayers(key),dec=0,decc=0,marks=[];
+  activeDecos(c.decos).forEach(function(d){if(!vpl[d.pl])return;
+    var co=decoCost(d,it,q)*ly,ch=decoCharge(d,it,q)*ly,p=placeOf(it,d.pl);
+    dec+=co;decc+=ch;marks.push({where:(p&&p.label)||d.pl,how:mlabOf(d.method),cost:co,charge:ch,mk:co>0?ch/co:0,small:isSmallMark(d,it)});});
+  var carh=isCarhartt(it),cm=carh?costMultCarh(c0):costMult(c0),vf=carh?volFactorCarh(q):volFactor(q);
+  var garm=cg*cm*vf,raw=garm+decc,floor=(cg+dec)/(carh?0.78:0.70),fl=raw<floor,pre=Math.max(raw,floor,2.5);
+  var unit=Math.ceil(pre/0.5)*0.5;
+  return {q:q,c0:c0,bb:bb,cg:cg,cm:cm,vf:vf,carh:carh,garm:garm,marks:marks,dec:dec,decc:decc,raw:raw,floor:floor,floored:fl,unit:unit,
+          cost:cg+dec,profit:unit-(cg+dec),gm:unit>0?(unit-(cg+dec))/unit:0};
+}
+function qBand(q){return q<24?'12–23 pcs':q<48?'24–47 pcs':q<100?'48–99 pcs':q<250?'100–249 pcs':'250+ pcs';}
+function profitReportText(){
+  var L=[],tRev=0,tCost=0,promoRev=0,lines=0;
+  var cur=isUS()?' USD':'';
+  L.push('PROFIT REPORT — FOR JDP ONLY. The customer never sees this.');
+  L.push('');
+  var body=[];
+  Object.keys(CART).forEach(function(ck){
+    var it=BYKEY[bkey(ck)],c=CART[ck];if(!it||!c)return;lines++;
+    if(it.layer==='promo'){var pq=promoQuote(it,c);promoRev+=pq.goods;
+      body.push((lines)+'. '+it.name+' — '+pq.qty+' pcs at '+money(pq.perPiece));
+      body.push('   Supplier (Spector) price, branding included. Our net cost is not in the store, so profit is not shown.');body.push('');return;}
+    var P=priceParts(ck);if(!P)return;var qty=c.qty||0;
+    tRev+=P.unit*qty;tCost+=P.cost*qty;
+    body.push(lines+'. '+it.name+(c.fit==='womens'?' (women\u2019s)':'')+' — '+qty+' pcs at '+money(P.unit)+' each');
+    body.push('   Garment:  we pay '+money(P.c0)+(P.bb<1?(' less '+Math.round((1-P.bb)*100)+'% volume break = '+money(P.cg)):'')+
+      '. Marked up ×'+P.cm.toFixed(2)+(P.carh?' (Carhartt rate)':'')+' and ×'+P.vf.toFixed(2)+' for '+qBand(P.q)+' = '+money(P.garm)+'.');
+    P.marks.forEach(function(m){
+      body.push('   Logo:     '+m.where+' '+m.how.toLowerCase()+' costs us '+money(m.cost)+', charged '+money(m.charge)+' (×'+m.mk.toFixed(2)+(m.small?', small-mark rate':'')+').');});
+    if(P.floored)body.push('   Minimum:  '+money(P.raw)+' would be under our 30% margin floor, so the price was raised to '+money(P.floor)+'.');
+    var _pre=Math.max(P.raw,P.floored?P.floor:0);
+    body.push('   Price:    '+money(P.garm)+' + '+money(P.decc)+' = '+money(_pre)+(money(_pre)!==money(P.unit)?(', rounded up to '+money(P.unit)):'')+'.');
+    body.push('   You make: '+money(P.profit)+' a piece ('+Math.round(P.gm*100)+'% margin) = '+money(P.profit*qty)+' on this line.'+(P.gm<0.30?'   *** UNDER 30% — CHECK ***':''));
+    body.push('');
+  });
+  var setup=cartSetup();
+  L.push('THE ORDER');
+  L.push('   Apparel sales        '+money(tRev)+cur);
+  L.push('   Our cost             '+money(tCost)+cur+'   (garments at the volume break + decoration)');
+  L.push('   Profit               '+money(tRev-tCost)+cur+'   '+(tRev>0?Math.round((tRev-tCost)/tRev*100)+'% margin':''));
+  if(setup>0)L.push('   Setup charged        '+money(setup)+cur+'   (our setup cost isn\u2019t in the store, so it is not counted as profit)');
+  if(promoRev>0)L.push('   Supplier-priced kits '+money(promoRev)+cur+'   (profit not shown — net cost not in the store)');
+  L.push('   Order total          '+money(cartSubtotal()+setup)+cur);
+  L.push('');
+  L.push('HOW EACH PRICE WAS BUILT');
+  L.push('');
+  L=L.concat(body);
+  L.push('THE RULES BEHIND THESE NUMBERS');
+  L.push('   • Garment markup depends on what the garment costs us: cheaper garments get a bigger multiple (e.g. ×1.90 under $15,');
+  L.push('     ×1.52 around $40–75, ×1.40 over $150). Carhartt runs leaner because buyers can see its retail price.');
+  L.push('   • Small orders pay a little more (×1.06 for 12–23 pcs); big orders a little less (×0.92 at 100+).');
+  L.push('   • Logo decoration is marked up on our decorator cost, stepping down at 48+ and 144+. Sleeve badges use the lower small-mark rate.');
+  L.push('   • Every apparel price is held to at least a 30% margin on true cost, then rounded up to the next 50¢.');
+  return L.join('\n');
+}
 /* The internal one. Never shown in the browser; fenced so it cannot be mistaken for the proforma. */
 function dealEconomicsText(){
   var L=[];
@@ -9187,7 +9263,10 @@ function orderText(c){c=c||{};
   /* Two documents, generated with the quote. The proforma is ready to send to the customer as-is;
      the economics block is ours and is fenced so it cannot be mistaken for part of it. */
   lines.push('','',proformaText(c));
-  lines.push('','',dealEconomicsText());
+  /* The profit report is NOT part of this text any more. orderText() also feeds the mailto fallback
+     (which opens the BUYER's own mail client with this body) and "copy my list" (the buyer's
+     clipboard), so margins inside it could reach a customer. It now travels only as its own
+     `profit_report` field in the submission to JDP -- see profitReportText(). */
   return lines.join('\n');
 }
 
@@ -9437,9 +9516,11 @@ function sendFormalQuote(){
     return;}
   try{quoteSnapshot();}catch(x){}
   persistContact(c);try{localStorage.setItem('jdp_lead_sent','1');}catch(x){}
-  var body=orderText(c),subj=(APPROVER?'APPROVED — ':'')+'Quote '+QREF+' — '+(c.company||CFG.client)+(c.name?' — '+c.name:'')+(APPROVER?'':' — please confirm');
+  /* The subject used to end "please confirm" and read like an invoice phish; the first formal quote ever
+     sent landed in Spam while every lead email from the same sender reached the inbox. It now reads like them. */
+  var body=orderText(c),subj=(APPROVER?'\u2705 Quote APPROVED — ':'\ud83e\uddfe New quote request — ')+(c.company||CFG.client)+' — '+money(cartSubtotal()+cartSetup())+(isUS()?' USD':'')+' — '+QREF+(c.name?' — '+c.name:'');
   var payload={name:c.name||'(not given)',email:c.email,company:c.company,_subject:subj,_template:'table',_captcha:'false',
-    reference:QREF,kit:body,kit_link:location.href.split('#')[0].split('?')[0],their_list:quoteShareUrl(),
+    reference:QREF,profit_report:profitReportText(),kit:body,kit_link:location.href.split('#')[0].split('?')[0],their_list:quoteShareUrl(),
     sizes_from:(Object.keys(CART).some(function(k){return (CART[k]||{}).szset;})?'buyer entered sizes on some lines':'all sizes estimated from headcount')};
   var btn=document.getElementById('qGo');btn.disabled=true;btn.innerHTML='Sending…';
   var done=false,fell=false;
@@ -9624,7 +9705,7 @@ function submitKit(){
   var subj='Kit request — '+(c.company||(CFG.demo?c.email:CFG.client))+(c.name?' — '+c.name:'')+(CFG.demo?' (demo store)':'');
   demoLead(c);
   var payload={name:c.name||'(not given)',email:c.email,company:c.company||(CFG.demo?'':CFG.client)||'',
-    _subject:subj,_template:'table',_captcha:'false',kit:body,
+    _subject:subj,_template:'table',_captcha:'false',profit_report:profitReportText(),kit:body,
     kit_link:location.href.split('#')[0].split('?')[0],
     // The customer's own list as a link: open it to see exactly what they chose, and adopt it as
     // that store's shortlist in one click rather than reconstructing it from the text.
