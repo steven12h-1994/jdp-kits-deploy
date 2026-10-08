@@ -3658,8 +3658,7 @@ var SH={key:null,colour:null,face:'front',D:{},qty:12,showExtra:false,fit:'mens'
 var METHOD_OPTS=[
   {m:'embroidery',c:1,lab:'Embroidery',sub:'Stitched in thread — premium & long-lasting. Best on polos, jackets & vests.'},
   {m:'screen',c:1,lab:'Screen print — 1 colour',sub:'Your logo printed in one solid ink — best value on tees & hi-vis.'},
-  {m:'screen',c:2,lab:'Screen print — 2 colour',sub:'Printed in two inks — a little more of your logo’s detail.'},
-  {m:'heat_transfer',c:1,lab:'DTF heat transfer',sub:'Full-colour direct-to-film transfer — every colour of your logo, photo-sharp detail, soft and flexible. Best for detailed logos, performance fabrics & rain gear.'}
+  {m:'screen',c:2,lab:'Screen print — 2 colour',sub:'Printed in two inks — a little more of your logo’s detail.'}
 ];
 var METHOD_OPTS_US=[
   {m:'embroidery',c:1,lab:'Embroidery',sub:'Stitched in thread — premium & long-lasting. Best on polos, jackets & vests.'},
@@ -4266,13 +4265,20 @@ function itemCategory(it){
   if(layer==='field')return 'hivis';         // legacy field styles keep exactly the class they had
   return 'other';
 }
+/* ===== DECORATION, SIMPLIFIED (Steven, 2026-10-08) =================================================
+   "decorations options are not enterprise ready. it is way too confusing now. identify the most popular
+   decoration types, simplify, forget about heat transfer in canada pricing."
+   What the trade actually sells, by garment: an EMBROIDERED LEFT-CHEST LOGO on polos, shirts, jackets,
+   vests, fleece, caps and bags; a SCREEN-PRINTED chest on tees; and, as the one common add-on, a BACK
+   print (crews) or the WEARER'S NAME (managed uniforms) -- plus the sleeve badge Steven asked for on
+   jackets and fleece. So every garment now offers at most THREE setups, the most popular first and
+   pre-selected, each a plain sentence. DTF / heat transfer is gone from Canadian stores; the ink-count
+   picker is gone too -- prints are priced at the logo's own colour count, confirmed from the artwork. */
 var CFG_SHIRT=[
   {id:'lc',  name:'{P} logo',     sub:'One embroidered logo. What most programs order.',            tag:'Most popular',
    spots:[{pl:'PRIMARY',method:'embroidery'}]},
-  {id:'lcn', name:'Logo + name',         sub:'Logo left chest, employee name on the right — managed uniforms.',
-   spots:[{pl:'PRIMARY',method:'embroidery'},{pl:'rchest',method:'embroidery'}]},
-  {id:'lcs', name:'Logo + sleeve badge', sub:'A second mark on the left sleeve for a department or division.',
-   spots:[{pl:'PRIMARY',method:'embroidery'},{pl:'sleeve',method:'embroidery'}]}
+  {id:'lcn', name:'Logo + employee name', sub:'Logo on the left chest, the wearer\u2019s name on the right.',
+   spots:[{pl:'PRIMARY',method:'embroidery'},{pl:'rchest',method:'embroidery'}]}
 ];
 /* A work shirt and a coverall are a UNIFORM, so the company name across the back yoke is a normal
    ask -- it is how a crew is identified across a yard from behind. The polo/dress-shirt set has no
@@ -4283,17 +4289,15 @@ var CFG_SHIRT=[
    anyone working a floor are read from behind. A polo's back is a performance knit, so the back mark is
    a full-colour DTF transfer (light, flexible, no stitching through thin fabric); the chest stays
    embroidered. The DTF chest card is for detailed or many-colour logos stitching cannot hold. */
-var CFG_POLO=CFG_SHIRT.concat([
-  {id:'cb',  name:'Chest + back', sub:'Embroidered logo on the chest, full-colour DTF transfer across the upper back \u2014 for staff seen from behind: events, retail floors, crews.',
-   spots:[{pl:'PRIMARY',method:'embroidery'},{pl:'back',method:'heat_transfer'}]},
-  {id:'dtf', name:'{P} DTF transfer', sub:'A full-colour DTF heat transfer instead of stitching \u2014 every colour and fine detail of your logo, soft on performance fabric.',
-   spots:[{pl:'PRIMARY',method:'heat_transfer'}]}
-]);
-var CFG_WORKSHIRT=CFG_SHIRT.concat([
+var CFG_POLO=[CFG_SHIRT[0],
+  {id:'cb',  name:'Chest + back', sub:'Embroidered chest, your logo printed across the upper back \u2014 for staff seen from behind.',
+   spots:[{pl:'PRIMARY',method:'embroidery'},{pl:'back',method:'screen',colours:1}]},
+  CFG_SHIRT[1]];
+var CFG_WORKSHIRT=[CFG_SHIRT[0],
   {id:'lcb', name:'Logo + name across the back',
-   sub:'Logo left chest, company name screen printed across the back yoke — how a crew is recognised from behind.',
-   spots:[{pl:'PRIMARY',method:'embroidery'},{pl:'backyoke',method:'screen',colours:1}]}
-]);
+   sub:'Logo on the chest, company name printed across the back \u2014 how a crew is recognised from behind.',
+   spots:[{pl:'PRIMARY',method:'embroidery'},{pl:'backyoke',method:'screen',colours:1}]},
+  CFG_SHIRT[1]];
 /* THE HI-VIS VEST, per Steven 2026-09-08: "the 5-Point Tear-Away Vest is typically the vest we
    recommend. the logo embroidered is actually on the left chest reflective tape. the most popular
    option is the left chest + name on the back."
@@ -4349,16 +4353,12 @@ var CFG_HIVIS_TEE=[
 var CFG_SWEAT=[
   {id:'lc',   name:'{P} logo',  sub:'One embroidered logo. What most corporate programs order.', tag:'Most popular',
    spots:[{pl:'PRIMARY',method:'embroidery'}]},
-  {id:'sp',   name:'{P} print', sub:'Screen printed instead of stitched \u2014 what most crew and shop hoodies order, and better value as the run grows. Choose your ink count below.',
+  {id:'sp',   name:'{P} print', sub:'Printed instead of stitched \u2014 what most crew and shop hoodies order, and better value as the run grows.',
    spots:[{pl:'PRIMARY',method:'screen',colours:1}]},
-  {id:'spfb', name:'Chest print + back print', sub:'Screen printed front and back \u2014 small mark on the chest, large one across the shoulders.',
-   spots:[{pl:'PRIMARY',method:'screen',colours:1},{pl:'back',method:'screen',colours:1}]},
-  {id:'fb',   name:'Chest + full back', sub:'Embroidered chest, large screen print across the back.',
-   spots:[{pl:'PRIMARY',method:'embroidery'},{pl:'back',method:'screen',colours:1}]},
-  {id:'lcs',  name:'Logo + sleeve badge', sub:'A second mark on the left sleeve.',
-   spots:[{pl:'PRIMARY',method:'embroidery'},{pl:'sleeve',method:'embroidery'}]},
-  {id:'dtf',  name:'{P} DTF print', sub:'Full-colour DTF transfer \u2014 every colour of your logo, no per-colour screens.',
-   spots:[{pl:'PRIMARY',method:'heat_transfer'}]}
+  /* Steven, 2026-10-07: "embroidering on the sleeve should be a option for jackets and fleece" -- and a
+     hoodie is fleece. His two explicit asks (screen print, sleeve) outrank a back-print card here. */
+  {id:'lcs',  name:'Logo + sleeve badge', sub:'A small second mark on the left sleeve.',
+   spots:[{pl:'PRIMARY',method:'embroidery'},{pl:'sleeve',method:'embroidery'}]}
 ];
 var SWEATSHIRT_RE=/hood|crewneck|sweatshirt/;
 var NOT_SWEATSHIRT_RE=/parka|bomber|\bjacket\b|quilted|insulated|3-in-1|6-in-1|shacket|\bvest\b|\bcoat\b|softshell|shell\b/;
@@ -4369,14 +4369,12 @@ var CONFIGS={
      "Best value" while the EMBROIDERY carried "Most popular" -- backwards for a tee, and the tag
      does real work here because it is the row a buyer picks without reading the other two. */
   tee:[
-    {id:'sp', name:'{P} print',  sub:'Screen printed — what most tee programs order, and the best value. Choose your ink count below.', tag:'Most popular',
+    {id:'sp', name:'{P} print',  sub:'Screen printed — what most tee programs order, and the best value.', tag:'Most popular',
      spots:[{pl:'PRIMARY',method:'screen',colours:1}]},
-    {id:'lc', name:'{P} logo',   sub:'Embroidered instead — a heavier stitched finish that matches your polo and jacket program.',
-     spots:[{pl:'PRIMARY',method:'embroidery'}]},
     {id:'fb', name:'Chest + full back', sub:'Small logo on the chest, large print across the back.',
      spots:[{pl:'PRIMARY',method:'screen',colours:1},{pl:'back',method:'screen',colours:1}]},
-    {id:'dtf', name:'{P} DTF print', sub:'Full-colour DTF transfer \u2014 every colour of your logo with no screens to set up per colour. Strong on small runs and detailed artwork.',
-     spots:[{pl:'PRIMARY',method:'heat_transfer'}]}
+    {id:'lc', name:'{P} logo',   sub:'Embroidered instead — a heavier stitched finish that matches your polo and jacket program.',
+     spots:[{pl:'PRIMARY',method:'embroidery'}]}
   ],
   fleece:[
     {id:'lc',  name:'{P} logo',     sub:'One embroidered logo. What most programs order.',            tag:'Most popular',
@@ -4389,17 +4387,11 @@ var CONFIGS={
   outer:[
     {id:'lc',  name:'{P} logo',   sub:'One embroidered logo, 4" wide. The standard on outerwear.',    tag:'Most popular',
      spots:[{pl:'PRIMARY',method:'embroidery'}]},
-    {id:'lcn', name:'Logo + name',       sub:'Logo left chest, name or location on the right.',
-     spots:[{pl:'PRIMARY',method:'embroidery'},{pl:'rchest',method:'embroidery'}]},
     {id:'fb',  name:'Chest + full back', sub:'Adds a large back mark — crew recognition at distance.',
      spots:[{pl:'PRIMARY',method:'embroidery'},{pl:'back',method:'screen',colours:1}]},
     /* Steven, 2026-10-07: "embroidering on the sleeve should be a option for jackets and fleece". */
     {id:'lcs', name:'Logo + sleeve badge', sub:'A second embroidered mark on the left sleeve — a department, division or flag.',
-     spots:[{pl:'PRIMARY',method:'embroidery'},{pl:'sleeve',method:'embroidery'}]},
-    /* a waterproof shell is the classic DTF garment: a transfer seals onto the face fabric where
-       stitching would put needle holes through the membrane */
-    {id:'dtf', name:'{P} DTF transfer', sub:'A full-colour DTF heat transfer instead of stitching \u2014 no needle holes, so waterproof shells stay waterproof.',
-     spots:[{pl:'PRIMARY',method:'heat_transfer'}]}
+     spots:[{pl:'PRIMARY',method:'embroidery'},{pl:'sleeve',method:'embroidery'}]}
   ],
   vest:[
     {id:'lc',  name:'{P} logo', sub:'One embroidered logo. What most programs order.',                tag:'Most popular',
@@ -4416,8 +4408,6 @@ var CONFIGS={
   hivis:[
     {id:'lc',   name:'{P} logo',   sub:'Embroidered — thread is never mistaken for reflective tape.', tag:'Most popular',
      spots:[{pl:'PRIMARY',method:'embroidery'}]},
-    {id:'lcn',  name:'Logo + name',       sub:'Logo left chest, employee name on the right.',
-     spots:[{pl:'PRIMARY',method:'embroidery'},{pl:'rchest',method:'embroidery'}]},
     {id:'by',   name:'Logo + name on back', sub:'Company name screen printed across the back yoke, above the reflective tape.',
      spots:[{pl:'PRIMARY',method:'embroidery'},{pl:'backyoke',method:'screen',colours:1}]},
     {id:'crew', name:'Full crew ID',      sub:'Logo, employee name, and company name across the back.',
@@ -4473,10 +4463,10 @@ function usConfigs(list,ck){
   /* screen print becomes heat transfer in the US, so a "print" card and the DTF card can end up as the
      same setup -- keep the first, never show the buyer two identical choices */
   var seen={};out=out.filter(function(c){var sig=JSON.stringify(c.spots);if(seen[sig])return false;seen[sig]=1;return true;});
-  if(US_PATCH_CATS[ck])out.push({id:'pt',name:'Faux leather patch',
+  if(US_PATCH_CATS[ck])out=out.slice(0,2).concat([{id:'pt',name:'Faux leather patch',
     sub:'A laser-etched faux leather or suede patch in place of embroidery — a premium, tactile finish.',
-    spots:[{pl:'PRIMARY',method:'patch'}]});
-  return out;
+    spots:[{pl:'PRIMARY',method:'patch'}]}]);
+  return out.slice(0,3);
 }
 function configsFor(key){
   var it=BYKEY[key];if(!it)return [];
@@ -4650,6 +4640,15 @@ function activeScreenPls(){
    the ordinary left-chest tee is untouched. Every chip prices the WHOLE garment with that option
    applied to this location and every other location left alone, which means the selected chip in
    each row always matches the footer -- a buyer can check the number rather than trust it. */
+/* Prints are priced at the logo's own colour count (brandInks, read from the client's artwork) -- no
+   picker to fiddle with. One line says so; multi-logo stores still choose which mark goes where. */
+function printNoteHtml(){
+  var pls=activeScreenPls();if(!pls.length)return '';
+  var n=Math.max(1,parseInt((SH.D[pls[0]]||{}).colours,10)||1);
+  var art=((CFG.logos||[]).length>1)?pls.map(function(pl){return artPickerHtml(pl);}).join(''):'';
+  return '<div class="prnote"><b>Printed in your logo\u2019s '+n+' colour'+(n===1?'':'s')+'</b>'+
+    '<span>One-time screens: '+money0(screenSetupFor(n)*pls.length)+'. We confirm the colours from your artwork.</span></div>'+art;
+}
 function inkPickerHtml(){
   var pls=activeScreenPls();if(!pls.length)return '';
   var q=effQty()||moq(),it=BYKEY[SH.key];
@@ -4753,8 +4752,8 @@ function configCardsHtml(){
   /* Only the part .shnote does not already say. .shnote lives further down the same panel and
      already covers "prices are per piece, decorated, setup shows once" -- printing that twice in
      two paragraphs a few pixels apart just made both look like boilerplate. */
-  return '<div class="cfgwrap">'+cards+'</div>'+inkPickerHtml()+note+
-    '<div class="cfgfoot">Need a placement that is not here? Add it in the notes and we’ll price it.</div>';
+  return '<div class="cfgwrap">'+cards+'</div>'+printNoteHtml()+note+
+    '<div class="cfgfoot">Something different in mind? Add it to your quote notes.</div>';
 }
 function sheetDecos(){return Object.keys(SH.D).map(function(pl){var d=SH.D[pl];return {pl:pl,on:d.on,lg:d.lg,ink:d.ink,method:d.method,colours:d.colours};});}
 function decoIsSel(pl,opt){var d=SH.D[pl];if(!d||!d.on||d.method!==opt.m)return false;return opt.m!=='screen'||(d.colours||1)===opt.c;}

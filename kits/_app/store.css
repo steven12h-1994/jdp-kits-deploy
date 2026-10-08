@@ -3537,3 +3537,8 @@ body.giftview .social{display:none!important}
   .sheet.pdpw .shbtns .shaddbtn{flex:1.3}
   .sheet.pdpw .shbtns .shqbtn{flex:1;width:auto}
 }
+/* decoration, simplified (2026-10-08): one plain line instead of the ink-count picker */
+.prnote{display:flex;flex-direction:column;gap:2px;margin:10px 0 2px;padding:11px 14px;border-radius:12px;background:#f7f5f0;border:1px solid var(--line);font-size:13px}
+.prnote b{font-weight:800;color:var(--ink)}
+.prnote span{color:#6b6458}
+.cfgfoot{font-size:12px}
