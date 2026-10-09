@@ -9543,7 +9543,10 @@ function heroShotsHtml(){
         'style="width:100%;height:100%;object-fit:contain;opacity:1">'+o.lg+'</span>';
     }).join('')+'</div>';
 }
-function catHasAdvisor(c){try{return (typeof CADV!=='undefined')&&CADV.some(function(g){return g.applies(c,'all');});}catch(e){return false;}}
+/* only promise an advisor where one will actually open: the aisle has to carry enough qualifying styles
+   (a US store with three caps has a Headwear aisle but no hat advisor) */
+function catHasAdvisor(c){try{if(typeof CADV==='undefined')return false;var keep=VIEW.cat;VIEW.cat=c;
+  var ok=CADV.some(function(g){return g.applies(c,'all')&&caPool(g,caSt(g.id)).length>=3;});VIEW.cat=keep;return ok;}catch(e){return false;}}
 function catTilesHtml(){
   var cats=(typeof CATS!=='undefined'&&CATS.length)?CATS:[];
   if(!cats.length)return '';
@@ -9555,7 +9558,7 @@ function catTilesHtml(){
       return '<button type="button" class="cattile'+(adv?' adv':'')+'" data-catgo="'+esc(c)+'">'+
         '<span class="ctimg">'+(img?('<img src="'+img+'" alt="" loading="lazy" '+
           'style="max-width:56px;max-height:56px;width:auto;height:auto;object-fit:contain">'):'')+'</span>'+
-        '<span class="ctlab"><b>'+esc(shortCat(c))+'</b><i>'+(adv?'<em class="ctadv">Advisor</em> · ':'')+((TOTALS&&TOTALS[c])||0)+' styles</i></span>'+
+        '<span class="ctlab"><b>'+esc(shortCat(c))+'</b><i>'+(adv?'<em class="ctadv">Advisor</em> · ':'')+((TOTALS&&TOTALS[c])||0)+' style'+(((TOTALS&&TOTALS[c])||0)===1?'':'s')+'</i></span>'+
         '</button>';}).join('')+
     '</div></div></section>';
 }
