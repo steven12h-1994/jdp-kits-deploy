@@ -3023,11 +3023,176 @@ function xpCardHtml(x){
         '<button type="button" class="xpsee" data-xpopen="'+esc(x.k)+'">Colours & details</button></div>'+
     '</div></div>';
 }
+/* ===== THE JACKET ADVISOR (Steven, 2026-10-09: "dive deeper ... dive deep into jackets. enterprise buyers
+   have no idea what product to choose.") ================================================================
+   How companies actually buy jackets, from the buyer guides we read (Brandsauce, Quality Imprint, Arklavo,
+   2026): they start from the JOB -- who wears it, where, how cold, how wet -- not from a product; they run
+   one core jacket for the biggest group plus one per other role ("two or three approved choices with
+   different jobs"); and the deciding facts are warmth, water-repellent vs waterproof, men's AND women's
+   cuts, extended sizes, and price per person. So the Jackets aisle asks exactly those questions -- who,
+   how cold, how wet, budget -- and answers with a PROGRAM: one recommended jacket per role, each with the
+   reasons it fits that role (all read from the catalogue: warmth, insulation, waterproofing, cuts, size
+   run, 3-in-1 combinations, live price), two alternatives, and one tap to put the whole program on a quote. */
+var JA_ROLES=[
+  {id:'office',lab:'Office & client-facing',sub:'Sales, managers, front desk'},
+  {id:'mixed',lab:'In and out all day',sub:'Warehouse, drivers, techs'},
+  {id:'outdoor',lab:'Outdoor crews',sub:'Yard, construction, grounds'},
+  {id:'site',lab:'Site with hi-vis rules',sub:'Traffic, utilities, road crews'}];
+var JA_COLD=[{id:1,lab:'Spring & fall',sub:'Cool, not freezing'},{id:2,lab:'Canadian winter',sub:'Commutes, cold mornings'},{id:3,lab:'Outdoors in deep winter',sub:'Hours below freezing'}];
+var JA_RAIN=[{id:0,lab:'Mostly dry'},{id:1,lab:'Rain is part of the job'}];
+var JA_BUD=[{id:'a',lab:'Under $90',lo:0,hi:90},{id:'b',lab:'$90 – $140',lo:90,hi:140},{id:'c',lab:'$140+',lo:140,hi:1e9},{id:'x',lab:'Best fit, any price',lo:0,hi:1e9}];
+var JA={roles:[],cold:0,rain:-1,bud:''};
+try{var _ja=JSON.parse(sessionStorage.getItem('jdp_ja')||'null');if(_ja)JA=_ja;}catch(e){}
+function jaSave(){try{sessionStorage.setItem('jdp_ja',JSON.stringify(JA));}catch(e){}}
+function jaPool(){
+  var out={},add=function(k){var it=BYKEY[k];if(it&&it.layer!=='promo'&&!/\bvest\b/i.test(it.name))out[k]=1;};
+  Object.keys(BUCKETS.outerwear||{}).forEach(function(s){(BUCKETS.outerwear[s]||[]).forEach(add);});
+  ['Hi-Vis Jackets','Winter Parkas'].forEach(function(s){((BUCKETS.hivis||{})[s]||[]).forEach(add);});
+  (((BUCKETS.carhartt||{})['Jackets & Coats'])||[]).forEach(add);
+  return Object.keys(out);
+}
+/* warmth 1 shell, 2 insulated, 3 winter -- from the catalogue's own warmth data, else from what the
+   product's NAME says it is (a "Winter Traffic Parka" is a winter jacket). 0 = unknown, never guessed. */
+function jaWarm(it){
+  var b=(it.warm||{}).band;if(b)return {uninsulated:1,insulated:2,winter:3}[b]||0;
+  var n=(it.name||'').toLowerCase();
+  if(/parka|winter|3-in-1|5-in-1|6-in-1|insulated|bib/.test(n))return /parka|winter|in-1/.test(n)?3:2;
+  if(/quilted|puffer|down|thermo|freezer|sherpa|lined|coat|hybrid/.test(n))return 2;
+  if(/soft ?shell|shell|rain|wind/.test(n))return 1;
+  return 0;
+}
+function jaFlags(it){var w=it.warm||{},f=(w.flags||[]).slice(),fin=((it.fab||{}).finishes||[]).join(' ').toLowerCase();
+  if(/waterproof/.test(fin)&&f.indexOf('waterproof')<0)f.push('waterproof');return f;}
+function jaHivis(it){return itemCategory(it)==='hivis';}
+function jaRugged(it){var n=(it.name||'').toLowerCase(),b=String(it.brand||it.sku||'');return /heavy-duty|canvas|duck|freezer|bomber|utility/.test(n)||/Rugged Wear|Carhartt/.test(b);}
+function jaOffice(it){return !jaHivis(it)&&!jaRugged(it);}
+function jaMaxSize(it){var s=itemSizes(it,'mens');return s[s.length-1]||'';}
+function jaBig(it){return /^[4-6]XL$/.test(jaMaxSize(it));}
+function jaScore(it,role,cold,rain,bud,p){
+  var w=jaWarm(it),f=jaFlags(it),s=0,sys=!!(it.sys||/in-1/i.test(it.name));
+  if(role==='site'){if(!jaHivis(it))return null;}else if(jaHivis(it))return null;
+  if(role==='office'&&!jaOffice(it))return null;
+  if(!w)return null;
+  if(w<cold&&!(sys&&cold<=3&&w>=2))return null;            // never under-warm
+  s+=(w===cold)?40:(w===cold+1?12:-10);
+  if(sys&&cold>=2)s+=10;                                     // a 3-in-1 also covers the shoulder seasons
+  if(rain===1){if(f.indexOf('waterproof')>=0)s+=28;else if(f.indexOf('water-repellent')>=0)s+=6;else return null;}
+  else if(f.indexOf('water-repellent')>=0||f.indexOf('waterproof')>=0)s+=4;
+  if(f.indexOf('windproof')>=0)s+=4;
+  if(role!=='site'&&hasLadies(it))s+=(role==='outdoor'?8:16);   // a matched women's cut
+  if(jaBig(it))s+=8;
+  if(role==='outdoor'&&jaRugged(it))s+=26;   // crews wear it hard: durability outweighs a matched women's cut
+  if(role==='outdoor'&&/Cutter & Buck|North Face/.test(String(it.brand||it.sku||'')))s-=18;   // lifestyle brands suit the office, not the yard
+  if(role==='mixed'&&jaOffice(it))s+=6;
+  var B=JA_BUD.filter(function(b){return b.id===bud;})[0]||JA_BUD[3];
+  if(p>=B.lo&&p<B.hi)s+=30;else if(p>=B.hi)s-=Math.min(60,(p-B.hi)/3);else s+=8;
+  return s;
+}
+function jaRank(role){
+  var pool=jaPool(),rows=[];
+  pool.forEach(function(k){var it=BYKEY[k],p=sxPrice(k),sc=jaScore(it,role,JA.cold||2,JA.rain<0?0:JA.rain,JA.bud||'x',p);
+    if(sc!=null)rows.push({k:k,s:sc,p:p});});
+  rows.sort(function(a,b){return (b.s-a.s)||(a.p-b.p);});
+  return rows;
+}
+function jaWhy(it,role){
+  var w=jaWarm(it),f=jaFlags(it),out=[],ws=it.warm||{};
+  var wl={1:'Uninsulated shell — layers over a hoodie or fleece',2:'Insulated'+(ws.ins?(' ('+ws.ins+(ws.gsm?(', '+ws.gsm):'')+')'):''),3:'Winter weight'+(ws.ins?(' ('+ws.ins+(ws.gsm?(', '+ws.gsm):'')+')'):'')}[w];
+  if(it.sys&&it.sys.ways)out.push(it.sys.ways+' ways to wear: '+(it.sys.combos||[]).slice(0,3).join(' · ').toLowerCase());else if(wl)out.push(wl);
+  if(f.indexOf('waterproof')>=0)out.push('Waterproof'+(ws.wp?(' ('+ws.wp+')'):'')+(f.indexOf('sealed seams')>=0?', sealed seams':''));
+  else if(f.indexOf('water-repellent')>=0)out.push('Water-repellent — sheds light rain');
+  if(f.indexOf('windproof')>=0)out.push('Windproof');
+  if(role!=='site')out.push(hasLadies(it)?('Men’s and women’s cuts · up to '+jaMaxSize(it)):('Men’s / unisex cut only · up to '+jaMaxSize(it)));
+  else out.push('CSA hi-vis · up to '+jaMaxSize(it));
+  return out.slice(0,4);
+}
+function jaCard(r,lab,role,main){
+  var it=BYKEY[r.k],o=null;
+  try{o=overlayHtml(it,vmOf(r.k),browseColour(r.k,it),'front',browseCols(it),browsePlaces(it));}catch(e){}
+  return '<div class="jac'+(main?' main':'')+'">'+(lab?('<span class="jalab">'+esc(lab)+'</span>'):'')+
+    '<button type="button" class="jaimg" data-xpopen="'+esc(r.k)+'">'+(o?('<img class="g" src="'+o.g+'" alt="" loading="lazy">'+o.lg):'')+'</button>'+
+    '<div class="jab"><b>'+esc(it.name)+'</b><span class="jabr">'+esc(it.brand||it.sku||'')+'</span>'+
+    '<div class="jap"><b>'+money(r.p)+'</b><i>/pc at '+moq()+', logo included</i></div>'+
+    (main?('<ul class="jaw">'+jaWhy(it,role).map(function(x){return '<li>'+esc(x)+'</li>';}).join('')+'</ul>'):'')+
+    '<div class="jabtns">'+(main?'':'<button type="button" class="jasw" data-jaswap="'+esc(role)+'|'+esc(r.k)+'">Use this instead</button>')+
+      '<button type="button" class="xpsee" data-xpopen="'+esc(r.k)+'">Details</button></div></div></div>';
+}
+var JA_PICK={};
+function jaProgram(){
+  return JA.roles.map(function(role){
+    var rows=jaRank(role);if(!rows.length)return {role:role,none:true};
+    var main=(JA_PICK[role]&&rows.filter(function(r){return r.k===JA_PICK[role];})[0])||rows[0];
+    var rest=rows.filter(function(r){return r.k!==main.k;});
+    var cheaper=rest.filter(function(r){return r.p<main.p-0.5;})[0],dearer=rest.filter(function(r){return r.p>main.p+0.5&&r!==cheaper;})[0];
+    var alts=[];if(cheaper)alts.push({r:cheaper,lab:'Lower cost'});if(dearer)alts.push({r:dearer,lab:'Step up'});
+    if(alts.length<2&&rest[0]&&alts.every(function(a){return a.r!==rest[0];}))alts.push({r:rest[0],lab:'Also consider'});
+    return {role:role,main:main,alts:alts.slice(0,2)};
+  });
+}
+function jaChips(name,opts,cur,multi){
+  return opts.map(function(o){var on=multi?(cur.indexOf(o.id)>=0):(cur===o.id);
+    return '<button type="button" class="jach'+(on?' on':'')+'" data-ja="'+name+'" data-v="'+esc(String(o.id))+'" aria-pressed="'+on+'">'+
+      '<b>'+esc(o.lab)+'</b>'+(o.sub?('<i>'+esc(o.sub)+'</i>'):'')+'</button>';}).join('');
+}
+function jaApplies(){var c=VIEW.cat,s=VIEW.sub;return c==='outerwear'||c==='ruggedwear'||(c==='hivis'&&(s==='all'||/Jackets|Parkas/.test(s||'')));}
+function renderJacketAdvisor(el){
+  if(!JA.roles.length&&VIEW.cat==='hivis')JA.roles=['site'];
+  if(!JA.roles.length&&VIEW.cat==='ruggedwear')JA.roles=['outdoor'];
+  var ready=JA.roles.length&&JA.cold&&JA.rain>=0&&JA.bud;
+  var q='<div class="jaq"><div class="jaqh"><span class="jan">1</span><b>Who are you outfitting?</b><i>Pick every group that needs a jacket</i></div><div class="jachs">'+jaChips('roles',JA_ROLES,JA.roles,true)+'</div></div>'+
+    '<div class="jaq"><div class="jaqh"><span class="jan">2</span><b>How cold does it get?</b></div><div class="jachs">'+jaChips('cold',JA_COLD,JA.cold,false)+'</div></div>'+
+    '<div class="jaq"><div class="jaqh"><span class="jan">3</span><b>How wet?</b></div><div class="jachs">'+jaChips('rain',JA_RAIN,JA.rain,false)+'</div></div>'+
+    '<div class="jaq"><div class="jaqh"><span class="jan">4</span><b>Budget per person</b></div><div class="jachs">'+jaChips('bud',JA_BUD,JA.bud,false)+'</div></div>';
+  var res='';
+  if(ready){
+    var P=jaProgram(),RL={};JA_ROLES.forEach(function(r){RL[r.id]=r.lab;});
+    /* one jacket that suits two groups is shown once, for both -- the simplest program wins */
+    var M=[];P.forEach(function(x){var h=!x.none&&M.filter(function(m){return !m.none&&m.main.k===x.main.k;})[0];
+      if(h)h.lab+=' + '+RL[x.role];else{x.lab=RL[x.role];M.push(x);}});P=M;
+    var ok=P.filter(function(x){return !x.none;});
+    res='<div class="jares"><div class="jaresh"><div><span class="xpeyb">Your jacket program</span><h4>'+(ok.length>1?(ok.length+' jackets, one job each'):'Our recommendation')+'</h4>'+
+      (ok.length>1?'<p>One jacket per group keeps the program simple: everyone in a role wears the same thing, and new hires reorder the same style.</p>':'')+'</div>'+
+      (ok.length?('<button type="button" class="jaall" id="jaAll">Add '+(ok.length>1?('all '+ok.length+' to my quote'):'it to my quote')+' →</button>'):'')+'</div>'+
+      P.map(function(x){
+        if(x.none)return '<div class="jarole"><div class="jarh">'+esc(x.lab)+'</div><p class="janone">Nothing in this store matches all four answers for this group — try a wider budget, or <button type="button" class="jalink" data-jaask="1">ask Steven</button>.</p></div>';
+        return '<div class="jarole"><div class="jarh">'+esc(x.lab)+'</div><div class="jarow">'+jaCard(x.main,'Recommended',x.role,true)+
+          '<div class="jaalts">'+x.alts.map(function(a){return jaCard(a.r,a.lab,x.role,false);}).join('')+'</div></div></div>';
+      }).join('')+
+      '<div class="jatips"><b>Before you order</b><ul><li>Water-repellent sheds light rain; waterproof keeps out sustained rain.</li>'+
+        '<li>If they’ll wear a hoodie underneath, check the size chart before you set sizes.</li>'+
+        '<li>Your logo placement and size are confirmed on your proof before anything is made.</li></ul></div></div>';
+  }else{
+    res='<p class="jahint">Answer the four questions and we’ll recommend a jacket for each group, with the reasons it fits.</p>';
+  }
+  el.innerHTML='<section class="xpert jadv" aria-label="Jacket advisor"><div class="xphd"><div><span class="xpeyb">Jacket advisor</span>'+
+    '<h3 class="xph">Not sure which jacket? Start with the job.</h3>'+
+    '<p class="xpadv">Four questions, then one recommended jacket for each group you’re outfitting.</p></div>'+
+    '<button type="button" class="xpask" id="xpAsk"><span class="xpav" aria-hidden="true">S</span><span><b>Have Steven pick for you</b><i>Tell us the team and budget — we reply with a recommendation</i></span></button></div>'+
+    '<div class="jaqs">'+q+'</div>'+res+'</section>';
+  el.querySelectorAll('[data-ja]').forEach(function(b){b.addEventListener('click',function(){
+    var n=b.dataset.ja,v=b.dataset.v;
+    if(n==='roles'){var i=JA.roles.indexOf(v);if(i>=0)JA.roles.splice(i,1);else JA.roles.push(v);}
+    else if(n==='cold')JA.cold=+v;else if(n==='rain')JA.rain=+v;else JA.bud=v;
+    JA_PICK={};jaSave();jdpTrack('ja_q',{q:n,v:v});renderJacketAdvisor(el);});});
+  el.querySelectorAll('[data-jaswap]').forEach(function(b){b.addEventListener('click',function(){var p=b.dataset.jaswap.split('|');JA_PICK[p[0]]=p[1];jdpTrack('ja_swap',{k:p[1]});renderJacketAdvisor(el);});});
+  el.querySelectorAll('[data-xpopen]').forEach(function(b){b.addEventListener('click',function(){jdpTrack('xp_open',{k:b.dataset.xpopen,src:'ja'});openSheet(b.dataset.xpopen);});});
+  var all=document.getElementById('jaAll');if(all)all.addEventListener('click',function(){
+    var ks=jaProgram().filter(function(x){return !x.none;}).map(function(x){return x.main.k;}).filter(function(k,i,a){return a.indexOf(k)===i;});
+    ks.forEach(function(k){if(!CART[k])addToQuoteQuick(k);});jdpTrack('ja_add',{n:ks.length});openQuote('advisor');});
+  var ask=function(){jdpTrack('xp_ask',{c:'jackets'});openSourcing('');
+    var nt=document.getElementById('coNote');if(nt&&!nt.value){var RL={};JA_ROLES.forEach(function(r){RL[r.id]=r.lab;});
+      nt.value='Please recommend jackets for our team.\nGroups: '+(JA.roles.map(function(r){return RL[r];}).join(', ')||'')+'\nHow many people in each: \nColdest conditions: '+((JA_COLD.filter(function(c){return c.id===JA.cold;})[0]||{}).lab||'')+'\nBudget per person: '+((JA_BUD.filter(function(b){return b.id===JA.bud;})[0]||{}).lab||'')+'\nNeeded by: ';}};
+  var a=document.getElementById('xpAsk');if(a)a.addEventListener('click',ask);
+  el.querySelectorAll('[data-jaask]').forEach(function(b){b.addEventListener('click',ask);});
+}
+
 var XP_SUB={};
 function renderXpert(){
   var el=document.getElementById('xpert');if(!el)return;
   var cat=VIEW.cat,q=(VIEW.q||'').trim();
   if(q||!cat||cat==='accessories'||(typeof giftViewOn==='function'&&giftViewOn())){el.innerHTML='';return;}
+  /* jackets get the full advisor; every other aisle keeps its three picks */
+  if(jaApplies()){renderJacketAdvisor(el);return;}
   var subs=xpSubs(cat);if(!subs.length){el.innerHTML='';return;}
   var sub=(VIEW.sub&&VIEW.sub!=='all'&&subs.indexOf(VIEW.sub)>=0)?VIEW.sub:(XP_SUB[cat]&&subs.indexOf(XP_SUB[cat])>=0?XP_SUB[cat]:(subs.indexOf(XP[cat])>=0?XP[cat]:subs[0]));
   var picks=xpPicks(cat,sub),cfg=XPERT[sub]||(sub==='Safety Vests'?XPERT['Hi-Vis Vests']:{});
