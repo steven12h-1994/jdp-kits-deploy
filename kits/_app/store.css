@@ -3789,3 +3789,98 @@ body.giftview #padv{display:none}
 .cattile.adv{border-color:color-mix(in srgb,var(--a) 28%,var(--line))}
 .jaqw{grid-column:1/-1}
 .cadv .jaqs{grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr))}
+/* ===== ADVISOR AS A GUIDED CONVERSATION (2026-10-09 13:15) ======================================= */
+.cadv2{padding:22px 24px 24px}
+.cadv2 .cahd{display:flex;flex-direction:column;gap:2px;margin-bottom:6px}
+.cadv2 .xph{font-size:26px}
+.cadv2 .xpadv{margin:6px 0 0;max-width:62ch}
+.caflow{list-style:none;display:flex;flex-wrap:wrap;align-items:center;gap:8px 24px;margin:16px 0 18px;padding:0}
+.caflow li{display:flex;align-items:center;gap:8px;padding:8px 12px 8px 8px;border-radius:999px;background:#fff;border:1px solid var(--line);font-size:13.5px;font-weight:800;color:var(--ink)}
+.caflow li{position:relative}
+.caflow li+li::before{content:"→";position:absolute;left:-19px;top:50%;transform:translateY(-50%);color:#b3aa9b;font-weight:900}
+.cafn{flex:none;width:24px;height:24px;border-radius:50%;background:var(--ink);color:#fff;font-size:12px;font-weight:850;display:inline-flex;align-items:center;justify-content:center}
+.cafin{background:color-mix(in srgb,var(--a) 8%,#fff)!important;border-color:color-mix(in srgb,var(--a) 35%,var(--line))!important}
+.cafin .cafn{background:var(--a)}
+.caact{display:flex;align-items:center;flex-wrap:wrap;gap:10px 18px}
+.cago{font-size:15.5px;padding:14px 22px}
+.castep{font-size:12.5px;font-weight:800;color:#6b6458;margin-top:2px}
+.caprog{height:6px;border-radius:999px;background:#ece7dd;overflow:hidden;margin:8px 0 16px}
+.caprog i{display:block;height:100%;background:var(--a);border-radius:999px;transition:width .35s ease}
+.caq{margin:0;font-size:22px;font-weight:850;letter-spacing:-.01em;color:var(--ink)}
+.caqh{margin:4px 0 0;font-size:13.5px;color:#6b6458}
+.caopts{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,230px),1fr));gap:10px;margin:14px 0 4px}
+.caopt{display:flex;align-items:center;gap:12px;min-height:64px;padding:12px 14px;border:1.5px solid #ddd6c9;border-radius:14px;background:#fff;font:inherit;text-align:left;cursor:pointer;transition:border-color .15s,box-shadow .15s,transform .1s}
+.caopt:hover{border-color:var(--ink);box-shadow:0 8px 20px -14px rgba(0,0,0,.4)}
+.caopt:active{transform:scale(.99)}
+.caok{flex:none;width:24px;height:24px;border-radius:50%;border:1.5px solid #cfc7b8;display:inline-flex;align-items:center;justify-content:center;font-size:13px;font-weight:900;color:#fff}
+.caot b{display:block;font-size:15px;font-weight:850;color:var(--ink);line-height:1.2}
+.caot i{display:block;font-style:normal;font-size:12.5px;color:#7d7568;margin-top:2px;line-height:1.3}
+.caopt.on{border-color:var(--ink);background:var(--ink)}
+.caopt.on .caot b{color:#fff}.caopt.on .caot i{color:rgba(255,255,255,.78)}
+.caopt.on .caok{background:var(--a);border-color:var(--a)}
+.canav{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:14px;min-height:44px}
+.canav .jaall:disabled{opacity:.4;cursor:not-allowed}
+.casum{display:flex;align-items:center;flex-wrap:wrap;gap:6px 8px;margin:10px 0 16px;padding:10px 12px;border-radius:12px;background:#f7f5f0}
+.casuml{font-size:12px;font-weight:850;letter-spacing:.06em;text-transform:uppercase;color:#7d7568;margin-right:2px}
+.casumc{padding:4px 10px;border-radius:999px;background:#fff;border:1px solid var(--line);font-size:13px;font-weight:750}
+.casum .jalink{margin-left:auto;font-size:13.5px}
+.cagrp{margin:0 0 18px}
+.cagrp>.jarh{margin-bottom:8px}
+.cam{display:grid;grid-template-columns:minmax(0,300px) minmax(0,1fr);border:1.5px solid var(--a);border-radius:18px;background:#fff;overflow:hidden;box-shadow:0 14px 34px -26px var(--a)}
+.camimg{position:relative;border:0;padding:0;background:#f6f4f0;cursor:pointer;min-height:280px;overflow:hidden}
+.camimg .g{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
+.camimg .l{position:absolute;transform:translate(-50%,-50%);height:auto;max-width:none;pointer-events:none}
+.camlogo{position:absolute;left:10px;bottom:10px;padding:4px 9px;border-radius:999px;background:rgba(255,255,255,.92);border:1px solid var(--line);font-size:11.5px;font-weight:800;color:#3d3830}
+.cambody{display:flex;flex-direction:column;gap:4px;padding:18px 20px;min-width:0}
+.cambadge{align-self:flex-start;padding:3px 10px;border-radius:999px;background:var(--a);color:#fff;font-size:11px;font-weight:850;letter-spacing:.07em;text-transform:uppercase;margin-bottom:4px}
+.cambody h5{margin:0;font-size:19px;font-weight:850;line-height:1.2;color:var(--ink)}
+.cambr{font-size:11.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#8a8275}
+.camv{margin:8px 0 2px;font-size:15px;font-weight:700;line-height:1.4;color:#2d2924}
+.camfoot{display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:10px 16px;margin-top:auto;padding-top:12px;border-top:1px solid #f0ece4}
+.camp b{display:block;font-size:24px;font-weight:900;line-height:1}
+.camp i{font-style:normal;font-size:12px;color:#6b6458}
+.cambtns{display:flex;gap:8px;flex-wrap:wrap}
+.caadd{padding:11px 16px;border:0;border-radius:11px;background:var(--a);color:#fff;font:inherit;font-size:14px;font-weight:850;cursor:pointer}
+.caadd.done{background:#1e6b34}
+.cambtns .xpsee{padding:11px 14px;font-size:13.5px}
+.caalts{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:10px;margin-top:10px}
+.caaltsh{grid-column:1/-1;font-size:12px;font-weight:850;letter-spacing:.06em;text-transform:uppercase;color:#7d7568}
+.caalt{display:flex;align-items:center;gap:12px;padding:10px;border:1px solid var(--line);border-radius:14px;background:#fff}
+.caaimg{position:relative;flex:none;width:68px;height:68px;border:0;padding:0;border-radius:10px;background:#f6f4f0;overflow:hidden;cursor:pointer}
+.caaimg .g{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
+.caaimg .l{position:absolute;transform:translate(-50%,-50%);height:auto;max-width:none;pointer-events:none}
+.caab{display:flex;flex-direction:column;gap:1px;min-width:0;flex:1}
+.caal{font-size:12px;font-weight:750;color:#5c554a}
+.caan{font-size:14px;font-weight:850;line-height:1.25;color:var(--ink)}
+.caalt .jasw{flex:none}
+.catips{margin:6px 0 0;padding:12px 14px;border-radius:12px;background:#f7f5f0;font-size:13.5px}
+.catips summary{cursor:pointer;font-weight:850;color:var(--ink)}
+.catips ul{margin:8px 0 0;padding-left:18px;color:#5c554a}.catips li{margin:3px 0}
+.cabar{display:flex;align-items:center;flex-wrap:wrap;gap:10px 18px;margin-top:16px;padding:16px 18px;border-radius:16px;background:var(--ink)}
+.cabart{flex:1 1 260px;order:2}
+.cabar .jaall{order:1}
+.cabarl{order:3}
+.cabart b{display:block;color:#fff;font-size:15.5px;font-weight:850}
+.cabart i{display:block;font-style:normal;color:rgba(255,255,255,.8);font-size:12.5px;margin-top:2px}
+.cabar .jaall{font-size:15px;padding:13px 20px}
+.cabarl{display:flex;gap:14px;flex-basis:100%}
+.cabarl .jalink{color:#fff;font-size:13px}
+@media(max-width:860px){
+  .cadv2{padding:16px 14px 18px;border-radius:16px}
+  .cadv2 .xph{font-size:22px}
+  .caflow{gap:6px 20px}.caflow li{font-size:12.5px;padding:6px 10px 6px 6px}.caflow li+li::before{left:-15px}
+  .cago{width:100%}
+  .caq{font-size:19px}
+  .caopts{grid-template-columns:1fr}
+  .caopt{min-height:58px}
+  .canav .jaall{flex:1}
+  .cam{grid-template-columns:1fr}
+  .camimg{min-height:0;aspect-ratio:4/3;max-height:300px}
+  .cambody{padding:14px}
+  .cambody h5{font-size:17px}
+  .camv{font-size:14px}
+  .camfoot{flex-direction:column;align-items:stretch}
+  .cambtns{display:grid;grid-template-columns:1fr 1fr}
+  .casum .jalink{margin-left:0}
+  .cabar .jaall{width:100%}
+}
