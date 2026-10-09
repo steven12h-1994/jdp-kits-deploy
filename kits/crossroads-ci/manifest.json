@@ -1,0 +1,16 @@
+{
+  "generator": "client-app",
+  "version": "1791575095",
+  "slug": "crossroads-ci",
+  "client": "Crossroads C&amp;I",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_1b457f.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}
