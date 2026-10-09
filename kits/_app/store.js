@@ -2908,7 +2908,148 @@ function wireNoResults(el){
     setCat(b.dataset.nrcat,false);setSub(b.dataset.nrsub);});});
 }
 /* Every render ends by syncing the refine card and the floating Filters button. */
-function renderGrid(){renderGridCore();try{syncInbar();}catch(e){}}
+/* ===== EXPERT PICKS: ADVICE IN EVERY AISLE (Steven, 2026-10-09) =====================================
+   "The constraint is indecision and confusion of product selection. enterprise buyers have no idea what
+   product to choose. they need expert advice and actual smart curation help them make a decision."
+   What a good rep does in person, on the page: narrows a shelf of 10-26 styles to THREE, each for a
+   different situation -- the one we'd put on everybody, the value pick for a whole crew, and the step up
+   for people in front of clients -- says in one line who each is for, and shows the facts that matter
+   side by side. Every fact on a pick card is read from the catalogue (fabric weight, finish, warmth,
+   cuts, colours, the live price); the advice line is ours and claims nothing about the product. A rep is
+   one tap away for anyone who still wants a human to choose.
+   Picks are curated per aisle; a store that does not carry a pick (US range, trimmed kits) falls back to
+   the aisle's own value / middle / premium styles, so every aisle in every store gets advice. */
+var XP={tops:'Polos',layers:'Quarter & Half-Zips',outerwear:'Insulated & Quilted',vests:'Quilted & Puffer',ruggedwear:'Insulated & Quilted',
+  hivis:'Safety Vests',carhartt:'Sweatshirts & Hoodies',headwear:'Caps & Hats',bags:'Backpacks',bottoms:'Work Pants'};
+var XP_ROLE={def:'Our pick',val:'Best value',up:'Step up',alt:'Also consider'};
+/* [default, value, step-up], each with the situation it is for. */
+var XPERT={
+  'Polos':{a:'One polo for everyone is the easiest program to run — pick a fabric, then a colour.',p:[
+    ['st_nevadass','The one we’d put on everybody — office, warehouse and site.'],['c3_88181','Outfitting a large crew on a tight budget.'],['cbc_advantage_polo','Sales, management and anyone in front of clients.']]},
+  'Tees':{a:'Cotton for everyday and events; heavier weights hold their shape longer.',p:[
+    ['cs_s05670','A heavier everyday tee that still looks right after many washes.'],['crewtee','Events, giveaways and big crews.'],['nk_tee','A brand your team will actually choose to wear.']]},
+  'Shirts':{a:'Twill reads office; industrial work shirts are built for laundering and the shop floor.',p:[
+    ['shirt','A clean button-up for office and front-desk staff.'],['ashton','Short sleeves for warm shops and summer.'],['st_logan','A modern snap-front for supervisors and client visits.']]},
+  'Quarter & Half-Zips':{a:'The quarter-zip is the corporate default — it layers over a polo and under a jacket.',p:[
+    ['st_treeline','The corporate quarter-zip for a mixed team, in men’s and ladies’ cuts.'],['flux','A crew-wide layer on a budget.'],['cbc_traverse_qz','Client-facing teams, travel and the golf course.']]},
+  'Hoodies':{a:'Hoodies get worn off-shift, which is exactly when your logo is seen most.',p:[
+    ['forge','A heavyweight hoodie that feels like a gift, not a giveaway.'],['vault','A whole crew on a budget.'],['nk_pohoodie','A brand-name hoodie people keep for years.']]},
+  'Crewnecks & Sweatshirts':{a:'Crewnecks are the cleaner, more office-friendly sweatshirt.',p:[
+    ['foundry','A heavyweight crewneck that holds its shape.'],['crew','Big teams and events.'],['cs_l00440','A soft vintage-wash look.']]},
+  'Fleece':{a:'Full-zip fleece is the mid-layer that suits every build on the team.',p:[
+    ['st_avalante','The everyday fleece for a mixed team.'],['tnf_fleece','A North Face fleece people recognise.'],['cbc_evoke_fleece','A fleece that reads as a jacket — a service-milestone gift.']]},
+  'Softshell Jackets':{a:'A softshell is the three-season jacket: stretch, wind-resistant, light warmth.',p:[
+    ['st_cascades','The three-season jacket we’d put on everybody.'],['softshell','A crew-wide jacket on a budget.'],['st_cruise','A sharp shell for client-facing staff.']]},
+  'Shells & Rainwear':{a:'Shells keep out wind and rain and layer over a hoodie or fleece.',p:[
+    ['st_axis','A light waterproof shell for most teams.'],['st_nautilusshell','Rain cover for a whole crew on a budget.'],['st_stratus','A technical shell for staff who work outside all day.']]},
+  'Insulated & Quilted':{a:'Start with how cold they’ll be: quilted jackets cover cold mornings and most Canadian winters with a layer underneath.',p:[
+    ['st_nautilusjkt','The everyday quilted jacket — warm without bulk.'],['cs_l01025','A warm work jacket for a crew on a budget.'],['st_stavanger','Real cold, and a jacket that reads as a serious gift.']]},
+  'Shirt Jackets & Shackets':{a:'A shacket wears as a shirt indoors and a light jacket outdoors.',p:[
+    ['st_tundrashacket','The quilted shacket most offices are wearing now.'],['st_highlandshacket','The lightest, lowest-cost shacket.'],['st_oxide','Sherpa-lined canvas — workwear people buy for themselves.']]},
+  'Winter Parkas & 3-in-1':{a:'For deep winter. A 3-in-1 gives a shell, a liner and both together — three seasons in one order.',p:[
+    ['st_vortex','A 3-in-1 parka that covers the whole year.'],['cs_l01080','Deep-winter warmth at the best price.'],['st_denali','The warmest parka we sell — for outdoor crews and milestone gifts.']]},
+  'Quilted & Puffer':{a:'Vests stay on indoors, so your logo is seen all day.',p:[
+    ['vest','The vest we’d put on everybody.'],['chill','A whole team on a budget.'],['st_stavangervest','A warmer, packable vest for outdoor staff.']]},
+  'Fleece & Softshell':{a:'',p:[['st_avalantevest','A soft fleece vest for office layering.'],['cs_l00915','Sherpa-lined canvas for the yard.'],['ch_104277','Carhartt’s classic sherpa vest.']]},
+  'Hi-Vis Vests':{a:'A tear-away vest is the standard for crews: safer if it snags, and the logo goes on the chest tape.',p:[
+    ['tvest','The vest we recommend for most crews.'],['tv3','Visitors, events and occasional use.'],['surveyor','Supervisors and surveyors who need pockets.']]},
+  'Hi-Vis T-Shirts':{a:'Polyester wicks sweat in summer; cotton is softer for all-day wear.',p:[
+    ['tee','A cotton traffic tee for all-day wear.'],['tt1','A light polyester tee for hot days.'],['tt4','Long sleeves for sun and cooler mornings.']]},
+  'Sweatshirts & Hoodies':{a:'',p:[['hoodie','A hi-vis hoodie for cool mornings on site.'],['cs_s05985','A light hooded hi-vis layer.'],['cs_l01310','An insulated hi-vis softshell for real cold.']]},
+  'Hi-Vis Jackets':{a:'Match the jacket to the season: quilted for cold, softshell for spring and fall, 3-in-1 for all year.',p:[
+    ['tj2','A hi-vis softshell for spring and fall.'],['freezer','Quilted warmth for a crew on a budget.'],['tj3','A 3-in-1 that covers the whole year.']]},
+  'Winter Parkas':{a:'',p:[['cs_l01250','An insulated hi-vis parka for deep winter.'],['tp1','Winter warmth at the best price.'],['tp6','A 6-in-1 for crews out in every season.']]},
+  'Work Shirts':{a:'',p:[['rk_sp24','An industrial work shirt built for laundering.'],['shirt','A clean twill button-up on a budget.'],['rk_sc30','Wrinkle-resistant cotton for supervisors.']]},
+  'Canvas & Shackets':{a:'',p:[['cs_l00910','A canvas bomber for the yard.'],['st_highlandshacket','The lightest, lowest-cost shacket.'],['st_oxide','Sherpa-lined canvas — the one people ask for.']]},
+  'Parkas':{a:'',p:[['cs_l01100','A heavy-duty parka for outdoor crews.'],['cs_l01080','Deep-winter warmth at the best price.'],['cs_l01100','—']]},
+  'Vests':{a:'',p:[['st_basecampvest','A warm quilted vest for outdoor crews.'],['cs_l01040','A warm vest at the best price.'],['cs_l00915','Sherpa-lined canvas for the yard.']]},
+  'T-Shirts':{a:'',p:[['ch_k87','Carhartt’s classic heavyweight pocket tee.'],['ch_106020','The lowest-cost Carhartt tee.'],['ch_106652','A moisture-managing FORCE tee for hot work.']]},
+  'Jackets & Coats':{a:'',p:[['ch_102208','A lightweight insulated Carhartt for most of the year.'],['ch_102199','A Rain Defender softshell.'],['ch_106674','The heavy insulated duck coat for deep winter.']]},
+  'Pants & Bibs':{a:'Pants carry no logo.',p:[['ch_102291','Rugged Flex canvas that moves with you.'],['ch_b11','Classic washed-duck work pants.'],['ch_102776','A duck bib overall for full coverage.']]},
+  'Caps & Hats':{a:'Structured caps hold a logo best; unstructured ones are softer and more casual.',p:[
+    ['at_joshua','A classic structured cap that holds your logo well.'],['at_startfive','Big teams and events.'],['nk_fb5677','A brand-name cap people keep.']]},
+  'Trucker & Snapback':{a:'',p:[['at_sonic','A mesh-back trucker for summer.'],['cs_h08205','Big teams and events.'],['ch_105298','Carhartt’s canvas mesh-back cap.']]},
+  'Beanies & Toques':{a:'',p:[['cs_h08010','A fleece-lined toque for real cold.'],['cs_h08000','A cuffed toque for big crews.'],['ch_a18','The Carhartt watch hat everyone recognises.']]},
+  'Backpacks':{a:'One size fits everyone, so a bag is the easiest order for a whole team.',p:[
+    ['st_deluge','A waterproof laptop backpack for commuters.'],['nk_dh7709','A brand-name backpack at a lower price.'],['ch_bp28','Carhartt’s dual-compartment pack for people who carry everything.']]},
+  'Duffels & Tool Bags':{a:'',p:[['st_nautilus70','A waterproof duffel that also carries as a backpack.'],['nk_dh7710','A brand-name gym duffel at a lower price.'],['st_nautilus110','The big one for a week away on site.']]},
+  'Coolers & Lunch':{a:'',p:[['st_magellan30','A 30-can cooler for team events.'],['ch_lunch','The everyday lunch cooler.'],['st_saturna24','A roll-top cooler backpack.']]},
+  'Work Pants':{a:'Pants carry no logo. Pick by fabric: poly-cotton for laundering, canvas for durability.',p:[
+    ['ch_102291','Rugged Flex canvas that moves with you.'],['rk_pt20','An industrial pant built for uniform laundering.'],['dk_874x','The classic Dickies 874.']]},
+  'Joggers & Sweatpants':{a:'',p:[['cs_p00587','A soft everyday sweatpant.'],['cs_p00595','The lowest-cost sweatpant.'],['cs_p00865','A performance French-terry jogger.']]}
+};
+function xpFacts(it){
+  var f=[],fb=it.fab||{},w=warmOf(it);
+  if(w&&WARM_LAB[w.band])f.push(WARM_LAB[w.band]);
+  if(fb.weight)f.push(String(fb.weight).split('·')[0].trim());
+  if(fb.finishes&&fb.finishes.length)f.push(String(fb.finishes[0]).split('/')[0]);
+  if(hasLadies(it))f.push('Men’s & ladies’');else if(it.unisex)f.push('Unisex');
+  var n=(it.cols||[]).length;if(n>1)f.push(n+' colours');
+  return f.slice(0,4);
+}
+function xpPicks(cat,sub){
+  var shelf=((BUCKETS[cat]||{})[sub]||[]).filter(function(k){var it=BYKEY[k];return it&&it.layer!=='promo'&&!/\bdog\b|leash|collar|throw|blanket/i.test(it.name||'');});
+  if(shelf.length<3)return [];
+  /* Safety Vests (Hi-Vis & Safety) is the same shelf as Hi-Vis Vests (Vests) */
+  var cfg=XPERT[sub]||(sub==='Safety Vests'?XPERT['Hi-Vis Vests']:null),used={},out=[],roles=['def','val','up'];
+  var byP=shelf.map(function(k){return {k:k,p:sxPrice(k)};}).sort(function(a,b){return a.p-b.p;}).map(function(x){return x.k;});
+  roles.forEach(function(r,i){
+    var c=cfg&&cfg.p[i],k=(c&&c[1]!=='\u2014'&&shelf.indexOf(c[0])>=0&&!used[c[0]])?c[0]:null,why=k?c[1]:'';
+    if(!k){var rest=byP.filter(function(x){return !used[x];});if(!rest.length)return;
+      k=r==='val'?rest[0]:(r==='up'?rest[rest.length-1]:rest[Math.floor(rest.length/2)]);
+      why=r==='val'?'The lowest price on this shelf.':(r==='up'?'A step up in finish and fabric.':'The middle of this shelf on price.');}
+    used[k]=1;out.push({k:k,role:r,why:why,p:sxPrice(k)});
+  });
+  /* LABELS FOLLOW PRICE. "Best value" must be cheaper than our pick and "Step up" dearer -- otherwise it
+     is "Also consider". Shown cheapest to dearest, so price reads as a scale. */
+  var d=out.filter(function(x){return x.role==='def';})[0];
+  if(d)out.forEach(function(x){if(x.role==='val'&&!(x.p<d.p))x.role='alt';if(x.role==='up'&&!(x.p>d.p))x.role='alt';});
+  out.sort(function(a,b){return a.p-b.p;});
+  return out.length===3?out:[];
+}
+function xpSubs(cat){return subNames(cat).filter(function(s){return xpPicks(cat,s).length===3;});}
+function xpCardHtml(x){
+  var it=BYKEY[x.k],o=null;
+  try{o=overlayHtml(it,vmOf(x.k),browseColour(x.k,it),'front',browseCols(it),browsePlaces(it));}catch(e){}
+  var facts=xpFacts(it);
+  return '<div class="xpc xpc-'+x.role+'">'+
+    '<div class="xprole">'+esc(XP_ROLE[x.role])+'</div>'+
+    '<button type="button" class="xpimg" data-xpopen="'+esc(x.k)+'" aria-label="See '+esc(it.name)+'">'+(o?('<img class="g" src="'+o.g+'" alt="" loading="lazy">'+o.lg):'')+'</button>'+
+    '<div class="xpb"><b class="xpn">'+esc(it.name)+'</b><span class="xpbr">'+esc(it.brand||it.sku||'')+'</span>'+
+      '<div class="xpp"><b>'+money(x.p)+'</b><i>/pc at '+moq()+', logo included</i></div>'+
+      '<div class="xpfor"><span>Choose it for</span>'+esc(x.why)+'</div>'+
+      (facts.length?('<ul class="xpf">'+facts.map(function(f){return '<li>'+esc(f)+'</li>';}).join('')+'</ul>'):'')+
+      '<div class="xpbtns"><button type="button" class="xpadd" data-xpadd="'+esc(x.k)+'">+ Add to quote</button>'+
+        '<button type="button" class="xpsee" data-xpopen="'+esc(x.k)+'">Colours & details</button></div>'+
+    '</div></div>';
+}
+var XP_SUB={};
+function renderXpert(){
+  var el=document.getElementById('xpert');if(!el)return;
+  var cat=VIEW.cat,q=(VIEW.q||'').trim();
+  if(q||!cat||cat==='accessories'||(typeof giftViewOn==='function'&&giftViewOn())){el.innerHTML='';return;}
+  var subs=xpSubs(cat);if(!subs.length){el.innerHTML='';return;}
+  var sub=(VIEW.sub&&VIEW.sub!=='all'&&subs.indexOf(VIEW.sub)>=0)?VIEW.sub:(XP_SUB[cat]&&subs.indexOf(XP_SUB[cat])>=0?XP_SUB[cat]:(subs.indexOf(XP[cat])>=0?XP[cat]:subs[0]));
+  var picks=xpPicks(cat,sub),cfg=XPERT[sub]||(sub==='Safety Vests'?XPERT['Hi-Vis Vests']:{});
+  var tabs=(VIEW.sub==='all'&&subs.length>1)?('<div class="xptabs" role="tablist">'+subs.map(function(s){
+    return '<button type="button" role="tab" class="xptab'+(s===sub?' on':'')+'" aria-selected="'+(s===sub)+'" data-xpsub="'+esc(s)+'">'+esc(s)+'</button>';}).join('')+'</div>'):'';
+  el.innerHTML='<section class="xpert" aria-label="Our recommendation">'+
+    '<div class="xphd"><div><span class="xpeyb">Not sure which to choose?</span>'+
+      '<h3 class="xph">Our three picks'+(VIEW.sub==='all'?'':'')+' <span>· '+esc(sub)+'</span></h3>'+
+      (cfg.a?('<p class="xpadv">'+esc(cfg.a)+'</p>'):'')+'</div>'+
+      '<button type="button" class="xpask" id="xpAsk"><span class="xpav" aria-hidden="true">S</span><span><b>Have Steven pick for you</b><i>Tell us the team and budget — we reply with a recommendation</i></span></button></div>'+
+    tabs+
+    '<div class="xpgrid">'+picks.map(xpCardHtml).join('')+'</div>'+
+  '</section>';
+  el.querySelectorAll('[data-xpsub]').forEach(function(b){b.addEventListener('click',function(){XP_SUB[cat]=b.dataset.xpsub;jdpTrack('xp_tab',{s:bslug(b.dataset.xpsub)});renderXpert();});});
+  el.querySelectorAll('[data-xpopen]').forEach(function(b){b.addEventListener('click',function(){jdpTrack('xp_open',{k:b.dataset.xpopen});openSheet(b.dataset.xpopen);});});
+  el.querySelectorAll('[data-xpadd]').forEach(function(b){b.addEventListener('click',function(){var k=b.dataset.xpadd;jdpTrack('xp_add',{k:k});addToQuoteQuick(k);
+    b.textContent='✓ In your quote';b.classList.add('done');});});
+  var a=document.getElementById('xpAsk');if(a)a.addEventListener('click',function(){jdpTrack('xp_ask',{c:cat,s:bslug(sub)});openSourcing('');
+    var nt=document.getElementById('coNote');if(nt&&!nt.value)nt.value='Please recommend '+sub.toLowerCase()+' for our team.\nHow many people: \nWho wears it (office / warehouse / outdoor / client-facing): \nBudget per person: \nNeeded by: ';});
+}
+
+function renderGrid(){renderGridCore();try{syncInbar();}catch(e){}try{renderXpert();}catch(e){}}
 function renderGridCore(){
   var grid=document.getElementById('grid'),hd=document.getElementById('gridhd'),nr=document.getElementById('noResults');
   if(!grid)return;var q=(VIEW.q||'').trim().toLowerCase();
@@ -3502,7 +3643,7 @@ function buildStore(){
       scroll on desktop, 25.6 on a phone, and every narrowing tool hidden behind a button. They now
       sit in the open, directly above the grid, where the choice is actually made. Fit, colour and
       sort stay in the panel: those refine a choice, they do not make it. */
-   '<main class="w"><div class="gridhd" id="gridhd"></div>'+
+   '<main class="w"><div class="gridhd" id="gridhd"></div><div id="xpert"></div>'+
      /* ALL FILTERS IN THE OPEN. Steven, 2026-10-06: "filters hiding on desktop / mobile. A lot of
         the people selecting the items is female like a office admin ... they can not easily find the
         filters." Fit, colour and sort sat behind a small "Filters" button in a header strip that

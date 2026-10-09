@@ -3542,3 +3542,41 @@ body.giftview .social{display:none!important}
 .prnote b{font-weight:800;color:var(--ink)}
 .prnote span{color:#6b6458}
 .cfgfoot{font-size:12px}
+/* ===== EXPERT PICKS (2026-10-09): three advised choices at the top of every aisle ================== */
+.xpert{margin:6px 0 22px;padding:20px 20px 22px;border-radius:20px;background:linear-gradient(180deg,#fbf8f2,#fff);border:1px solid var(--line);box-shadow:0 1px 2px rgba(0,0,0,.04)}
+.xphd{display:flex;align-items:flex-start;justify-content:space-between;gap:14px 24px;flex-wrap:wrap;margin-bottom:12px}
+.xpeyb{display:block;font-size:11.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--a);margin-bottom:4px}
+.xph{margin:0;font-family:var(--disp);font-size:26px;line-height:1.1;text-transform:uppercase}
+.xph span{color:#8a8275;font-size:.72em}
+.xpadv{margin:6px 0 0;font-size:14px;color:#5c554a;max-width:62ch;line-height:1.5}
+.xpask{display:flex;align-items:center;gap:10px;padding:10px 14px;border:1.5px solid var(--ink);border-radius:14px;background:#fff;text-align:left;font:inherit;cursor:pointer;max-width:330px}
+.xpask:hover{background:var(--ink);color:#fff}.xpask:hover i{color:rgba(255,255,255,.8)}
+.xpask b{display:block;font-size:14px;font-weight:850}.xpask i{display:block;font-style:normal;font-size:12px;color:#6b6458;line-height:1.35}
+.xpav{flex:none;width:34px;height:34px;border-radius:50%;background:var(--a);color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center}
+.xptabs{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin:0 0 14px;padding-bottom:2px}
+.xptabs::-webkit-scrollbar{display:none}
+.xptab{white-space:nowrap;padding:7px 13px;border:1.5px solid #e2ddd2;border-radius:999px;background:#fff;font:inherit;font-size:13px;font-weight:800;color:var(--ink);cursor:pointer}
+.xptab.on{background:var(--ink);border-color:var(--ink);color:#fff}
+.xpgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.xpc{position:relative;display:flex;flex-direction:column;background:#fff;border:1.5px solid var(--line);border-radius:16px;overflow:hidden}
+.xpc-def{border-color:var(--a);box-shadow:0 10px 26px -18px var(--a)}
+.xprole{position:absolute;top:10px;left:10px;z-index:2;padding:4px 10px;border-radius:999px;background:#fff;border:1px solid var(--line);font-size:11px;font-weight:850;letter-spacing:.06em;text-transform:uppercase;color:var(--ink)}
+.xpc-def .xprole{background:var(--a);border-color:var(--a);color:#fff}
+.xpimg{position:relative;display:block;width:100%;aspect-ratio:1/1;border:0;padding:0;background:#f6f4f0;cursor:pointer;overflow:hidden}
+.xpimg .g{width:100%;height:100%;object-fit:contain;display:block}
+.xpimg .l{position:absolute;transform:translate(-50%,-50%);height:auto;max-width:none;pointer-events:none}
+.xpb{display:flex;flex-direction:column;gap:6px;padding:12px 14px 14px;flex:1}
+.xpn{font-size:15px;font-weight:850;line-height:1.25}
+.xpbr{font-size:11.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#8a8275}
+.xpp b{font-size:18px;font-weight:850}.xpp i{font-style:normal;font-size:12px;color:#6b6458;margin-left:4px}
+.xpfor{font-size:13.5px;line-height:1.45;color:var(--ink)}
+.xpfor span{display:block;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--a);margin-bottom:2px}
+.xpf{list-style:none;margin:2px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:5px}
+.xpf li{font-size:11.5px;font-weight:700;padding:3px 8px;border-radius:999px;background:#f4f2ee;color:#5c554a}
+.xpbtns{display:flex;gap:8px;margin-top:auto;padding-top:8px;flex-wrap:wrap}
+.xpadd{flex:1 1 auto;padding:9px 12px;border:0;border-radius:10px;background:var(--a);color:#fff;font:inherit;font-size:13.5px;font-weight:850;cursor:pointer}
+.xpadd.done{background:#1e6b34}
+.xpsee{padding:9px 12px;border:1.5px solid var(--line);border-radius:10px;background:#fff;font:inherit;font-size:13px;font-weight:800;color:var(--ink);cursor:pointer}
+@media(max-width:860px){.xpgrid{grid-template-columns:1fr;gap:10px}.xpc{flex-direction:row}.xpimg{width:38%;flex:none;aspect-ratio:auto;min-height:150px}
+  .xprole{top:8px;left:8px;font-size:10px}.xph{font-size:22px}.xpask{max-width:none;width:100%}.xpert{padding:16px 14px}}
+html.sxon .xpert{display:none}
