@@ -3088,9 +3088,9 @@ function jaScore(it,role,cold,rain,bud,p){
   if(p>=B.lo&&p<B.hi)s+=30;else if(p>=B.hi)s-=Math.min(60,(p-B.hi)/3);else s+=8;
   return s;
 }
-function jaRank(role){
-  var pool=jaPool(),rows=[];
-  pool.forEach(function(k){var it=BYKEY[k],p=sxPrice(k),sc=jaScore(it,role,JA.cold||2,JA.rain<0?0:JA.rain,JA.bud||'x',p);
+function jaRank(role,o){
+  var pool=jaPool(),rows=[];o=o||{cold:JA.cold||2,rain:JA.rain<0?0:JA.rain,bud:JA.bud||'x'};
+  pool.forEach(function(k){var it=BYKEY[k],p=sxPrice(k),sc=jaScore(it,role,o.cold,o.rain,o.bud,p);
     if(sc!=null)rows.push({k:k,s:sc,p:p});});
   rows.sort(function(a,b){return (b.s-a.s)||(a.p-b.p);});
   return rows;
@@ -3105,18 +3105,6 @@ function jaWhy(it,role){
   if(role!=='site')out.push(hasLadies(it)?('Men’s and women’s cuts · up to '+jaMaxSize(it)):('Men’s / unisex cut only · up to '+jaMaxSize(it)));
   else out.push('CSA hi-vis · up to '+jaMaxSize(it));
   return out.slice(0,4);
-}
-function jaCard(r,lab,role,main,over){
-  var it=BYKEY[r.k],o=null;
-  try{o=overlayHtml(it,vmOf(r.k),browseColour(r.k,it),'front',browseCols(it),browsePlaces(it));}catch(e){}
-  return '<div class="jac'+(main?' main':'')+'">'+(lab?('<span class="jalab">'+esc(lab)+'</span>'):'')+
-    '<button type="button" class="jaimg" data-xpopen="'+esc(r.k)+'">'+(o?('<img class="g" src="'+o.g+'" alt="" loading="lazy">'+o.lg):'')+'</button>'+
-    '<div class="jab"><b>'+esc(it.name)+'</b><span class="jabr">'+esc(it.brand||it.sku||'')+'</span>'+
-    '<div class="jap"><b>'+money(r.p)+'</b><i>/pc at '+moq()+', logo included</i></div>'+
-    (over?('<p class="jaover">'+over+'</p>'):'')+
-    (main?('<ul class="jaw">'+jaWhy(it,role).map(function(x){return '<li>'+esc(x)+'</li>';}).join('')+'</ul>'):'')+
-    '<div class="jabtns">'+(main?'':'<button type="button" class="jasw" data-jaswap="'+esc(role)+'|'+esc(r.k)+'">Use this instead</button>')+
-      '<button type="button" class="xpsee" data-xpopen="'+esc(r.k)+'">Details</button></div></div></div>';
 }
 var JA_PICK={};
 function jaProgram(){
@@ -3142,56 +3130,381 @@ function jaChips(name,opts,cur,multi){
     return '<button type="button" class="jach'+(on?' on':'')+'" data-ja="'+name+'" data-v="'+esc(String(o.id))+'" aria-pressed="'+on+'">'+
       '<b>'+esc(o.lab)+'</b>'+(o.sub?('<i>'+esc(o.sub)+'</i>'):'')+'</button>';}).join('');
 }
-function jaApplies(){var c=VIEW.cat,s=VIEW.sub;return c==='outerwear'||c==='ruggedwear'||(c==='hivis'&&(s==='all'||/Jackets|Parkas/.test(s||'')));}
-function renderJacketAdvisor(el){
-  if(!JA.roles.length&&VIEW.cat==='hivis')JA.roles=['site'];
-  if(!JA.roles.length&&VIEW.cat==='ruggedwear')JA.roles=['outdoor'];
-  var ready=JA.roles.length&&JA.cold&&JA.rain>=0&&JA.bud;
-  var q='<div class="jaq"><div class="jaqh"><span class="jan">1</span><b>Who are you outfitting?</b><i>Pick every group that needs a jacket</i></div><div class="jachs">'+jaChips('roles',JA_ROLES,JA.roles,true)+'</div></div>'+
-    '<div class="jaq"><div class="jaqh"><span class="jan">2</span><b>How cold does it get?</b></div><div class="jachs">'+jaChips('cold',JA_COLD,JA.cold,false)+'</div></div>'+
-    '<div class="jaq"><div class="jaqh"><span class="jan">3</span><b>How wet?</b></div><div class="jachs">'+jaChips('rain',JA_RAIN,JA.rain,false)+'</div></div>'+
-    '<div class="jaq"><div class="jaqh"><span class="jan">4</span><b>Budget per person</b></div><div class="jachs">'+jaChips('bud',JA_BUD,JA.bud,false)+'</div></div>';
+/* ===== THE PROGRAM ADVISOR (Steven, 2026-10-09: "build ONE company apparel program advisor as the central
+   buying experience ... enterprise buyers have no idea what product to choose.") ============================
+   How companies actually build an apparel program (buyer and uniform-program guides we read: Uniforms by
+   Unitec, Uniform Market, Heart & Hook, Singh's Print, The Apparel Factory, Uniform TB, Arklavo, Birdiebox):
+     - they start from the ROLE, not the catalogue ("start from the role" -- every guide says it);
+     - each role gets a KIT with a unit count per person: office 2-3 polos + a layer + a jacket; crews 4-5
+       shirts ("consumables"), a mid-layer, a jacket, a cap; six shirts covers a work week between washes;
+     - hi-vis is assigned by class BEFORE garments are chosen; anyone near traffic is Class 2 or better;
+     - the deciding number is cost PER PERSON, because that is what the buyer takes to the person who
+       approves it; good / better / best tiers make that decision in one step;
+     - the failure modes are no women's cuts, cotton on crews who sweat, no winter layering plan, too many
+       styles (reorders drift), and every new hire becoming a fresh quote.
+   So this is ONE advisor for the whole company: who (groups and headcount), how cold, how wet, which level.
+   It answers with a kit per group -- the piece for each job, how many each person gets, why it fits (read
+   from the catalogue), the cost per person, the group and program totals -- and one tap puts it on the
+   quote with sizes, or saves it as a board to send to the approver. The jacket slot is the jacket advisor's
+   engine (jaRank); every other slot is a curated [essential, standard, premium] list per role, falling back
+   to the shelf's own price ladder in a store that does not carry a pick (US range, trimmed kits). */
+var PA_ROLES=[
+  {id:'office', lab:'Office & client-facing',sub:'Sales, managers, front desk'},
+  {id:'mixed',  lab:'In and out all day',    sub:'Warehouse, drivers, techs'},
+  {id:'outdoor',lab:'Outdoor crews',         sub:'Yard, construction, grounds'},
+  {id:'site',   lab:'Site with hi-vis rules',sub:'Traffic, utilities, road crews'},
+  {id:'welcome',lab:'New hires this year',   sub:'A day-one welcome kit'}];
+var PA_TIERS=[
+  {id:'e',lab:'Essential',sub:'Dependable basics at the lowest cost',bud:'a'},
+  {id:'s',lab:'Standard', sub:'Better fabrics and fit — our default',bud:'b'},
+  {id:'p',lab:'Premium',  sub:'Brand-name pieces, built to impress',bud:'c'}];
+var PA_TI={e:0,s:1,p:2};
+/* Each slot: what the job is, how many each person gets, the pool it may draw from, and the curated
+   [essential, standard, premium] picks. `cold`/`rain` swap the curated list where the conditions change
+   the right answer (long sleeves for deep winter, a water-repellent hoodie for wet work). */
+var PA_KIT={
+  office:[
+    {id:'polo',lab:'Polo',u:3,pool:[['tops','Polos']],pick:['c3_88181','st_nevadass','cbc_advantage_polo'],
+     tip:'Three polos covers a work week with laundry in between.'},
+    {id:'layer',lab:'Quarter-zip layer',u:1,pool:[['layers','Quarter & Half-Zips']],pick:['flux','st_treeline','cbc_traverse_qz']},
+    {id:'jacket',lab:'Jacket',u:1,jacket:'office'}],
+  mixed:[
+    {id:'polo',lab:'Performance polo',u:5,pool:[['tops','Polos']],perf:1,pick:['c3_88181','st_monterey','cbc_forge_polo'],
+     tip:'Five shirts each: people who sweat through a shift change every day.'},
+    {id:'layer',lab:'Hoodie',u:1,pool:[['layers','Hoodies']],pick:['vault','forge','nk_pohoodie'],rain:['repel','repel','nk_pohoodie']},
+    {id:'jacket',lab:'Jacket',u:1,jacket:'mixed'},
+    {id:'hat',lab:'Toque',u:1,hat:1}],
+  outdoor:[
+    {id:'tee',lab:'Performance tee',u:5,pool:[['tops','Tees'],['carhartt','T-Shirts']],perf:1,
+     pick:['cs_s05935','cbc_coastline_tee','ch_106652'],cold3:['cs_s05937','st_milano','ch_106656'],
+     tip:'Wicking polyester, not cotton: cotton stays wet and cold on a crew that works hard outside.'},
+    {id:'layer',lab:'Heavyweight hoodie',u:1,pool:[['layers','Hoodies'],['carhartt','Sweatshirts & Hoodies']],
+     pick:['vault','forge','ch_k121'],rain:['repel','repel','ch_100615']},
+    {id:'jacket',lab:'Work jacket',u:1,jacket:'outdoor'},
+    {id:'hat',lab:'Toque',u:1,hat:1}],
+  site:[
+    {id:'hvtee',lab:'Hi-vis shirt',u:5,pool:[['hivis','Hi-Vis T-Shirts']],pick:['tt1','tt1','cs_s05980'],cold3:['tt2','tt2','cs_s05982'],
+     tip:'Class 2 shirts keep the crew compliant without a vest on warm days.'},
+    {id:'hvlayer',lab:'Hi-vis hoodie',u:1,pool:[['hivis','Sweatshirts & Hoodies']],hvlayer:1,pick:['hoodie','hoodie','th1']},
+    {id:'jacket',lab:'Hi-vis jacket',u:1,jacket:'site'},
+    {id:'hat',lab:'Toque',u:1,hat:1}],
+  welcome:[
+    {id:'anchor',lab:'Hoodie',u:1,pool:[['layers','Hoodies'],['layers','Quarter & Half-Zips']],pick:['vault','forge','nk_pohoodie'],
+     tip:'The anchor of a welcome kit is the piece they will wear on the weekend.'},
+    {id:'tee',lab:'Tee',u:1,pool:[['tops','Tees']],pick:['crewtee','cs_s05670','nk_tee']},
+    {id:'cap',lab:'Cap',u:1,pool:[['headwear','Caps & Hats']],pick:['at_startfive','at_joshua','nk_fb5677']}]
+};
+var PA_HAT={toque:{pool:[['headwear','Beanies & Toques']],pick:['cs_h08000','cs_h08010','ch_a18'],lab:'Toque'},
+            cap:{pool:[['headwear','Caps & Hats']],pick:['at_startfive','at_joshua','ch_106687'],lab:'Cap'}};
+var PA={g:{},cold:0,rain:-1,tier:'',u:{},pick:{}};
+function paKey(){return 'jdp_pa_'+(typeof SLUG!=='undefined'?SLUG:'');}
+try{var _pa=JSON.parse(localStorage.getItem(paKey())||'null');if(_pa&&_pa.g)PA=_pa;PA.u=PA.u||{};PA.pick=PA.pick||{};}catch(e){}
+function paSave(){try{localStorage.setItem(paKey(),JSON.stringify(PA));}catch(e){}}
+function paGroups(){return PA_ROLES.filter(function(r){return PA.g[r.id]!=null&&paRoleOn(r.id);}).map(function(r){return r.id;});}
+/* A store without CSA hi-vis (the US range) does not offer the hi-vis group at all. */
+function paRoleOn(id){if(id!=='site')return true;var h=BUCKETS.hivis||{};return !!((h['Hi-Vis T-Shirts']||[]).length&&(h['Hi-Vis Jackets']||h['Winter Parkas']||[]).length);}
+function paInStore(k){return !!(BYKEY[k]&&ALLKEYS.indexOf(k)>=0);}
+function paFab(it){var f=it.fab;if(!f)return '';if(typeof f==='string')return f.toLowerCase();
+  return ((f.mix||[]).map(function(x){return x[0];}).join(' ')+' '+(f.finishes||[]).join(' ')+' '+(f.knit||'')).toLowerCase();}
+/* performance = it wicks: polyester-led, or says so. Cotton is the wrong shirt for people who sweat. */
+function paPerf(it){var f=paFab(it),n=(it.name||'').toLowerCase(),m=(it.fab&&it.fab.mix)||[];
+  if(/performance|wick|dri-fit|force|tricot/.test(n+' '+f))return true;
+  var poly=0;m.forEach(function(x){if(/polyester|nylon|spandex/i.test(x[0]))poly+=x[1];});return poly>=60;}
+function paClass(it){var m=/Z96 Class (\d)/.exec(it.csa||'');return m?+m[1]:0;}
+function paPool(slot,role){
+  var out=[],seen={};
+  (slot.pool||[]).forEach(function(p){((BUCKETS[p[0]]||{})[p[1]]||[]).forEach(function(k){
+    var it=BYKEY[k];if(!it||seen[k]||it.layer==='promo')return;
+    if(slot.perf&&!paPerf(it))return;
+    if(slot.hvlayer&&!/hood|sweat|crew/i.test(it.name))return;
+    if(slot.hvlayer&&/jacket|bomber|softshell/i.test(it.name))return;
+    if(slot.id==='hvtee'&&/long/i.test(it.name)!==(PA.cold===3))return;
+    if(slot.id==='tee'&&role==='outdoor'&&/long/i.test(it.name)!==(PA.cold===3))return;
+    seen[k]=1;out.push(k);});});
+  return out;
+}
+function paSlotsFor(role){
+  return (PA_KIT[role]||[]).map(function(s){
+    if(!s.hat)return s;
+    var h=PA.cold>=2?PA_HAT.toque:PA_HAT.cap;
+    return {id:'hat',lab:h.lab,u:1,pool:h.pool,pick:h.pick,hat:1};
+  });
+}
+/* The ranked candidates for one slot, cheapest first, each with its price at the minimum. */
+function paRanked(slot,role){
+  if(slot.jacket){
+    var _ti=PA_TI[PA.tier];var b=(PA_TIERS[_ti!=null?_ti:1]||{}).bud||'b';
+    return jaRank(slot.jacket,{cold:PA.cold||2,rain:PA.rain<0?0:PA.rain,bud:b});
+  }
+  return paPool(slot,role).map(function(k){return {k:k,p:sxPrice(k)};}).sort(function(a,b){return a.p-b.p;});
+}
+function paCurated(slot){
+  var l=slot.pick||[];
+  if(slot.cold3&&PA.cold===3)l=slot.cold3;
+  if(slot.rain&&PA.rain===1)l=slot.rain;
+  return l;
+}
+/* The pick for a slot at the chosen level: the curated piece when this store carries it, else the
+   shelf's own ladder -- cheapest for Essential, the middle for Standard, the top for Premium. */
+function paChoose(slot,role){
+  var ti=PA_TI[PA.tier];if(ti==null)ti=1;
+  var rows=paRanked(slot,role);if(!rows.length)return null;
+  var mine=PA.pick[role+'.'+slot.id];
+  if(mine){var m=rows.filter(function(r){return r.k===mine;})[0];if(m)return {r:m,rows:rows,own:true};}
+  if(slot.jacket)return {r:rows[0],rows:rows};
+  var c=paCurated(slot)[ti];
+  if(c&&paInStore(c)){var hit=rows.filter(function(r){return r.k===c;})[0];if(hit)return {r:hit,rows:rows};}
+  var idx=ti===0?0:(ti===2?rows.length-1:Math.floor((rows.length-1)/2));
+  return {r:rows[idx],rows:rows};
+}
+function paUnits(role,slot){var v=PA.u[role+'.'+slot.id];return (v>=1&&v<=12)?v:slot.u;}
+function paWhy(it,slot,role){
+  if(slot.jacket)return jaWhy(it,slot.jacket).slice(0,3);
+  var out=[],f=it.fab,fl=paFab(it),w=(f&&f.weight)?String(f.weight).split('·')[0].trim():'';
+  if(slot.id==='hvtee'||slot.id==='hvlayer'){var c=paClass(it);
+    out.push(c?('CSA Z96 Class '+c+(c>=2?' — compliant near traffic on its own':' — wear a Class 2 vest over it near traffic')):'Meets CSA Z96');}
+  if(f&&f.mix&&f.mix.length)out.push(f.mix.slice(0,2).map(function(x){return x[1]+'% '+x[0].toLowerCase();}).join(' / ')+(w?(', '+w):''));
+  else if(typeof f==='string')out.push(f.charAt(0).toUpperCase()+f.slice(1));
+  if(/water-repellent/.test(fl)||/rain defender|repel/i.test(it.name))out.push('Water-repellent');
+  else if(paPerf(it)&&slot.id!=='hvlayer')out.push('Wicks sweat, dries fast');
+  if(!slot.hat&&slot.id!=='cap'&&role!=='site')out.push(hasLadies(it)?('Men’s and women’s cuts'+(jaMaxSize(it)?(' · up to '+jaMaxSize(it)):'')):('Men’s / unisex cut'+(jaMaxSize(it)?(' · up to '+jaMaxSize(it)):'')));
+  else if(role==='site'&&jaMaxSize(it))out.push('Sizes up to '+jaMaxSize(it));
+  if(slot.hat||slot.id==='cap'){
+    if(slot.hat&&PA.cold>=2)out.push('For cold mornings under a hood or hard hat');
+    else out.push('Takes an embroidered logo front and centre');
+    if(oneSize(it))out.push('One size — no sizes to collect');}
+  return out.slice(0,3);
+}
+/* THE PROGRAM. One kit per group, then the quantities rolled up per style -- a style shared by two groups is
+   one order, which is both cheaper (volume breaks) and the "fewer styles" rule every program guide gives. */
+function paProgram(){
+  var groups=paGroups(),G=[],qty={},who={};
+  groups.forEach(function(role){
+    var n=Math.max(0,parseInt(PA.g[role],10)||0),rows=[];
+    paSlotsFor(role).forEach(function(slot){
+      var ch=paChoose(slot,role);if(!ch)return;
+      var u=paUnits(role,slot);
+      rows.push({slot:slot,k:ch.r.k,p:ch.r.p,u:u,rows:ch.rows,own:!!ch.own});
+      qty[ch.r.k]=(qty[ch.r.k]||0)+n*u;(who[ch.r.k]=who[ch.r.k]||[]).push(role);
+    });
+    /* a hi-vis shirt below Class 2 needs a Class 2 vest over it -- add it rather than leave the crew short */
+    if(role==='site'){var t=rows.filter(function(r){return r.slot.id==='hvtee';})[0];
+      if(t&&paClass(BYKEY[t.k])<2){var vs={id:'vest',lab:'Class 2 safety vest',u:1,pool:[['hivis','Safety Vests']],pick:['tvest','tvest','surveyor']};
+        var cv=paChoose(vs,role);if(cv){rows.push({slot:vs,k:cv.r.k,p:cv.r.p,u:paUnits(role,vs),rows:cv.rows});qty[cv.r.k]=(qty[cv.r.k]||0)+n*paUnits(role,vs);(who[cv.r.k]=who[cv.r.k]||[]).push(role);}}}
+    G.push({role:role,n:n,rows:rows});
+  });
+  var M=moq(),tot=0,styles=Object.keys(qty),people=0;
+  /* price every style at the quantity the whole program orders (12 minimum per style) */
+  var unit={};styles.forEach(function(k){var q=Math.max(M,qty[k]||0);var p=0;try{p=unitPrice(k,recCartDecos(k),q);}catch(e){p=sxPrice(k);}unit[k]=p;tot+=p*q;});   // the decoration the quote will carry, so the two never disagree
+  G.forEach(function(g){people+=g.n;var pp=0;g.rows.forEach(function(r){r.unit=unit[r.k];r.q=g.n*r.u;pp+=r.unit*r.u;});g.pp=pp;g.total=pp*g.n;});
+  return {groups:G,qty:qty,unit:unit,styles:styles.length,people:people,total:tot,M:M,who:who,
+          short:styles.filter(function(k){return (qty[k]||0)<M;})};
+}
+/* per-person cost of each level, for the level chips -- the number the buyer is trying to reach */
+function paTierCosts(){
+  var keep=PA.tier,keepPick=PA.pick,out={},groups=paGroups();if(!groups.length)return out;
+  PA.pick={};
+  /* the same number the summary shows once the headcounts are in (minimum round-ups included), so the
+     chip the buyer picked never disagrees with the total underneath it */
+  PA_TIERS.forEach(function(t){PA.tier=t.id;var P=paProgram(),w=0,s=0;
+    if(P.people&&P.groups.every(function(g){return g.n>0;})){out[t.id]=P.total/P.people;return;}
+    P.groups.forEach(function(g){var n=Math.max(1,g.n);w+=n;s+=g.pp*n;});out[t.id]=w?s/w:0;});
+  PA.tier=keep;PA.pick=keepPick;return out;
+}
+function paAlts(row){
+  var rows=row.rows,i=-1;rows.forEach(function(r,j){if(r.k===row.k)i=j;});
+  /* a real choice, not a neighbour: the curated Essential and Premium picks for this job come first --
+     a "lower cost" that saves a dollar fifty is not a decision anyone needs help with */
+  if(!row.slot.jacket){var cur0=row.p,cu=paCurated(row.slot).map(function(k){return rows.filter(function(r){return r.k===k;})[0];}).filter(Boolean);
+    var cl=cu.filter(function(r){return r.k!==row.k&&r.p<cur0-0.5;}).sort(function(a,b){return b.p-a.p;})[0],
+        ch=cu.filter(function(r){return r.k!==row.k&&r.p>cur0+0.5;}).sort(function(a,b){return a.p-b.p;})[0],o2=[];
+    if(cl)o2.push({r:cl,lab:'Lower cost'});if(ch)o2.push({r:ch,lab:'Step up'});
+    if(o2.length===2)return o2;
+    if(o2.length===1){var byP0=rows.slice().sort(function(a,b){return a.p-b.p;});
+      var other=o2[0].lab==='Lower cost'?byP0.filter(function(r){return r.k!==row.k&&r.p>cur0+0.5;})[0]:byP0.filter(function(r){return r.k!==row.k&&r.p<cur0-0.5;})[0];
+      if(other)o2.push({r:other,lab:o2[0].lab==='Lower cost'?'Step up':'Lower cost'});
+      if(o2.length===2)return o2;}}
+  var byP=rows.slice().sort(function(a,b){return a.p-b.p;}),cur=row.p,out=[];
+  var lo=byP.filter(function(r){return r.k!==row.k&&r.p<cur-0.5;}).pop(),hi=byP.filter(function(r){return r.k!==row.k&&r.p>cur+0.5;})[0];
+  if(row.slot.jacket){lo=rows.filter(function(r){return r.k!==row.k&&r.p<cur-0.5;})[0];hi=rows.filter(function(r){return r.k!==row.k&&r.p>cur+0.5;})[0];}
+  if(lo)out.push({r:lo,lab:'Lower cost'});if(hi)out.push({r:hi,lab:'Step up'});
+  if(out.length<2){var o=rows.filter(function(r){return r.k!==row.k&&out.every(function(a){return a.r.k!==r.k;});})[0];if(o)out.push({r:o,lab:'Also consider'});}
+  return out.slice(0,2);
+}
+/* ONE LOOK ACROSS THE PROGRAM. The neutral rule picks each garment's own neutral, which put a black polo,
+   a heather quarter-zip, a navy jacket and a grey toque in one kit. A program reads as a uniform when it is
+   one colour: black where the style has it, then navy, then the style's usual neutral. Hi-vis keeps its
+   high-visibility colour -- that IS the product. */
+function paColour(k,fit){var it=BYKEY[k];if(!it)return '';if(itemCategory(it)==='hivis')return progColour(k);
+  var cols=(curColsOf(it,fit||'mens')||[]).map(function(c){return c.name||'';});
+  var f=function(re){for(var i=0;i<cols.length;i++)if(re.test(cols[i]))return cols[i];return '';};
+  return f(/^(black|true black|jet black)$/i)||f(/^(navy|true navy|dark navy|navy blue)$/i)||progColour(k);}
+function paThumb(k){var it=BYKEY[k],o=null;try{o=overlayHtml(it,vmOf(k),paColour(k),'front',browseCols(it),browsePlaces(it));}catch(e){}
+  return o?('<img class="g" src="'+o.g+'" alt="" loading="lazy">'+o.lg):'';}
+function paRoleLab(id){return (PA_ROLES.filter(function(r){return r.id===id;})[0]||{}).lab||id;}
+function paSummaryText(P){
+  var L=['Our apparel program — '+(CFG.client||''),PA_TIERS[PA_TI[PA.tier]].lab+' level · '+((JA_COLD.filter(function(c){return c.id===PA.cold;})[0]||{}).lab||'')+(PA.rain===1?' · wet work':''),''];
+  P.groups.forEach(function(g){L.push(paRoleLab(g.role)+' — '+(g.n||'?')+' people');
+    g.rows.forEach(function(r){L.push('  • '+r.slot.lab+' ×'+r.u+' each: '+BYKEY[r.k].name);});});
+  var su=0;try{su=paSetup(P);}catch(e){}
+  L.push('','About '+money0(P.people?P.total/P.people:0)+' per person · '+money0(P.total+su)+' estimated total'+(su>0?(' incl. '+money0(su)+' one-time setup'):'')+' · '+P.styles+' styles');
+  return L.join('\n');
+}
+/* The one-time setup the quote will add (digitizing / screens -- once per design, shared across the kit),
+   computed by the quote's own function against the program's lines, so the advisor, the board and the
+   quote all show the same estimated total. */
+function paSetup(P){var keep=CART,tmp={},v=0;try{paWriteLines(tmp,paLines(P),P.people);CART=tmp;v=cartSetup()||0;}catch(e){v=0;}CART=keep;return v;}
+var PA_OPEN='';
+function renderProgramAdvisor(){
+  var el=document.getElementById('padv');if(!el)return;
+  var groups=paGroups(),ready=groups.length&&PA.cold&&PA.rain>=0&&PA.tier;
+  var chips=PA_ROLES.filter(function(r){return paRoleOn(r.id);}).map(function(r){var on=PA.g[r.id]!=null;
+    return '<div class="pagc'+(on?' on':'')+'"><button type="button" class="jach'+(on?' on':'')+'" data-pa="g" data-v="'+r.id+'" aria-pressed="'+on+'"><b>'+esc(r.lab)+'</b><i>'+esc(r.sub)+'</i></button>'+
+      (on?('<label class="pahc"><input type="number" inputmode="numeric" min="1" max="5000" data-pahc="'+r.id+'" value="'+(PA.g[r.id]||'')+'" placeholder="How many?"><span>people</span></label>'):'')+'</div>';}).join('');
+  var tc=groups.length?paTierCosts():{};
+  var tiers=PA_TIERS.map(function(t){var on=PA.tier===t.id;
+    return '<button type="button" class="jach patier'+(on?' on':'')+'" data-pa="tier" data-v="'+t.id+'" aria-pressed="'+on+'"><b>'+esc(t.lab)+(tc[t.id]?('<span class="patc">≈ '+money0(tc[t.id])+' /person</span>'):'')+'</b><i>'+esc(t.sub)+'</i></button>';}).join('');
+  var q='<div class="jaq paq1"><div class="jaqh"><span class="jan">1</span><b>Who are you outfitting?</b><i>Pick every group, then how many people</i></div><div class="jachs pags">'+chips+'</div></div>'+
+    '<div class="jaq"><div class="jaqh"><span class="jan">2</span><b>How cold does it get?</b></div><div class="jachs">'+jaChips('cold',JA_COLD,PA.cold,false).replace(/data-ja=/g,'data-pa=')+'</div></div>'+
+    '<div class="jaq"><div class="jaqh"><span class="jan">3</span><b>How wet?</b></div><div class="jachs">'+jaChips('rain',JA_RAIN,PA.rain,false).replace(/data-ja=/g,'data-pa=')+'</div></div>'+
+    '<div class="jaq paq4"><div class="jaqh"><span class="jan">4</span><b>Which level?</b>'+(groups.length?'<i>Cost per person for your groups, logo included</i>':'')+'</div><div class="jachs">'+tiers+'</div></div>';
   var res='';
   if(ready){
-    var P=jaProgram(),RL={};JA_ROLES.forEach(function(r){RL[r.id]=r.lab;});
-    /* one jacket that suits two groups is shown once, for both -- the simplest program wins */
-    var M=[];P.forEach(function(x){var h=!x.none&&M.filter(function(m){return !m.none&&m.main.k===x.main.k;})[0];
-      if(h)h.lab+=' + '+RL[x.role];else{x.lab=RL[x.role];M.push(x);}});P=M;
-    var ok=P.filter(function(x){return !x.none;});
-    res='<div class="jares"><div class="jaresh"><div><span class="xpeyb">Your jacket program</span><h4>'+(ok.length>1?(ok.length+' jackets, one job each'):'Our recommendation')+'</h4>'+
-      (ok.length>1?'<p>One jacket per group keeps the program simple: everyone in a role wears the same thing, and new hires reorder the same style.</p>':'')+'</div>'+
-      (ok.length?('<button type="button" class="jaall" id="jaAll">Add '+(ok.length>1?('all '+ok.length+' to my quote'):'it to my quote')+' →</button>'):'')+'</div>'+
-      P.map(function(x){
-        if(x.none)return '<div class="jarole"><div class="jarh">'+esc(x.lab)+'</div><p class="janone">Nothing in this store matches all four answers for this group — try a wider budget, or <button type="button" class="jalink" data-jaask="1">ask Steven</button>.</p></div>';
-        return '<div class="jarole"><div class="jarh">'+esc(x.lab)+'</div><div class="jarow">'+jaCard(x.main,'Recommended',x.role,true,x.over)+
-          '<div class="jaalts">'+x.alts.map(function(a){return jaCard(a.r,a.lab,x.role,false);}).join('')+'</div></div></div>';
-      }).join('')+
-      '<div class="jatips"><b>Before you order</b><ul><li>Water-repellent sheds light rain; waterproof keeps out sustained rain.</li>'+
-        '<li>If they’ll wear a hoodie underneath, check the size chart before you set sizes.</li>'+
-        '<li>Your logo placement and size are confirmed on your proof before anything is made.</li></ul></div></div>';
+    var P=paProgram(),need=P.groups.some(function(g){return !g.n;}),pp=P.people?P.total/P.people:0,su=need?0:paSetup(P);
+    res='<div class="pares" id="paRes">'+
+      '<div class="pasum"><div class="pasumt"><span class="xpeyb">Your apparel program</span>'+
+        '<h3>'+esc(CFG.client||'Your team')+' · '+P.groups.length+' group'+(P.groups.length>1?'s':'')+', '+P.styles+' styles</h3>'+
+        '<p>'+(need?'Add how many people are in each group to see the totals.':(P.people+' people · '+money0(pp)+' per person, logo included · '+money0(P.total+su)+' estimated total'+(su>0?(', including '+money0(su)+' one-time setup'):'')))+'</p></div>'+
+        '<div class="pasumb"><button type="button" class="jaall" id="paAdd">Add the whole program to my quote →</button>'+
+          '<div class="pasec"><button type="button" class="jasw" id="paShare">Save &amp; share for approval</button>'+
+          '<button type="button" class="jasw" id="paAsk2">Have Steven review it</button></div></div></div>'+
+      P.groups.map(function(g){
+        return '<div class="pagrp"><div class="pagh"><b>'+esc(paRoleLab(g.role))+'</b><span>'+(g.n?(g.n+' people · '):'')+money0(g.pp)+' per person</span></div>'+
+          g.rows.map(function(r){var it=BYKEY[r.k],id=g.role+'.'+r.slot.id,open=PA_OPEN===id;
+            var shared=(P.who[r.k]||[]).filter(function(x,i,a){return a.indexOf(x)===i;}).length>1;
+            return '<div class="parow'+(open?' open':'')+'"><button type="button" class="paimg" data-xpopen="'+esc(r.k)+'" aria-label="See '+esc(it.name)+'">'+paThumb(r.k)+'</button>'+
+              '<div class="pab"><span class="paslot">'+esc(r.slot.lab)+(shared?'<em>same style as another group</em>':'')+'</span><b>'+esc(it.name)+'</b><span class="jabr">'+esc(it.brand||it.sku||'')+'</span>'+
+                '<ul class="jaw">'+paWhy(it,r.slot,g.role).map(function(x){return '<li>'+esc(x)+'</li>';}).join('')+'</ul></div>'+
+              '<div class="pau"><span>Each person</span><div class="pastep"><button type="button" data-pau="'+id+'|-1" aria-label="Fewer">−</button><b>'+r.u+'</b><button type="button" data-pau="'+id+'|1" aria-label="More">+</button></div>'+
+                (g.n?('<i>'+(r.q)+' pcs</i>'):'')+'</div>'+
+              '<div class="pap"><b>'+money(r.unit)+'</b><i>/pc, logo included</i><button type="button" class="pachg" data-pachg="'+id+'">'+(open?'Close':'Change')+'</button></div>'+
+              (open?('<div class="paalts">'+paAlts(r).map(function(a){var ai=BYKEY[a.r.k];
+                return '<div class="paalt"><span class="jalab">'+esc(a.lab)+'</span><button type="button" class="paimg sm" data-xpopen="'+esc(a.r.k)+'">'+paThumb(a.r.k)+'</button>'+
+                  '<div><b>'+esc(ai.name)+'</b><span class="jabr">'+esc(ai.brand||ai.sku||'')+' · '+money(a.r.p)+'/pc at '+P.M+'</span>'+
+                  '<div class="jabtns"><button type="button" class="jasw" data-paswap="'+id+'|'+esc(a.r.k)+'">Use this instead</button><button type="button" class="xpsee" data-xpopen="'+esc(a.r.k)+'">Details</button></div></div></div>';}).join('')+
+                '<button type="button" class="jalink" data-pabrowse="'+esc(id)+'">See every option →</button></div>'):'')+
+            '</div>';}).join('')+'</div>';}).join('')+
+      (P.short.length?('<p class="jaover">Each style has a '+P.M+'-piece minimum, so '+P.short.length+' style'+(P.short.length>1?'s are':' is')+' rounded up to '+P.M+' on your quote.</p>'):'')+
+      '<div class="jatips"><b>How we built it</b><ul>'+
+        '<li>One kit per role, in one colour. Everyone in a group wears the same pieces, so new hires reorder the same styles. Change any colour on your quote.</li>'+
+        '<li>Crews who sweat get five wicking shirts each — enough for a work week between washes. Office staff get three polos.</li>'+
+        '<li>A layer and a jacket for every outdoor role, matched to how cold and wet it gets.</li>'+
+        (groups.indexOf('site')>=0?'<li>Hi-vis is CSA Z96 Class 2 for anyone near traffic.</li>':'')+
+        '<li>Men’s and women’s cuts where they exist. Sizes are estimated from a standard size curve, and you can change them on your quote.</li>'+
+        '<li>Your logo placement and size are confirmed on a free proof before anything is made.</li></ul></div></div>';
   }else{
-    res='<p class="jahint">Answer the four questions and we’ll recommend a jacket for each group, with the reasons it fits.</p>';
+    res='<p class="jahint">Answer the four questions and we’ll build a kit for each group: the right pieces, how many each person gets, and the cost per person.</p>';
   }
-  el.innerHTML='<section class="xpert jadv" aria-label="Jacket advisor"><div class="xphd"><div><span class="xpeyb">Jacket advisor</span>'+
-    '<h3 class="xph">Not sure which jacket? Start with the job.</h3>'+
-    '<p class="xpadv">Four questions, then one recommended jacket for each group you’re outfitting.</p></div>'+
-    '<button type="button" class="xpask" id="xpAsk"><span class="xpav" aria-hidden="true">S</span><span><b>Have Steven pick for you</b><i>Tell us the team and budget — we reply with a recommendation</i></span></button></div>'+
-    '<div class="jaqs">'+q+'</div>'+res+'</section>';
-  el.querySelectorAll('[data-ja]').forEach(function(b){b.addEventListener('click',function(){
-    var n=b.dataset.ja,v=b.dataset.v;
-    if(n==='roles'){var i=JA.roles.indexOf(v);if(i>=0)JA.roles.splice(i,1);else JA.roles.push(v);}
-    else if(n==='cold')JA.cold=+v;else if(n==='rain')JA.rain=+v;else JA.bud=v;
-    JA_PICK={};jaSave();jdpTrack('ja_q',{q:n,v:v});renderJacketAdvisor(el);});});
-  el.querySelectorAll('[data-jaswap]').forEach(function(b){b.addEventListener('click',function(){var p=b.dataset.jaswap.split('|');JA_PICK[p[0]]=p[1];jdpTrack('ja_swap',{k:p[1]});renderJacketAdvisor(el);});});
-  el.querySelectorAll('[data-xpopen]').forEach(function(b){b.addEventListener('click',function(){jdpTrack('xp_open',{k:b.dataset.xpopen,src:'ja'});openSheet(b.dataset.xpopen);});});
-  var all=document.getElementById('jaAll');if(all)all.addEventListener('click',function(){
-    var ks=jaProgram().filter(function(x){return !x.none;}).map(function(x){return x.main.k;}).filter(function(k,i,a){return a.indexOf(k)===i;});
-    ks.forEach(function(k){if(!CART[k])addToQuoteQuick(k);});jdpTrack('ja_add',{n:ks.length});openQuote('advisor');});
-  var ask=function(){jdpTrack('xp_ask',{c:'jackets'});openSourcing('');
-    var nt=document.getElementById('coNote');if(nt&&!nt.value){var RL={};JA_ROLES.forEach(function(r){RL[r.id]=r.lab;});
-      nt.value='Please recommend jackets for our team.\nGroups: '+(JA.roles.map(function(r){return RL[r];}).join(', ')||'')+'\nHow many people in each: \nColdest conditions: '+((JA_COLD.filter(function(c){return c.id===JA.cold;})[0]||{}).lab||'')+'\nBudget per person: '+((JA_BUD.filter(function(b){return b.id===JA.bud;})[0]||{}).lab||'')+'\nNeeded by: ';}};
-  var a=document.getElementById('xpAsk');if(a)a.addEventListener('click',ask);
-  el.querySelectorAll('[data-jaask]').forEach(function(b){b.addEventListener('click',ask);});
+  el.innerHTML='<section class="padv" aria-label="Program advisor"><div class="w"><div class="xpert jadv">'+
+    '<div class="xphd"><div><span class="xpeyb">Program advisor</span>'+
+      '<h2 class="xph">Outfit your whole team in four questions</h2>'+
+      '<p class="xpadv">Tell us who you’re dressing and where they work. We’ll build a kit for every role, priced per person and ready to send for approval.</p></div>'+
+      '<button type="button" class="xpask" id="paAsk"><span class="xpav" aria-hidden="true">S</span><span><b>Have Steven build it for you</b><i>Tell us the team and budget — we reply with a program</i></span></button></div>'+
+    '<div class="jaqs">'+q+'</div>'+res+'</div></div></section>';
+  paWire(el);
+}
+function paWire(el){
+  var re=function(){paSave();renderProgramAdvisor();};
+  el.querySelectorAll('[data-pa]').forEach(function(b){b.addEventListener('click',function(){
+    var n=b.dataset.pa,v=b.dataset.v;
+    if(n==='g'){if(PA.g[v]!=null)delete PA.g[v];else PA.g[v]=0;}
+    else if(n==='cold')PA.cold=+v;else if(n==='rain')PA.rain=+v;else PA.tier=v;
+    if(n!=='g')PA.pick={};
+    jdpTrack('pa_q',{q:n,v:v});re();
+    if(n==='g'&&PA.g[v]!=null){var i=el.querySelector('[data-pahc="'+v+'"]');if(i)try{i.focus();}catch(e){}}});});
+  el.querySelectorAll('[data-pahc]').forEach(function(i){
+    var t=null,commit=function(){var v=Math.max(0,Math.min(5000,parseInt(i.value,10)||0));if(PA.g[i.dataset.pahc]===v)return;PA.g[i.dataset.pahc]=v;jdpTrack('pa_q',{q:'n',v:v});paSave();
+      var y=window.scrollY;renderProgramAdvisor();window.scrollTo(0,y);};
+    i.addEventListener('change',commit);i.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();commit();}});
+    i.addEventListener('input',function(){clearTimeout(t);t=setTimeout(function(){var a=document.activeElement===i;var pos=i.value.length;commit();
+      if(a){var j=document.querySelector('[data-pahc="'+i.dataset.pahc+'"]');if(j){try{j.focus();j.setSelectionRange(pos,pos);}catch(e){}}}},700);});});
+  el.querySelectorAll('[data-pau]').forEach(function(b){b.addEventListener('click',function(){var p=b.dataset.pau.split('|'),id=p[0],d=+p[1];
+    var role=id.split('.')[0],slot=(paSlotsFor(role).concat([{id:'vest',u:1}])).filter(function(s){return role+'.'+s.id===id;})[0]||{u:1};
+    var cur=paUnits(role,slot);PA.u[id]=Math.max(1,Math.min(12,cur+d));jdpTrack('pa_units',{s:id,v:PA.u[id]});re();});});
+  el.querySelectorAll('[data-pachg]').forEach(function(b){b.addEventListener('click',function(){PA_OPEN=(PA_OPEN===b.dataset.pachg)?'':b.dataset.pachg;renderProgramAdvisor();});});
+  el.querySelectorAll('[data-paswap]').forEach(function(b){b.addEventListener('click',function(){var p=b.dataset.paswap.split('|');PA.pick[p[0]]=p[1];PA_OPEN='';jdpTrack('pa_swap',{s:p[0],k:p[1]});re();});});
+  el.querySelectorAll('[data-pabrowse]').forEach(function(b){b.addEventListener('click',function(){
+    var id=b.dataset.pabrowse,role=id.split('.')[0],slot=paSlotsFor(role).filter(function(s){return role+'.'+s.id===id;})[0];
+    var c=slot&&slot.pool&&slot.pool[0];if(slot&&slot.jacket)c=role==='site'?['hivis','Hi-Vis Jackets']:['outerwear','all'];
+    if(c){try{setCat(c[0],true);if(c[1]!=='all')setSub(c[1]);}catch(e){}}});});
+  el.querySelectorAll('[data-xpopen]').forEach(function(b){b.addEventListener('click',function(){jdpTrack('xp_open',{k:b.dataset.xpopen,src:'pa'});openSheet(b.dataset.xpopen);});});
+  var add=document.getElementById('paAdd');if(add)add.addEventListener('click',function(){paToQuote();});
+  var sh=document.getElementById('paShare');if(sh)sh.addEventListener('click',function(){paToBoard();});
+  var ask=function(){var P=(paGroups().length&&PA.tier)?paProgram():null;jdpTrack('pa_ask',{});openSourcing('');
+    var nt=document.getElementById('coNote');
+    if(nt&&!nt.value)nt.value=P?(paSummaryText(P)+'\n\nPlease review this program for us.\nNeeded by: '):'Please build an apparel program for our team.\nGroups and how many people in each: \nWhere they work (office / warehouse / outdoor / hi-vis site): \nBudget per person: \nNeeded by: ';};
+  ['paAsk','paAsk2'].forEach(function(i){var a=document.getElementById(i);if(a)a.addEventListener('click',ask);});
+}
+/* The program as cart lines: one line per style (two when it has a women's cut and the group is office,
+   in-and-out or new hires -- an even split is a guess, which is why every size box stays editable). */
+function paLines(P){
+  var L={};
+  P.groups.forEach(function(g){g.rows.forEach(function(r){var it=BYKEY[r.k];if(!it)return;
+    var q=Math.max(0,g.n*r.u),split=hasLadies(it)&&/office|mixed|welcome/.test(g.role);
+    var x=L[r.k]||(L[r.k]={m:0,w:0,why:[]});
+    if(split){var w=Math.floor(q/2);x.w+=w;x.m+=q-w;}else x.m+=q;
+    x.why.push(paRoleLab(g.role)+': '+r.slot.lab.toLowerCase()+' ×'+r.u+' each');});});
+  var M=P.M;
+  Object.keys(L).forEach(function(k){var x=L[k],t=x.m+x.w;if(t<M){var add=M-t;x.m+=add;}});
+  return L;
+}
+function paWriteLines(dest,L,people){
+  Object.keys(L).forEach(function(k){var it=BYKEY[k],x=L[k],col=paColour(k),dec=recCartDecos(k),why=x.why.join(' · ');
+    if(x.m>0){var e={qty:x.m,colour:col,decos:dec,why:why};if(people)e.paf=x.m/people;if(!oneSize(it)){e.sizes=spreadSizes(x.m,'mens',it);e.qty=sizeSum(e.sizes);}dest[k]=e;}
+    else delete dest[k];
+    if(x.w>0){var wc=(curColsOf(it,'womens')||[]).map(function(c){return c.name;}),wcol=wc.indexOf(col)>=0?col:(paColour(k,'womens')||wc.filter(progPlain)[0]||wc[0]||col);
+      var f={qty:x.w,colour:wcol,decos:dec.slice?dec.slice():dec,fit:'womens',why:why};if(people)f.paf=x.w/people;if(!oneSize(it)){f.sizes=spreadSizes(x.w,'womens',it);f.qty=sizeSum(f.sizes);}dest[k+'#w']=f;}
+    else delete dest[k+'#w'];});
+}
+function paToQuote(){
+  if(!paGroups().length||!PA.tier)return;
+  var P=paProgram();
+  if(P.groups.some(function(g){return !g.n;})){toast('Add how many people are in each group first');
+    var i=document.querySelector('.pahc input[value=""],.pahc input:not([value])');if(i)try{i.focus();}catch(e){}return;}
+  toQuoteList();paWriteLines(CART,paLines(P),P.people);
+  try{setHC(P.people);}catch(e){}
+  saveCart();refreshCartUI();try{syncBoardIfOpen();}catch(e){}
+  jdpTrack('pa_add',{n:P.styles,p:P.people,t:Math.round(P.total)});
+  toast('Your program is on the quote · '+P.styles+' styles for '+P.people+' people');
+  openQuote('advisor');
+}
+function paToBoard(){
+  if(!paGroups().length||!PA.tier)return;
+  var P=paProgram();
+  if(P.groups.some(function(g){return !g.n;})){toast('Add how many people are in each group first');return;}
+  if(!LISTS)loadLists();
+  var name=((CFG.client||'Our')+' apparel program').slice(0,40),id=null;
+  /* re-saving updates the same board instead of piling up copies */
+  listIds().forEach(function(x){if(!id&&LISTS[x].pa&&LISTS[x].name===name)id=x;});
+  if(!id){id=newList(name);LISTS[id].pa=1;}
+  LISTS[id].items={};paWriteLines(LISTS[id].items,paLines(P),P.people);LISTS[id].updated=Date.now();
+  LISTS[id].sub=P.people+' people · '+money0(P.people?P.total/P.people:0)+' per person';
+  ALID=id;CART=LISTS[id].items;persistLists();
+  try{setHC(P.people);}catch(e){}
+  refreshCartUI();jdpTrack('pa_share',{n:P.styles});
+  try{openBoard(id);}catch(e){}
+  try{shareList();}catch(e){}
+}
+/* every other way in -- the hero, the top bar, an aisle -- lands here */
+function goAdvisor(src){
+  jdpTrack('pa_open',{src:src||''});
+  try{if(typeof giftViewOn==='function'&&giftViewOn())setGiftView(false);}catch(e){}
+  try{closeQuote();}catch(e){}
+  var el=document.getElementById('padv');if(el)el.scrollIntoView({behavior:'smooth',block:'start'});
+}
+function paEntryHtml(){
+  return '<button type="button" class="paentry" data-goadv="aisle"><span class="paei" aria-hidden="true">✓</span>'+
+    '<span><b>Outfitting a whole team?</b><i>Answer four questions and get a kit for every role, priced per person</i></span><span class="paeg">Build my program →</span></button>';
 }
 
 var XP_SUB={};
@@ -3199,8 +3512,6 @@ function renderXpert(){
   var el=document.getElementById('xpert');if(!el)return;
   var cat=VIEW.cat,q=(VIEW.q||'').trim();
   if(q||!cat||cat==='accessories'||(typeof giftViewOn==='function'&&giftViewOn())){el.innerHTML='';return;}
-  /* jackets get the full advisor; every other aisle keeps its three picks */
-  if(jaApplies()){renderJacketAdvisor(el);return;}
   var subs=xpSubs(cat);if(!subs.length){el.innerHTML='';return;}
   var sub=(VIEW.sub&&VIEW.sub!=='all'&&subs.indexOf(VIEW.sub)>=0)?VIEW.sub:(XP_SUB[cat]&&subs.indexOf(XP_SUB[cat])>=0?XP_SUB[cat]:(subs.indexOf(XP[cat])>=0?XP[cat]:subs[0]));
   var picks=xpPicks(cat,sub),cfg=XPERT[sub]||(sub==='Safety Vests'?XPERT['Hi-Vis Vests']:{});
@@ -3213,7 +3524,9 @@ function renderXpert(){
       '<button type="button" class="xpask" id="xpAsk"><span class="xpav" aria-hidden="true">S</span><span><b>Have Steven pick for you</b><i>Tell us the team and budget — we reply with a recommendation</i></span></button></div>'+
     tabs+
     '<div class="xpgrid">'+picks.map(xpCardHtml).join('')+'</div>'+
+    paEntryHtml()+
   '</section>';
+  el.querySelectorAll('[data-goadv]').forEach(function(b){b.addEventListener('click',function(){goAdvisor('aisle_'+cat);});});
   el.querySelectorAll('[data-xpsub]').forEach(function(b){b.addEventListener('click',function(){XP_SUB[cat]=b.dataset.xpsub;jdpTrack('xp_tab',{s:bslug(b.dataset.xpsub)});renderXpert();});});
   el.querySelectorAll('[data-xpopen]').forEach(function(b){b.addEventListener('click',function(){jdpTrack('xp_open',{k:b.dataset.xpopen});openSheet(b.dataset.xpopen);});});
   el.querySelectorAll('[data-xpadd]').forEach(function(b){b.addEventListener('click',function(){var k=b.dataset.xpadd;jdpTrack('xp_add',{k:k});addToQuoteQuick(k);
@@ -3774,6 +4087,9 @@ function buildStore(){
       the cart, and "3,400+ impressions per shirt" is promo-industry trivia that has nothing to do
       with outfitting staff. Removing the band makes the in-person offer the unambiguous focal point
       and lifts the catalogue up the page. */
+   /* THE PROGRAM ADVISOR leads the page (2026-10-09): the one place a buyer goes from "who are we
+      dressing" to a priced, per-role program. The pre-approved programs follow as the shortcut. */
+   '<div id="padv"></div>'+
    '<div id="recohero"></div>'+
    /* The studio itself renders here but is hidden until `?view=gifts` -- see setGiftView(). What
       the homepage shows is the one-line strip, directly under the programmes. */
@@ -3879,6 +4195,8 @@ function buildStore(){
   if(_ge)_ge.addEventListener('click',function(){jdpTrack('gift_open',{src:'banner'});setGiftView(true);});
   try{wireMkt();}catch(e){}
   setTimeout(function(){try{mktHint();}catch(e){}},2500);
+  var _tp=document.getElementById('tbProg');
+  if(_tp)_tp.addEventListener('click',function(){try{closeBoards();closeBoard();closeProgram();closeAll();}catch(e){}goAdvisor('topbar');});
   var _tg=document.getElementById('tbGifts');
   if(_tg)_tg.addEventListener('click',function(){jdpTrack('gift_open',{src:'topbar'});
     try{closeBoards();closeBoard();closeProgram();closeAll();}catch(e){}setGiftView(true);});
@@ -5589,7 +5907,9 @@ function toQuoteList(){var id=quoteListId();if(ALID!==id)switchList(id);return i
    and 60% of headcount and showed $10,644. Two totals for one decision is the fastest way to lose an
    approver. Lines that came from a program carry `prog` and are sized at one per person; items added
    one at a time keep the outer-layer estimate. */
-function hcFactorOf(it,c){return (c&&c.prog)?1:hcFactor(it);}
+/* a program-advisor line carries its own per-person ratio (3 polos each for 8 office staff across a team
+   of 53 is 24/53), so a new headcount scales the program instead of flattening it to one-of-everything */
+function hcFactorOf(it,c){return (c&&c.paf)?c.paf:((c&&c.prog)?1:hcFactor(it));}
 function hcQty(it,n,c){n=n||getHC();return n?Math.max(moq(),Math.round(n*hcFactorOf(it,c))):moq();}
 /* Size ONE line from the headcount (qty by garment type, size split) -- used when a line arrives, so a
    later program never overwrites quantities the buyer already edited on the quote. */
@@ -6542,7 +6862,7 @@ function applyHeadcount(n){
     /* sizes the buyer typed are a fact about their team, not an estimate: a new headcount never
        overwrites them */
     if(c.szset){KEPT_SIZES++;return;}
-    var share=paired[bkey(ck)]||1;
+    var share=c.paf?1:(paired[bkey(ck)]||1);   // a program line's ratio is already per cut
     var target=Math.max(moq(),Math.round(n*hcFactorOf(it,c)/share));
     if(oneSize(it)){delete c.sizes;c.qty=target;}   // a toque has no size split to estimate
     else{c.sizes=spreadSizes(target,c.fit,it);c.qty=sizeSum(c.sizes);}
@@ -6677,8 +6997,9 @@ function bSizeRowHtml(ck){
        optional, instead of leaving the two numbers contradicting each other. */
     (function(){
       var split=sizeSum(c.sizes);
-      if(tot>0&&tot<moq())
-        return '<div class="bszmoq on" data-szmoq="'+esc(ck)+'">Add '+(moq()-tot)+
+      var comb=tierQty(ck)-(c.qty||0)+tot;          // per style, across both cuts (as pricing counts it)
+      if(tot>0&&comb<moq())
+        return '<div class="bszmoq on" data-szmoq="'+esc(ck)+'">Add '+(moq()-comb)+
           ' more to reach the '+moq()+'-piece minimum</div>';
       if(!split&&tot>0)
         return '<div class="bszmoq soft on" data-szmoq="'+esc(ck)+'">'+tot+
@@ -6726,7 +7047,9 @@ function bRefreshLine(ck){
   }
   var mo=document.querySelector('[data-szmoq="'+ck+'"]');
   if(mo){
-    var need=moq()-q,split=sizeSum(c.sizes);
+    /* the minimum is per STYLE across both cuts -- the same count pricing uses (tierQty) -- so 8 men's +
+       4 women's of one quarter-zip is a valid 12, not two short lines */
+    var need=moq()-tierQty(ck),split=sizeSum(c.sizes);
     if(q>0&&need>0){mo.textContent='Add '+need+' more to reach the '+moq()+'-piece minimum';
       mo.className='bszmoq on';}
     else if(!split&&q>0){mo.textContent=q+' pcs total \u2014 add your split above whenever you know it';
@@ -7424,6 +7747,7 @@ function tbarHtml(){
       mktPillHtml()+
       trustBarHtml()+
       /* GIFTS IN THE TOP BAR -- the second way in, always one glance away (the rail has it too). */
+      '<button type="button" class="tbprog" id="tbProg"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l2 2 4-4"/><rect x="4" y="3" width="16" height="18" rx="2.5"/><path d="M8 17h8"/></svg><span>Build my program</span></button>'+
       '<button type="button" class="tbgifts" id="tbGifts">'+railIcon('gifts')+'<span>Gifts</span></button>'+
       '<button type="button" class="tbboards tbquote" id="tbBoards" aria-label="Your quote">'+railIcon('quote')+
         '<span id="tbBoardsLbl">Quote</span><i class="tbqn" id="tbQN"></i></button>'+
@@ -8743,9 +9067,9 @@ function heroNextHtml(){
     /* HOW AN ENTERPRISE ORDER WORKS, in three steps they can see. The offer is the document their
        approver needs, not a mockup. RFQ upload for buyers who arrive with a spec already written. */
     '<div class="hnsteps"><div class="hnsh">Get a formal quote in minutes</div>'+
-      '<ol><li><span><b>Choose</b> a ready program or your own items</span></li><li><span><b>Set</b> how many people</span></li>'+
+      '<ol><li><span><b>Answer</b> four questions about your team</span></li><li><span><b>Get</b> a kit for every role, priced per person</span></li>'+
         '<li><span><b>Download</b> an itemized quote (PDF) for approval</span></li></ol>'+
-      '<div class="hnbtns"><button type="button" class="hnprim" id="hnPrograms">Start with a program <span class="ar">↓</span></button>'+
+      '<div class="hnbtns"><button type="button" class="hnprim" id="hnPrograms">Build my program <span class="ar">↓</span></button>'+
         '<button type="button" class="hnsec" id="hnRfq">Upload an RFQ or spec</button></div>'+
       '<div class="hnlsub">No payment · no obligation · confirmed in writing by a real person</div></div>'+
     whoS.replace(/<\/div>$/,'<button type="button" class="hnlink hnask2" id="hnAsk">Not sure? Ask Steven</button></div>')+'</div>';
@@ -8788,6 +9112,7 @@ function wireHeroNext(){
   var p=document.getElementById('hnPrograms');
   if(p&&!p.dataset.w){p.dataset.w='1';p.addEventListener('click',function(){
     jdpTrack('hero_programs');
+    if(!CFG.demo&&document.getElementById('padv')){goAdvisor('hero');return;}
     var r=document.getElementById('recohero');if(r)r.scrollIntoView({behavior:'smooth',block:'start'});});}
   var a=document.getElementById('hnAsk');
   if(a&&!a.dataset.w){a.dataset.w='1';a.addEventListener('click',function(){
@@ -8891,6 +9216,7 @@ function showExitOffer(){
     showExitOffer();});
 }catch(e){}})();
 function renderRecoHero(){
+  try{renderProgramAdvisor();}catch(e){}
   var el=document.getElementById('recohero');if(!el)return;
   el.innerHTML=recoHeroHtml();
   el.querySelectorAll('[data-reco]').forEach(function(b){
