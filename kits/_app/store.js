@@ -3106,13 +3106,14 @@ function jaWhy(it,role){
   else out.push('CSA hi-vis · up to '+jaMaxSize(it));
   return out.slice(0,4);
 }
-function jaCard(r,lab,role,main){
+function jaCard(r,lab,role,main,over){
   var it=BYKEY[r.k],o=null;
   try{o=overlayHtml(it,vmOf(r.k),browseColour(r.k,it),'front',browseCols(it),browsePlaces(it));}catch(e){}
   return '<div class="jac'+(main?' main':'')+'">'+(lab?('<span class="jalab">'+esc(lab)+'</span>'):'')+
     '<button type="button" class="jaimg" data-xpopen="'+esc(r.k)+'">'+(o?('<img class="g" src="'+o.g+'" alt="" loading="lazy">'+o.lg):'')+'</button>'+
     '<div class="jab"><b>'+esc(it.name)+'</b><span class="jabr">'+esc(it.brand||it.sku||'')+'</span>'+
     '<div class="jap"><b>'+money(r.p)+'</b><i>/pc at '+moq()+', logo included</i></div>'+
+    (over?('<p class="jaover">'+over+'</p>'):'')+
     (main?('<ul class="jaw">'+jaWhy(it,role).map(function(x){return '<li>'+esc(x)+'</li>';}).join('')+'</ul>'):'')+
     '<div class="jabtns">'+(main?'':'<button type="button" class="jasw" data-jaswap="'+esc(role)+'|'+esc(r.k)+'">Use this instead</button>')+
       '<button type="button" class="xpsee" data-xpopen="'+esc(r.k)+'">Details</button></div></div></div>';
@@ -3126,7 +3127,14 @@ function jaProgram(){
     var cheaper=rest.filter(function(r){return r.p<main.p-0.5;})[0],dearer=rest.filter(function(r){return r.p>main.p+0.5&&r!==cheaper;})[0];
     var alts=[];if(cheaper)alts.push({r:cheaper,lab:'Lower cost'});if(dearer)alts.push({r:dearer,lab:'Step up'});
     if(alts.length<2&&rest[0]&&alts.every(function(a){return a.r!==rest[0];}))alts.push({r:rest[0],lab:'Also consider'});
-    return {role:role,main:main,alts:alts.slice(0,2)};
+    /* honest budget note: never let a buyer think we ignored the number they gave us */
+    var B=JA_BUD.filter(function(b){return b.id===JA.bud;})[0],over='';
+    if(B&&B.id!=='x'&&main.p>=B.hi){
+      var fit=rows.filter(function(r){return r.p>=B.lo&&r.p<B.hi;})[0];
+      over=fit?('Above your '+B.lab.toLowerCase()+' budget — '+(alts.some(function(a){return a.r===fit;})?'the lower-cost option fits it.':esc(BYKEY[fit.k].name)+' fits it, with fewer of the features above.'))
+              :('Above your '+B.lab.toLowerCase()+' budget — nothing in the store below it is warm and '+(JA.rain>0?'dry':'protective')+' enough for these conditions.');
+    }
+    return {role:role,main:main,alts:alts.slice(0,2),over:over};
   });
 }
 function jaChips(name,opts,cur,multi){
@@ -3155,7 +3163,7 @@ function renderJacketAdvisor(el){
       (ok.length?('<button type="button" class="jaall" id="jaAll">Add '+(ok.length>1?('all '+ok.length+' to my quote'):'it to my quote')+' →</button>'):'')+'</div>'+
       P.map(function(x){
         if(x.none)return '<div class="jarole"><div class="jarh">'+esc(x.lab)+'</div><p class="janone">Nothing in this store matches all four answers for this group — try a wider budget, or <button type="button" class="jalink" data-jaask="1">ask Steven</button>.</p></div>';
-        return '<div class="jarole"><div class="jarh">'+esc(x.lab)+'</div><div class="jarow">'+jaCard(x.main,'Recommended',x.role,true)+
+        return '<div class="jarole"><div class="jarh">'+esc(x.lab)+'</div><div class="jarow">'+jaCard(x.main,'Recommended',x.role,true,x.over)+
           '<div class="jaalts">'+x.alts.map(function(a){return jaCard(a.r,a.lab,x.role,false);}).join('')+'</div></div></div>';
       }).join('')+
       '<div class="jatips"><b>Before you order</b><ul><li>Water-repellent sheds light rain; waterproof keeps out sustained rain.</li>'+
