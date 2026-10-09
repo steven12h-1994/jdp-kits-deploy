@@ -3196,39 +3196,60 @@ function caCfg(){
 }
 function caQs(cfg,A){
   var qs=(cfg.qs||[]).filter(function(q){return !q.when||q.when(A);});
-  var bs=caBands(caPool(cfg,A));
-  if(bs)qs=qs.concat([{id:'bud',q:cfg.budQ||'Budget per piece',short:'Your budget',hint:'Per piece, with your logo included',opts:bs}]);
+  /* NO BUDGET QUESTION (Steven, 2026-10-09 14:19: "we do not want Your budget -- you can show lower and more
+     premium options after you know what they need"). The advisor recommends the best fit for the job, then
+     shows a lower-cost and a premium alternative with what each gains or gives up. */
   return qs;
 }
 function caReady(cfg,A){return caQs(cfg,A).every(function(q){var v=A[q.id];return q.multi?(v&&v.length):(v!=null&&v!=='');});}
 function caRoles(cfg,A){return cfg.who?((A.who||[]).slice()):['all'];}
 function caRank(cfg,role,A){
-  var B=caBud(cfg,A),rows=[];
-  caPool(cfg,A).forEach(function(k){var it=BYKEY[k];if(!it)return;var p=sxPrice(k),s=null;
+  var B=caBud(cfg,A),rows=[],pool=caPool(cfg,A);
+  /* with no budget question, "best fit" must also mean a sensible price: a gentle pull toward the middle of
+     the shelf, so the premium piece is offered as the step up rather than defaulted to. Gifts are exempt. */
+  var ps=pool.map(function(k){return sxPrice(k);}).filter(function(x){return x>0;}).sort(function(a,b){return a-b;}),med=ps[Math.floor(ps.length/2)]||0;
+  pool.forEach(function(k){var it=BYKEY[k];if(!it)return;var p=sxPrice(k),s=null;
     try{s=cfg.score(it,A,role,p);}catch(e){s=null;}
-    if(s==null)return;rows.push({k:k,s:s+caBudScore(p,B),p:p});});
+    if(s==null)return;
+    var val=(role!=='gift'&&med>0&&p>med)?Math.min(24,(p-med)/med*20):0;
+    rows.push({k:k,s:s+caBudScore(p,B)-val,p:p});});
   rows.sort(function(a,b){return (b.s-a.s)||(a.p-b.p);});
   return rows;
 }
 function caProgram(cfg,A){
-  var B=caBud(cfg,A);
   return caRoles(cfg,A).map(function(role){
     var rows=caRank(cfg,role,A);if(!rows.length)return {role:role,none:true};
     var mine=CA_PICK[cfg.id+'.'+role],main=(mine&&rows.filter(function(r){return r.k===mine;})[0])||rows[0];
     var rest=rows.filter(function(r){return r.k!==main.k;});
-    var cheaper=rest.filter(function(r){return r.p<main.p-0.5;})[0],dearer=rest.filter(function(r){return r.p>main.p+0.5&&r!==cheaper;})[0];
-    var alts=[];if(cheaper)alts.push({r:cheaper,lab:'Lower cost'});if(dearer)alts.push({r:dearer,lab:'Step up'});
-    if(alts.length<2&&rest[0]&&alts.every(function(a){return a.r!==rest[0];}))alts.push({r:rest[0],lab:'Also consider'});
-    /* honest budget note: never let a buyer think we ignored the number they gave us */
-    var over='';
-    if(B&&B.id!=='x'&&main.p>=B.hi){
-      var fit=rows.filter(function(r){return r.p>=B.lo&&r.p<B.hi;})[0];
-      over=fit?('Above your '+B.lab.toLowerCase()+' budget — '+(alts.some(function(a){return a.r===fit;})?'the lower-cost option fits it.':esc(BYKEY[fit.k].name)+' fits it, with fewer of the features above.'))
-              :('Above your '+B.lab.toLowerCase()+' budget — nothing in this aisle below it fits '+esc(cfg.overWhy||'these answers')+'.');
-    }
-    return {role:role,main:main,alts:alts.slice(0,2),over:over};
+    /* a real choice, not a neighbour: at least ~10% (and $3) either side of our pick, best-fitting first */
+    var gap=Math.max(3,main.p*0.1);
+    var lower=rest.filter(function(r){return r.p<=main.p-gap;})[0]||rest.filter(function(r){return r.p<main.p-0.5;})[0];
+    var prem=rest.filter(function(r){return r.p>=main.p+gap&&r!==lower;})[0]||rest.filter(function(r){return r.p>main.p+0.5&&r!==lower;})[0];
+    var alts=[];if(lower)alts.push({r:lower,lab:'Lower cost',t:'lo'});if(prem)alts.push({r:prem,lab:'Premium',t:'hi'});
+    return {role:role,main:main,alts:alts,n:rows.length};
   });
 }
+/* What a buyer gains or gives up by moving off our pick -- read from catalogue facts, never invented. */
+function caFeat(it){var f={},fl=jaFlags(it),g=caGsm(it),mx=jaMaxSize(it),c=caClass(it);
+  if(hasLadies(it))f.ladies='women’s cuts';
+  if(/^[4-6]XL/.test(mx))f.big='sizes to '+mx.split('/')[0];
+  if(caPerf(it))f.wick='wicking fabric';
+  if(fl.indexOf('waterproof')>=0)f.wp='waterproofing';else if(fl.indexOf('water-repellent')>=0||caFin(it,/water-repellent/i))f.wr='water repellency';
+  if(fl.indexOf('windproof')>=0)f.wind='wind protection';
+  if(caFin(it,/snag/i))f.snag='snag resistance';
+  if(caFin(it,/UPF|UV/i))f.upf='sun protection';
+  if(c>=2)f.cls='CSA Class '+c;
+  if(/tear-?away|breakaway/i.test(it.name||''))f.tear='tear-away safety';
+  if(caLuxe(it))f.brand='the '+caBrand(it)+' name';
+  if(g)f.gsm=g;
+  return f;}
+function caTrade(main,alt,lo){var a=caFeat(BYKEY[main]),b=caFeat(BYKEY[alt]),out=[],k;
+  var from=lo?a:b,to=lo?b:a;      // lower: what our pick has that it lacks; premium: what it adds
+  for(k in from){if(k==='gsm')continue;if(!to[k])out.push(from[k]);}
+  if(a.gsm&&b.gsm&&Math.abs(a.gsm-b.gsm)>=30){if(lo&&b.gsm<a.gsm)out.push('weight ('+b.gsm+' vs '+a.gsm+' gsm)');if(!lo&&b.gsm>a.gsm)out.push('heavier fabric ('+b.gsm+' gsm)');}
+  out=out.slice(0,2);
+  if(lo)return out.length?('Gives up '+out.join(' and ')):'The same essentials for less';
+  return out.length?('Adds '+out.join(' and ')):'A more premium finish and feel';}
 /* ---- THE ADVISOR, AS A GUIDED CONVERSATION (Steven, 2026-10-09 13:15: "advisor functionality is unclear how it
    works and is not fully responsive. must be delightful experience for enterprise and give top tier
    recommendations that will get them to convert!") ----------------------------------------------------------
@@ -3252,7 +3273,12 @@ function caVerdict(cfg,it,A,role){var f='';try{f=cfg.fact?cfg.fact(it,A,role):''
 function caAnsLab(q,v){var o=(q.opts||[]).filter(function(x){return String(x.id)===String(v);})[0];return o?o.lab:'';}
 function caSummary(cfg,A){return caQs(cfg,A).map(function(q){var v=A[q.id];
   return q.multi?(v||[]).map(function(x){return caAnsLab(q,x);}).join(', '):caAnsLab(q,v);}).filter(Boolean);}
-function caThumb(k){var it=BYKEY[k],o=null;try{o=overlayHtml(it,vmOf(k),browseColour(k,it),'front',browseCols(it),browsePlaces(it));}catch(e){}
+var CA_COL={};
+/* a uniform opens on a neutral (black, navy, charcoal...), the way the programs do -- never on whatever
+   colourway the supplier happened to photograph first; hi-vis keeps its fluorescent colour */
+function caColOf(k){var it=BYKEY[k];if(CA_COL[k])return CA_COL[k];var c='';try{c=progColour(k);}catch(e){}
+  return (c&&colInList(browseCols(it),c)&&colInList(browseCols(it),c).name===c)?c:browseColour(k,it);}
+function caThumb(k,col){var it=BYKEY[k],o=null;try{o=overlayHtml(it,vmOf(k),col||caColOf(k),'front',browseCols(it),browsePlaces(it));}catch(e){}
   return o?('<img class="g" src="'+o.g+'" alt="" loading="lazy">'+o.lg):'';}
 function caMainHtml(cfg,A,x){
   var r=x.main,it=BYKEY[r.k],why=[];try{why=cfg.why(it,A,x.role)||[];}catch(e){}
@@ -3264,18 +3290,25 @@ function caMainHtml(cfg,A,x){
       '<span class="cambadge">Recommended</span>'+
       '<h5>'+esc(it.name)+'</h5><span class="cambr">'+esc(it.brand||it.sku||'')+'</span>'+
       (v?('<p class="camv">'+esc(v)+'</p>'):'')+
-      (x.over?('<p class="jaover">'+x.over+'</p>'):'')+
       '<ul class="jaw">'+why.slice(0,4).map(function(w){return '<li>'+esc(w)+'</li>';}).join('')+'</ul>'+
+      caSwatchHtml(r.k)+
       '<div class="camfoot"><div class="camp"><b>'+money(r.p)+'</b><i>per piece at '+moq()+'+, your logo included</i></div>'+
         '<div class="cambtns"><button type="button" class="caadd'+(inQ?' done':'')+'" data-caadd="'+esc(r.k)+'">'+(inQ?'✓ In your quote':'Add to quote')+'</button>'+
         '<button type="button" class="xpsee" data-xpopen="'+esc(r.k)+'">Colours &amp; sizes</button></div></div>'+
     '</div></article>';
 }
+/* see it in your colour: the mockup re-renders with the buyer's logo on the colour they tap */
+function caSwatchHtml(k){var it=BYKEY[k],cs=browseCols(it)||[],cur=caColOf(k);if(cs.length<2)return '';
+  var max=8;return '<div class="caswt"><span class="caswl">Colour: <b data-cacur="'+esc(k)+'">'+esc(cur||'')+'</b></span><div class="caswd">'+
+    cs.slice(0,max).map(function(c){return '<button type="button" class="cdot'+(c.name===cur?' on':'')+'" data-cacol="'+esc(k)+'|'+esc(c.name||'')+'" style="background:'+(c.rgb||'#ccc')+'" title="'+esc(c.name||'')+'" aria-label="See it in '+esc(c.name||'')+'"></button>';}).join('')+
+    (cs.length>max?('<span class="cmore">+'+(cs.length-max)+'</span>'):'')+'</div></div>';}
 function caAltHtml(cfg,x){
   if(!x.alts.length)return '';
-  return '<div class="caalts"><span class="caaltsh">Other good options</span>'+x.alts.map(function(a){var it=BYKEY[a.r.k];
-    return '<div class="caalt"><button type="button" class="caaimg" data-xpopen="'+esc(a.r.k)+'" aria-label="See '+esc(it.name)+'">'+caThumb(a.r.k)+'</button>'+
-      '<div class="caab"><span class="caal">'+esc(a.lab)+' · <b>'+money(a.r.p)+'</b></span><b class="caan">'+esc(it.name)+'</b><span class="cambr">'+esc(it.brand||'')+'</span></div>'+
+  return '<div class="caalts"><span class="caaltsh">Want a different price point?</span>'+x.alts.map(function(a){var it=BYKEY[a.r.k],d=a.r.p-x.main.p,lo=a.t==='lo';
+    return '<div class="caalt t-'+a.t+'"><button type="button" class="caaimg" data-xpopen="'+esc(a.r.k)+'" aria-label="See '+esc(it.name)+'">'+caThumb(a.r.k)+'</button>'+
+      '<div class="caab"><span class="caal"><em>'+esc(a.lab)+'</em> <b>'+money(a.r.p)+'</b> <span class="cadiff">'+(lo?'save ':'+')+money(Math.abs(d))+'/pc</span></span>'+
+        '<b class="caan">'+esc(it.name)+'</b><span class="cambr">'+esc(it.brand||'')+'</span>'+
+        '<span class="catrade">'+esc(caTrade(x.main.k,a.r.k,lo))+'</span></div>'+
       '<button type="button" class="jasw" data-caswap="'+esc(x.role)+'|'+esc(a.r.k)+'">Use this</button></div>';}).join('')+'</div>';
 }
 function caOptHtml(q,A){var multi=!!q.multi,cur=A[q.id];
@@ -3309,7 +3342,9 @@ function renderCatAdvisor(el,cfg){
     var M=[];P.forEach(function(x){var h=!x.none&&M.filter(function(m){return !m.none&&m.main.k===x.main.k;})[0];
       if(h){h.roles.push(x.role);h.lab+=' + '+(RL[x.role]||'');}else{x.roles=[x.role];x.lab=cfg.who?(RL[x.role]||''):'';M.push(x);}});P=M;
     var ok=P.filter(function(x){return !x.none;}),ks=ok.map(function(x){return x.main.k;}),allIn=ks.length&&ks.every(function(k){return cartHasAny(k);});
-    body=head+'<h3 class="xph">'+(ok.length>1?('Our '+ok.length+' picks — one for each group'):'Our recommendation')+'</h3></div>'+
+    var nS=caPool(cfg,A).length;
+    body=head+'<h3 class="xph">'+(ok.length>1?('Our '+ok.length+' picks — one for each group'):'Our recommendation')+'</h3>'+
+      '<p class="cacmp">We weighed all '+nS+' '+esc(cfg.noun)+' in this store against your answers — fabric, fit, sizes and how they’re built for the job.</p></div>'+
       '<div class="casum"><span class="casuml">Based on</span>'+caSummary(cfg,A).map(function(t){return '<span class="casumc">'+esc(t)+'</span>';}).join('')+
         '<button type="button" class="jalink" data-cago="0">Change answers</button></div>'+
       P.map(function(x){
@@ -3341,13 +3376,18 @@ function renderCatAdvisor(el,cfg){
     caProgram(cfg,A).forEach(function(x){if(!x.none&&grp&&x.main.k===grp.main.k)CA_PICK[cfg.id+'.'+x.role]=p[1];});
     CA_PICK[cfg.id+'.'+p[0]]=p[1];jdpTrack('ca_swap',{c:cfg.id,k:p[1]});renderCatAdvisor(el,cfg);});});
   el.querySelectorAll('[data-xpopen]').forEach(function(b){b.addEventListener('click',function(){jdpTrack('xp_open',{k:b.dataset.xpopen,src:'ca_'+cfg.id});openSheet(b.dataset.xpopen);});});
+  el.querySelectorAll('[data-cacol]').forEach(function(b){b.addEventListener('click',function(){var p=b.dataset.cacol.split('|'),k=p[0],c=p.slice(1).join('|');
+    CA_COL[k]=c;jdpTrack('ca_col',{c:cfg.id,k:k});
+    var card=b.closest('.cam');if(card){var im=card.querySelector('.camimg');if(im)im.innerHTML=caThumb(k,c)+'<span class="camlogo">Shown with your logo</span>';
+      card.querySelectorAll('[data-cacol]').forEach(function(x){x.classList.toggle('on',x===b);});var cl=card.querySelector('[data-cacur]');if(cl)cl.textContent=c;}
+    if(cartHasAny(k)){var ck=cartAnyKey(k);if(CART[ck]){CART[ck].colour=c;saveCart();refreshCartUI();}}});});
   el.querySelectorAll('[data-caadd]').forEach(function(b){b.addEventListener('click',function(){var k=b.dataset.caadd;
     if(cartHasAny(k)){openQuote('advisor');return;}
-    addToQuoteQuick(k);jdpTrack('ca_add1',{c:cfg.id,k:k});b.textContent='✓ In your quote';b.classList.add('done');
+    addToQuoteQuick(k);if(CA_COL[k]&&CART[k]){CART[k].colour=CA_COL[k];saveCart();refreshCartUI();}jdpTrack('ca_add1',{c:cfg.id,k:k});b.textContent='✓ In your quote';b.classList.add('done');
     var all=el.querySelector('[data-caall]');if(all){var ks=caProgram(cfg,A).filter(function(x){return !x.none;}).map(function(x){return x.main.k;});if(ks.every(function(z){return cartHasAny(z);}))all.textContent='View my quote →';}});});
   el.querySelectorAll('[data-caall]').forEach(function(b){b.addEventListener('click',function(){
     var ks=caProgram(cfg,A).filter(function(x){return !x.none;}).map(function(x){return x.main.k;}).filter(function(k,i,a){return a.indexOf(k)===i;});
-    var added=0;ks.forEach(function(k){if(!cartHasAny(k)){addToQuoteQuick(k);added++;}});jdpTrack('ca_add',{c:cfg.id,n:ks.length});openQuote('advisor');});});
+    var added=0;ks.forEach(function(k){if(!cartHasAny(k)){addToQuoteQuick(k);added++;if(CA_COL[k]&&CART[k])CART[k].colour=CA_COL[k];}});saveCart();refreshCartUI();jdpTrack('ca_add',{c:cfg.id,n:ks.length});openQuote('advisor');});});
   el.querySelectorAll('[data-caask]').forEach(function(b){b.addEventListener('click',function(){jdpTrack('xp_ask',{c:cfg.id});openSourcing('');
     var nt=document.getElementById('coNote');if(nt&&!nt.value){
       var lines=['Please recommend '+cfg.noun+' for our team.'];
@@ -3367,7 +3407,7 @@ var CADV=[];
    warmth, water-repellent vs waterproof, men's and women's cuts, extended sizes and price per person. */
 CADV.push({id:'jackets',one:'jacket',label:'Jacket advisor',noun:'jackets',noun2:'jackets',
   h:'Not sure which jacket? Start with the job.',
-  sub:'Three quick questions, then one recommended jacket for each group you’re outfitting.',
+  sub:'A few quick questions about the job, then one recommended jacket for each group you’re outfitting.',
   overWhy:'how cold and wet it gets',budQ:'Budget per jacket',
   applies:function(c,s){return c==='outerwear'||(c==='ruggedwear'&&(s==='all'||/Insulated|Canvas|Parkas|Shells/.test(s)))||(c==='carhartt'&&/Jackets/.test(s));},
   preset:function(A,c){if(!(A.who&&A.who.length)&&c==='ruggedwear')A.who=['outdoor'];},
@@ -3389,7 +3429,7 @@ CADV.push({id:'jackets',one:'jacket',label:'Jacket advisor',noun:'jackets',noun2
    women's cuts or the shirts end up in a drawer; button-ups are woven, so embroidery only. */
 CADV.push({id:'tops',one:'shirt',label:'Shirt advisor',noun:'shirts',noun2:'styles',
   h:'Polo, tee or button-up? Start with who wears it.',
-  sub:'Three quick questions, then one recommended shirt for each group, with the reasons it fits.',
+  sub:'A few quick questions about the job, then one recommended shirt for each group, with the reasons it fits.',
   overWhy:'this look for these groups',
   applies:function(c,s){return c==='tops'||(c==='carhartt'&&/T-Shirts|^Shirts/.test(s));},
   preset:function(A,c,s){if(!A.look){if(/Tees|T-Shirts/.test(s||''))A.look='tee';else if(/Shirts/.test(s||''))A.look='woven';else if(/Polos/.test(s||''))A.look='polo';}},
@@ -3408,6 +3448,7 @@ CADV.push({id:'tops',one:'shirt',label:'Shirt advisor',noun:'shirts',noun2:'styl
       if(/carhartt/i.test(caBrand(it)))s-=14;
       if(hasLadies(it))s+=16;
       if(L==='polo'&&/piqu|pique|knit/i.test(n+' '+caFab(it)))s+=10;
+      if(L!=='tee'&&caGsm(it)>=160)s+=8;if(L!=='tee'&&caCotton(it)>=50)s+=6;   // a substantial, cotton-rich piqué reads polished at the front desk
       if(caLuxe(it)&&!/carhartt/i.test(caBrand(it)))s+=6;
       if(perf)s+=4;
     }else if(role==='mixed'){
@@ -3516,7 +3557,7 @@ function caStyle(it){var n=(it.name||'').toLowerCase();
   if(/hood/.test(n))return 'hood';
   if(/crew|sweatshirt|sweater/.test(n))return 'crew';
   return caInCats(it,[['layers','Fleece']])?'fz':'crew';}
-function caWarmBand(it){var g=caGsm(it);if(!g)return 0;return g<270?1:(g<380?2:3);}
+function caWarmBand(it){var g=caGsm(it);if(!g){var n=(it.name||'').toLowerCase();return /heavyweight/.test(n)?3:(/midweight/.test(n)?2:(/lightweight/.test(n)?1:0));}return g<270?1:(g<380?2:3);}
 var CA_WHO_LAYER=[
   {id:'office',lab:'Office & client-facing',sub:'Sales, managers, front desk'},
   {id:'mixed',lab:'In and out all day',sub:'Warehouse, drivers, techs'},
@@ -3524,7 +3565,7 @@ var CA_WHO_LAYER=[
   {id:'gift',lab:'A gift or welcome kit',sub:'Something they’ll keep'}];
 CADV.push({id:'layers',one:'layer',label:'Fleece & sweater advisor',noun:'fleece and sweaters',noun2:'layers',
   h:'Quarter-zip, hoodie or fleece? Start with who wears it.',
-  sub:'Three quick questions, then one recommended layer for each group, with the reasons it fits.',
+  sub:'A few quick questions about the job, then one recommended layer for each group, with the reasons it fits.',
   overWhy:'this style and warmth',
   applies:function(c,s){return c==='layers'||(c==='carhartt'&&/Sweatshirts/.test(s));},
   who:true,
@@ -3543,7 +3584,7 @@ CADV.push({id:'layers',one:'layer',label:'Fleece & sweater advisor',noun:'fleece
     if(b)s+=(b===w)?18:(Math.abs(b-w)===1?4:-10);else if(st==='fz'&&w>=2)s+=6;
     if(role==='office'){if(hasLadies(it))s+=16;if(/carhartt/i.test(caBrand(it)))s-=16;if(caLuxe(it))s+=6;if(caPoly(it)>=60)s+=6;}
     else if(role==='mixed'){if(hasLadies(it))s+=8;if(caFin(it,/water-repellent/i))s+=8;if(caPoly(it)>=30)s+=4;}
-    else if(role==='outdoor'){if(b===3)s+=12;if(caFin(it,/water-repellent/i)||/rain defender|repel/i.test(it.name))s+=12;if(/carhartt/i.test(caBrand(it)))s+=8;if(/Cutter & Buck|Nike/i.test(caBrand(it)))s-=10;}
+    else if(role==='outdoor'){if(b===3&&w===3)s+=12;if(caFin(it,/water-repellent/i)||/rain defender|repel/i.test(it.name))s+=12;if(/carhartt/i.test(caBrand(it)))s+=8;if(/Cutter & Buck|Nike/i.test(caBrand(it)))s-=10;}
     else{if(caLuxe(it))s+=20;if(b===3)s+=8;if(hasLadies(it))s+=6;}
     return s;},
   why:function(it,A,role){var out=[],g=caGsm(it),mx=caMixTxt(it),st=caStyle(it);
@@ -3569,7 +3610,7 @@ function caVestType(it){var n=(it.name||'').toLowerCase(),f=caFab(it);
   return 'quilt';}
 CADV.push({id:'vests',one:'vest',label:'Vest advisor',noun:'vests',noun2:'vests',
   h:'Which vest? Start with where it’s worn.',
-  sub:'Three quick questions, then one recommended vest for each group, with the reasons it fits.',
+  sub:'A few quick questions about the job, then one recommended vest for each group, with the reasons it fits.',
   overWhy:'where these vests will be worn',
   applies:function(c,s){return (c==='vests'&&!/Hi-Vis/.test(s))||(c==='ruggedwear'&&/Vests/.test(s))||(c==='carhartt'&&/Vests/.test(s));},
   who:true,
@@ -3612,7 +3653,7 @@ function caCapLook(it){var n=(it.name||'').toLowerCase();
   return 'struct';}
 CADV.push({id:'headwear',one:'hat',label:'Hat advisor',noun:'hats',noun2:'hats',
   h:'Cap or toque? Start with the season.',
-  sub:'Three quick questions, then the hat we’d order for your team, with the reasons it fits.',
+  sub:'A few quick questions about the job, then the hat we’d order for your team, with the reasons it fits.',
   overWhy:'this season and look',budQ:'Budget per hat',
   applies:function(c,s){return c==='headwear'||(c==='carhartt'&&/Headwear/.test(s));},
   preset:function(A,c,s){if(!A.use&&/Beanies/.test(s||''))A.use='cold';},
@@ -3651,7 +3692,7 @@ var CA_WHO_PANT=[
   {id:'trades',lab:'Trades & outdoor crews',sub:'Construction, landscaping, HVAC'}];
 CADV.push({id:'pants',one:'style',label:'Work pant advisor',noun:'work pants',noun2:'pants',
   h:'Which work pant? Start with the work and the wash.',
-  sub:'Three quick questions, then one recommended pant for each group. Pants carry no logo — they’re the base your branded tops sit on.',
+  sub:'A few quick questions about the job, then one recommended pant for each group. Pants carry no logo — they’re the base your branded tops sit on.',
   overWhy:'this work and laundry',budQ:'Budget per pair',
   applies:function(c,s){return (c==='bottoms'&&!/Joggers/.test(s))||(c==='carhartt'&&/Pants/.test(s));},
   who:true,
