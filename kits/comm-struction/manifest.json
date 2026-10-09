@@ -1,0 +1,17 @@
+{
+  "generator": "client-app",
+  "version": "1791566166",
+  "slug": "comm-struction",
+  "client": "Comm-Struction Inc.",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_164993.png",
+    "img/lg_full_1f3060.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}
