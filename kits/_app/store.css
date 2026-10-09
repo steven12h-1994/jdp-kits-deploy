@@ -3783,3 +3783,9 @@ body.giftview #padv{display:none}
   .patiles{grid-template-columns:repeat(3,minmax(0,1fr))}
   .pago{width:100%}
 }
+/* ===== CATEGORY ADVISORS (2026-10-09 11:47) ========================================================= */
+.exsub{margin:-6px 0 14px;font-size:14px;color:#5c554a;max-width:70ch}
+.ctadv{font-style:normal;font-weight:850;color:var(--a);letter-spacing:.02em}
+.cattile.adv{border-color:color-mix(in srgb,var(--a) 28%,var(--line))}
+.jaqw{grid-column:1/-1}
+.cadv .jaqs{grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr))}

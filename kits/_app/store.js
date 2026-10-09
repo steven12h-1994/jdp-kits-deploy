@@ -3130,429 +3130,489 @@ function jaChips(name,opts,cur,multi){
     return '<button type="button" class="jach'+(on?' on':'')+'" data-ja="'+name+'" data-v="'+esc(String(o.id))+'" aria-pressed="'+on+'">'+
       '<b>'+esc(o.lab)+'</b>'+(o.sub?('<i>'+esc(o.sub)+'</i>'):'')+'</button>';}).join('');
 }
-/* ===== THE PROGRAM ADVISOR (Steven, 2026-10-09: "build ONE company apparel program advisor as the central
-   buying experience ... enterprise buyers have no idea what product to choose.") ============================
-   How companies actually build an apparel program (buyer and uniform-program guides we read: Uniforms by
-   Unitec, Uniform Market, Heart & Hook, Singh's Print, The Apparel Factory, Uniform TB, Arklavo, Birdiebox):
-     - they start from the ROLE, not the catalogue ("start from the role" -- every guide says it);
-     - each role gets a KIT with a unit count per person: office 2-3 polos + a layer + a jacket; crews 4-5
-       shirts ("consumables"), a mid-layer, a jacket, a cap; six shirts covers a work week between washes;
-     - hi-vis is assigned by class BEFORE garments are chosen; anyone near traffic is Class 2 or better;
-     - the deciding number is cost PER PERSON, because that is what the buyer takes to the person who
-       approves it; good / better / best tiers make that decision in one step;
-     - the failure modes are no women's cuts, cotton on crews who sweat, no winter layering plan, too many
-       styles (reorders drift), and every new hire becoming a fresh quote.
-   So this is ONE advisor for the whole company: who (groups and headcount), how cold, how wet, which level.
-   It answers with a kit per group -- the piece for each job, how many each person gets, why it fits (read
-   from the catalogue), the cost per person, the group and program totals -- and one tap puts it on the
-   quote with sizes, or saves it as a board to send to the approver. The jacket slot is the jacket advisor's
-   engine (jaRank); every other slot is a curated [essential, standard, premium] list per role, falling back
-   to the shelf's own price ladder in a store that does not carry a pick (US range, trimmed kits). */
-var PA_ROLES=[
-  {id:'office', lab:'Office & client-facing',sub:'Sales, managers, front desk'},
-  {id:'mixed',  lab:'In and out all day',    sub:'Warehouse, drivers, techs'},
-  {id:'outdoor',lab:'Outdoor crews',         sub:'Yard, construction, grounds'},
-  {id:'site',   lab:'Site with hi-vis rules',sub:'Traffic, utilities, road crews'},
-  {id:'welcome',lab:'New hires this year',   sub:'A day-one welcome kit'}];
-var PA_TIERS=[
-  {id:'e',lab:'Essential',sub:'Dependable basics at the lowest cost',bud:'a'},
-  {id:'s',lab:'Standard', sub:'Better fabrics and fit — our default',bud:'b'},
-  {id:'p',lab:'Premium',  sub:'Brand-name pieces, built to impress',bud:'c'}];
-var PA_TI={e:0,s:1,p:2};
-/* Each slot: what the job is, how many each person gets, the pool it may draw from, and the curated
-   [essential, standard, premium] picks. `cold`/`rain` swap the curated list where the conditions change
-   the right answer (long sleeves for deep winter, a water-repellent hoodie for wet work). */
-var PA_KIT={
-  office:[
-    {id:'polo',lab:'Polo',u:3,pool:[['tops','Polos']],pick:['c3_88181','st_nevadass','cbc_advantage_polo'],
-     tip:'Three polos covers a work week with laundry in between.'},
-    {id:'layer',lab:'Quarter-zip layer',u:1,pool:[['layers','Quarter & Half-Zips']],pick:['flux','st_treeline','cbc_traverse_qz']},
-    {id:'jacket',lab:'Jacket',u:1,jacket:'office'}],
-  mixed:[
-    {id:'polo',lab:'Performance polo',u:5,pool:[['tops','Polos']],perf:1,pick:['c3_88181','st_monterey','cbc_forge_polo'],
-     tip:'Five shirts each: people who sweat through a shift change every day.'},
-    {id:'layer',lab:'Hoodie',u:1,pool:[['layers','Hoodies']],pick:['vault','forge','nk_pohoodie'],rain:['repel','repel','nk_pohoodie']},
-    {id:'jacket',lab:'Jacket',u:1,jacket:'mixed'},
-    {id:'hat',lab:'Toque',u:1,hat:1}],
-  outdoor:[
-    {id:'tee',lab:'Performance tee',u:5,pool:[['tops','Tees'],['carhartt','T-Shirts']],perf:1,
-     pick:['cs_s05935','cbc_coastline_tee','ch_106652'],cold3:['cs_s05937','st_milano','ch_106656'],
-     tip:'Wicking polyester, not cotton: cotton stays wet and cold on a crew that works hard outside.'},
-    {id:'layer',lab:'Heavyweight hoodie',u:1,pool:[['layers','Hoodies'],['carhartt','Sweatshirts & Hoodies']],
-     pick:['vault','forge','ch_k121'],rain:['repel','repel','ch_100615']},
-    {id:'jacket',lab:'Work jacket',u:1,jacket:'outdoor'},
-    {id:'hat',lab:'Toque',u:1,hat:1}],
-  site:[
-    {id:'hvtee',lab:'Hi-vis shirt',u:5,pool:[['hivis','Hi-Vis T-Shirts']],pick:['tt1','tt1','cs_s05980'],cold3:['tt2','tt2','cs_s05982'],
-     tip:'Class 2 shirts keep the crew compliant without a vest on warm days.'},
-    {id:'hvlayer',lab:'Hi-vis hoodie',u:1,pool:[['hivis','Sweatshirts & Hoodies']],hvlayer:1,pick:['hoodie','hoodie','th1']},
-    {id:'jacket',lab:'Hi-vis jacket',u:1,jacket:'site'},
-    {id:'hat',lab:'Toque',u:1,hat:1}],
-  welcome:[
-    {id:'anchor',lab:'Hoodie',u:1,pool:[['layers','Hoodies'],['layers','Quarter & Half-Zips']],pick:['vault','forge','nk_pohoodie'],
-     tip:'The anchor of a welcome kit is the piece they will wear on the weekend.'},
-    {id:'tee',lab:'Tee',u:1,pool:[['tops','Tees']],pick:['crewtee','cs_s05670','nk_tee']},
-    {id:'cap',lab:'Cap',u:1,pool:[['headwear','Caps & Hats']],pick:['at_startfive','at_joshua','nk_fb5677']}]
-};
-var PA_HAT={toque:{pool:[['headwear','Beanies & Toques']],pick:['cs_h08000','cs_h08010','ch_a18'],lab:'Toque'},
-            cap:{pool:[['headwear','Caps & Hats']],pick:['at_startfive','at_joshua','ch_106687'],lab:'Cap'}};
-var PA={g:{},cold:0,rain:-1,tier:'',u:{},pick:{}};
-function paKey(){return 'jdp_pa_'+(typeof SLUG!=='undefined'?SLUG:'');}
-try{var _pa=JSON.parse(localStorage.getItem(paKey())||'null');if(_pa&&_pa.g)PA=_pa;PA.u=PA.u||{};PA.pick=PA.pick||{};}catch(e){}
-function paSave(){try{localStorage.setItem(paKey(),JSON.stringify(PA));}catch(e){}}
-function paGroups(){return PA_ROLES.filter(function(r){return PA.g[r.id]!=null&&paRoleOn(r.id);}).map(function(r){return r.id;});}
-/* A store without CSA hi-vis (the US range) does not offer the hi-vis group at all. */
-function paRoleOn(id){if(id!=='site')return true;var h=BUCKETS.hivis||{};return !!((h['Hi-Vis T-Shirts']||[]).length&&(h['Hi-Vis Jackets']||h['Winter Parkas']||[]).length);}
-function paInStore(k){return !!(BYKEY[k]&&ALLKEYS.indexOf(k)>=0);}
-function paFab(it){var f=it.fab;if(!f)return '';if(typeof f==='string')return f.toLowerCase();
+/* ===== AN ADVISOR IN EVERY CATEGORY (Steven, 2026-10-09 11:47: "I would put an advisor inside each major
+   apparel category, rather than making one company-wide questionnaire the primary experience ... dive deeper
+   into each category ... like you did with jackets.") ========================================================
+   One engine, one look, every aisle. Each major apparel category carries its own short questionnaire built
+   from how buyers actually choose THAT product (the research is cited on each config below), and answers the
+   way the jacket advisor does: one recommended piece for each group being outfitted, the reasons it fits
+   (read from the catalogue, never invented), a lower-cost and a step-up alternative labelled by real price,
+   an honest note when the pick is over the budget given, and one tap to put the lot on the quote.
+   The budget question is the same everywhere but its numbers are not: the three bands are cut from the live
+   prices of the pieces that qualify in THAT aisle and THIS store's currency, so "under $X" is always a real
+   price point here, never a guess. */
+var CA={};try{CA=JSON.parse(sessionStorage.getItem('jdp_ca')||'{}')||{};}catch(e){CA={};}
+function caSave(){try{sessionStorage.setItem('jdp_ca',JSON.stringify(CA));}catch(e){}}
+var CA_PICK={};
+function caSt(id){return CA[id]||(CA[id]={});}
+function caNice(x){return x<40?Math.max(5,Math.round(x/5)*5):(x<200?Math.round(x/10)*10:Math.round(x/25)*25);}
+function caBands(keys){
+  var p=keys.map(function(k){return sxPrice(k);}).filter(function(x){return x>0;}).sort(function(a,b){return a-b;});
+  if(p.length<4)return null;
+  var a=caNice(p[Math.floor(p.length/3)]),b=caNice(p[Math.floor(p.length*2/3)]);
+  if(b<=a)b=caNice(a*1.4);
+  return [{id:'a',lab:'Under $'+a,lo:0,hi:a},{id:'b',lab:'$'+a+' – $'+b,lo:a,hi:b},{id:'c',lab:'$'+b+'+',lo:b,hi:1e9},{id:'x',lab:'Best fit, any price',lo:0,hi:1e9}];
+}
+function caBud(cfg,A){var bs=caBands(caPool(cfg,A));return bs?(bs.filter(function(b){return b.id===A.bud;})[0]||null):null;}
+function caBudScore(p,B){if(!B||B.id==='x')return 0;if(p>=B.lo&&p<B.hi)return 30;if(p>=B.hi)return -Math.min(60,(p-B.hi)/B.hi*120);return 8;}
+/* shared catalogue readers -- every reason a card gives comes from one of these */
+function caFab(it){var f=it.fab;if(!f)return '';if(typeof f==='string')return f.toLowerCase();
   return ((f.mix||[]).map(function(x){return x[0];}).join(' ')+' '+(f.finishes||[]).join(' ')+' '+(f.knit||'')).toLowerCase();}
-/* performance = it wicks: polyester-led, or says so. Cotton is the wrong shirt for people who sweat. */
-function paPerf(it){var f=paFab(it),n=(it.name||'').toLowerCase(),m=(it.fab&&it.fab.mix)||[];
-  if(/performance|wick|dri-fit|force|tricot/.test(n+' '+f))return true;
-  var poly=0;m.forEach(function(x){if(/polyester|nylon|spandex/i.test(x[0]))poly+=x[1];});return poly>=60;}
-function paClass(it){var m=/Z96 Class (\d)/.exec(it.csa||'');return m?+m[1]:0;}
-function paPool(slot,role){
-  var out=[],seen={};
-  (slot.pool||[]).forEach(function(p){((BUCKETS[p[0]]||{})[p[1]]||[]).forEach(function(k){
-    var it=BYKEY[k];if(!it||seen[k]||it.layer==='promo')return;
-    if(slot.perf&&!paPerf(it))return;
-    if(slot.hvlayer&&!/hood|sweat|crew/i.test(it.name))return;
-    if(slot.hvlayer&&/jacket|bomber|softshell/i.test(it.name))return;
-    if(slot.id==='hvtee'&&/long/i.test(it.name)!==(PA.cold===3))return;
-    if(slot.id==='tee'&&role==='outdoor'&&/long/i.test(it.name)!==(PA.cold===3))return;
-    seen[k]=1;out.push(k);});});
-  return out;
+/* the fibre mix, from the structured field or parsed out of a written one ("52% cotton · 45% recycled
+   polyester") -- a guess from the bare word "polyester" claimed a cotton-led polo wicks sweat */
+function caMix(it){var f=it.fab;if(f&&f.mix&&f.mix.length)return f.mix;
+  if(typeof f==='string'){var m,re=/(\d{1,3})\s*%\s*([a-z][a-z \-]*?)(?=\s*(?:·|\/|,|$|\d))/gi,out=[];while((m=re.exec(f)))out.push([m[2].trim(),+m[1]]);return out.length?out:null;}
+  return null;}
+function caPoly(it){var m=caMix(it);if(!m)return /polyester|performance/.test(caFab(it))?80:-1;var t=0;m.forEach(function(x){if(/polyester|nylon|spandex|elastane/i.test(x[0]))t+=x[1];});return t;}
+function caCotton(it){var m=caMix(it);if(!m)return /cotton/.test(caFab(it))?70:-1;var t=0;m.forEach(function(x){if(/cotton/i.test(x[0]))t+=x[1];});return t;}
+function caPerf(it){var n=(it.name||'').toLowerCase(),f=caFab(it);if(/performance|wick|dri-fit|force|tricot/.test(n+' '+f))return true;return caPoly(it)>=60;}
+function caGsm(it){var f=it.fab,w=(f&&f.weight)?String(f.weight):(typeof f==='string'?f:'');var m=/(\d{2,3})\s*gsm/i.exec(w);return m?+m[1]:0;}
+function caWeightTxt(it){var f=it.fab;return (f&&f.weight)?String(f.weight).split('·')[0].trim():'';}
+function caMixTxt(it){var m=(it.fab&&it.fab.mix&&it.fab.mix.length)?it.fab.mix:null;if(m)return m.slice(0,2).map(function(x){return x[1]+'% '+x[0].toLowerCase();}).join(' / ');var f=it.fab;return (typeof f==='string')?(f.charAt(0).toUpperCase()+f.slice(1)):'';}
+function caFin(it,re){var f=it.fab;return !!(f&&f.finishes&&f.finishes.some(function(x){return re.test(x);}))||re.test(caFab(it));}
+function caBrand(it){return String(it.brand||'');}
+function caLuxe(it){return /Cutter & Buck|Nike|adidas|North Face|Carhartt/i.test(caBrand(it));}
+function caClass(it){var m=/Z96 Class (\d)/.exec(it.csa||'');return m?+m[1]:0;}
+function caCutsTxt(it){var mx=jaMaxSize(it);return hasLadies(it)?('Men’s and women’s cuts'+(mx?(' · up to '+mx):'')):((it.unisex?'Unisex cut':'Men’s / unisex cut')+(mx?(' · up to '+mx):''));}
+function caInCats(it,list){var hit=false;list.forEach(function(p){if(((BUCKETS[p[0]]||{})[p[1]]||[]).indexOf(it.key)>=0)hit=true;});return hit;}
+function caKeys(list){var out=[],seen={};list.forEach(function(p){((BUCKETS[p[0]]||{})[p[1]]||[]).forEach(function(k){var it=BYKEY[k];if(!it||seen[k]||it.layer==='promo')return;if(/\bdog\b|leash|collar|throw|blanket/i.test(it.name||''))return;seen[k]=1;out.push(k);});});return out;}
+/* ---- the engine ---- */
+/* in the Carhartt aisle the advice stays Carhartt -- that is the shelf the buyer chose */
+function caPool(cfg,A){var ks=cfg.pool(A)||[];if(VIEW.cat==='carhartt')ks=ks.filter(function(k){return /carhartt/i.test(caBrand(BYKEY[k]||{}));});return ks;}
+function caCfg(){
+  var c=VIEW.cat,s=VIEW.sub||'all';
+  for(var i=0;i<CADV.length;i++){var g=CADV[i];if(g.applies(c,s)&&caPool(g,caSt(g.id)).length>=3)return g;}
+  return null;
 }
-function paSlotsFor(role){
-  return (PA_KIT[role]||[]).map(function(s){
-    if(!s.hat)return s;
-    var h=PA.cold>=2?PA_HAT.toque:PA_HAT.cap;
-    return {id:'hat',lab:h.lab,u:1,pool:h.pool,pick:h.pick,hat:1};
+function caQs(cfg,A){
+  var qs=(cfg.qs||[]).filter(function(q){return !q.when||q.when(A);});
+  var bs=caBands(caPool(cfg,A));
+  if(bs)qs=qs.concat([{id:'bud',q:cfg.budQ||'Budget per piece',hint:'logo included',opts:bs}]);
+  return qs;
+}
+function caReady(cfg,A){return caQs(cfg,A).every(function(q){var v=A[q.id];return q.multi?(v&&v.length):(v!=null&&v!=='');});}
+function caRoles(cfg,A){return cfg.who?((A.who||[]).slice()):['all'];}
+function caRank(cfg,role,A){
+  var B=caBud(cfg,A),rows=[];
+  caPool(cfg,A).forEach(function(k){var it=BYKEY[k];if(!it)return;var p=sxPrice(k),s=null;
+    try{s=cfg.score(it,A,role,p);}catch(e){s=null;}
+    if(s==null)return;rows.push({k:k,s:s+caBudScore(p,B),p:p});});
+  rows.sort(function(a,b){return (b.s-a.s)||(a.p-b.p);});
+  return rows;
+}
+function caProgram(cfg,A){
+  var B=caBud(cfg,A);
+  return caRoles(cfg,A).map(function(role){
+    var rows=caRank(cfg,role,A);if(!rows.length)return {role:role,none:true};
+    var mine=CA_PICK[cfg.id+'.'+role],main=(mine&&rows.filter(function(r){return r.k===mine;})[0])||rows[0];
+    var rest=rows.filter(function(r){return r.k!==main.k;});
+    var cheaper=rest.filter(function(r){return r.p<main.p-0.5;})[0],dearer=rest.filter(function(r){return r.p>main.p+0.5&&r!==cheaper;})[0];
+    var alts=[];if(cheaper)alts.push({r:cheaper,lab:'Lower cost'});if(dearer)alts.push({r:dearer,lab:'Step up'});
+    if(alts.length<2&&rest[0]&&alts.every(function(a){return a.r!==rest[0];}))alts.push({r:rest[0],lab:'Also consider'});
+    /* honest budget note: never let a buyer think we ignored the number they gave us */
+    var over='';
+    if(B&&B.id!=='x'&&main.p>=B.hi){
+      var fit=rows.filter(function(r){return r.p>=B.lo&&r.p<B.hi;})[0];
+      over=fit?('Above your '+B.lab.toLowerCase()+' budget — '+(alts.some(function(a){return a.r===fit;})?'the lower-cost option fits it.':esc(BYKEY[fit.k].name)+' fits it, with fewer of the features above.'))
+              :('Above your '+B.lab.toLowerCase()+' budget — nothing in this aisle below it fits '+esc(cfg.overWhy||'these answers')+'.');
+    }
+    return {role:role,main:main,alts:alts.slice(0,2),over:over};
   });
 }
-/* The ranked candidates for one slot, cheapest first, each with its price at the minimum. */
-function paRanked(slot,role){
-  if(slot.jacket){
-    var _ti=PA_TI[PA.tier];var b=(PA_TIERS[_ti!=null?_ti:1]||{}).bud||'b';
-    return jaRank(slot.jacket,{cold:PA.cold||2,rain:PA.rain<0?0:PA.rain,bud:b});
+function caCard(cfg,A,r,lab,role,main,over){
+  var it=BYKEY[r.k],o=null;
+  try{o=overlayHtml(it,vmOf(r.k),browseColour(r.k,it),'front',browseCols(it),browsePlaces(it));}catch(e){}
+  var why=[];if(main){try{why=cfg.why(it,A,role)||[];}catch(e){why=[];}}
+  return '<div class="jac'+(main?' main':'')+'">'+(lab?('<span class="jalab">'+esc(lab)+'</span>'):'')+
+    '<button type="button" class="jaimg" data-xpopen="'+esc(r.k)+'" aria-label="See '+esc(it.name)+'">'+(o?('<img class="g" src="'+o.g+'" alt="" loading="lazy">'+o.lg):'')+'</button>'+
+    '<div class="jab"><b>'+esc(it.name)+'</b><span class="jabr">'+esc(it.brand||it.sku||'')+'</span>'+
+    '<div class="jap"><b>'+money(r.p)+'</b><i>/pc at '+moq()+', logo included</i></div>'+
+    (over?('<p class="jaover">'+over+'</p>'):'')+
+    (main?('<ul class="jaw">'+why.slice(0,4).map(function(x){return '<li>'+esc(x)+'</li>';}).join('')+'</ul>'):'')+
+    '<div class="jabtns">'+(main?'':'<button type="button" class="jasw" data-caswap="'+esc(role)+'|'+esc(r.k)+'">Use this instead</button>')+
+      '<button type="button" class="xpsee" data-xpopen="'+esc(r.k)+'">Details</button></div></div></div>';
+}
+function caChips(qid,opts,cur,multi){
+  return opts.map(function(o){var v=String(o.id),on=multi?((cur||[]).indexOf(v)>=0):(String(cur)===v&&cur!=null&&cur!=='');
+    return '<button type="button" class="jach'+(on?' on':'')+'" data-ca="'+esc(qid)+'" data-v="'+esc(v)+'" aria-pressed="'+on+'">'+
+      '<b>'+esc(o.lab)+'</b>'+(o.sub?('<i>'+esc(o.sub)+'</i>'):'')+'</button>';}).join('');
+}
+function renderCatAdvisor(el,cfg){
+  var A=caSt(cfg.id);
+  if(cfg.preset)try{cfg.preset(A,VIEW.cat,VIEW.sub);}catch(e){}
+  var qs=caQs(cfg,A),ready=caReady(cfg,A);
+  var q=qs.map(function(x,i){return '<div class="jaq'+(x.wide?' jaqw':'')+'"><div class="jaqh"><span class="jan">'+(i+1)+'</span><b>'+esc(x.q)+'</b>'+(x.hint?('<i>'+esc(x.hint)+'</i>'):'')+'</div>'+
+    '<div class="jachs">'+caChips(x.id,x.opts,A[x.id],!!x.multi)+'</div></div>';}).join('');
+  var res='';
+  if(ready){
+    var P=caProgram(cfg,A),RL={};((cfg.qs[0]&&cfg.qs[0].opts)||[]).forEach(function(r){RL[r.id]=r.lab;});
+    /* one piece that suits two groups is shown once, for both -- the simplest program wins */
+    var M=[];P.forEach(function(x){var h=!x.none&&M.filter(function(m){return !m.none&&m.main.k===x.main.k;})[0];
+      if(h)h.lab+=' + '+(RL[x.role]||'');else{x.lab=cfg.who?(RL[x.role]||''):'';M.push(x);}});P=M;
+    var ok=P.filter(function(x){return !x.none;});
+    res='<div class="jares"><div class="jaresh"><div><span class="xpeyb">'+esc(cfg.resEyebrow||'Our recommendation')+'</span><h4>'+
+        (ok.length>1?(ok.length+' '+esc(cfg.noun2||'picks')+', one job each'):((ok[0]&&/ \+ /.test(ok[0].lab||''))?('One '+esc(cfg.one||'style')+' for every group'):('The '+esc(cfg.one||'one')+' we’d choose')))+'</h4>'+
+        (ok.length>1?('<p>'+esc(cfg.oneEach||'One style per group keeps it simple: everyone in a role wears the same thing, and new hires reorder the same style.')+'</p>'):'')+'</div>'+
+        (ok.length?('<button type="button" class="jaall" data-caall="1">Add '+(ok.length>1?('all '+ok.length+' to my quote'):'it to my quote')+' →</button>'):'')+'</div>'+
+      P.map(function(x){
+        if(x.none)return '<div class="jarole">'+(x.lab?('<div class="jarh">'+esc(x.lab)+'</div>'):'')+'<p class="janone">Nothing in this aisle matches all your answers for this group — try a wider budget, or <button type="button" class="jalink" data-caask="1">ask Steven</button>.</p></div>';
+        return '<div class="jarole">'+(x.lab?('<div class="jarh">'+esc(x.lab)+'</div>'):'')+'<div class="jarow">'+caCard(cfg,A,x.main,'Recommended',x.role,true,x.over)+
+          '<div class="jaalts">'+x.alts.map(function(a){return caCard(cfg,A,a.r,a.lab,x.role,false);}).join('')+'</div></div></div>';
+      }).join('')+
+      ((cfg.tips&&cfg.tips(A).length)?('<div class="jatips"><b>Before you order</b><ul>'+cfg.tips(A).map(function(t){return '<li>'+esc(t)+'</li>';}).join('')+
+        '<li>Your logo placement and size are confirmed on a free proof before anything is made.</li></ul></div>'):'')+'</div>';
+  }else{
+    res='<p class="jahint">'+esc(cfg.hint||('Answer the '+nwords(qs.length).toLowerCase()+' questions and we’ll recommend one for each group, with the reasons it fits.'))+'</p>';
   }
-  return paPool(slot,role).map(function(k){return {k:k,p:sxPrice(k)};}).sort(function(a,b){return a.p-b.p;});
+  el.innerHTML='<section class="xpert jadv cadv" aria-label="'+esc(cfg.label)+'"><div class="xphd"><div><span class="xpeyb">'+esc(cfg.label)+'</span>'+
+    '<h3 class="xph">'+esc(cfg.h)+'</h3>'+
+    '<p class="xpadv">'+esc(cfg.sub)+'</p></div>'+
+    '<button type="button" class="xpask" data-caask="1"><span class="xpav" aria-hidden="true">S</span><span><b>Have Steven pick for you</b><i>Tell us the team and budget — we reply with a recommendation</i></span></button></div>'+
+    '<div class="jaqs">'+q+'</div>'+res+'</section>';
+  el.querySelectorAll('[data-ca]').forEach(function(b){b.addEventListener('click',function(){
+    var n=b.dataset.ca,v=b.dataset.v,qd=caQs(cfg,A).filter(function(x){return x.id===n;})[0]||{};
+    if(qd.multi){var l=A[n]=(A[n]||[]).slice();var i=l.indexOf(v);if(i>=0)l.splice(i,1);else l.push(v);}
+    else A[n]=(String(A[n])===v)?'':v;
+    CA_PICK={};caSave();jdpTrack('ca_q',{c:cfg.id,q:n,v:v});renderCatAdvisor(el,cfg);});});
+  el.querySelectorAll('[data-caswap]').forEach(function(b){b.addEventListener('click',function(){var p=b.dataset.caswap.split('|');CA_PICK[cfg.id+'.'+p[0]]=p[1];jdpTrack('ca_swap',{c:cfg.id,k:p[1]});renderCatAdvisor(el,cfg);});});
+  el.querySelectorAll('[data-xpopen]').forEach(function(b){b.addEventListener('click',function(){jdpTrack('xp_open',{k:b.dataset.xpopen,src:'ca_'+cfg.id});openSheet(b.dataset.xpopen);});});
+  el.querySelectorAll('[data-caall]').forEach(function(b){b.addEventListener('click',function(){
+    var ks=caProgram(cfg,A).filter(function(x){return !x.none;}).map(function(x){return x.main.k;}).filter(function(k,i,a){return a.indexOf(k)===i;});
+    ks.forEach(function(k){if(!cartHasAny(k))addToQuoteQuick(k);});jdpTrack('ca_add',{c:cfg.id,n:ks.length});openQuote('advisor');});});
+  el.querySelectorAll('[data-caask]').forEach(function(b){b.addEventListener('click',function(){jdpTrack('xp_ask',{c:cfg.id});openSourcing('');
+    var nt=document.getElementById('coNote');if(nt&&!nt.value){
+      var lines=['Please recommend '+cfg.noun+' for our team.'];
+      caQs(cfg,A).forEach(function(x){var v=A[x.id],lab=function(id){return ((x.opts.filter(function(o){return String(o.id)===String(id);})[0])||{}).lab||'';};
+        lines.push(x.q+': '+(x.multi?(v||[]).map(lab).join(', '):lab(v)));});
+      lines.push('How many people: ','Needed by: ');nt.value=lines.join('\n');}});});
 }
-function paCurated(slot){
-  var l=slot.pick||[];
-  if(slot.cold3&&PA.cold===3)l=slot.cold3;
-  if(slot.rain&&PA.rain===1)l=slot.rain;
-  return l;
-}
-/* The pick for a slot at the chosen level: the curated piece when this store carries it, else the
-   shelf's own ladder -- cheapest for Essential, the middle for Standard, the top for Premium. */
-function paChoose(slot,role){
-  var ti=PA_TI[PA.tier];if(ti==null)ti=1;
-  var rows=paRanked(slot,role);if(!rows.length)return null;
-  var mine=PA.pick[role+'.'+slot.id];
-  if(mine){var m=rows.filter(function(r){return r.k===mine;})[0];if(m)return {r:m,rows:rows,own:true};}
-  if(slot.jacket)return {r:rows[0],rows:rows};
-  var c=paCurated(slot)[ti];
-  if(c&&paInStore(c)){var hit=rows.filter(function(r){return r.k===c;})[0];if(hit)return {r:hit,rows:rows};}
-  var idx=ti===0?0:(ti===2?rows.length-1:Math.floor((rows.length-1)/2));
-  return {r:rows[idx],rows:rows};
-}
-function paUnits(role,slot){var v=PA.u[role+'.'+slot.id];return (v>=1&&v<=12)?v:slot.u;}
-function paWhy(it,slot,role){
-  if(slot.jacket)return jaWhy(it,slot.jacket).slice(0,3);
-  var out=[],f=it.fab,fl=paFab(it),w=(f&&f.weight)?String(f.weight).split('·')[0].trim():'';
-  if(slot.id==='hvtee'||slot.id==='hvlayer'){var c=paClass(it);
-    out.push(c?('CSA Z96 Class '+c+(c>=2?' — compliant near traffic on its own':' — wear a Class 2 vest over it near traffic')):'Meets CSA Z96');}
-  if(f&&f.mix&&f.mix.length)out.push(f.mix.slice(0,2).map(function(x){return x[1]+'% '+x[0].toLowerCase();}).join(' / ')+(w?(', '+w):''));
-  else if(typeof f==='string')out.push(f.charAt(0).toUpperCase()+f.slice(1));
-  if(/water-repellent/.test(fl)||/rain defender|repel/i.test(it.name))out.push('Water-repellent');
-  else if(paPerf(it)&&slot.id!=='hvlayer')out.push('Wicks sweat, dries fast');
-  if(!slot.hat&&slot.id!=='cap'&&role!=='site')out.push(hasLadies(it)?('Men’s and women’s cuts'+(jaMaxSize(it)?(' · up to '+jaMaxSize(it)):'')):('Men’s / unisex cut'+(jaMaxSize(it)?(' · up to '+jaMaxSize(it)):'')));
-  else if(role==='site'&&jaMaxSize(it))out.push('Sizes up to '+jaMaxSize(it));
-  if(slot.hat||slot.id==='cap'){
-    if(slot.hat&&PA.cold>=2)out.push('For cold mornings under a hood or hard hat');
-    else out.push('Takes an embroidered logo front and centre');
-    if(oneSize(it))out.push('One size — no sizes to collect');}
-  return out.slice(0,3);
-}
-/* THE PROGRAM. One kit per group, then the quantities rolled up per style -- a style shared by two groups is
-   one order, which is both cheaper (volume breaks) and the "fewer styles" rule every program guide gives. */
-function paProgram(){
-  var groups=paGroups(),G=[],qty={},who={};
-  groups.forEach(function(role){
-    var n=Math.max(0,parseInt(PA.g[role],10)||0),rows=[];
-    paSlotsFor(role).forEach(function(slot){
-      var ch=paChoose(slot,role);if(!ch)return;
-      var u=paUnits(role,slot);
-      rows.push({slot:slot,k:ch.r.k,p:ch.r.p,u:u,rows:ch.rows,own:!!ch.own});
-      qty[ch.r.k]=(qty[ch.r.k]||0)+n*u;(who[ch.r.k]=who[ch.r.k]||[]).push(role);
-    });
-    /* a hi-vis shirt below Class 2 needs a Class 2 vest over it -- add it rather than leave the crew short */
-    if(role==='site'){var t=rows.filter(function(r){return r.slot.id==='hvtee';})[0];
-      if(t&&paClass(BYKEY[t.k])<2){var vs={id:'vest',lab:'Class 2 safety vest',u:1,pool:[['hivis','Safety Vests']],pick:['tvest','tvest','surveyor']};
-        var cv=paChoose(vs,role);if(cv){rows.push({slot:vs,k:cv.r.k,p:cv.r.p,u:paUnits(role,vs),rows:cv.rows});qty[cv.r.k]=(qty[cv.r.k]||0)+n*paUnits(role,vs);(who[cv.r.k]=who[cv.r.k]||[]).push(role);}}}
-    G.push({role:role,n:n,rows:rows});
-  });
-  var M=moq(),tot=0,styles=Object.keys(qty),people=0;
-  /* price every style at the quantity the whole program orders (12 minimum per style) */
-  var unit={};styles.forEach(function(k){var q=Math.max(M,qty[k]||0);var p=0;try{p=unitPrice(k,recCartDecos(k),q);}catch(e){p=sxPrice(k);}unit[k]=p;tot+=p*q;});   // the decoration the quote will carry, so the two never disagree
-  G.forEach(function(g){people+=g.n;var pp=0;g.rows.forEach(function(r){r.unit=unit[r.k];r.q=g.n*r.u;pp+=r.unit*r.u;});g.pp=pp;g.total=pp*g.n;});
-  return {groups:G,qty:qty,unit:unit,styles:styles.length,people:people,total:tot,M:M,who:who,
-          short:styles.filter(function(k){return (qty[k]||0)<M;})};
-}
-/* per-person cost of each level, for the level chips -- the number the buyer is trying to reach */
-function paTierCosts(){
-  var keep=PA.tier,keepPick=PA.pick,out={},groups=paGroups();if(!groups.length)return out;
-  PA.pick={};
-  /* the same number the summary shows once the headcounts are in (minimum round-ups included), so the
-     chip the buyer picked never disagrees with the total underneath it */
-  PA_TIERS.forEach(function(t){PA.tier=t.id;var P=paProgram(),w=0,s=0;
-    if(P.people&&P.groups.every(function(g){return g.n>0;})){out[t.id]=P.total/P.people;return;}
-    P.groups.forEach(function(g){var n=Math.max(1,g.n);w+=n;s+=g.pp*n;});out[t.id]=w?s/w:0;});
-  PA.tier=keep;PA.pick=keepPick;return out;
-}
-function paAlts(row){
-  var rows=row.rows,i=-1;rows.forEach(function(r,j){if(r.k===row.k)i=j;});
-  /* a real choice, not a neighbour: the curated Essential and Premium picks for this job come first --
-     a "lower cost" that saves a dollar fifty is not a decision anyone needs help with */
-  if(!row.slot.jacket){var cur0=row.p,cu=paCurated(row.slot).map(function(k){return rows.filter(function(r){return r.k===k;})[0];}).filter(Boolean);
-    var cl=cu.filter(function(r){return r.k!==row.k&&r.p<cur0-0.5;}).sort(function(a,b){return b.p-a.p;})[0],
-        ch=cu.filter(function(r){return r.k!==row.k&&r.p>cur0+0.5;}).sort(function(a,b){return a.p-b.p;})[0],o2=[];
-    if(cl)o2.push({r:cl,lab:'Lower cost'});if(ch)o2.push({r:ch,lab:'Step up'});
-    if(o2.length===2)return o2;
-    if(o2.length===1){var byP0=rows.slice().sort(function(a,b){return a.p-b.p;});
-      var other=o2[0].lab==='Lower cost'?byP0.filter(function(r){return r.k!==row.k&&r.p>cur0+0.5;})[0]:byP0.filter(function(r){return r.k!==row.k&&r.p<cur0-0.5;})[0];
-      if(other)o2.push({r:other,lab:o2[0].lab==='Lower cost'?'Step up':'Lower cost'});
-      if(o2.length===2)return o2;}}
-  var byP=rows.slice().sort(function(a,b){return a.p-b.p;}),cur=row.p,out=[];
-  var lo=byP.filter(function(r){return r.k!==row.k&&r.p<cur-0.5;}).pop(),hi=byP.filter(function(r){return r.k!==row.k&&r.p>cur+0.5;})[0];
-  if(row.slot.jacket){lo=rows.filter(function(r){return r.k!==row.k&&r.p<cur-0.5;})[0];hi=rows.filter(function(r){return r.k!==row.k&&r.p>cur+0.5;})[0];}
-  if(lo)out.push({r:lo,lab:'Lower cost'});if(hi)out.push({r:hi,lab:'Step up'});
-  if(out.length<2){var o=rows.filter(function(r){return r.k!==row.k&&out.every(function(a){return a.r.k!==r.k;});})[0];if(o)out.push({r:o,lab:'Also consider'});}
-  return out.slice(0,2);
-}
-/* ONE LOOK ACROSS THE PROGRAM. The neutral rule picks each garment's own neutral, which put a black polo,
-   a heather quarter-zip, a navy jacket and a grey toque in one kit. A program reads as a uniform when it is
-   one colour: black where the style has it, then navy, then the style's usual neutral. Hi-vis keeps its
-   high-visibility colour -- that IS the product. */
-function paColour(k,fit){var it=BYKEY[k];if(!it)return '';if(itemCategory(it)==='hivis')return progColour(k);
-  var cols=(curColsOf(it,fit||'mens')||[]).map(function(c){return c.name||'';});
-  var f=function(re){for(var i=0;i<cols.length;i++)if(re.test(cols[i]))return cols[i];return '';};
-  return f(/^(black|true black|jet black)$/i)||f(/^(navy|true navy|dark navy|navy blue)$/i)||progColour(k);}
-function paThumb(k){var it=BYKEY[k],o=null;try{o=overlayHtml(it,vmOf(k),paColour(k),'front',browseCols(it),browsePlaces(it));}catch(e){}
-  return o?('<img class="g" src="'+o.g+'" alt="" loading="lazy">'+o.lg):'';}
-function paRoleLab(id){return (PA_ROLES.filter(function(r){return r.id===id;})[0]||{}).lab||id;}
-function paSummaryText(P){
-  var L=['Our apparel program — '+(CFG.client||''),PA_TIERS[PA_TI[PA.tier]].lab+' level · '+((JA_COLD.filter(function(c){return c.id===PA.cold;})[0]||{}).lab||'')+(PA.rain===1?' · wet work':''),''];
-  P.groups.forEach(function(g){L.push(paRoleLab(g.role)+' — '+(g.n||'?')+' people');
-    g.rows.forEach(function(r){L.push('  • '+r.slot.lab+' ×'+r.u+' each: '+BYKEY[r.k].name);});});
-  var su=0;try{su=paSetup(P);}catch(e){}
-  L.push('','About '+money0(P.people?P.total/P.people:0)+' per person · '+money0(P.total+su)+' estimated total'+(su>0?(' incl. '+money0(su)+' one-time setup'):'')+' · '+P.styles+' styles');
-  return L.join('\n');
-}
-/* The one-time setup the quote will add (digitizing / screens -- once per design, shared across the kit),
-   computed by the quote's own function against the program's lines, so the advisor, the board and the
-   quote all show the same estimated total. */
-function paSetup(P){var keep=CART,tmp={},v=0;try{paWriteLines(tmp,paLines(P),P.people);CART=tmp;v=cartSetup()||0;}catch(e){v=0;}CART=keep;return v;}
-var PA_OPEN='',PA_ADJ=false,PA_FINE=false;
-/* ===== ONE QUESTION, ONE RECOMMENDATION (Steven, 2026-10-09 11:15: "It is extremely confusing and
-   complicated now for the enterprise buyers.") =========================================================
-   The first version asked four questions up front, each with three to five options, under a hero that
-   already had its own three-step box, an RFQ button and two ways to reach Steven, above a second set of
-   "pre-approved programs" -- four different places to start before anyone had been told what to buy.
-   Gartner's buyer research is blunt about this: B2B buyers are already overwhelmed, and the suppliers
-   that win are the ones that make the decision feel EASY ("prescriptive" help -- fewer, clearer choices),
-   not the ones that hand over more information. The choice-overload work (Iyengar & Lepper, and the
-   meta-analyses since) points the same way: more options and more steps lower the chance anyone picks.
-   So: ONE question in the hero -- who are you outfitting -- and the answer is a recommendation, not a
-   form. Climate, level and quantities have sensible defaults (a Canadian winter, mostly dry, our
-   Standard level) that the buyer can see and change in one tap, but never has to. Headcount is asked
-   once, at the moment it matters -- "Get my quote" -- not before they have seen anything. */
-function paDefaults(){if(!PA.cold)PA.cold=2;if(PA.rain==null||PA.rain<0)PA.rain=0;if(!PA.tier)PA.tier='s';}
-paDefaults();
-/* "3 polos, a quarter-zip layer and a jacket" -- the kit in a sentence a buyer can repeat to their boss */
-function paKitSentence(g){
-  var parts=g.rows.map(function(r){var l=r.slot.lab.toLowerCase().replace(/^class 2 /,'');
-    if(r.u>1)return r.u+' '+l.replace(/(ie|y)$/,function(m){return m==='y'?'ies':'ies';}).replace(/([^s])$/,'$1s');
-    return (/^[aeiou]/.test(l)?'an ':'a ')+l;});
-  if(parts.length<2)return parts.join('');
-  return parts.slice(0,-1).join(', ')+' and '+parts[parts.length-1];
-}
-function paCondLine(){
-  var c=(JA_COLD.filter(function(x){return x.id===PA.cold;})[0]||{}).lab||'',t=(PA_TIERS[PA_TI[PA.tier]]||{}).lab||'';
-  return 'Built for '+(PA.cold===1?'spring and fall':(PA.cold===3?'outdoor work in deep winter':'a Canadian winter'))+', '+(PA.rain===1?'with rain':'mostly dry')+', at our '+t+' level';
-}
-function paQuestionHtml(){
-  var chips=PA_ROLES.filter(function(r){return paRoleOn(r.id);}).map(function(r){var on=PA.g[r.id]!=null;
-    return '<button type="button" class="paqc'+(on?' on':'')+'" data-pa="g" data-v="'+r.id+'" aria-pressed="'+on+'">'+
-      '<span class="paqk" aria-hidden="true">'+(on?'✓':'+')+'</span><span><b>'+esc(r.lab)+'</b><i>'+esc(r.sub)+'</i></span></button>';}).join('');
-  return '<div class="paqh"><b>Who are you outfitting?</b><i>Tap every group — we’ll recommend the gear for each.</i></div><div class="paqcs">'+chips+'</div>';
-}
-function paTileHtml(r){var it=BYKEY[r.k];
-  return '<button type="button" class="patile" data-xpopen="'+esc(r.k)+'" aria-label="See '+esc(it.name)+'">'+
-    '<span class="patimg">'+paThumb(r.k)+(r.u>1?'<span class="patn">×'+r.u+'</span>':'')+'</span>'+
-    '<b>'+esc(r.slot.lab)+'</b><i>'+esc(it.name)+'</i></button>';}
-function paFineHtml(P){
-  return P.groups.map(function(g){
-    return '<div class="pagrp"><div class="pagh"><b>'+esc(paRoleLab(g.role))+'</b><span>'+money0(g.pp)+' per person</span></div>'+
-      g.rows.map(function(r){var it=BYKEY[r.k],id=g.role+'.'+r.slot.id,open=PA_OPEN===id;
-        return '<div class="parow'+(open?' open':'')+'"><button type="button" class="paimg" data-xpopen="'+esc(r.k)+'" aria-label="See '+esc(it.name)+'">'+paThumb(r.k)+'</button>'+
-          '<div class="pab"><span class="paslot">'+esc(r.slot.lab)+'</span><b>'+esc(it.name)+'</b><span class="jabr">'+esc(it.brand||it.sku||'')+'</span>'+
-            '<ul class="jaw">'+paWhy(it,r.slot,g.role).map(function(x){return '<li>'+esc(x)+'</li>';}).join('')+'</ul></div>'+
-          '<div class="pau"><span>Each person</span><div class="pastep"><button type="button" data-pau="'+id+'|-1" aria-label="Fewer">−</button><b>'+r.u+'</b><button type="button" data-pau="'+id+'|1" aria-label="More">+</button></div></div>'+
-          '<div class="pap"><b>'+money(r.unit)+'</b><i>/pc, logo included</i><button type="button" class="pachg" data-pachg="'+id+'">'+(open?'Close':'Swap')+'</button></div>'+
-          (open?('<div class="paalts">'+paAlts(r).map(function(a){var ai=BYKEY[a.r.k];
-            return '<div class="paalt"><span class="jalab">'+esc(a.lab)+'</span><button type="button" class="paimg sm" data-xpopen="'+esc(a.r.k)+'">'+paThumb(a.r.k)+'</button>'+
-              '<div><b>'+esc(ai.name)+'</b><span class="jabr">'+esc(ai.brand||ai.sku||'')+' · '+money(a.r.p)+'/pc</span>'+
-              '<div class="jabtns"><button type="button" class="jasw" data-paswap="'+id+'|'+esc(a.r.k)+'">Use this instead</button></div></div></div>';}).join('')+
-            '<button type="button" class="jalink" data-pabrowse="'+esc(id)+'">See every option →</button></div>'):'')+
-        '</div>';}).join('')+'</div>';}).join('');
-}
-function renderProgramAdvisor(){
-  paDefaults();
-  var q=document.getElementById('paq');if(q){q.innerHTML=paQuestionHtml();paWire(q);}
-  var el=document.getElementById('padv');if(!el)return;
-  var groups=paGroups();
-  if(!groups.length){el.innerHTML='';return;}
-  var P=paProgram(),tc=PA_ADJ?paTierCosts():{};
-  var adj=PA_ADJ?('<div class="paadj">'+
-      '<div class="paadjr"><b>How cold does it get?</b><div class="jachs">'+jaChips('cold',JA_COLD,PA.cold,false).replace(/data-ja=/g,'data-pa=')+'</div></div>'+
-      '<div class="paadjr"><b>How wet?</b><div class="jachs">'+jaChips('rain',JA_RAIN,PA.rain,false).replace(/data-ja=/g,'data-pa=')+'</div></div>'+
-      '<div class="paadjr"><b>Level</b><div class="jachs">'+PA_TIERS.map(function(t){var on=PA.tier===t.id;
-        return '<button type="button" class="jach patier'+(on?' on':'')+'" data-pa="tier" data-v="'+t.id+'" aria-pressed="'+on+'"><b>'+esc(t.lab)+(tc[t.id]?('<span class="patc">≈ '+money0(tc[t.id])+' /person</span>'):'')+'</b><i>'+esc(t.sub)+'</i></button>';}).join('')+'</div></div></div>'):'';
-  el.innerHTML='<section class="padv" aria-label="Our recommendation"><div class="w"><div class="parec">'+
-    '<div class="parech"><div><span class="xpeyb">Our recommendation for '+esc(CFG.client||'your team')+'</span>'+
-      '<h2 class="xph">'+(P.groups.length>1?(P.groups.length+' kits, one for each group'):'Your team’s kit')+'</h2>'+
-      '<p class="pacond">'+esc(paCondLine())+' · <button type="button" class="jalink" id="paAdjT">'+(PA_ADJ?'Done':'Change')+'</button></p></div></div>'+
-    adj+
-    '<div class="pacards">'+P.groups.map(function(g){
-      return '<div class="pacard"><div class="pach"><div><b>'+esc(paRoleLab(g.role))+'</b><i>Each person gets '+esc(paKitSentence(g))+'.</i></div>'+
-        '<div class="papp"><b>'+money0(g.pp)+'</b><i>per person,<br>logo included</i></div></div>'+
-        '<div class="patiles">'+g.rows.map(paTileHtml).join('')+'</div></div>';}).join('')+'</div>'+
-    '<div class="pacta"><button type="button" class="jaall pago" id="paGo">Get my quote →</button>'+
-      '<span class="pactat">Tell us how many people and we’ll size and price it — no payment, no obligation.</span>'+
-      '<span class="pactal"><button type="button" class="jalink" id="paAsk">Or have Steven build it for you</button></span></div>'+
-    '<div class="pamore"><button type="button" class="jalink" id="paFineT">'+(PA_FINE?'Hide the details':'Swap a piece or change quantities')+'</button>'+
-      '<details class="pawhy"><summary>How we chose these</summary><ul>'+
-        '<li>One kit per role, in one colour, so everyone in a group matches and new hires reorder the same styles.</li>'+
-        '<li>Crews who sweat get five wicking shirts each, enough for a work week between washes. Office staff get three polos.</li>'+
-        '<li>A layer and a jacket matched to how cold and wet it gets.</li>'+
-        (groups.indexOf('site')>=0?'<li>Hi-vis is CSA Z96 Class 2 for anyone near traffic.</li>':'')+
-        '<li>Men’s and women’s cuts where they exist. Your logo is confirmed on a free proof before anything is made.</li></ul></details></div>'+
-    (PA_FINE?('<div class="pafine">'+paFineHtml(P)+'</div>'):'')+
-  '</div></div></section>';
-  paWire(el);
-}
-function paWire(el){
-  var re=function(){paSave();renderProgramAdvisor();};
-  el.querySelectorAll('[data-pa]').forEach(function(b){b.addEventListener('click',function(){
-    var n=b.dataset.pa,v=b.dataset.v,first=!paGroups().length;
-    if(n==='g'){if(PA.g[v]!=null)delete PA.g[v];else PA.g[v]=PA.g[v]||0;}
-    else if(n==='cold')PA.cold=+v;else if(n==='rain')PA.rain=+v;else PA.tier=v;
-    if(n!=='g')PA.pick={};
-    jdpTrack('pa_q',{q:n,v:v});re();
-    /* the first tap is the moment the answer appears -- bring it into view */
-    if(n==='g'&&first&&paGroups().length){var r=document.getElementById('padv');if(r)setTimeout(function(){r.scrollIntoView({behavior:'smooth',block:'start'});},60);}});});
-  el.querySelectorAll('[data-pau]').forEach(function(b){b.addEventListener('click',function(){var p=b.dataset.pau.split('|'),id=p[0],d=+p[1];
-    var role=id.split('.')[0],slot=(paSlotsFor(role).concat([{id:'vest',u:1}])).filter(function(s){return role+'.'+s.id===id;})[0]||{u:1};
-    var cur=paUnits(role,slot);PA.u[id]=Math.max(1,Math.min(12,cur+d));jdpTrack('pa_units',{s:id,v:PA.u[id]});re();});});
-  el.querySelectorAll('[data-pachg]').forEach(function(b){b.addEventListener('click',function(){PA_OPEN=(PA_OPEN===b.dataset.pachg)?'':b.dataset.pachg;renderProgramAdvisor();});});
-  el.querySelectorAll('[data-paswap]').forEach(function(b){b.addEventListener('click',function(){var p=b.dataset.paswap.split('|');PA.pick[p[0]]=p[1];PA_OPEN='';jdpTrack('pa_swap',{s:p[0],k:p[1]});re();});});
-  el.querySelectorAll('[data-pabrowse]').forEach(function(b){b.addEventListener('click',function(){
-    var id=b.dataset.pabrowse,role=id.split('.')[0],slot=paSlotsFor(role).filter(function(s){return role+'.'+s.id===id;})[0];
-    var c=slot&&slot.pool&&slot.pool[0];if(slot&&slot.jacket)c=role==='site'?['hivis','Hi-Vis Jackets']:['outerwear','all'];
-    if(c){try{setCat(c[0],true);if(c[1]!=='all')setSub(c[1]);}catch(e){}}});});
-  el.querySelectorAll('[data-xpopen]').forEach(function(b){b.addEventListener('click',function(){jdpTrack('xp_open',{k:b.dataset.xpopen,src:'pa'});openSheet(b.dataset.xpopen);});});
-  var t=el.querySelector('#paAdjT');if(t)t.addEventListener('click',function(){PA_ADJ=!PA_ADJ;jdpTrack('pa_q',{q:'adjust',v:PA_ADJ?1:0});renderProgramAdvisor();});
-  var f=el.querySelector('#paFineT');if(f)f.addEventListener('click',function(){PA_FINE=!PA_FINE;jdpTrack('pa_q',{q:'fine',v:PA_FINE?1:0});renderProgramAdvisor();});
-  var go=el.querySelector('#paGo');if(go)go.addEventListener('click',function(){paQuoteModal();});
-  var ask=el.querySelector('#paAsk');if(ask)ask.addEventListener('click',paAsk);
-}
-function paAsk(){var P=paGroups().length?paProgram():null;jdpTrack('pa_ask',{});openSourcing('');
-  var nt=document.getElementById('coNote');
-  if(nt&&!nt.value)nt.value=P?(paSummaryText(P)+'\n\nPlease build this for us.\nHow many people in each group: \nNeeded by: '):'Please build an apparel program for our team.\nGroups and how many people in each: \nNeeded by: ';}
-/* HEADCOUNT, ASKED ONCE, WHEN IT MATTERS. One small sheet: a number per group, the live total, one button. */
-function paQuoteModal(){
-  var groups=paGroups();if(!groups.length)return;
-  jdpTrack('pa_open',{src:'quote_modal'});
-  var el=document.createElement('div');el.className='xoff';el.id='paqm';
-  el.innerHTML='<div class="xbox paqbox" role="dialog" aria-modal="true" aria-labelledby="paqmh"><button type="button" class="xx" aria-label="Close">✕</button>'+
-    '<h3 id="paqmh">How many people in each group?</h3><p>We’ll size it from a standard size curve and price it. You can change anything on the quote.</p>'+
-    '<div class="paqrows">'+groups.map(function(r){return '<label class="paqr"><span>'+esc(paRoleLab(r))+'</span><input type="number" inputmode="numeric" min="1" max="5000" data-paqn="'+r+'" value="'+(PA.g[r]||'')+'" placeholder="0"></label>';}).join('')+'</div>'+
-    '<div class="paqtot" id="paqTot"></div>'+
-    '<button type="button" class="jaall paqgo" id="paqGo">See my quote →</button>'+
-    '<div class="paqfine">No payment, no obligation. Confirmed in writing by a real person.</div></div>';
-  document.body.appendChild(el);requestAnimationFrame(function(){el.classList.add('on');});
-  var close=function(){el.classList.remove('on');setTimeout(function(){if(el.parentNode)el.parentNode.removeChild(el);},250);};
-  el.querySelector('.xx').addEventListener('click',close);el.addEventListener('click',function(e){if(e.target===el)close();});
-  var tot=el.querySelector('#paqTot'),go=el.querySelector('#paqGo');
-  var upd=function(){var ok=true;el.querySelectorAll('[data-paqn]').forEach(function(i){var v=Math.max(0,Math.min(5000,parseInt(i.value,10)||0));PA.g[i.dataset.paqn]=v;if(!v)ok=false;});
-    paSave();go.disabled=!ok;
-    if(!ok){tot.innerHTML='<i>Add a number for each group.</i>';return;}
-    var P=paProgram(),su=paSetup(P);
-    tot.innerHTML='<b>'+P.people+' people · about '+money0(P.total/P.people)+' per person</b><i>'+money0(P.total+su)+' estimated total'+(su>0?(', including '+money0(su)+' one-time setup'):'')+'</i>'+
-      (P.short.length?('<i>Includes rounding '+P.short.length+' style'+(P.short.length>1?'s':'')+' up to the '+P.M+'-piece minimum.</i>'):'');};
-  el.querySelectorAll('[data-paqn]').forEach(function(i){i.addEventListener('input',upd);i.addEventListener('keydown',function(e){if(e.key==='Enter'&&!go.disabled){e.preventDefault();go.click();}});});
-  go.addEventListener('click',function(){if(go.disabled)return;close();paToQuote();try{renderProgramAdvisor();}catch(e){}});
-  upd();setTimeout(function(){var i=el.querySelector('[data-paqn]');if(i)try{i.focus();}catch(e){}},300);
-}
-/* The program as cart lines: one line per style (two when it has a women's cut and the group is office,
-   in-and-out or new hires -- an even split is a guess, which is why every size box stays editable). */
-function paLines(P){
-  var L={};
-  P.groups.forEach(function(g){g.rows.forEach(function(r){var it=BYKEY[r.k];if(!it)return;
-    var q=Math.max(0,g.n*r.u),split=hasLadies(it)&&/office|mixed|welcome/.test(g.role);
-    var x=L[r.k]||(L[r.k]={m:0,w:0,why:[]});
-    if(split){var w=Math.floor(q/2);x.w+=w;x.m+=q-w;}else x.m+=q;
-    x.why.push(paRoleLab(g.role)+': '+r.slot.lab.toLowerCase()+' ×'+r.u+' each');});});
-  var M=P.M;
-  Object.keys(L).forEach(function(k){var x=L[k],t=x.m+x.w;if(t<M){var add=M-t;x.m+=add;}});
-  return L;
-}
-function paWriteLines(dest,L,people){
-  Object.keys(L).forEach(function(k){var it=BYKEY[k],x=L[k],col=paColour(k),dec=recCartDecos(k),why=x.why.join(' · ');
-    if(x.m>0){var e={qty:x.m,colour:col,decos:dec,why:why};if(people)e.paf=x.m/people;if(!oneSize(it)){e.sizes=spreadSizes(x.m,'mens',it);e.qty=sizeSum(e.sizes);}dest[k]=e;}
-    else delete dest[k];
-    if(x.w>0){var wc=(curColsOf(it,'womens')||[]).map(function(c){return c.name;}),wcol=wc.indexOf(col)>=0?col:(paColour(k,'womens')||wc.filter(progPlain)[0]||wc[0]||col);
-      var f={qty:x.w,colour:wcol,decos:dec.slice?dec.slice():dec,fit:'womens',why:why};if(people)f.paf=x.w/people;if(!oneSize(it)){f.sizes=spreadSizes(x.w,'womens',it);f.qty=sizeSum(f.sizes);}dest[k+'#w']=f;}
-    else delete dest[k+'#w'];});
-}
-function paToQuote(){
-  if(!paGroups().length||!PA.tier)return;
-  var P=paProgram();
-  if(P.groups.some(function(g){return !g.n;})){toast('Add how many people are in each group first');
-    var i=document.querySelector('.pahc input[value=""],.pahc input:not([value])');if(i)try{i.focus();}catch(e){}return;}
-  toQuoteList();paWriteLines(CART,paLines(P),P.people);
-  try{setHC(P.people);}catch(e){}
-  saveCart();refreshCartUI();try{syncBoardIfOpen();}catch(e){}
-  jdpTrack('pa_add',{n:P.styles,p:P.people,t:Math.round(P.total)});
-  toast('Your program is on the quote · '+P.styles+' styles for '+P.people+' people');
-  openQuote('advisor');
-}
-/* every other way in -- the hero, the top bar, an aisle -- lands here */
-function goAdvisor(src){
-  jdpTrack('pa_open',{src:src||''});
-  try{if(typeof giftViewOn==='function'&&giftViewOn())setGiftView(false);}catch(e){}
-  try{closeQuote();}catch(e){}
-  /* no groups yet: take them to the one question; otherwise to their recommendation */
-  var el=document.getElementById(paGroups().length?'padv':'paq');if(!el)el=document.getElementById('padv');
-  if(el){el.scrollIntoView({behavior:'smooth',block:'center'});el.classList.remove('paflash');void el.offsetWidth;el.classList.add('paflash');}
-}
+/* ---- the advisors, one per major apparel category ------------------------------------------------- */
+var CA_WHO_WEAR=[
+  {id:'office',lab:'Office & client-facing',sub:'Sales, managers, front desk'},
+  {id:'mixed',lab:'In and out all day',sub:'Warehouse, drivers, techs'},
+  {id:'outdoor',lab:'Outdoor crews',sub:'Yard, construction, grounds'},
+  {id:'events',lab:'Events & volunteers',sub:'Trade shows, community days'}];
+var CADV=[];
+/* JACKETS -- the jacket advisor (2026-10-09) on the shared engine. Research: Brandsauce, Quality Imprint,
+   Arklavo jacket-program guides -- start from the job; one core jacket per role; the deciding facts are
+   warmth, water-repellent vs waterproof, men's and women's cuts, extended sizes and price per person. */
+CADV.push({id:'jackets',one:'jacket',label:'Jacket advisor',noun:'jackets',noun2:'jackets',
+  h:'Not sure which jacket? Start with the job.',
+  sub:'Three quick questions, then one recommended jacket for each group you’re outfitting.',
+  overWhy:'how cold and wet it gets',budQ:'Budget per jacket',
+  applies:function(c,s){return c==='outerwear'||(c==='ruggedwear'&&(s==='all'||/Insulated|Canvas|Parkas|Shells/.test(s)))||(c==='carhartt'&&/Jackets/.test(s));},
+  preset:function(A,c){if(!(A.who&&A.who.length)&&c==='ruggedwear')A.who=['outdoor'];},
+  who:true,
+  qs:[{id:'who',q:'Who are you outfitting?',hint:'Pick every group that needs a jacket',multi:true,wide:true,opts:JA_ROLES.filter(function(r){return r.id!=='site';})},
+      {id:'cold',q:'How cold does it get?',opts:JA_COLD},
+      {id:'rain',q:'How wet?',opts:JA_RAIN}],
+  pool:function(){return jaPool().filter(function(k){return !jaHivis(BYKEY[k]);});},
+  score:function(it,A,role,p){return jaScore(it,role,+A.cold||2,+A.rain||0,'x',p);},
+  why:function(it,A,role){return jaWhy(it,role);},
+  tips:function(){return ['Water-repellent sheds light rain; waterproof keeps out sustained rain.','If they’ll wear a hoodie underneath, check the size chart before you set sizes.','Need hi-vis jackets for site crews? The Hi-Vis & Safety aisle has its own advisor.'];}
+});
+/* POLOS & SHIRTS. Research (Swag.com, Custom2Wear, API Corporate/Armada 2026 fabric guide, 4imprint polo FAQ):
+   the deciding questions are who wears it and where, how physical the work is, and the look -- polo, tee or
+   button-up. Performance polyester for anyone who sweats; cotton or cotton-blend piqué reads polished in the
+   office (but shrinks if washed hot); snag-resistant for warehouse and tool belts; heavier tees last longer;
+   women's cuts or the shirts end up in a drawer; button-ups are woven, so embroidery only. */
+CADV.push({id:'tops',one:'shirt',label:'Shirt advisor',noun:'shirts',noun2:'styles',
+  h:'Polo, tee or button-up? Start with who wears it.',
+  sub:'Three quick questions, then one recommended shirt for each group, with the reasons it fits.',
+  overWhy:'this look for these groups',
+  applies:function(c,s){return c==='tops'||(c==='carhartt'&&/T-Shirts|^Shirts/.test(s));},
+  preset:function(A,c,s){if(!A.look){if(/Tees|T-Shirts/.test(s||''))A.look='tee';else if(/Shirts/.test(s||''))A.look='woven';else if(/Polos/.test(s||''))A.look='polo';}},
+  who:true,
+  qs:[{id:'who',q:'Who wears it?',hint:'Pick every group',multi:true,wide:true,opts:CA_WHO_WEAR},
+      {id:'look',q:'What look?',opts:[{id:'polo',lab:'Polo',sub:'Collared, the uniform default'},{id:'tee',lab:'T-shirt',sub:'Casual, events, crews'},{id:'woven',lab:'Button-up',sub:'Woven, most formal'}]}],
+  pool:function(A){var L=A.look||'polo';
+    return caKeys(L==='tee'?[['tops','Tees'],['carhartt','T-Shirts']]:(L==='woven'?[['tops','Shirts'],['carhartt','Shirts']]:[['tops','Polos']]));},
+  score:function(it,A,role,p){
+    var L=A.look||'polo',n=(it.name||'').toLowerCase(),s=0,perf=caPerf(it),cot=caCotton(it),ind=/industrial|work shirt|force|rugged/i.test(n)||/Red Kap|Carhartt/i.test(caBrand(it));
+    if(/long[- ]sleeve|\bls\b/.test(n))s-=8;                    // short sleeves by default; long sleeves are a choice, not a surprise
+    if(role==='office'){
+      if(L==='woven'&&/industrial/i.test(n))return null;          // a laundry-service shirt is not front-desk wear
+      if(/carhartt/i.test(caBrand(it)))s-=14;
+      if(hasLadies(it))s+=16;
+      if(L==='polo'&&/piqu|pique|knit/i.test(n+' '+caFab(it)))s+=10;
+      if(caLuxe(it)&&!/carhartt/i.test(caBrand(it)))s+=6;
+      if(perf)s+=4;
+    }else if(role==='mixed'){
+      if(perf)s+=20;if(caFin(it,/snag/i))s+=12;if(hasLadies(it))s+=10;if(/[4-6]XL/.test(jaMaxSize(it)))s+=6;
+      if(L==='woven'&&ind)s+=15;
+    }else if(role==='outdoor'){
+      if(L!=='woven'){if(perf)s+=25;else if(cot>=90)s-=15;}
+      if(caFin(it,/UPF|UV/i))s+=10;if(ind)s+=8;if(/[4-6]XL/.test(jaMaxSize(it)))s+=6;
+      if(/Cutter & Buck|Nike|adidas/i.test(caBrand(it)))s-=10;
+    }else{ /* events: a crowd, often one day -- price and colour range lead */
+      s+=Math.max(0,24-p/2);var nc=(it.cols||[]).length;if(nc>=10)s+=8;if(hasLadies(it))s+=6;if(caLuxe(it))s-=10;
+    }
+    return s;},
+  why:function(it,A,role){var out=[],mx=caMixTxt(it),w=caWeightTxt(it);
+    if(mx)out.push(mx+(w?(', '+w):''));
+    if(caPerf(it))out.push('Wicks sweat and dries fast');else if(caCotton(it)>=90)out.push('Soft cotton — wash cool to avoid shrinking');
+    if(caFin(it,/snag/i))out.push('Snag-resistant — survives tool belts and shelving');
+    else if(caFin(it,/UPF|UV/i))out.push('UPF sun protection for outdoor days');
+    else if(/industrial/i.test(it.name))out.push('Built for industrial laundering');
+    out.push(caCutsTxt(it));
+    var nc=(it.cols||[]).length;if(nc>1)out.push(nc+' colours');
+    return out.slice(0,4);},
+  tips:function(A){var t=[];
+    if((A.look||'polo')==='polo')t.push('Polos are embroidered, left chest. Very thin performance fabric can pucker under a dense logo, so we check the stitch count on your proof.');
+    if(A.look==='tee')t.push('Tees take a screen print. Heavier tees (180 gsm and up) hold their shape longer when worn every day.');
+    if(A.look==='woven')t.push('Button-ups are woven, so the logo is embroidered — no prints.');
+    t.push('Most daily-wear programs plan three or four shirts per person; long-sleeve versions exist for most styles.');
+    return t;}
+});
+/* HI-VIS & SAFETY. Research (CCOHS OSH Answers on CSA Z96; CSA Z96:22 scope; WorkSafeBC / Ontario Reg. 213/91 /
+   Alberta OHS Code Part 18 referencing Z96; breakaway-vest guidance): start from the hazard. Class 1 is for
+   low-speed, off-road areas; Class 2 is the practical minimum near moving traffic or vehicles; Class 3 (flaggers,
+   highway, night) adds arm AND leg bands, so it needs sleeves -- a vest alone can never be Class 3. Tear-away
+   (5-point breakaway) wherever a vest could snag. Polyester holds its fluorescent colour; cotton hi-vis fades out
+   of compliance with washing. Hi-vis has to be the OUTER layer. Logos go on the background panel, never over
+   the retroreflective tape. */
+var CA_HV_JOB=[
+  {id:'road',lab:'Road & traffic',sub:'Roadside, flaggers, traffic control'},
+  {id:'site',lab:'Construction site',sub:'Trades and site crews'},
+  {id:'yard',lab:'Warehouse & yard',sub:'Forklifts, loading docks'},
+  {id:'night',lab:'Night & low light',sub:'Utilities, dawn and dusk shifts'},
+  {id:'visit',lab:'Visitors & occasional',sub:'Guests, inspectors, events'}];
+CADV.push({id:'hivis',one:'piece',label:'Hi-vis advisor',noun:'hi-vis gear',noun2:'pieces',
+  h:'Which hi-vis do your crews need? Start with the hazard.',
+  sub:'Tell us where they work and what you’re buying. We’ll recommend a compliant piece for each crew.',
+  overWhy:'the class and conditions these crews need',
+  applies:function(c,s){return c==='hivis'&&!/Hard Hats/.test(s)||(c==='vests'&&/Hi-Vis/.test(s));},
+  preset:function(A,c,s){if(!A.kind){if(/Vests/.test(s))A.kind='vest';else if(/T-Shirts/.test(s))A.kind='tee';else if(/Sweatshirts/.test(s))A.kind='layer';else if(/Jackets|Parkas|Rain/.test(s))A.kind='jacket';}},
+  who:true,
+  qs:[{id:'who',q:'Where do they work?',hint:'Pick every crew',multi:true,wide:true,opts:CA_HV_JOB},
+      {id:'kind',q:'What are you buying?',opts:[{id:'vest',lab:'Safety vests',sub:'Over their own clothes'},{id:'tee',lab:'Hi-vis shirts',sub:'Worn as the top layer'},{id:'layer',lab:'Hoodies & sweatshirts',sub:'Warmth and visibility'},{id:'jacket',lab:'Jackets & parkas',sub:'Cold and wet weather'}]},
+      {id:'snag',q:'Near machinery or anything a vest could catch on?',when:function(A){return A.kind==='vest';},opts:[{id:'1',lab:'Yes',sub:'Conveyors, equipment, fencing'},{id:'0',lab:'No'}]},
+      {id:'season',q:'What weather?',when:function(A){return A.kind&&A.kind!=='vest';},opts:[{id:'hot',lab:'Hot summer'},{id:'mild',lab:'Spring & fall'},{id:'cold',lab:'Cold winter'},{id:'wet',lab:'Rain is part of the job'}]}],
+  pool:function(A){var K=A.kind||'vest';
+    if(K==='vest')return caKeys([['hivis','Safety Vests']]);
+    if(K==='tee')return caKeys([['hivis','Hi-Vis T-Shirts']]);
+    if(K==='layer')return caKeys([['hivis','Sweatshirts & Hoodies']]).filter(function(k){return !/jacket|bomber|softshell/i.test(BYKEY[k].name);});
+    return caKeys([['hivis','Hi-Vis Jackets'],['hivis','Winter Parkas'],['hivis','Rain & Gear'],['hivis','Sweatshirts & Hoodies']]).filter(function(k){var n=BYKEY[k].name;return /jacket|parka|bomber|softshell|coat/i.test(n)&&!/pant|overall|bib/i.test(n);});},
+  score:function(it,A,role,p){
+    var K=A.kind||'vest',n=(it.name||'').toLowerCase(),c=caClass(it),s=0,cot=caCotton(it)>=60||/cotton/i.test(n),lng=/long[- ]sleeve/.test(n);
+    var strict=(role==='road'||role==='site'||role==='night');
+    if(c===1&&strict)return null;                                // Class 2 is the minimum near traffic and vehicles
+    s+=c>=2?24:(c===1?0:6);                                      // a stated class beats "meets CSA Z96"
+    if(K==='vest'){var tear=/tear-?away|breakaway/.test(n);
+      if(A.snag==='1'&&!tear)return null;
+      if(tear)s+=10;if(/pocket|surveyor/.test(n)&&(role==='site'||role==='road'))s+=6;if(/mesh/.test(n)&&role!=='night')s+=4;
+      if(role==='visit')s+=Math.max(0,20-p);}
+    else{
+      if(cot)s-=10;else s+=10;                                   // polyester holds its fluorescent colour
+      if(K==='tee'){var wantLong=(role==='night'||role==='road'||A.season==='cold');if(wantLong&&lng)s+=14;if(!wantLong&&lng)s-=8;if(A.season==='hot'&&!lng)s+=6;}
+      if(K==='jacket'){var cold=A.season==='cold'?3:(A.season==='hot'||A.season==='mild'||A.season==='wet'?1:2);
+        var js=jaScore(it,'site',cold,A.season==='wet'?1:0,'x',p);if(js==null)return null;s+=js;}
+      if(K==='layer'&&A.season==='hot'&&/hooded t-shirt/i.test(n))s+=10;
+      if(K==='layer'&&A.season==='cold'&&/sweatshirt|hoodie/i.test(n))s+=8;
+    }
+    if(/[4-6]XL/.test(jaMaxSize(it)))s+=4;
+    return s;},
+  why:function(it,A,role){var out=[],c=caClass(it),n=it.name||'';
+    out.push(c?('CSA Z96 Class '+c+(c>=2?' — the minimum near moving traffic':' — low-speed areas only')):'Meets CSA Z96 — check the class against your site rules');
+    if(/tear-?away|breakaway/i.test(n))out.push('5-point tear-away — breaks free if it snags');
+    else if(/zipper/i.test(n))out.push('Zip front');
+    var pk=/(\d+)\s*pockets?/i.exec(n);if(pk)out.push(pk[1]+' pockets');else if(/surveyor/i.test(n))out.push('Surveyor pockets for tools and tablets');
+    if(A.kind==='jacket'){var j=jaWhy(it,'site').filter(function(x){return !/CSA hi-vis/.test(x);});out=out.concat(j.slice(0,2));}
+    else if(/cotton/i.test(n)||caCotton(it)>=60)out.push('Cotton: soft, but hi-vis colour fades faster — replace sooner');
+    else if(A.kind!=='vest')out.push('Polyester holds its fluorescent colour wash after wash');
+    if(/long[- ]sleeve/i.test(n))out.push('Long sleeves for arm visibility and sun cover');
+    var mx=jaMaxSize(it);if(mx&&out.length<4)out.push('Sizes up to '+mx);
+    return out.slice(0,4);},
+  tips:function(A){var t=['Hi-vis must be the outer layer — a vest under a jacket doesn’t count.',
+      'Flaggers, highway and night work call for CSA Class 3: sleeves AND leg bands. Pair a Class 2 long-sleeve or jacket with hi-vis pants, or ask Steven to spec it.',
+      'Your logo goes on the background panel, clear of the reflective tape — we never print over it.'];
+    if(A.kind!=='vest')t.push('Cotton hi-vis fades out of compliance sooner than polyester; plan to replace it more often.');
+    return t;}
+});
+/* FLEECE & SWEATERS. Research (Swag.com corporate hoodie guide, SanMar Canada fleece range, Cutter & Buck
+   buyer's guide): who wears it decides the style -- the quarter-zip is the corporate default (layers over a
+   polo, embroiders cleanly left chest), hoodies get worn off-shift, crewnecks read cleaner than a hoodie;
+   weight decides warmth -- light (under ~270 gsm) layers under a jacket, midweight (~280-320) is the everyday
+   sweet spot, heavyweight (400+) is warm on its own and "feels expensive"; a gift leans on brand and weight;
+   embroidery on fleece; women's cuts or it isn't worn. */
+function caStyle(it){var n=(it.name||'').toLowerCase();
+  if(/1\/4|quarter|half-zip|1\/2|¼|mock neck/.test(n))return 'qz';
+  if(/full-zip|full zip|fleece jacket|zip hood|shacket|jacket/.test(n))return 'fz';
+  if(/hood/.test(n))return 'hood';
+  if(/crew|sweatshirt|sweater/.test(n))return 'crew';
+  return caInCats(it,[['layers','Fleece']])?'fz':'crew';}
+function caWarmBand(it){var g=caGsm(it);if(!g)return 0;return g<270?1:(g<380?2:3);}
+var CA_WHO_LAYER=[
+  {id:'office',lab:'Office & client-facing',sub:'Sales, managers, front desk'},
+  {id:'mixed',lab:'In and out all day',sub:'Warehouse, drivers, techs'},
+  {id:'outdoor',lab:'Outdoor crews',sub:'Yard, construction, grounds'},
+  {id:'gift',lab:'A gift or welcome kit',sub:'Something they’ll keep'}];
+CADV.push({id:'layers',one:'layer',label:'Fleece & sweater advisor',noun:'fleece and sweaters',noun2:'layers',
+  h:'Quarter-zip, hoodie or fleece? Start with who wears it.',
+  sub:'Three quick questions, then one recommended layer for each group, with the reasons it fits.',
+  overWhy:'this style and warmth',
+  applies:function(c,s){return c==='layers'||(c==='carhartt'&&/Sweatshirts/.test(s));},
+  who:true,
+  qs:[{id:'who',q:'Who wears it?',hint:'Pick every group',multi:true,wide:true,opts:CA_WHO_LAYER},
+      {id:'style',q:'Which style?',opts:[{id:'auto',lab:'Best for each group',sub:'Let us choose'},{id:'qz',lab:'Quarter-zip',sub:'The polished default'},{id:'hood',lab:'Pullover hoodie',sub:'Casual, everyday'},{id:'fz',lab:'Full-zip',sub:'Hoodie or fleece jacket'},{id:'crew',lab:'Crewneck',sub:'Cleaner than a hoodie'}]},
+      {id:'warm',q:'How warm?',opts:[{id:'1',lab:'Light layer',sub:'Under a jacket'},{id:'2',lab:'Midweight',sub:'The everyday weight'},{id:'3',lab:'Heavyweight',sub:'Warm on its own'}]}],
+  pool:function(){var ks=caKeys([['layers','Quarter & Half-Zips'],['layers','Hoodies'],['layers','Crewnecks & Sweatshirts'],['layers','Fleece'],['carhartt','Sweatshirts & Hoodies']]);
+    return ks.filter(function(k){return !jaHivis(BYKEY[k]);});},
+  score:function(it,A,role,p){
+    var st=caStyle(it),want=A.style||'auto',s=0,b=caWarmBand(it),w=+A.warm||2;
+    if(want!=='auto'){if(st!==want)return null;}
+    else{var best={office:['qz','crew','fz'],mixed:['fz','hood','qz'],outdoor:['hood','fz','crew'],gift:['qz','fz','hood']}[role]||['qz'];
+      var i=best.indexOf(st);if(i<0)return null;s+=[22,12,4][i];}
+    if(b)s+=(b===w)?18:(Math.abs(b-w)===1?4:-10);else if(st==='fz'&&w>=2)s+=6;
+    if(role==='office'){if(hasLadies(it))s+=16;if(/carhartt/i.test(caBrand(it)))s-=16;if(caLuxe(it))s+=6;if(caPoly(it)>=60)s+=6;}
+    else if(role==='mixed'){if(hasLadies(it))s+=8;if(caFin(it,/water-repellent/i))s+=8;if(caPoly(it)>=30)s+=4;}
+    else if(role==='outdoor'){if(b===3)s+=12;if(caFin(it,/water-repellent/i)||/rain defender|repel/i.test(it.name))s+=12;if(/carhartt/i.test(caBrand(it)))s+=8;if(/Cutter & Buck|Nike/i.test(caBrand(it)))s-=10;}
+    else{if(caLuxe(it))s+=20;if(b===3)s+=8;if(hasLadies(it))s+=6;}
+    return s;},
+  why:function(it,A,role){var out=[],g=caGsm(it),mx=caMixTxt(it),st=caStyle(it);
+    var sl={qz:'Quarter-zip — layers over a polo and under a jacket',fz:'Full zip — easy on and off over anything',hood:'Pullover hoodie — the one people wear off-shift',crew:'Crewneck — cleaner than a hoodie'}[st];
+    if(sl)out.push(sl);
+    if(mx||g)out.push((mx||'')+(g?((mx?', ':'')+g+' gsm'+(g>=380?' heavyweight — warm on its own':(g<270?' — a light layer':' midweight — the everyday weight'))):''));
+    if(caFin(it,/water-repellent/i)||/rain defender|repel/i.test(it.name))out.push('Water-repellent for wet days');
+    out.push(caCutsTxt(it));
+    return out.slice(0,4);},
+  tips:function(A){return ['Fleece is embroidered, left chest — we check fine detail on your proof.',
+    'Wearing it over another layer? Size up, or pick a relaxed fit.',
+    'Hoodies get worn off-shift and on weekends, which is exactly when your logo is seen most.'];}
+});
+/* VESTS. Research (Custommark vest guide, Cutter & Buck buyer's guide, Swag.com): where it's worn decides
+   the vest -- indoors all day wants fleece or softshell (a puffer is too warm on a show floor); over a hoodie
+   outside wants softshell or quilted (fleece has no wind resistance); on its own in the cold wants real
+   insulation; a gift reads premium as quilted/puffer, a uniform as softshell; the logo on a quilted vest goes
+   on the flat chest panel, never across a baffle seam; women's cuts show more on a vest than on a tee. */
+function caVestType(it){var n=(it.name||'').toLowerCase(),f=caFab(it);
+  if(/canvas|duck|sherpa/.test(n))return 'canvas';
+  if(/fleece/.test(n)&&!/lined/.test(n))return 'fleece';
+  if(/soft ?shell/.test(n+' '+f))return 'soft';
+  return 'quilt';}
+CADV.push({id:'vests',one:'vest',label:'Vest advisor',noun:'vests',noun2:'vests',
+  h:'Which vest? Start with where it’s worn.',
+  sub:'Three quick questions, then one recommended vest for each group, with the reasons it fits.',
+  overWhy:'where these vests will be worn',
+  applies:function(c,s){return (c==='vests'&&!/Hi-Vis/.test(s))||(c==='ruggedwear'&&/Vests/.test(s))||(c==='carhartt'&&/Vests/.test(s));},
+  who:true,
+  qs:[{id:'who',q:'Who wears it?',hint:'Pick every group',multi:true,wide:true,opts:CA_WHO_LAYER},
+      {id:'worn',q:'Where is it worn?',opts:[{id:'in',lab:'Indoors all day',sub:'Office, shop, show floor'},{id:'over',lab:'Over a hoodie, outside',sub:'Wind and light rain'},{id:'cold',lab:'On its own in the cold',sub:'Real insulation'}]}],
+  pool:function(){return caKeys([['vests','Quilted & Puffer'],['vests','Fleece & Softshell'],['vests','Canvas & Lined'],['carhartt','Vests']]).filter(function(k){return !jaHivis(BYKEY[k]);});},
+  score:function(it,A,role,p){var t=caVestType(it),s=0,f=jaFlags(it),W=A.worn||'in';
+    if(W==='in'){s+={fleece:14,soft:10,quilt:2,canvas:-12}[t];}
+    else if(W==='over'){s+={soft:12,quilt:12,canvas:6,fleece:-10}[t];}
+    else{s+={quilt:16,canvas:12,soft:-6,fleece:-12}[t];if(jaWarm(it)>=2)s+=6;}
+    if(f.indexOf('windproof')>=0&&W!=='in')s+=4;if((f.indexOf('water-repellent')>=0||f.indexOf('waterproof')>=0)&&W!=='in')s+=4;
+    if(role==='office'){if(t==='canvas')return null;if(hasLadies(it))s+=16;if(/carhartt/i.test(caBrand(it)))s-=16;if(caLuxe(it))s+=4;}
+    else if(role==='mixed'){if(hasLadies(it))s+=8;if(t==='quilt'||t==='soft')s+=6;}
+    else if(role==='outdoor'){if(t==='canvas')s+=14;if(t==='quilt')s+=8;if(/carhartt|rugged wear/i.test(caBrand(it)))s+=8;if(/Cutter & Buck|North Face/i.test(caBrand(it)))s-=10;}
+    else{if(t==='quilt')s+=14;if(caLuxe(it))s+=14;if(hasLadies(it))s+=6;}
+    return s;},
+  why:function(it,A,role){var out=[],t=caVestType(it),ws=it.warm||{},f=jaFlags(it);
+    out.push({quilt:'Quilted insulation — warmth with the arms free',soft:'Softshell — blocks wind, looks sharp indoors',fleece:'Fleece — soft and breathable for indoor layering',canvas:'Canvas — built for the yard'}[t]+(ws.ins?(' ('+ws.ins+(ws.gsm?(', '+ws.gsm):'')+')'):''));
+    var fl=[];if(f.indexOf('windproof')>=0)fl.push('windproof');if(f.indexOf('waterproof')>=0)fl.push('waterproof');else if(f.indexOf('water-repellent')>=0)fl.push('water-repellent');
+    if(fl.length)out.push(fl.join(', ').replace(/^./,function(c){return c.toUpperCase();}));
+    out.push(caCutsTxt(it));
+    var nc=(it.cols||[]).length;if(nc>1)out.push(nc+' colours');
+    return out.slice(0,4);},
+  tips:function(){return ['A vest stays on indoors, so your logo is seen all day.',
+    'On quilted vests the logo goes on the flat chest panel, not across the stitching — we place it on your proof.',
+    'Fleece doesn’t stop wind; outdoor crews are better in softshell or quilted.'];}
+});
+/* HEADWEAR. Research (PPAI "Cap-italization" incl. Kati Sportcap; Swag.com corporate hat guide; Griwolfe):
+   season first (sun vs cold); then the look -- structured caps read polished and hold embroidery best,
+   unstructured "dad" hats read casual and want a small simple logo, mesh-back truckers breathe outside;
+   for a mixed group default to adjustable, never fitted (fitted needs a head-size survey); a cuffed toque
+   is the safest one-size order for a Canadian winter, logo on the cuff; "pick the hat they'd grab on a
+   Saturday, not the one you'd wear". */
+function caCapLook(it){var n=(it.name||'').toLowerCase();
+  if(/trucker|mesh|snap ?back/.test(n)||caInCats(it,[['headwear','Trucker & Snapback']]))return 'trucker';
+  if(/dri-fit|performance|golf|visor|poly cap|sport/.test(n)||caInCats(it,[['headwear','Performance & Golf']]))return 'perf';
+  if(/unstructured|dad|bucket|5 panel cotton|start five/.test(n))return 'soft';
+  return 'struct';}
+CADV.push({id:'headwear',one:'hat',label:'Hat advisor',noun:'hats',noun2:'hats',
+  h:'Cap or toque? Start with the season.',
+  sub:'Three quick questions, then the hat we’d order for your team, with the reasons it fits.',
+  overWhy:'this season and look',budQ:'Budget per hat',
+  applies:function(c,s){return c==='headwear'||(c==='carhartt'&&/Headwear/.test(s));},
+  preset:function(A,c,s){if(!A.use&&/Beanies/.test(s||''))A.use='cold';},
+  who:false,
+  qs:[{id:'use',q:'When will they wear it?',opts:[{id:'sun',lab:'Sun & summer',sub:'Outdoor work, events'},{id:'cold',lab:'Cold weather',sub:'Toques for winter'},{id:'year',lab:'Year-round crew cap',sub:'Everyday uniform'}]},
+      {id:'look',q:'What look?',when:function(A){return A.use&&A.use!=='cold';},opts:[{id:'struct',lab:'Structured',sub:'Polished, crisp logo'},{id:'soft',lab:'Unstructured',sub:'Relaxed dad-hat look'},{id:'trucker',lab:'Trucker',sub:'Mesh back, breathes'},{id:'perf',lab:'Performance',sub:'Wicking, golf days'}]},
+      {id:'for',q:'Who is it for?',opts:[{id:'crew',lab:'Our crew',sub:'Daily wear'},{id:'event',lab:'An event',sub:'Lots of people, one day'},{id:'gift',lab:'A gift',sub:'Clients or staff'}]}],
+  pool:function(A){return A.use==='cold'?caKeys([['headwear','Beanies & Toques'],['carhartt','Headwear']]).filter(function(k){return /toque|beanie|watch hat|knit/i.test(BYKEY[k].name);})
+                        :caKeys([['headwear','Caps & Hats'],['headwear','Trucker & Snapback'],['headwear','Performance & Golf'],['carhartt','Headwear']]).filter(function(k){return !/toque|beanie|watch hat|knit/i.test(BYKEY[k].name);});},
+  score:function(it,A,role,p){var n=(it.name||'').toLowerCase(),s=0,F=A.for||'crew';
+    if(A.use==='cold'){if(/fleece lined|thermo/.test(n))s+=(F==='crew'?12:4);if(/cuff/.test(n))s+=8;}
+    else{var lk=caCapLook(it),want=A.look||'struct';if(lk!==want)return null;
+      if(/fitted/.test(n))s-=(F==='gift'?4:18);
+      if(A.use==='sun'&&(lk==='trucker'||lk==='perf'||/visor|bucket/.test(n)))s+=6;
+      if(/visor|bucket/.test(n)&&A.use==='year')s-=12;}
+    if(F==='gift'){if(caLuxe(it))s+=18;}else if(F==='event'){s+=Math.max(0,20-p);if(caLuxe(it))s-=8;}else{s+=Math.max(0,12-p/3);}   // a crew cap is bought by the dozen: value leads
+    return s;},
+  why:function(it,A){var out=[],n=(it.name||'').toLowerCase();
+    if(A.use==='cold'){out.push(/fleece lined|thermo/.test(n)?'Fleece-lined for real cold':'Knit toque — fits under a hood or hard hat');if(/cuff/.test(n))out.push('Cuffed — your logo sits on the cuff, where it stays visible');}
+    else{var lk=caCapLook(it);out.push({struct:'Structured front — holds an embroidered logo crisp',soft:'Unstructured — relaxed, best with a small simple logo',trucker:'Mesh back — breathes on hot days',perf:'Performance fabric — wicks sweat'}[lk]);}
+    out.push(/fitted/.test(n)?'Fitted — needs a head-size count for your team':'One size, adjustable — no sizes to collect');
+    if(caBrand(it))out.push(caBrand(it));
+    return out.slice(0,4);},
+  tips:function(){return ['Pick the hat people would grab on a Saturday — that’s the one that gets worn.','Very fine text doesn’t embroider cleanly at cap size; if your logo has it, we’ll suggest a patch on your proof.'];}
+});
+/* PANTS & JOGGERS. Research (UniFirst work-pant guide Dec 2025; Red Kap uniform programs; All Seasons
+   Uniforms; Dickies/Carhartt): pants are the unbranded base of a program -- buyers choose on the laundry
+   (65/35 poly-cotton survives industrial washing; 100% cotton duck shrinks and fades there), the work (light
+   duty vs shop floor vs trades), pockets (cargo only if the job carries tools -- otherwise a snag), and
+   women's cuts (a different pattern, not a smaller men's size). */
+var CA_WHO_PANT=[
+  {id:'light',lab:'Light duty & service',sub:'Facilities, retail, front of house'},
+  {id:'shop',lab:'Warehouse & shop floor',sub:'Production, logistics, mechanics'},
+  {id:'trades',lab:'Trades & outdoor crews',sub:'Construction, landscaping, HVAC'}];
+CADV.push({id:'pants',one:'style',label:'Work pant advisor',noun:'work pants',noun2:'pants',
+  h:'Which work pant? Start with the work and the wash.',
+  sub:'Three quick questions, then one recommended pant for each group. Pants carry no logo — they’re the base your branded tops sit on.',
+  overWhy:'this work and laundry',budQ:'Budget per pair',
+  applies:function(c,s){return (c==='bottoms'&&!/Joggers/.test(s))||(c==='carhartt'&&/Pants/.test(s));},
+  who:true,
+  qs:[{id:'who',q:'Who wears them?',hint:'Pick every group',multi:true,wide:true,opts:CA_WHO_PANT},
+      {id:'wash',q:'Who washes them?',opts:[{id:'home',lab:'Staff, at home'},{id:'ind',lab:'A uniform laundry service',sub:'Industrial washing'}]},
+      {id:'cargo',q:'Do they carry tools on their legs?',opts:[{id:'1',lab:'Yes',sub:'Cargo pockets'},{id:'0',lab:'No'}]}],
+  pool:function(){return caKeys([['bottoms','Work Pants'],['carhartt','Pants & Bibs'],['bottoms','Shorts']]).filter(function(k){return !/women/i.test(BYKEY[k].name)&&!/bib|overall|coverall/i.test(BYKEY[k].name);});},
+  score:function(it,A,role,p){var n=(it.name||'').toLowerCase(),b=caBrand(it),s=0,ind=/industrial|dura-kap/.test(n),duck=/duck|canvas/.test(n),flex=/flex|stretch/.test(n),cargo=/cargo|utility/.test(n),shorts=/short/.test(n);
+    if(shorts)s-=14;
+    if(A.wash==='ind'){if(ind)s+=20;if(duck)s-=15;}else if(duck&&role==='trades')s+=6;
+    if(role==='trades'){if(duck||/carhartt/i.test(b))s+=16;if(flex)s+=6;if(ind)s+=4;}
+    else if(role==='shop'){if(ind)s+=16;if(/874|dickies/i.test(n+' '+b))s+=8;}
+    else{if(flex)s+=10;if(ind)s+=4;if(duck)s-=10;}
+    if(A.cargo==='1'){if(cargo)s+=14;}else if(cargo)s-=6;
+    return s;},
+  why:function(it,A,role){var out=[],n=(it.name||'').toLowerCase(),mx=caMixTxt(it);
+    if(/industrial|dura-kap/.test(n))out.push('Built for industrial laundering');
+    else if(/duck|canvas/.test(n))out.push('Canvas/duck — abrasion-resistant for trades');
+    if(mx)out.push(mx);
+    if(/flex|stretch/.test(n))out.push('Stretch for kneeling and climbing');
+    if(/cargo|utility/.test(n))out.push('Cargo/utility pockets for tools');
+    var w=caKeys([['bottoms','Work Pants'],['carhartt','Pants & Bibs'],['bottoms','Shorts']]).filter(function(k){var x=BYKEY[k];return /women/i.test(x.name)&&caBrand(x)===caBrand(it);})[0];
+    if(w)out.push('Women’s cut available: '+BYKEY[w].name);
+    else if(hasLadies(it))out.push('Men’s and women’s cuts');
+    return out.slice(0,4);},
+  tips:function(A){var t=['Pants carry no logo — your brand lives on the tops and outerwear above them.','Women’s work pants are a different pattern (rise, hip, inseam), not a smaller men’s size.'];
+    if(A.wash==='ind')t.unshift('Uniform laundry service: poly-cotton holds its colour and shape; 100% cotton duck shrinks and fades there.');
+    return t;}
+});
 /* the ONE human line in the hero: who answers, how fast, the number, and the RFQ path for buyers who
    arrive with a spec -- instead of a separate box, button and link for each */
 function paHumanHtml(){var T=JDP_TRUST;
   return '<div class="pahuman"><span class="hnav" aria-hidden="true">S</span><span>Prefer to talk it through? <b>Steven</b> replies in '+esc(T.reply)+' · '+
     '<a href="tel:'+T.tel+'">'+esc(T.phone)+'</a> · <button type="button" class="jalink" id="hnRfq">send us your RFQ</button></span></div>';}
-function paEntryHtml(){
-  return '<button type="button" class="paentry" data-goadv="aisle"><span class="paei" aria-hidden="true">✓</span>'+
-    '<span><b>Outfitting a whole team?</b><i>Tell us who you’re dressing and we’ll recommend a kit for each group, priced per person</i></span><span class="paeg">Get a recommendation →</span></button>';
-}
 
 var XP_SUB={};
 function renderXpert(){
   var el=document.getElementById('xpert');if(!el)return;
   var cat=VIEW.cat,q=(VIEW.q||'').trim();
   if(q||!cat||cat==='accessories'||(typeof giftViewOn==='function'&&giftViewOn())){el.innerHTML='';return;}
+  /* every major apparel category has its own advisor; the rest keep the three picks */
+  var cfg=caCfg();if(cfg){renderCatAdvisor(el,cfg);return;}
   var subs=xpSubs(cat);if(!subs.length){el.innerHTML='';return;}
   var sub=(VIEW.sub&&VIEW.sub!=='all'&&subs.indexOf(VIEW.sub)>=0)?VIEW.sub:(XP_SUB[cat]&&subs.indexOf(XP_SUB[cat])>=0?XP_SUB[cat]:(subs.indexOf(XP[cat])>=0?XP[cat]:subs[0]));
   var picks=xpPicks(cat,sub),cfg=XPERT[sub]||(sub==='Safety Vests'?XPERT['Hi-Vis Vests']:{});
@@ -3565,9 +3625,7 @@ function renderXpert(){
       '<button type="button" class="xpask" id="xpAsk"><span class="xpav" aria-hidden="true">S</span><span><b>Have Steven pick for you</b><i>Tell us the team and budget — we reply with a recommendation</i></span></button></div>'+
     tabs+
     '<div class="xpgrid">'+picks.map(xpCardHtml).join('')+'</div>'+
-    paEntryHtml()+
   '</section>';
-  el.querySelectorAll('[data-goadv]').forEach(function(b){b.addEventListener('click',function(){goAdvisor('aisle_'+cat);});});
   el.querySelectorAll('[data-xpsub]').forEach(function(b){b.addEventListener('click',function(){XP_SUB[cat]=b.dataset.xpsub;jdpTrack('xp_tab',{s:bslug(b.dataset.xpsub)});renderXpert();});});
   el.querySelectorAll('[data-xpopen]').forEach(function(b){b.addEventListener('click',function(){jdpTrack('xp_open',{k:b.dataset.xpopen});openSheet(b.dataset.xpopen);});});
   el.querySelectorAll('[data-xpadd]').forEach(function(b){b.addEventListener('click',function(){var k=b.dataset.xpadd;jdpTrack('xp_add',{k:k});addToQuoteQuick(k);
@@ -3935,7 +3993,6 @@ function wireHomeBand(){
   if(b&&!b.dataset.w){b.dataset.w='1';b.addEventListener('click',function(){
     jdpTrack('band_quote',{n:cartCount()});
     if(cartCount()>0){openQuote('band');return;}
-    if(!CFG.demo&&!(typeof giftViewOn==='function'&&giftViewOn())){goAdvisor('band');return;}
     var r=document.getElementById((typeof giftViewOn==='function'&&giftViewOn())?'gfgrid':'recohero');if(r)r.scrollIntoView({behavior:'smooth',block:'start'});});}
   var m=document.getElementById('socMore');
   if(m&&!m.dataset.w){m.dataset.w='1';m.addEventListener('click',function(){
@@ -4113,14 +4170,16 @@ function buildStore(){
      'gap:32px;justify-content:space-between;flex-wrap:wrap">'+
      '<div class="herotx" style="flex:1 1 320px;min-width:0">'+
        '<h1>'+esc(poss(CFG.client))+" team store</h1>"+
-       '<p class="herosub">'+(demo?'This is a live sample. Every item shows exactly where your logo goes — swap in your brand and it becomes your team’s store. Live pricing, exact quote, no obligation.':'Your logo is already on every piece. Tell us who you’re dressing and we’ll recommend the gear, priced per person and ready for approval.')+'</p>'+
+       '<p class="herosub">'+(demo?'This is a live sample. Every item shows exactly where your logo goes — swap in your brand and it becomes your team’s store. Live pricing, exact quote, no obligation.':'Your logo is already on every piece. Pick a category and our advisor will help you choose — then download an itemized quote your approver can sign.')+'</p>'+
        homeProofHtml()+
        /* 4imprint opens every category with a named person ("David with 4imprint, 11 years"). The
           person who actually answers these stores is Steven, so say so, with the number that reaches
           him -- and give the two ways forward, not six claims. */
        /* ONE QUESTION, in the hero (2026-10-09 11:15). The three-step box, the RFQ button and two
           separate ways to reach Steven became one question and one quiet human line. */
-       (demo?'':('<div id="paq" class="paq"></div>'+(trustOn()?paHumanHtml():'')))+
+       /* 2026-10-09 11:47: the categories lead, each with its own advisor -- the hero only says so and
+          names the person who answers. */
+       (demo||!trustOn()?'':paHumanHtml())+
      '</div>'+
      heroShotsHtml()+
    '</div></section>'+
@@ -4133,13 +4192,15 @@ function buildStore(){
       and lifts the catalogue up the page. */
    /* THE PROGRAM ADVISOR leads the page (2026-10-09): the one place a buyer goes from "who are we
       dressing" to a priced, per-role program. The pre-approved programs follow as the shortcut. */
-   '<div id="padv"></div>'+
+   /* THE CATEGORIES LEAD (2026-10-09 11:47): one choice -- what are you shopping for -- and every apparel
+      category behind it opens with its own advisor. The pre-approved programs follow for buyers who want a
+      whole kit in one tap. */
+   catTilesHtml()+
    '<div id="recohero"></div>'+
    /* The studio itself renders here but is hidden until `?view=gifts` -- see setGiftView(). What
       the homepage shows is the one-line strip, directly under the programmes. */
    giftsSectionHtml()+
    '<div class="w gfentrywrap">'+giftEntryHtml()+'</div>'+
-   catTilesHtml()+
    /* No empty band: on a demo kit with no CTA this strip has nothing to hold, and an empty
       bordered section between the programs and the catalogue reads as a broken page. */
    (heroCta?('<section class="offerstrip"><div class="w">'+heroCta+'</div></section>'):'')+
@@ -9153,7 +9214,6 @@ function wireHeroNext(){
   var p=document.getElementById('hnPrograms');
   if(p&&!p.dataset.w){p.dataset.w='1';p.addEventListener('click',function(){
     jdpTrack('hero_programs');
-    if(!CFG.demo&&document.getElementById('padv')){goAdvisor('hero');return;}
     var r=document.getElementById('recohero');if(r)r.scrollIntoView({behavior:'smooth',block:'start'});});}
   var a=document.getElementById('hnAsk');
   if(a&&!a.dataset.w){a.dataset.w='1';a.addEventListener('click',function(){
@@ -9257,12 +9317,11 @@ function showExitOffer(){
     showExitOffer();});
 }catch(e){}})();
 function renderRecoHero(){
-  try{renderProgramAdvisor();}catch(e){}
   var el=document.getElementById('recohero');if(!el)return;
   /* ONE PATH (2026-10-09 11:15). The recommendation above IS the program now; a second set of ready-made
      programs beside it was a fourth place to start. They stay as boards (Boards, and "+ Add a program" on
      the quote). A demo landing page keeps them -- it has no advisor in its hero. */
-  el.innerHTML=CFG.demo?recoHeroHtml():'';
+  el.innerHTML=recoHeroHtml();
   el.querySelectorAll('[data-reco]').forEach(function(b){
     b.addEventListener('click',function(){openProgram(b.dataset.reco);});});
   wireHeroNext();
@@ -9335,17 +9394,19 @@ function heroShotsHtml(){
         'style="width:100%;height:100%;object-fit:contain;opacity:1">'+o.lg+'</span>';
     }).join('')+'</div>';
 }
+function catHasAdvisor(c){try{return (typeof CADV!=='undefined')&&CADV.some(function(g){return g.applies(c,'all');});}catch(e){return false;}}
 function catTilesHtml(){
   var cats=(typeof CATS!=='undefined'&&CATS.length)?CATS:[];
   if(!cats.length)return '';
   return '<section class="excats"><div class="w">'+
-    '<h2 class="exh">Browse by category</h2>'+
+    '<h2 class="exh">What are you shopping for?</h2>'+
+    '<p class="exsub">Every apparel category opens with an advisor: a few questions about who wears it, then the piece we’d choose and why.</p>'+
     '<div class="cattiles">'+cats.map(function(c){
-      var img=catTileImg(c);
-      return '<button type="button" class="cattile" data-catgo="'+esc(c)+'">'+
+      var img=catTileImg(c),adv=catHasAdvisor(c);
+      return '<button type="button" class="cattile'+(adv?' adv':'')+'" data-catgo="'+esc(c)+'">'+
         '<span class="ctimg">'+(img?('<img src="'+img+'" alt="" loading="lazy" '+
           'style="max-width:56px;max-height:56px;width:auto;height:auto;object-fit:contain">'):'')+'</span>'+
-        '<span class="ctlab"><b>'+esc(shortCat(c))+'</b><i>'+((TOTALS&&TOTALS[c])||0)+'</i></span>'+
+        '<span class="ctlab"><b>'+esc(shortCat(c))+'</b><i>'+(adv?'<em class="ctadv">Advisor</em> · ':'')+((TOTALS&&TOTALS[c])||0)+' styles</i></span>'+
         '</button>';}).join('')+
     '</div></div></section>';
 }
@@ -10043,7 +10104,7 @@ function quoteDocHtml(){
         '<div><span>Prepared by</span><b>Steven · Just Deals Promotions</b><i>'+esc(T.phone)+'</i></div></div>'+
       '<div class="qhc"><label for="qHC">How many people?</label><input id="qHC" type="number" inputmode="numeric" min="1" placeholder="e.g. 40" value="'+(getHC()||'')+'">'+
         '<button type="button" id="qHCgo">Update quote</button><i>Program pieces are one per person. Items added on their own are estimated — fewer outer layers than people. Sizes are estimated until you enter your own; nothing is produced until you confirm.</i></div>'+
-      '<div class="qadd"><button type="button" class="qbtn" id="qMore">+ Add more items</button><button type="button" class="qbtn" id="qProg">+ Get a team recommendation</button></div>'+
+      '<div class="qadd"><button type="button" class="qbtn" id="qMore">+ Add more items</button><button type="button" class="qbtn" id="qProg">+ Add a program</button></div>'+
       '<table class="qtab"><thead><tr><th>#</th><th></th><th>Item</th><th>Qty</th><th>Unit'+(isUS()?' (USD)':'')+'</th><th>Amount'+(isUS()?' (USD)':'')+'</th></tr></thead><tbody>'+rows+'</tbody></table>'+
       '<div class="qtot"><div><span>Subtotal · '+pcs+' pieces</span><b>'+money(sub)+'</b></div>'+
         (setup>0?('<div><span>One-time setup</span><b>'+money(setup)+'</b></div>'+
@@ -10078,7 +10139,7 @@ function quoteEmptyHtml(){
   return '<div class="qwrap"><div class="qbar"><button type="button" class="qback" id="qBack">‹ Back</button></div>'+
     '<div class="qempty"><h2>Your quote is empty</h2><p>Start with a ready program, add items from the catalogue, or send us your RFQ — '+
       'then download an itemized quote for approval.</p>'+
-      '<div class="qadd"><button type="button" class="qbtn qsend" id="qProg">Get a recommendation</button>'+
+      '<div class="qadd"><button type="button" class="qbtn qsend" id="qProg">Start with a program</button>'+
       '<button type="button" class="qbtn" id="qMore">Browse the catalogue</button><button type="button" class="qbtn" id="qRfq">Upload an RFQ</button></div></div></div>';
 }
 function quoteToCatalogue(){
@@ -10087,7 +10148,7 @@ function quoteToCatalogue(){
   if(g)g.scrollIntoView({behavior:'smooth',block:'start'});
   toast('Tap “+ Quote” on anything to add it');
 }
-function quoteToPrograms(){closeQuote();setRail('explore');if(!CFG.demo){goAdvisor('quote');return;}var r=document.getElementById('recohero');if(r)r.scrollIntoView({behavior:'smooth',block:'start'});}
+function quoteToPrograms(){closeQuote();setRail('explore');var r=document.getElementById('recohero');if(r)r.scrollIntoView({behavior:'smooth',block:'start'});}
 function wireQuoteEdit(el){
   var m=document.getElementById('qMore');if(m)m.addEventListener('click',function(){jdpTrack('quote_more');quoteToCatalogue();});
   var p=document.getElementById('qProg');if(p)p.addEventListener('click',function(){jdpTrack('quote_prog');quoteToPrograms();});
