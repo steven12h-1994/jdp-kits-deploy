@@ -1370,6 +1370,8 @@ var RUGGED_CROSS={
   st_fairbanks:'Shells & 3-in-1', st_magellan:'Shells & 3-in-1', st_vortex:'Shells & 3-in-1',
   st_olympia:'Shells & 3-in-1', st_avalante3in1:'Shells & 3-in-1',
   st_basecampvest:'Vests', st_sierravest:'Vests',
+  /* Fall 2026 adds: the trades pieces a US crew without Carhartt needs, shopped where trades buyers look */
+  st_tradesmith:'Canvas & Shackets', st_flatiron:'Insulated & Quilted', st_tradesmithhoody:'Hoodies & Thermals', st_cambridge:'Work Shirts',
   st_logan:'Hoodies & Thermals', st_nautilushoody:'Hoodies & Thermals',
   // Uniform shirts live in Polos, Shirts & Tees but a trades buyer shops Rugged Wear — surface them in both.
   dk_2574:'Work Shirts', rk_sx20:'Work Shirts', rk_sy20:'Work Shirts', rk_sp24:'Work Shirts', rk_sp14:'Work Shirts',
@@ -1499,7 +1501,14 @@ function headwearSub(n){
   if(/trucker|snap ?back|mesh back/.test(n))return 'Trucker & Snapback';
   return 'Caps & Hats';
 }
+/* A HOME BY KEY, judged from the photos, where the official name sends a garment to the wrong shelf:
+   "Stockton Fleece Pullover Hoody" is a hoodie, not a fleece jacket; "Crew Neck" is two words; the Tradesmith
+   Hoody and the Flatiron are lined, insulated work jackets. */
+var HOME_BY_KEY={st_stocktonhoody:{mega:'layers',sub:'Hoodies'},st_stocktoncrew:{mega:'layers',sub:'Crewnecks & Sweatshirts'},
+  st_tradesmithhoody:{mega:'outerwear',sub:'Insulated & Quilted'},st_flatiron:{mega:'outerwear',sub:'Insulated & Quilted'},
+  st_tradesmith:{mega:'outerwear',sub:'Shirt Jackets & Shackets'}};
 function classify(it){
+  if(it&&HOME_BY_KEY[it.key])return HOME_BY_KEY[it.key];
   // A kit that references a product the catalogue no longer carries must degrade to "not shown",
   // never throw: this runs inside the filter that builds every grid, so one stale key would take
   // the whole storefront down rather than hide one card.
@@ -3219,12 +3228,18 @@ function caRank(cfg,role,A){
 function caProgram(cfg,A){
   return caRoles(cfg,A).map(function(role){
     var rows=caRank(cfg,role,A);if(!rows.length)return {role:role,none:true};
-    var mine=CA_PICK[cfg.id+'.'+role],main=(mine&&rows.filter(function(r){return r.k===mine;})[0])||rows[0];
+    /* CARHARTT IS THE PREMIUM OPTION (Steven, 2026-10-09 16:38: "note carhartt is a more premium option"). Outside
+       the Carhartt aisle it is never the default pick; when a Carhartt piece fits the job it is offered as the
+       Premium step up. In the Carhartt aisle the buyer chose the brand, so it leads there. */
+    var inCh=VIEW.cat==='carhartt',isCh=function(r){return isCarhartt(BYKEY[r.k]);};
+    var mine=CA_PICK[cfg.id+'.'+role],core=inCh?rows:rows.filter(function(r){return !isCh(r);});
+    var main=(mine&&rows.filter(function(r){return r.k===mine;})[0])||core[0]||rows[0];
     var rest=rows.filter(function(r){return r.k!==main.k;});
     /* a real choice, not a neighbour: at least ~10% (and $3) either side of our pick, best-fitting first */
-    var gap=Math.max(3,main.p*0.1);
-    var lower=rest.filter(function(r){return r.p<=main.p-gap;})[0]||rest.filter(function(r){return r.p<main.p-0.5;})[0];
-    var prem=rest.filter(function(r){return r.p>=main.p+gap&&r!==lower;})[0]||rest.filter(function(r){return r.p>main.p+0.5&&r!==lower;})[0];
+    var gap=Math.max(3,main.p*0.1),restCore=inCh?rest:rest.filter(function(r){return !isCh(r);});
+    var lower=restCore.filter(function(r){return r.p<=main.p-gap;})[0]||restCore.filter(function(r){return r.p<main.p-0.5;})[0];
+    var chPrem=inCh?null:rest.filter(function(r){return isCh(r)&&r.p>main.p+0.5;})[0];
+    var prem=chPrem||rest.filter(function(r){return r.p>=main.p+gap&&r!==lower;})[0]||rest.filter(function(r){return r.p>main.p+0.5&&r!==lower;})[0];
     var alts=[];if(lower)alts.push({r:lower,lab:'Lower cost',t:'lo'});if(prem)alts.push({r:prem,lab:'Premium',t:'hi'});
     return {role:role,main:main,alts:alts,n:rows.length};
   });
@@ -3233,7 +3248,7 @@ function caProgram(cfg,A){
 function caFeat(it){var f={},fl=jaFlags(it),g=caGsm(it),mx=jaMaxSize(it),c=caClass(it);
   if(hasLadies(it))f.ladies='women’s cuts';
   if(/^[4-6]XL/.test(mx))f.big='sizes to '+mx.split('/')[0];
-  if(caPerf(it))f.wick='wicking fabric';
+  if(caPerf(it)&&/^(polo|tee|woven|fleece)$/.test(itemCategory(it)))f.wick='wicking fabric';   // a property of knits worn next to the skin, not of a jacket shell
   if(fl.indexOf('waterproof')>=0)f.wp='waterproofing';else if(fl.indexOf('water-repellent')>=0||caFin(it,/water-repellent/i))f.wr='water repellency';
   if(fl.indexOf('windproof')>=0)f.wind='wind protection';
   if(caFin(it,/snag/i))f.snag='snag resistance';
@@ -3292,11 +3307,22 @@ function caMainHtml(cfg,A,x){
       (v?('<p class="camv">'+esc(v)+'</p>'):'')+
       '<ul class="jaw">'+why.slice(0,4).map(function(w){return '<li>'+esc(w)+'</li>';}).join('')+'</ul>'+
       caSwatchHtml(r.k)+
-      '<div class="camfoot"><div class="camp"><b>'+money(r.p)+'</b><i>per piece at '+moq()+'+, your logo included</i></div>'+
+      '<div class="camfoot"><div class="camp"><b>'+money(r.p)+'</b><i>per piece at '+moq()+'+, your logo included</i>'+caTierHtml(r.k)+'</div>'+
         '<div class="cambtns"><button type="button" class="caadd'+(inQ?' done':'')+'" data-caadd="'+esc(r.k)+'">'+(inQ?'✓ In your quote':'Add to quote')+'</button>'+
         '<button type="button" class="xpsee" data-xpopen="'+esc(r.k)+'">Colours &amp; sizes</button></div></div>'+
     '</div></article>';
 }
+/* PRICE TIERS (Steven, 2026-10-09 16:38: "you should showing pricing tiers in the advisor UI"). Enterprise buyers
+   budget by volume, so every recommendation shows the store's own quantity breaks -- the same unitPrice() the quote
+   uses, so the advisor and the quote can never disagree. */
+function caTiers(k){var cols=(CFG.pricing&&CFG.pricing.cols)||[12,48,144],it=BYKEY[k],d=null;try{d=defaultDecos(k);}catch(e){}
+  return cols.map(function(q){var p=0;try{p=unitPrice(k,d,Math.max(q,moq()));}catch(e){p=0;}return {q:Math.max(q,moq()),p:p};}).filter(function(t){return t.p>0;});}
+function caTierHtml(k,compact){var T=caTiers(k);if(T.length<2)return '';
+  var lo=T[T.length-1],hi=T[0],pct=hi.p>0?Math.round((1-lo.p/hi.p)*100):0;
+  if(compact)return '<span class="catiers s">'+T.map(function(t){return t.q+'+ <b>'+money(t.p)+'</b>';}).join(' · ')+'</span>';
+  return '<div class="catiers" role="table" aria-label="Price per piece by quantity">'+T.map(function(t,i){
+    return '<div class="catier'+(i===0?' first':'')+'" role="row"><span role="cell">'+t.q+'+ pcs</span><b role="cell">'+money(t.p)+'</b></div>';}).join('')+
+    (pct>0?('<span class="catsave">Save '+pct+'% at '+lo.q+'+</span>'):'')+'</div>';}
 /* see it in your colour: the mockup re-renders with the buyer's logo on the colour they tap */
 function caSwatchHtml(k){var it=BYKEY[k],cs=browseCols(it)||[],cur=caColOf(k);if(cs.length<2)return '';
   var max=8;return '<div class="caswt"><span class="caswl">Colour: <b data-cacur="'+esc(k)+'">'+esc(cur||'')+'</b></span><div class="caswd">'+
@@ -3308,7 +3334,7 @@ function caAltHtml(cfg,x){
     return '<div class="caalt t-'+a.t+'"><button type="button" class="caaimg" data-xpopen="'+esc(a.r.k)+'" aria-label="See '+esc(it.name)+'">'+caThumb(a.r.k)+'</button>'+
       '<div class="caab"><span class="caal"><em>'+esc(a.lab)+'</em> <b>'+money(a.r.p)+'</b> <span class="cadiff">'+(lo?'save ':'+')+money(Math.abs(d))+'/pc</span></span>'+
         '<b class="caan">'+esc(it.name)+'</b><span class="cambr">'+esc(it.brand||'')+'</span>'+
-        '<span class="catrade">'+esc(caTrade(x.main.k,a.r.k,lo))+'</span></div>'+
+        '<span class="catrade">'+esc(caTrade(x.main.k,a.r.k,lo))+'</span>'+caTierHtml(a.r.k,true)+'</div>'+
       '<button type="button" class="jasw" data-caswap="'+esc(x.role)+'|'+esc(a.r.k)+'">Use this</button></div>';}).join('')+'</div>';
 }
 function caOptHtml(q,A){var multi=!!q.multi,cur=A[q.id];
@@ -3701,7 +3727,7 @@ CADV.push({id:'pants',one:'style',label:'Work pant advisor',noun:'work pants',no
       {id:'cargo',q:'Do they carry tools on their legs?',short:'Pockets',opts:[{id:'1',lab:'Yes',sub:'Cargo pockets'},{id:'0',lab:'No'}]}],
   fact:function(it,A){var n=(it.name||'').toLowerCase();var t=/industrial|dura-kap/.test(n)?'industrial-wash work pant':(/duck|canvas/.test(n)?'canvas work pant':(/flex|stretch/.test(n)?'stretch work pant':'work pant'));
     return caArt(t)+(/cargo|utility/.test(n)?' with cargo pockets':'');},
-  pool:function(){return caKeys([['bottoms','Work Pants'],['carhartt','Pants & Bibs'],['bottoms','Shorts']]).filter(function(k){return !/women/i.test(BYKEY[k].name)&&!/bib|overall|coverall/i.test(BYKEY[k].name);});},
+  pool:function(){return caKeys([['bottoms','Work Pants'],['carhartt','Pants & Bibs'],['bottoms','Shorts']]).filter(function(k){return !/women/i.test(BYKEY[k].name)&&!/bib|overall|coverall|\brain\b/i.test(BYKEY[k].name);});},
   score:function(it,A,role,p){var n=(it.name||'').toLowerCase(),b=caBrand(it),s=0,ind=/industrial|dura-kap/.test(n),duck=/duck|canvas/.test(n),flex=/flex|stretch/.test(n),cargo=/cargo|utility/.test(n),shorts=/short/.test(n);
     if(shorts)s-=14;
     if(A.wash==='ind'){if(ind)s+=20;if(duck)s-=15;}else if(duck&&role==='trades')s+=6;
@@ -5090,7 +5116,9 @@ function itemCategory(it){
      classifies differently now except the 13 this rule is for. */
   /* HI-VIS WINS OVER THE GARMENT TYPE. Hi-Vis Rain Pants are hi-vis first and trousers second. */
   if(it&&it.csa)return 'hivis';
-  if(/hi-?vis|high.visibility|\btraffic\b|reflective|enhanced visibility|safety vest|tear-?away/.test(n))return 'hivis';
+  /* ENHANCED VISIBILITY IS NOT HI-VIS. A reflective-taped softshell with no CSA rating (`enh`) must never be
+     treated as PPE -- the advisors would otherwise offer it to site crews who need certified hi-vis. */
+  if(!(it&&it.enh)&&/hi-?vis|high.visibility|\btraffic\b|reflective|enhanced visibility|safety vest|tear-?away/.test(n))return 'hivis';
   if(/\bbelt\b/.test(n))return 'belt';
   if(/coverall|bib overall|boilersuit/.test(n))return 'coverall';
   /* PLURAL "shorts" ONLY. `\bshorts?\b` also matches the "Short" in "Short-Sleeve", because the
@@ -10669,6 +10697,9 @@ function go(cfg){
   fetch((cfg.catalog_base||CATALOG_BASE)+'/catalog.json?v='+(cfg.ver||'1'),{cache:'no-cache'}).then(function(r){return r.json();}).then(function(cat){
     CFG.catalog_base=cfg.catalog_base||CATALOG_BASE;CAT=cat;CATVER=cat.version||cat.v||'';
     if(isUS()){cat.items=usFilterCatalogue(cat.items);document.documentElement.classList.add('mkt-us');}
+    /* a style added from a US price list carries ca:false until its Canadian vendor cost is in -- a Canadian
+       store never shows a product it cannot price */
+    else cat.items=(cat.items||[]).filter(function(it){return it.ca!==false;});
     (cat.items||[]).forEach(function(it){BYKEY[it.key]=it;});
     // Learn each logo's ink BEFORE first paint so garments render a thread colour that actually reads.
     Promise.all((cfg.logos||[]).map(probeInk)).then(function(){

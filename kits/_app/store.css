@@ -3897,3 +3897,13 @@ body.giftview #padv{display:none}
 .caalt.t-hi .cadiff{color:#8a5a00}
 .catrade{font-size:12.5px;color:#5c554a;line-height:1.35;margin-top:2px}
 @media(max-width:860px){.caswd .cdot{width:28px;height:28px}}
+/* ===== PRICE TIERS IN THE ADVISOR (2026-10-09 16:38) ============================================ */
+.catiers{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:8px}
+.catier{display:flex;flex-direction:column;align-items:flex-start;padding:5px 10px;border-radius:9px;background:#f7f5f0;border:1px solid var(--line);min-width:76px}
+.catier span{font-size:11px;font-weight:800;color:#6b6458;letter-spacing:.02em}
+.catier b{font-size:14.5px;font-weight:850;color:var(--ink);line-height:1.2}
+.catier.first{background:#fff;border-color:var(--ink)}
+.catsave{font-size:12px;font-weight:800;color:#1e6b34;margin-left:2px}
+.catiers.s{display:block;margin-top:3px;font-size:11.5px;color:#6b6458}
+.catiers.s b{font-weight:850;color:var(--ink)}
+@media(max-width:860px){.catier{min-width:0;flex:1}}
