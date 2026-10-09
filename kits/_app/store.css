@@ -3710,3 +3710,76 @@ body.giftview #padv{display:none}
 .paq4{grid-column:1/-1}
 @media (max-width:1400px){.tbkbd{display:none}}
 @media(max-width:860px){#padv{scroll-margin-top:110px}}
+/* ===== ONE QUESTION, ONE RECOMMENDATION (2026-10-09 11:15) ======================================= */
+.paq{margin:18px 0 0;max-width:640px}
+.paqh b{display:block;font-size:17px;font-weight:850;color:var(--ink)}
+.paqh i{display:block;font-style:normal;font-size:13.5px;color:#6b6458;margin-top:2px}
+.paqcs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:12px}
+.paqc{display:flex;align-items:center;gap:11px;padding:11px 13px;border:1.5px solid #ddd6c9;border-radius:14px;background:#fff;font:inherit;text-align:left;cursor:pointer;transition:border-color .15s,background .15s,box-shadow .15s}
+.paqc:hover{border-color:var(--ink);box-shadow:0 6px 18px -12px rgba(0,0,0,.35)}
+.paqc b{display:block;font-size:14.5px;font-weight:850;color:var(--ink);line-height:1.2}
+.paqc i{display:block;font-style:normal;font-size:12px;color:#8a8275;margin-top:1px}
+.paqk{flex:none;width:26px;height:26px;border-radius:50%;border:1.5px solid #cfc7b8;display:inline-flex;align-items:center;justify-content:center;font-weight:900;font-size:15px;color:var(--ink)}
+.paqc.on{border-color:var(--ink);background:var(--ink)}
+.paqc.on b{color:#fff}.paqc.on i{color:rgba(255,255,255,.75)}
+.paqc.on .paqk{background:var(--a);border-color:var(--a);color:#fff}
+.paqc:last-child:nth-child(odd){grid-column:1/-1}
+.pahuman{display:flex;align-items:center;gap:10px;margin-top:14px;font-size:13.5px;color:#5c554a}
+.pahuman .hnav{flex:none;width:28px;height:28px;border-radius:50%;background:var(--a);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-weight:850;font-size:13px}
+.pahuman a{color:var(--ink);font-weight:800;text-decoration:none;white-space:nowrap}
+.pahuman .jalink{font-size:13.5px}
+.paflash{animation:paflash 1.4s ease}
+@keyframes paflash{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--a) 45%,transparent)}40%{box-shadow:0 0 0 10px color-mix(in srgb,var(--a) 18%,transparent)}100%{box-shadow:0 0 0 0 transparent}}
+.parec{padding:24px;border-radius:20px;background:#fff;border:1px solid var(--line);box-shadow:0 1px 2px rgba(0,0,0,.04),0 18px 40px -30px rgba(0,0,0,.35)}
+.parech .xph{font-size:30px}
+.pacond{margin:6px 0 0;font-size:14px;color:#5c554a}
+.pacond .jalink{font-size:14px}
+.paadj{display:flex;flex-direction:column;gap:12px;margin:14px 0 0;padding:14px 16px;border-radius:14px;background:#f7f5f0}
+.paadjr>b{display:block;font-size:13px;font-weight:850;margin-bottom:6px}
+.pacards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,520px),1fr));gap:14px;margin-top:18px}
+.pacard{border:1px solid var(--line);border-radius:16px;padding:16px;background:#fcfbf8}
+.pach{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.pach b{display:block;font-size:13px;font-weight:850;letter-spacing:.08em;text-transform:uppercase}
+.pach i{display:block;font-style:normal;font-size:14px;color:#3d3830;margin-top:4px;line-height:1.4}
+.papp{flex:none;text-align:right}
+.papp b{font-size:26px;letter-spacing:0;text-transform:none;font-weight:900;line-height:1}
+.papp i{font-size:11.5px;color:#6b6458;margin-top:3px;line-height:1.25}
+.patiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:10px;margin-top:14px}
+.patile{display:flex;flex-direction:column;gap:2px;padding:0;border:0;background:none;font:inherit;text-align:left;cursor:pointer;min-width:0}
+.patimg{position:relative;display:block;aspect-ratio:1/1;border-radius:12px;background:#fff;border:1px solid var(--line);overflow:hidden;margin-bottom:6px}
+.patimg .g{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
+.patimg .l{position:absolute;transform:translate(-50%,-50%);height:auto;max-width:none;pointer-events:none}
+.patn{position:absolute;right:6px;top:6px;padding:2px 7px;border-radius:999px;background:var(--ink);color:#fff;font-size:11.5px;font-weight:850}
+.patile>b{font-size:11px;font-weight:850;letter-spacing:.07em;text-transform:uppercase;color:var(--a)}
+.patile>i{font-style:normal;font-size:12.5px;font-weight:700;color:var(--ink);line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.patile:hover .patimg{border-color:var(--ink)}
+.pacta{display:flex;align-items:center;flex-wrap:wrap;gap:8px 16px;margin-top:18px;padding:16px 18px;border-radius:16px;background:var(--ink)}
+.pago{font-size:16px;padding:14px 22px}
+.pactat{flex:1 1 240px;font-size:13.5px;color:rgba(255,255,255,.85);line-height:1.4}
+.pactal .jalink{color:#fff;font-size:13.5px}
+.pamore{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:8px 16px;margin-top:12px;font-size:13.5px}
+.pawhy summary{cursor:pointer;font-weight:800;color:#5c554a}
+.pawhy ul{margin:8px 0 0;padding-left:18px;color:#5c554a;max-width:70ch}.pawhy li{margin:3px 0}
+.pafine{margin-top:14px}
+.paqbox{max-width:460px}
+.paqbox h3{margin:0 0 4px}
+.paqbox>p{margin:0 0 12px;color:#5c554a;font-size:14px}
+.paqrows{display:flex;flex-direction:column;gap:8px}
+.paqr{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;font-weight:800;font-size:14px}
+.paqr input{width:96px;padding:9px 10px;border:1.5px solid #d9d3c6;border-radius:10px;font:inherit;font-size:16px;font-weight:850;text-align:right}
+.paqr input:focus{outline:none;border-color:var(--a)}
+.paqtot{margin:12px 0;min-height:40px;font-size:14px}
+.paqtot b{display:block;font-weight:850}.paqtot i{display:block;font-style:normal;color:#5c554a;font-size:13px}
+.paqgo{width:100%;font-size:16px;padding:14px}
+.paqgo:disabled{opacity:.45;cursor:not-allowed}
+.paqfine{margin-top:8px;font-size:12px;color:#8a8275;text-align:center}
+#paq{scroll-margin-top:90px}
+@media(max-width:860px){
+  .paq{max-width:none}
+  .paqcs{grid-template-columns:1fr}
+  .parec{padding:16px 14px}
+  .parech .xph{font-size:24px}
+  .papp b{font-size:22px}
+  .patiles{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .pago{width:100%}
+}

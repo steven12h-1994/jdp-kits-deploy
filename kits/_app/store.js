@@ -3354,80 +3354,105 @@ function paSummaryText(P){
    computed by the quote's own function against the program's lines, so the advisor, the board and the
    quote all show the same estimated total. */
 function paSetup(P){var keep=CART,tmp={},v=0;try{paWriteLines(tmp,paLines(P),P.people);CART=tmp;v=cartSetup()||0;}catch(e){v=0;}CART=keep;return v;}
-var PA_OPEN='';
-function renderProgramAdvisor(){
-  var el=document.getElementById('padv');if(!el)return;
-  var groups=paGroups(),ready=groups.length&&PA.cold&&PA.rain>=0&&PA.tier;
+var PA_OPEN='',PA_ADJ=false,PA_FINE=false;
+/* ===== ONE QUESTION, ONE RECOMMENDATION (Steven, 2026-10-09 11:15: "It is extremely confusing and
+   complicated now for the enterprise buyers.") =========================================================
+   The first version asked four questions up front, each with three to five options, under a hero that
+   already had its own three-step box, an RFQ button and two ways to reach Steven, above a second set of
+   "pre-approved programs" -- four different places to start before anyone had been told what to buy.
+   Gartner's buyer research is blunt about this: B2B buyers are already overwhelmed, and the suppliers
+   that win are the ones that make the decision feel EASY ("prescriptive" help -- fewer, clearer choices),
+   not the ones that hand over more information. The choice-overload work (Iyengar & Lepper, and the
+   meta-analyses since) points the same way: more options and more steps lower the chance anyone picks.
+   So: ONE question in the hero -- who are you outfitting -- and the answer is a recommendation, not a
+   form. Climate, level and quantities have sensible defaults (a Canadian winter, mostly dry, our
+   Standard level) that the buyer can see and change in one tap, but never has to. Headcount is asked
+   once, at the moment it matters -- "Get my quote" -- not before they have seen anything. */
+function paDefaults(){if(!PA.cold)PA.cold=2;if(PA.rain==null||PA.rain<0)PA.rain=0;if(!PA.tier)PA.tier='s';}
+paDefaults();
+/* "3 polos, a quarter-zip layer and a jacket" -- the kit in a sentence a buyer can repeat to their boss */
+function paKitSentence(g){
+  var parts=g.rows.map(function(r){var l=r.slot.lab.toLowerCase().replace(/^class 2 /,'');
+    if(r.u>1)return r.u+' '+l.replace(/(ie|y)$/,function(m){return m==='y'?'ies':'ies';}).replace(/([^s])$/,'$1s');
+    return (/^[aeiou]/.test(l)?'an ':'a ')+l;});
+  if(parts.length<2)return parts.join('');
+  return parts.slice(0,-1).join(', ')+' and '+parts[parts.length-1];
+}
+function paCondLine(){
+  var c=(JA_COLD.filter(function(x){return x.id===PA.cold;})[0]||{}).lab||'',t=(PA_TIERS[PA_TI[PA.tier]]||{}).lab||'';
+  return 'Built for '+(PA.cold===1?'spring and fall':(PA.cold===3?'outdoor work in deep winter':'a Canadian winter'))+', '+(PA.rain===1?'with rain':'mostly dry')+', at our '+t+' level';
+}
+function paQuestionHtml(){
   var chips=PA_ROLES.filter(function(r){return paRoleOn(r.id);}).map(function(r){var on=PA.g[r.id]!=null;
-    return '<div class="pagc'+(on?' on':'')+'"><button type="button" class="jach'+(on?' on':'')+'" data-pa="g" data-v="'+r.id+'" aria-pressed="'+on+'"><b>'+esc(r.lab)+'</b><i>'+esc(r.sub)+'</i></button>'+
-      (on?('<label class="pahc"><input type="number" inputmode="numeric" min="1" max="5000" data-pahc="'+r.id+'" value="'+(PA.g[r.id]||'')+'" placeholder="How many?"><span>people</span></label>'):'')+'</div>';}).join('');
-  var tc=groups.length?paTierCosts():{};
-  var tiers=PA_TIERS.map(function(t){var on=PA.tier===t.id;
-    return '<button type="button" class="jach patier'+(on?' on':'')+'" data-pa="tier" data-v="'+t.id+'" aria-pressed="'+on+'"><b>'+esc(t.lab)+(tc[t.id]?('<span class="patc">≈ '+money0(tc[t.id])+' /person</span>'):'')+'</b><i>'+esc(t.sub)+'</i></button>';}).join('');
-  var q='<div class="jaq paq1"><div class="jaqh"><span class="jan">1</span><b>Who are you outfitting?</b><i>Pick every group, then how many people</i></div><div class="jachs pags">'+chips+'</div></div>'+
-    '<div class="jaq"><div class="jaqh"><span class="jan">2</span><b>How cold does it get?</b></div><div class="jachs">'+jaChips('cold',JA_COLD,PA.cold,false).replace(/data-ja=/g,'data-pa=')+'</div></div>'+
-    '<div class="jaq"><div class="jaqh"><span class="jan">3</span><b>How wet?</b></div><div class="jachs">'+jaChips('rain',JA_RAIN,PA.rain,false).replace(/data-ja=/g,'data-pa=')+'</div></div>'+
-    '<div class="jaq paq4"><div class="jaqh"><span class="jan">4</span><b>Which level?</b>'+(groups.length?'<i>Cost per person for your groups, logo included</i>':'')+'</div><div class="jachs">'+tiers+'</div></div>';
-  var res='';
-  if(ready){
-    var P=paProgram(),need=P.groups.some(function(g){return !g.n;}),pp=P.people?P.total/P.people:0,su=need?0:paSetup(P);
-    res='<div class="pares" id="paRes">'+
-      '<div class="pasum"><div class="pasumt"><span class="xpeyb">Your apparel program</span>'+
-        '<h3>'+esc(CFG.client||'Your team')+' · '+P.groups.length+' group'+(P.groups.length>1?'s':'')+', '+P.styles+' styles</h3>'+
-        '<p>'+(need?'Add how many people are in each group to see the totals.':(P.people+' people · '+money0(pp)+' per person, logo included · '+money0(P.total+su)+' estimated total'+(su>0?(', including '+money0(su)+' one-time setup'):'')))+'</p></div>'+
-        '<div class="pasumb"><button type="button" class="jaall" id="paAdd">Add the whole program to my quote →</button>'+
-          '<div class="pasec"><button type="button" class="jasw" id="paShare">Save &amp; share for approval</button>'+
-          '<button type="button" class="jasw" id="paAsk2">Have Steven review it</button></div></div></div>'+
-      P.groups.map(function(g){
-        return '<div class="pagrp"><div class="pagh"><b>'+esc(paRoleLab(g.role))+'</b><span>'+(g.n?(g.n+' people · '):'')+money0(g.pp)+' per person</span></div>'+
-          g.rows.map(function(r){var it=BYKEY[r.k],id=g.role+'.'+r.slot.id,open=PA_OPEN===id;
-            var shared=(P.who[r.k]||[]).filter(function(x,i,a){return a.indexOf(x)===i;}).length>1;
-            return '<div class="parow'+(open?' open':'')+'"><button type="button" class="paimg" data-xpopen="'+esc(r.k)+'" aria-label="See '+esc(it.name)+'">'+paThumb(r.k)+'</button>'+
-              '<div class="pab"><span class="paslot">'+esc(r.slot.lab)+(shared?'<em>same style as another group</em>':'')+'</span><b>'+esc(it.name)+'</b><span class="jabr">'+esc(it.brand||it.sku||'')+'</span>'+
-                '<ul class="jaw">'+paWhy(it,r.slot,g.role).map(function(x){return '<li>'+esc(x)+'</li>';}).join('')+'</ul></div>'+
-              '<div class="pau"><span>Each person</span><div class="pastep"><button type="button" data-pau="'+id+'|-1" aria-label="Fewer">−</button><b>'+r.u+'</b><button type="button" data-pau="'+id+'|1" aria-label="More">+</button></div>'+
-                (g.n?('<i>'+(r.q)+' pcs</i>'):'')+'</div>'+
-              '<div class="pap"><b>'+money(r.unit)+'</b><i>/pc, logo included</i><button type="button" class="pachg" data-pachg="'+id+'">'+(open?'Close':'Change')+'</button></div>'+
-              (open?('<div class="paalts">'+paAlts(r).map(function(a){var ai=BYKEY[a.r.k];
-                return '<div class="paalt"><span class="jalab">'+esc(a.lab)+'</span><button type="button" class="paimg sm" data-xpopen="'+esc(a.r.k)+'">'+paThumb(a.r.k)+'</button>'+
-                  '<div><b>'+esc(ai.name)+'</b><span class="jabr">'+esc(ai.brand||ai.sku||'')+' · '+money(a.r.p)+'/pc at '+P.M+'</span>'+
-                  '<div class="jabtns"><button type="button" class="jasw" data-paswap="'+id+'|'+esc(a.r.k)+'">Use this instead</button><button type="button" class="xpsee" data-xpopen="'+esc(a.r.k)+'">Details</button></div></div></div>';}).join('')+
-                '<button type="button" class="jalink" data-pabrowse="'+esc(id)+'">See every option →</button></div>'):'')+
-            '</div>';}).join('')+'</div>';}).join('')+
-      (P.short.length?('<p class="jaover">Each style has a '+P.M+'-piece minimum, so '+P.short.length+' style'+(P.short.length>1?'s are':' is')+' rounded up to '+P.M+' on your quote.</p>'):'')+
-      '<div class="jatips"><b>How we built it</b><ul>'+
-        '<li>One kit per role, in one colour. Everyone in a group wears the same pieces, so new hires reorder the same styles. Change any colour on your quote.</li>'+
-        '<li>Crews who sweat get five wicking shirts each — enough for a work week between washes. Office staff get three polos.</li>'+
-        '<li>A layer and a jacket for every outdoor role, matched to how cold and wet it gets.</li>'+
+    return '<button type="button" class="paqc'+(on?' on':'')+'" data-pa="g" data-v="'+r.id+'" aria-pressed="'+on+'">'+
+      '<span class="paqk" aria-hidden="true">'+(on?'✓':'+')+'</span><span><b>'+esc(r.lab)+'</b><i>'+esc(r.sub)+'</i></span></button>';}).join('');
+  return '<div class="paqh"><b>Who are you outfitting?</b><i>Tap every group — we’ll recommend the gear for each.</i></div><div class="paqcs">'+chips+'</div>';
+}
+function paTileHtml(r){var it=BYKEY[r.k];
+  return '<button type="button" class="patile" data-xpopen="'+esc(r.k)+'" aria-label="See '+esc(it.name)+'">'+
+    '<span class="patimg">'+paThumb(r.k)+(r.u>1?'<span class="patn">×'+r.u+'</span>':'')+'</span>'+
+    '<b>'+esc(r.slot.lab)+'</b><i>'+esc(it.name)+'</i></button>';}
+function paFineHtml(P){
+  return P.groups.map(function(g){
+    return '<div class="pagrp"><div class="pagh"><b>'+esc(paRoleLab(g.role))+'</b><span>'+money0(g.pp)+' per person</span></div>'+
+      g.rows.map(function(r){var it=BYKEY[r.k],id=g.role+'.'+r.slot.id,open=PA_OPEN===id;
+        return '<div class="parow'+(open?' open':'')+'"><button type="button" class="paimg" data-xpopen="'+esc(r.k)+'" aria-label="See '+esc(it.name)+'">'+paThumb(r.k)+'</button>'+
+          '<div class="pab"><span class="paslot">'+esc(r.slot.lab)+'</span><b>'+esc(it.name)+'</b><span class="jabr">'+esc(it.brand||it.sku||'')+'</span>'+
+            '<ul class="jaw">'+paWhy(it,r.slot,g.role).map(function(x){return '<li>'+esc(x)+'</li>';}).join('')+'</ul></div>'+
+          '<div class="pau"><span>Each person</span><div class="pastep"><button type="button" data-pau="'+id+'|-1" aria-label="Fewer">−</button><b>'+r.u+'</b><button type="button" data-pau="'+id+'|1" aria-label="More">+</button></div></div>'+
+          '<div class="pap"><b>'+money(r.unit)+'</b><i>/pc, logo included</i><button type="button" class="pachg" data-pachg="'+id+'">'+(open?'Close':'Swap')+'</button></div>'+
+          (open?('<div class="paalts">'+paAlts(r).map(function(a){var ai=BYKEY[a.r.k];
+            return '<div class="paalt"><span class="jalab">'+esc(a.lab)+'</span><button type="button" class="paimg sm" data-xpopen="'+esc(a.r.k)+'">'+paThumb(a.r.k)+'</button>'+
+              '<div><b>'+esc(ai.name)+'</b><span class="jabr">'+esc(ai.brand||ai.sku||'')+' · '+money(a.r.p)+'/pc</span>'+
+              '<div class="jabtns"><button type="button" class="jasw" data-paswap="'+id+'|'+esc(a.r.k)+'">Use this instead</button></div></div></div>';}).join('')+
+            '<button type="button" class="jalink" data-pabrowse="'+esc(id)+'">See every option →</button></div>'):'')+
+        '</div>';}).join('')+'</div>';}).join('');
+}
+function renderProgramAdvisor(){
+  paDefaults();
+  var q=document.getElementById('paq');if(q){q.innerHTML=paQuestionHtml();paWire(q);}
+  var el=document.getElementById('padv');if(!el)return;
+  var groups=paGroups();
+  if(!groups.length){el.innerHTML='';return;}
+  var P=paProgram(),tc=PA_ADJ?paTierCosts():{};
+  var adj=PA_ADJ?('<div class="paadj">'+
+      '<div class="paadjr"><b>How cold does it get?</b><div class="jachs">'+jaChips('cold',JA_COLD,PA.cold,false).replace(/data-ja=/g,'data-pa=')+'</div></div>'+
+      '<div class="paadjr"><b>How wet?</b><div class="jachs">'+jaChips('rain',JA_RAIN,PA.rain,false).replace(/data-ja=/g,'data-pa=')+'</div></div>'+
+      '<div class="paadjr"><b>Level</b><div class="jachs">'+PA_TIERS.map(function(t){var on=PA.tier===t.id;
+        return '<button type="button" class="jach patier'+(on?' on':'')+'" data-pa="tier" data-v="'+t.id+'" aria-pressed="'+on+'"><b>'+esc(t.lab)+(tc[t.id]?('<span class="patc">≈ '+money0(tc[t.id])+' /person</span>'):'')+'</b><i>'+esc(t.sub)+'</i></button>';}).join('')+'</div></div></div>'):'';
+  el.innerHTML='<section class="padv" aria-label="Our recommendation"><div class="w"><div class="parec">'+
+    '<div class="parech"><div><span class="xpeyb">Our recommendation for '+esc(CFG.client||'your team')+'</span>'+
+      '<h2 class="xph">'+(P.groups.length>1?(P.groups.length+' kits, one for each group'):'Your team’s kit')+'</h2>'+
+      '<p class="pacond">'+esc(paCondLine())+' · <button type="button" class="jalink" id="paAdjT">'+(PA_ADJ?'Done':'Change')+'</button></p></div></div>'+
+    adj+
+    '<div class="pacards">'+P.groups.map(function(g){
+      return '<div class="pacard"><div class="pach"><div><b>'+esc(paRoleLab(g.role))+'</b><i>Each person gets '+esc(paKitSentence(g))+'.</i></div>'+
+        '<div class="papp"><b>'+money0(g.pp)+'</b><i>per person,<br>logo included</i></div></div>'+
+        '<div class="patiles">'+g.rows.map(paTileHtml).join('')+'</div></div>';}).join('')+'</div>'+
+    '<div class="pacta"><button type="button" class="jaall pago" id="paGo">Get my quote →</button>'+
+      '<span class="pactat">Tell us how many people and we’ll size and price it — no payment, no obligation.</span>'+
+      '<span class="pactal"><button type="button" class="jalink" id="paAsk">Or have Steven build it for you</button></span></div>'+
+    '<div class="pamore"><button type="button" class="jalink" id="paFineT">'+(PA_FINE?'Hide the details':'Swap a piece or change quantities')+'</button>'+
+      '<details class="pawhy"><summary>How we chose these</summary><ul>'+
+        '<li>One kit per role, in one colour, so everyone in a group matches and new hires reorder the same styles.</li>'+
+        '<li>Crews who sweat get five wicking shirts each, enough for a work week between washes. Office staff get three polos.</li>'+
+        '<li>A layer and a jacket matched to how cold and wet it gets.</li>'+
         (groups.indexOf('site')>=0?'<li>Hi-vis is CSA Z96 Class 2 for anyone near traffic.</li>':'')+
-        '<li>Men’s and women’s cuts where they exist. Sizes are estimated from a standard size curve, and you can change them on your quote.</li>'+
-        '<li>Your logo placement and size are confirmed on a free proof before anything is made.</li></ul></div></div>';
-  }else{
-    res='<p class="jahint">Answer the four questions and we’ll build a kit for each group: the right pieces, how many each person gets, and the cost per person.</p>';
-  }
-  el.innerHTML='<section class="padv" aria-label="Program advisor"><div class="w"><div class="xpert jadv">'+
-    '<div class="xphd"><div><span class="xpeyb">Program advisor</span>'+
-      '<h2 class="xph">Outfit your whole team in four questions</h2>'+
-      '<p class="xpadv">Tell us who you’re dressing and where they work. We’ll build a kit for every role, priced per person and ready to send for approval.</p></div>'+
-      '<button type="button" class="xpask" id="paAsk"><span class="xpav" aria-hidden="true">S</span><span><b>Have Steven build it for you</b><i>Tell us the team and budget — we reply with a program</i></span></button></div>'+
-    '<div class="jaqs">'+q+'</div>'+res+'</div></div></section>';
+        '<li>Men’s and women’s cuts where they exist. Your logo is confirmed on a free proof before anything is made.</li></ul></details></div>'+
+    (PA_FINE?('<div class="pafine">'+paFineHtml(P)+'</div>'):'')+
+  '</div></div></section>';
   paWire(el);
 }
 function paWire(el){
   var re=function(){paSave();renderProgramAdvisor();};
   el.querySelectorAll('[data-pa]').forEach(function(b){b.addEventListener('click',function(){
-    var n=b.dataset.pa,v=b.dataset.v;
-    if(n==='g'){if(PA.g[v]!=null)delete PA.g[v];else PA.g[v]=0;}
+    var n=b.dataset.pa,v=b.dataset.v,first=!paGroups().length;
+    if(n==='g'){if(PA.g[v]!=null)delete PA.g[v];else PA.g[v]=PA.g[v]||0;}
     else if(n==='cold')PA.cold=+v;else if(n==='rain')PA.rain=+v;else PA.tier=v;
     if(n!=='g')PA.pick={};
     jdpTrack('pa_q',{q:n,v:v});re();
-    if(n==='g'&&PA.g[v]!=null){var i=el.querySelector('[data-pahc="'+v+'"]');if(i)try{i.focus();}catch(e){}}});});
-  el.querySelectorAll('[data-pahc]').forEach(function(i){
-    var t=null,commit=function(){var v=Math.max(0,Math.min(5000,parseInt(i.value,10)||0));if(PA.g[i.dataset.pahc]===v)return;PA.g[i.dataset.pahc]=v;jdpTrack('pa_q',{q:'n',v:v});paSave();
-      var y=window.scrollY;renderProgramAdvisor();window.scrollTo(0,y);};
-    i.addEventListener('change',commit);i.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();commit();}});
-    i.addEventListener('input',function(){clearTimeout(t);t=setTimeout(function(){var a=document.activeElement===i;var pos=i.value.length;commit();
-      if(a){var j=document.querySelector('[data-pahc="'+i.dataset.pahc+'"]');if(j){try{j.focus();j.setSelectionRange(pos,pos);}catch(e){}}}},700);});});
+    /* the first tap is the moment the answer appears -- bring it into view */
+    if(n==='g'&&first&&paGroups().length){var r=document.getElementById('padv');if(r)setTimeout(function(){r.scrollIntoView({behavior:'smooth',block:'start'});},60);}});});
   el.querySelectorAll('[data-pau]').forEach(function(b){b.addEventListener('click',function(){var p=b.dataset.pau.split('|'),id=p[0],d=+p[1];
     var role=id.split('.')[0],slot=(paSlotsFor(role).concat([{id:'vest',u:1}])).filter(function(s){return role+'.'+s.id===id;})[0]||{u:1};
     var cur=paUnits(role,slot);PA.u[id]=Math.max(1,Math.min(12,cur+d));jdpTrack('pa_units',{s:id,v:PA.u[id]});re();});});
@@ -3438,12 +3463,38 @@ function paWire(el){
     var c=slot&&slot.pool&&slot.pool[0];if(slot&&slot.jacket)c=role==='site'?['hivis','Hi-Vis Jackets']:['outerwear','all'];
     if(c){try{setCat(c[0],true);if(c[1]!=='all')setSub(c[1]);}catch(e){}}});});
   el.querySelectorAll('[data-xpopen]').forEach(function(b){b.addEventListener('click',function(){jdpTrack('xp_open',{k:b.dataset.xpopen,src:'pa'});openSheet(b.dataset.xpopen);});});
-  var add=document.getElementById('paAdd');if(add)add.addEventListener('click',function(){paToQuote();});
-  var sh=document.getElementById('paShare');if(sh)sh.addEventListener('click',function(){paToBoard();});
-  var ask=function(){var P=(paGroups().length&&PA.tier)?paProgram():null;jdpTrack('pa_ask',{});openSourcing('');
-    var nt=document.getElementById('coNote');
-    if(nt&&!nt.value)nt.value=P?(paSummaryText(P)+'\n\nPlease review this program for us.\nNeeded by: '):'Please build an apparel program for our team.\nGroups and how many people in each: \nWhere they work (office / warehouse / outdoor / hi-vis site): \nBudget per person: \nNeeded by: ';};
-  ['paAsk','paAsk2'].forEach(function(i){var a=document.getElementById(i);if(a)a.addEventListener('click',ask);});
+  var t=el.querySelector('#paAdjT');if(t)t.addEventListener('click',function(){PA_ADJ=!PA_ADJ;jdpTrack('pa_q',{q:'adjust',v:PA_ADJ?1:0});renderProgramAdvisor();});
+  var f=el.querySelector('#paFineT');if(f)f.addEventListener('click',function(){PA_FINE=!PA_FINE;jdpTrack('pa_q',{q:'fine',v:PA_FINE?1:0});renderProgramAdvisor();});
+  var go=el.querySelector('#paGo');if(go)go.addEventListener('click',function(){paQuoteModal();});
+  var ask=el.querySelector('#paAsk');if(ask)ask.addEventListener('click',paAsk);
+}
+function paAsk(){var P=paGroups().length?paProgram():null;jdpTrack('pa_ask',{});openSourcing('');
+  var nt=document.getElementById('coNote');
+  if(nt&&!nt.value)nt.value=P?(paSummaryText(P)+'\n\nPlease build this for us.\nHow many people in each group: \nNeeded by: '):'Please build an apparel program for our team.\nGroups and how many people in each: \nNeeded by: ';}
+/* HEADCOUNT, ASKED ONCE, WHEN IT MATTERS. One small sheet: a number per group, the live total, one button. */
+function paQuoteModal(){
+  var groups=paGroups();if(!groups.length)return;
+  jdpTrack('pa_open',{src:'quote_modal'});
+  var el=document.createElement('div');el.className='xoff';el.id='paqm';
+  el.innerHTML='<div class="xbox paqbox" role="dialog" aria-modal="true" aria-labelledby="paqmh"><button type="button" class="xx" aria-label="Close">✕</button>'+
+    '<h3 id="paqmh">How many people in each group?</h3><p>We’ll size it from a standard size curve and price it. You can change anything on the quote.</p>'+
+    '<div class="paqrows">'+groups.map(function(r){return '<label class="paqr"><span>'+esc(paRoleLab(r))+'</span><input type="number" inputmode="numeric" min="1" max="5000" data-paqn="'+r+'" value="'+(PA.g[r]||'')+'" placeholder="0"></label>';}).join('')+'</div>'+
+    '<div class="paqtot" id="paqTot"></div>'+
+    '<button type="button" class="jaall paqgo" id="paqGo">See my quote →</button>'+
+    '<div class="paqfine">No payment, no obligation. Confirmed in writing by a real person.</div></div>';
+  document.body.appendChild(el);requestAnimationFrame(function(){el.classList.add('on');});
+  var close=function(){el.classList.remove('on');setTimeout(function(){if(el.parentNode)el.parentNode.removeChild(el);},250);};
+  el.querySelector('.xx').addEventListener('click',close);el.addEventListener('click',function(e){if(e.target===el)close();});
+  var tot=el.querySelector('#paqTot'),go=el.querySelector('#paqGo');
+  var upd=function(){var ok=true;el.querySelectorAll('[data-paqn]').forEach(function(i){var v=Math.max(0,Math.min(5000,parseInt(i.value,10)||0));PA.g[i.dataset.paqn]=v;if(!v)ok=false;});
+    paSave();go.disabled=!ok;
+    if(!ok){tot.innerHTML='<i>Add a number for each group.</i>';return;}
+    var P=paProgram(),su=paSetup(P);
+    tot.innerHTML='<b>'+P.people+' people · about '+money0(P.total/P.people)+' per person</b><i>'+money0(P.total+su)+' estimated total'+(su>0?(', including '+money0(su)+' one-time setup'):'')+'</i>'+
+      (P.short.length?('<i>Includes rounding '+P.short.length+' style'+(P.short.length>1?'s':'')+' up to the '+P.M+'-piece minimum.</i>'):'');};
+  el.querySelectorAll('[data-paqn]').forEach(function(i){i.addEventListener('input',upd);i.addEventListener('keydown',function(e){if(e.key==='Enter'&&!go.disabled){e.preventDefault();go.click();}});});
+  go.addEventListener('click',function(){if(go.disabled)return;close();paToQuote();try{renderProgramAdvisor();}catch(e){}});
+  upd();setTimeout(function(){var i=el.querySelector('[data-paqn]');if(i)try{i.focus();}catch(e){}},300);
 }
 /* The program as cart lines: one line per style (two when it has a women's cut and the group is office,
    in-and-out or new hires -- an even split is a guess, which is why every size box stays editable). */
@@ -3478,33 +3529,23 @@ function paToQuote(){
   toast('Your program is on the quote · '+P.styles+' styles for '+P.people+' people');
   openQuote('advisor');
 }
-function paToBoard(){
-  if(!paGroups().length||!PA.tier)return;
-  var P=paProgram();
-  if(P.groups.some(function(g){return !g.n;})){toast('Add how many people are in each group first');return;}
-  if(!LISTS)loadLists();
-  var name=((CFG.client||'Our')+' apparel program').slice(0,40),id=null;
-  /* re-saving updates the same board instead of piling up copies */
-  listIds().forEach(function(x){if(!id&&LISTS[x].pa&&LISTS[x].name===name)id=x;});
-  if(!id){id=newList(name);LISTS[id].pa=1;}
-  LISTS[id].items={};paWriteLines(LISTS[id].items,paLines(P),P.people);LISTS[id].updated=Date.now();
-  LISTS[id].sub=P.people+' people · '+money0(P.people?P.total/P.people:0)+' per person';
-  ALID=id;CART=LISTS[id].items;persistLists();
-  try{setHC(P.people);}catch(e){}
-  refreshCartUI();jdpTrack('pa_share',{n:P.styles});
-  try{openBoard(id);}catch(e){}
-  try{shareList();}catch(e){}
-}
 /* every other way in -- the hero, the top bar, an aisle -- lands here */
 function goAdvisor(src){
   jdpTrack('pa_open',{src:src||''});
   try{if(typeof giftViewOn==='function'&&giftViewOn())setGiftView(false);}catch(e){}
   try{closeQuote();}catch(e){}
-  var el=document.getElementById('padv');if(el)el.scrollIntoView({behavior:'smooth',block:'start'});
+  /* no groups yet: take them to the one question; otherwise to their recommendation */
+  var el=document.getElementById(paGroups().length?'padv':'paq');if(!el)el=document.getElementById('padv');
+  if(el){el.scrollIntoView({behavior:'smooth',block:'center'});el.classList.remove('paflash');void el.offsetWidth;el.classList.add('paflash');}
 }
+/* the ONE human line in the hero: who answers, how fast, the number, and the RFQ path for buyers who
+   arrive with a spec -- instead of a separate box, button and link for each */
+function paHumanHtml(){var T=JDP_TRUST;
+  return '<div class="pahuman"><span class="hnav" aria-hidden="true">S</span><span>Prefer to talk it through? <b>Steven</b> replies in '+esc(T.reply)+' · '+
+    '<a href="tel:'+T.tel+'">'+esc(T.phone)+'</a> · <button type="button" class="jalink" id="hnRfq">send us your RFQ</button></span></div>';}
 function paEntryHtml(){
   return '<button type="button" class="paentry" data-goadv="aisle"><span class="paei" aria-hidden="true">✓</span>'+
-    '<span><b>Outfitting a whole team?</b><i>Answer four questions and get a kit for every role, priced per person</i></span><span class="paeg">Build my program →</span></button>';
+    '<span><b>Outfitting a whole team?</b><i>Tell us who you’re dressing and we’ll recommend a kit for each group, priced per person</i></span><span class="paeg">Get a recommendation →</span></button>';
 }
 
 var XP_SUB={};
@@ -3894,6 +3935,7 @@ function wireHomeBand(){
   if(b&&!b.dataset.w){b.dataset.w='1';b.addEventListener('click',function(){
     jdpTrack('band_quote',{n:cartCount()});
     if(cartCount()>0){openQuote('band');return;}
+    if(!CFG.demo&&!(typeof giftViewOn==='function'&&giftViewOn())){goAdvisor('band');return;}
     var r=document.getElementById((typeof giftViewOn==='function'&&giftViewOn())?'gfgrid':'recohero');if(r)r.scrollIntoView({behavior:'smooth',block:'start'});});}
   var m=document.getElementById('socMore');
   if(m&&!m.dataset.w){m.dataset.w='1';m.addEventListener('click',function(){
@@ -4071,12 +4113,14 @@ function buildStore(){
      'gap:32px;justify-content:space-between;flex-wrap:wrap">'+
      '<div class="herotx" style="flex:1 1 320px;min-width:0">'+
        '<h1>'+esc(poss(CFG.client))+" team store</h1>"+
-       '<p class="herosub">'+(demo?'This is a live sample. Every item shows exactly where your logo goes — swap in your brand and it becomes your team’s store. Live pricing, exact quote, no obligation.':'Your logo is already on every piece. Choose your gear and download an itemized quote your approver can sign.')+'</p>'+
+       '<p class="herosub">'+(demo?'This is a live sample. Every item shows exactly where your logo goes — swap in your brand and it becomes your team’s store. Live pricing, exact quote, no obligation.':'Your logo is already on every piece. Tell us who you’re dressing and we’ll recommend the gear, priced per person and ready for approval.')+'</p>'+
        homeProofHtml()+
        /* 4imprint opens every category with a named person ("David with 4imprint, 11 years"). The
           person who actually answers these stores is Steven, so say so, with the number that reaches
           him -- and give the two ways forward, not six claims. */
-       (demo||!trustOn()?'':heroNextHtml())+
+       /* ONE QUESTION, in the hero (2026-10-09 11:15). The three-step box, the RFQ button and two
+          separate ways to reach Steven became one question and one quiet human line. */
+       (demo?'':('<div id="paq" class="paq"></div>'+(trustOn()?paHumanHtml():'')))+
      '</div>'+
      heroShotsHtml()+
    '</div></section>'+
@@ -4195,8 +4239,6 @@ function buildStore(){
   if(_ge)_ge.addEventListener('click',function(){jdpTrack('gift_open',{src:'banner'});setGiftView(true);});
   try{wireMkt();}catch(e){}
   setTimeout(function(){try{mktHint();}catch(e){}},2500);
-  var _tp=document.getElementById('tbProg');
-  if(_tp)_tp.addEventListener('click',function(){try{closeBoards();closeBoard();closeProgram();closeAll();}catch(e){}goAdvisor('topbar');});
   var _tg=document.getElementById('tbGifts');
   if(_tg)_tg.addEventListener('click',function(){jdpTrack('gift_open',{src:'topbar'});
     try{closeBoards();closeBoard();closeProgram();closeAll();}catch(e){}setGiftView(true);});
@@ -7747,8 +7789,7 @@ function tbarHtml(){
       mktPillHtml()+
       trustBarHtml()+
       /* GIFTS IN THE TOP BAR -- the second way in, always one glance away (the rail has it too). */
-      '<button type="button" class="tbprog" id="tbProg"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l2 2 4-4"/><rect x="4" y="3" width="16" height="18" rx="2.5"/><path d="M8 17h8"/></svg><span>Build my program</span></button>'+
-      '<button type="button" class="tbgifts" id="tbGifts">'+railIcon('gifts')+'<span>Gifts</span></button>'+
+
       '<button type="button" class="tbboards tbquote" id="tbBoards" aria-label="Your quote">'+railIcon('quote')+
         '<span id="tbBoardsLbl">Quote</span><i class="tbqn" id="tbQN"></i></button>'+
     '</div>'+catMenuHtml()+'</div>';
@@ -9218,7 +9259,10 @@ function showExitOffer(){
 function renderRecoHero(){
   try{renderProgramAdvisor();}catch(e){}
   var el=document.getElementById('recohero');if(!el)return;
-  el.innerHTML=recoHeroHtml();
+  /* ONE PATH (2026-10-09 11:15). The recommendation above IS the program now; a second set of ready-made
+     programs beside it was a fourth place to start. They stay as boards (Boards, and "+ Add a program" on
+     the quote). A demo landing page keeps them -- it has no advisor in its hero. */
+  el.innerHTML=CFG.demo?recoHeroHtml():'';
   el.querySelectorAll('[data-reco]').forEach(function(b){
     b.addEventListener('click',function(){openProgram(b.dataset.reco);});});
   wireHeroNext();
@@ -9999,7 +10043,7 @@ function quoteDocHtml(){
         '<div><span>Prepared by</span><b>Steven · Just Deals Promotions</b><i>'+esc(T.phone)+'</i></div></div>'+
       '<div class="qhc"><label for="qHC">How many people?</label><input id="qHC" type="number" inputmode="numeric" min="1" placeholder="e.g. 40" value="'+(getHC()||'')+'">'+
         '<button type="button" id="qHCgo">Update quote</button><i>Program pieces are one per person. Items added on their own are estimated — fewer outer layers than people. Sizes are estimated until you enter your own; nothing is produced until you confirm.</i></div>'+
-      '<div class="qadd"><button type="button" class="qbtn" id="qMore">+ Add more items</button><button type="button" class="qbtn" id="qProg">+ Add a program</button></div>'+
+      '<div class="qadd"><button type="button" class="qbtn" id="qMore">+ Add more items</button><button type="button" class="qbtn" id="qProg">+ Get a team recommendation</button></div>'+
       '<table class="qtab"><thead><tr><th>#</th><th></th><th>Item</th><th>Qty</th><th>Unit'+(isUS()?' (USD)':'')+'</th><th>Amount'+(isUS()?' (USD)':'')+'</th></tr></thead><tbody>'+rows+'</tbody></table>'+
       '<div class="qtot"><div><span>Subtotal · '+pcs+' pieces</span><b>'+money(sub)+'</b></div>'+
         (setup>0?('<div><span>One-time setup</span><b>'+money(setup)+'</b></div>'+
@@ -10034,7 +10078,7 @@ function quoteEmptyHtml(){
   return '<div class="qwrap"><div class="qbar"><button type="button" class="qback" id="qBack">‹ Back</button></div>'+
     '<div class="qempty"><h2>Your quote is empty</h2><p>Start with a ready program, add items from the catalogue, or send us your RFQ — '+
       'then download an itemized quote for approval.</p>'+
-      '<div class="qadd"><button type="button" class="qbtn qsend" id="qProg">Start with a program</button>'+
+      '<div class="qadd"><button type="button" class="qbtn qsend" id="qProg">Get a recommendation</button>'+
       '<button type="button" class="qbtn" id="qMore">Browse the catalogue</button><button type="button" class="qbtn" id="qRfq">Upload an RFQ</button></div></div></div>';
 }
 function quoteToCatalogue(){
@@ -10043,7 +10087,7 @@ function quoteToCatalogue(){
   if(g)g.scrollIntoView({behavior:'smooth',block:'start'});
   toast('Tap “+ Quote” on anything to add it');
 }
-function quoteToPrograms(){closeQuote();setRail('explore');var r=document.getElementById('recohero');if(r)r.scrollIntoView({behavior:'smooth',block:'start'});}
+function quoteToPrograms(){closeQuote();setRail('explore');if(!CFG.demo){goAdvisor('quote');return;}var r=document.getElementById('recohero');if(r)r.scrollIntoView({behavior:'smooth',block:'start'});}
 function wireQuoteEdit(el){
   var m=document.getElementById('qMore');if(m)m.addEventListener('click',function(){jdpTrack('quote_more');quoteToCatalogue();});
   var p=document.getElementById('qProg');if(p)p.addEventListener('click',function(){jdpTrack('quote_prog');quoteToPrograms();});
