@@ -3230,12 +3230,30 @@ function caRank(cfg,role,A){
 }
 function caProgram(cfg,A){
   return caRoles(cfg,A).map(function(role){
-    var rows=caRank(cfg,role,A);if(!rows.length)return {role:role,none:true};
+    var rows=caRank(cfg,role,A);if(!rows.length&&!(cfg.curate&&VIEW.cat!=='carhartt'&&(function(){try{var c=cfg.curate(A,role);return c&&c.pick&&BYKEY[c.pick]&&caPool(cfg,A).indexOf(c.pick)>=0&&(!cfg.curOk||cfg.curOk(BYKEY[c.pick],A));}catch(e){return false;}})()))return {role:role,none:true};
     /* CARHARTT IS THE PREMIUM OPTION (Steven, 2026-10-09 16:38: "note carhartt is a more premium option"). Outside
        the Carhartt aisle it is never the default pick; when a Carhartt piece fits the job it is offered as the
        Premium step up. In the Carhartt aisle the buyer chose the brand, so it leads there. */
     var inCh=VIEW.cat==='carhartt',isCh=function(r){return isCarhartt(BYKEY[r.k]);};
     var mine=CA_PICK[cfg.id+'.'+role],core=inCh?rows:rows.filter(function(r){return !isCh(r);});
+    /* CURATED PICKS (jackets, 2026-10-12): a hand-picked trio per answer wins over the score whenever this store can
+       show it and it suits the buyer; anything missing falls back to the ranking below, slot by slot. */
+    var cur=null;if(cfg.curate&&!inCh){try{cur=cfg.curate(A,role);}catch(e){cur=null;}}
+    if(cur){var inPool={};caPool(cfg,A).forEach(function(k){inPool[k]=1;});
+      var okK=function(k){return !!(k&&inPool[k]&&BYKEY[k]&&(!cfg.curOk||cfg.curOk(BYKEY[k],A)));},
+          rowOf=function(k){return rows.filter(function(r){return r.k===k;})[0]||{k:k,s:0,p:sxPrice(k)};};
+      var ck=okK(cur.pick)?cur.pick:null;
+      if(!ck&&cur.pick&&typeof JA_FAMILY!=='undefined'&&JA_FAMILY[cur.pick]&&okK(JA_FAMILY[cur.pick][0]))ck=JA_FAMILY[cur.pick][0];   // the twin with the cut they need
+      var cm=(mine&&rows.filter(function(r){return r.k===mine;})[0])||(mine&&okK(mine)?rowOf(mine):null);
+      if(ck&&(!cm||cm.k===ck)){var m0=rowOf(ck);
+        var slot=function(k,lo){if(k===null)return null;var r=okK(k)?rowOf(k):undefined;if(r&&r.p>0&&(lo?r.p<m0.p:r.p>m0.p))return r;return undefined;};
+        var lo0=slot(cur.lo,true),hi0=slot(cur.hi,false),rest0=rows.filter(function(r){return r.k!==m0.k;}),gap0=Math.max(3,m0.p*0.1),
+            restC0=rest0.filter(function(r){return !isCh(r);});
+        if(lo0===undefined)lo0=restC0.filter(function(r){return r.p<=m0.p-gap0;})[0]||null;
+        if(hi0===undefined)hi0=rest0.filter(function(r){return isCh(r)&&r.p>m0.p+0.5;})[0]||rest0.filter(function(r){return r.p>=m0.p+gap0&&r!==lo0;})[0]||null;
+        var alts0=[];if(lo0)alts0.push({r:lo0,lab:'Lower cost',t:'lo',ang:cfg.angOf?cfg.angOf(lo0.k):''});if(hi0)alts0.push({r:hi0,lab:'Premium',t:'hi',ang:cfg.angOf?cfg.angOf(hi0.k):''});
+        return {role:role,main:m0,alts:alts0,n:Math.max(rows.length,1),cur:true,ang:(ck===cur.pick?cur.ang:'')};}
+    }
     var main=(mine&&rows.filter(function(r){return r.k===mine;})[0])||core[0]||rows[0];
     var rest=rows.filter(function(r){return r.k!==main.k;});
     /* a real choice, not a neighbour: at least ~10% (and $3) either side of our pick, best-fitting first */
@@ -3243,7 +3261,7 @@ function caProgram(cfg,A){
     var lower=restCore.filter(function(r){return r.p<=main.p-gap;})[0]||restCore.filter(function(r){return r.p<main.p-0.5;})[0];
     var chPrem=inCh?null:rest.filter(function(r){return isCh(r)&&r.p>main.p+0.5;})[0];
     var prem=chPrem||rest.filter(function(r){return r.p>=main.p+gap&&r!==lower;})[0]||rest.filter(function(r){return r.p>main.p+0.5&&r!==lower;})[0];
-    var alts=[];if(lower)alts.push({r:lower,lab:'Lower cost',t:'lo'});if(prem)alts.push({r:prem,lab:'Premium',t:'hi'});
+    var alts=[];if(lower)alts.push({r:lower,lab:'Lower cost',t:'lo',ang:cfg.angOf?cfg.angOf(lower.k):''});if(prem)alts.push({r:prem,lab:'Premium',t:'hi',ang:cfg.angOf?cfg.angOf(prem.k):''});
     return {role:role,main:main,alts:alts,n:rows.length};
   });
 }
@@ -3252,13 +3270,14 @@ function caFeat(it){var f={},fl=jaFlags(it),g=caGsm(it),mx=jaMaxSize(it),c=caCla
   if(hasLadies(it))f.ladies='women’s cuts';
   if(/^[4-6]XL/.test(mx))f.big='sizes to '+mx.split('/')[0];
   if(caPerf(it)&&/^(polo|tee|woven|fleece)$/.test(itemCategory(it)))f.wick='wicking fabric';   // a property of knits worn next to the skin, not of a jacket shell
+  if(fl.indexOf('sealed seams')>=0)f.ss='sealed seams';
   if(fl.indexOf('waterproof')>=0)f.wp='waterproofing';else if(fl.indexOf('water-repellent')>=0||caFin(it,/water-repellent/i))f.wr='water repellency';
   if(fl.indexOf('windproof')>=0)f.wind='wind protection';
   if(caFin(it,/snag/i))f.snag='snag resistance';
   if(caFin(it,/UPF|UV/i))f.upf='sun protection';
   if(c>=2)f.cls='CSA Class '+c;
   if(/tear-?away|breakaway/i.test(it.name||''))f.tear='tear-away safety';
-  if(caLuxe(it))f.brand='the '+caBrand(it)+' name';
+  if(caLuxe(it))f.brand=(/^the /i.test(caBrand(it))?'':'the ')+caBrand(it)+' name';
   if(g)f.gsm=g;
   return f;}
 function caTrade(main,alt,lo){var a=caFeat(BYKEY[main]),b=caFeat(BYKEY[alt]),out=[],k;
@@ -3308,6 +3327,7 @@ function caMainHtml(cfg,A,x){
       '<span class="cambadge">Recommended</span>'+
       '<h5>'+esc(it.name)+'</h5><span class="cambr">'+esc(it.brand||it.sku||'')+'</span>'+
       (v?('<p class="camv">'+esc(v)+'</p>'):'')+
+      (x.ang?('<p class="caang"><b>Why this one</b>'+esc(x.ang)+'</p>'):'')+
       '<ul class="jaw">'+why.slice(0,4).map(function(w){return '<li>'+esc(w)+'</li>';}).join('')+'</ul>'+
       caSwatchHtml(r.k)+
       (cfg.extra?(function(){try{return cfg.extra.call(cfg,it,A,x.role)||'';}catch(e){return '';}})():'')+
@@ -3338,7 +3358,7 @@ function caAltHtml(cfg,x){
     return '<div class="caalt t-'+a.t+'"><button type="button" class="caaimg" data-xpopen="'+esc(a.r.k)+'" aria-label="See '+esc(it.name)+'">'+caThumb(a.r.k)+'</button>'+
       '<div class="caab"><span class="caal"><em>'+esc(a.lab)+'</em> <b>'+money(a.r.p)+'</b> <span class="cadiff">'+(lo?'save ':'+')+money(Math.abs(d))+'/pc</span></span>'+
         '<b class="caan">'+esc(it.name)+'</b><span class="cambr">'+esc(it.brand||'')+'</span>'+
-        '<span class="catrade">'+esc(caTrade(x.main.k,a.r.k,lo))+'</span>'+caTierHtml(a.r.k,true)+'</div>'+
+        (a.ang?('<span class="caang2">'+esc(a.ang)+'</span>'):'')+'<span class="catrade">'+esc(caTrade(x.main.k,a.r.k,lo))+'</span>'+caTierHtml(a.r.k,true)+'</div>'+
       '<button type="button" class="jasw" data-caswap="'+esc(x.role)+'|'+esc(a.r.k)+'">Use this</button></div>';}).join('')+'</div>';
 }
 function caOptHtml(q,A){var multi=!!q.multi,cur=A[q.id];
@@ -3374,7 +3394,7 @@ function renderCatAdvisor(el,cfg){
     var ok=P.filter(function(x){return !x.none;}),ks=ok.map(function(x){return x.main.k;}),allIn=ks.length&&ks.every(function(k){return cartHasAny(k);});
     var nS=caPool(cfg,A).length;
     body=head+'<h3 class="xph">'+(ok.length>1?('Our '+ok.length+' picks — one for each group'):'Our recommendation')+'</h3>'+
-      '<p class="cacmp">We weighed all '+nS+' '+esc(cfg.noun)+' in this store against your answers — fabric, fit, sizes and how they’re built for the job.</p></div>'+
+      '<p class="cacmp">'+(ok.some(function(x){return x.cur;})?('Hand-picked by our team from the '+nS+' '+esc(cfg.noun)+' in this store for exactly these answers — warmth, weather protection, fit and how each group actually works.'):('We weighed all '+nS+' '+esc(cfg.noun)+' in this store against your answers — fabric, fit, sizes and how they’re built for the job.'))+'</p></div>'+
       '<div class="casum"><span class="casuml">Based on</span>'+caSummary(cfg,A).map(function(t){return '<span class="casumc">'+esc(t)+'</span>';}).join('')+
         '<button type="button" class="jalink" data-cago="0">Change answers</button></div>'+
       (cfg.note?(function(){try{var t=cfg.note(A);return t?('<p class="canote">'+t+'</p>'):'';}catch(e){return '';}})():'')+
@@ -3440,22 +3460,35 @@ var CADV=[];
 /* JACKETS -- the jacket advisor (2026-10-09) on the shared engine. Research: Brandsauce, Quality Imprint,
    Arklavo jacket-program guides -- start from the job; one core jacket per role; the deciding facts are
    warmth, water-repellent vs waterproof, men's and women's cuts, extended sizes and price per person. */
-/* JACKETS v2 (Steven, 2026-10-12: "build out the new and improved jacket advisor"; reviewed against the
-   "Enterprise Jacket Advisor" sheet). Kept from that sheet: drivers and warehouse staff are different buyers; near-
-   identical styles are ONE recommendation with a hood/length choice; freezer work is a different product; a rain shell
-   needs a layer under it. Changed: the sheet made the buyer judge warmth ("Everyday / Winter / Heavy winter") and then
-   marked nine of its 32 rows "provisional until exposure is known" -- but exposure follows from the job, so the role
-   carries it (office = commutes, drivers = in and out all shift, warehouse = mostly indoors, outdoor = most of the
-   shift) and the buyer only answers what they actually know: who, how cold, how wet. "Rain is part of the job" now
-   means waterproof or seam-sealed, never just water-repellent. Every recommendation is a product this store carries and
-   can price -- 14 of the sheet's picks were not. Research as before: Brandsauce, Quality Imprint, Arklavo. */
+/* JACKETS v3 -- CURATED (Steven, 2026-10-12 15:06: "your selection based off what they pick is off ... understand
+   enterprise needs and create the optimal jacket advisor with the right picks!"). v2 let a points score choose, and a
+   score has no taste: it handed the same quilted jacket to the office and the drivers, a men's-only bomber to mixed
+   crews, a $199 jacket to a winter-rain buyer and a 3-in-1 to office commuters. So every answer now maps to a
+   HAND-PICKED trio -- our pick, a real lower-cost option and a real step up -- per market (Canada, United States),
+   built from the attached sheet and corrected:
+     - the sheet's four warmth levels come back (a fleece-backed softshell is its own level between a windbreaker and
+       an insulated jacket -- lumping them is what put rain shells on spring buyers), and wet goes back to the sheet's
+       two answers, where "rain or wet snow" means SEAM-SEALED, quoted from the maker's copy, never a DWR finish;
+     - office and driver picks come in matched men's AND women's cuts (Harrison, the sheet's office pick, has none);
+     - drivers get bomber and jacket lengths, never a parka that bunches in the seat; office commuters in deep cold get
+       a long city coat, not a $254 expedition parka; warehouse picks stay light enough for indoors (3-in-1s whose
+       liner comes out), outdoor crews get heavy-duty Thinsulate and seam-sealed 3-in-1s;
+     - Carhartt and the big lifestyle names are the Premium step, never the default (Steven, 2026-10-09);
+     - every pick is a current style we carry and can price; the sheet named 14 we do not.
+   A pick the store can't show (hidden in a market, or no women's cut when that's required) falls back to the scored
+   ranking, so the advisor never comes back empty. */
 var JA2_ROLES=[
-  {id:'office',lab:'Office & client-facing',sub:'Commutes and quick trips outside'},
-  {id:'drivers',lab:'Drivers & field techs',sub:'In and out of vehicles all shift'},
-  {id:'warehouse',lab:'Warehouse & shop',sub:'Mostly indoors, quick trips out'},
-  {id:'outdoor',lab:'Outdoor crews',sub:'Yards, construction, grounds — most of the shift'}];
+  {id:'office',lab:'Office & client-facing',sub:'Sales, managers, front desk — commutes and site visits'},
+  {id:'drivers',lab:'Drivers & field techs',sub:'In and out of vehicles and buildings all shift'},
+  {id:'warehouse',lab:'Warehouse & shop',sub:'Mostly indoors, quick trips to the dock or yard'},
+  {id:'outdoor',lab:'Outdoor crews',sub:'Construction, yards, grounds — outside most of the shift'}];
 var JA2_BASE={office:'office',drivers:'mixed',warehouse:'mixed',outdoor:'outdoor'};
-var JA2_EXPO={office:'outside for commutes and quick trips',drivers:'in and out of vehicles all shift',warehouse:'mostly indoors with quick trips out',outdoor:'outside most of the shift'};
+var JA2_EXPO={office:'outside for commutes and site visits',drivers:'in and out of vehicles all shift',warehouse:'mostly indoors with quick trips out',outdoor:'outside most of the shift'};
+var JA_WARM4=[{id:1,lab:'Mild',sub:'Wind and a chill — late spring to early fall'},{id:2,lab:'Cool',sub:'Crisp spring and fall mornings'},
+  {id:3,lab:'Cold winter',sub:'Below freezing'},{id:4,lab:'Deep winter',sub:'Hours well below freezing'}];
+var JA_WET2=[{id:0,lab:'Mostly dry',sub:'The odd shower — water-repellent is fine'},{id:1,lab:'Rain or wet snow is part of the job',sub:'We’ll only recommend seam-sealed waterproof jackets'}];
+/* the scored fallback still thinks in three warmth bands */
+function ja3Cold(w){return {1:1,2:1,3:2,4:3}[+w||3]||2;}
 function ja2Eff(role,cold){cold=+cold||2;return role==='warehouse'?Math.max(1,cold-1):cold;}
 /* ONE recommendation, two cuts of it: the buyer picks hood or length, we never present twins as two choices */
 var JA_FAMILY={cs_cyclone:['cs_l03170','Hurricane — adds a removable hood and storm cuffs'],cs_l03170:['cs_cyclone','Cyclone — no hood, a cleaner uniform look'],
@@ -3464,55 +3497,153 @@ var JA_FAMILY={cs_cyclone:['cs_l03170','Hurricane — adds a removable hood and 
   st_pacificawind:['st_pacifica','Pacifica Full Zip — no hood, a cleaner uniform look'],st_pacifica:['st_pacificawind','Pacifica — with an attached hood'],
   st_squall:['st_waterfall','Waterfall — mid-length and fully lined, for commuters'],st_waterfall:['st_squall','Squall — hip length, for active work'],
   st_tradesmith:['st_tradesmithhoody','Tradesmith Hoody — the same sherpa-lined canvas with a hood'],st_tradesmithhoody:['st_tradesmith','Tradesmith Jacket — collar and snap front']};
+/* what each option IS, in a line -- from the maker's own copy and our catalogue facts */
+var JA_ANG={st_pacificawind:'Ultra-light 65 gsm windbreaker with a hood',st_pacifica:'Hoodless Pacifica windbreaker',st_nautilusshell:'Packable lightweight shell',
+  st_stratus:'Ultra-light packable shell with sealed seams',cs_l07200:'Stretch softshell bonded to micro fleece',softshell:'Clean, economical everyday softshell',
+  cs_l07240:'Lightweight stretch softshell with a brushed backing',cs_l04200:'Packable four-way-stretch jacket',cs_l03170:'Insulated stretch softshell, removable hood',
+  cs_cyclone:'Insulated stretch softshell, no hood',cs_l03400:'Conventional insulated jacket with a detachable hood',st_orbiter:'Insulated softshell, Thermolex high-loft fill',
+  cs_l01110:'Heavy-duty bomber, 3M Thinsulate 200/170 gsm',cs_l01100:'Heavy-duty parka, 3M Thinsulate 200/170 gsm',
+  cs_l01115:'Heavy-duty 3-in-1 bomber: seam-sealed shell + zip-out quilted jacket',cs_l01120:'Heavy-duty 3-in-1 parka: seam-sealed shell + zip-out quilted jacket',
+  cs_l06000:'3-in-1: 10,000 mm seam-sealed shell + zip-out liner',st_nostromo:'Insulated jacket with a sealed 15000/10000 waterproof shell',
+  cs_l02185:'Fully seam-sealed 5,000 mm stretch rain shell',st_scirocco:'Seam-sealed lightweight rain shell',st_patrol:'Softshell with sealed seams — warmth and rain protection in one',
+  cs_l06025:'Long puffy coat, 300 gsm body insulation',st_denali:'Long parka: sealed 10000/10000 shell, Thermolex fill',st_explorerparka:'Sherpa-lined parka, sealed 10000/10000 shell',
+  st_magellan:'3-in-1 with fully sealed seams and a zip-out thermal liner',cs_l00910:'Cotton-canvas bomber, sherpa lined',cs_l01080:'Insulated work parka, 220/170 gsm fill',
+  cs_l01025:'Quilted freezer jacket, 150 gsm fill',st_nautilusjkt:'Slim quilted jacket, windproof shell',cs_l00980:'Puffy jacket with a detachable hood',
+  cbc_evoke_puffer:'Cutter & Buck puffer — the premium corporate name',cb_adapt:'Cutter & Buck hybrid full-zip',cbc_rainier_hybrid:'Cutter & Buck puffer hybrid',
+  st_sierrashell:'Budget lightweight shell',ch_102199:'Carhartt Rain Defender heavyweight softshell',ch_106674:'Carhartt firm-duck insulated coat',
+  st_steelhead:'Heavy-duty Taslan oxford jacket, 5000/5000 waterproof shell',st_oslo:'Quilted city parka, 5000/5000 waterproof shell',
+  st_atmosphere:'3-in-1: sealed 5000/5000 shell + zip-out liner',st_artimus:'Technical shell, 10,000 mm, sealed seams',st_vertex:'Three-layer storm shell, 20,000 mm, sealed seams',
+  st_squall:'Rain jacket with welded seams',st_waterfall:'Lined mid-length raincoat, welded seams',st_cascades:'H2XTREME softshell with a water-repellent finish',
+  st_greenwich:'Lightweight H2XTREME softshell',st_narvik:'Insulated hybrid jacket',st_vortex:'Heavy-duty 3-in-1 work parka with a zip-out fleece',
+  st_cruise:'Hooded H2XTREME stretch softshell',cs_l01055:'600 gsm softshell bonded to sherpa, abrasion-resistant',st_tradesmith:'Sherpa-lined canvas work jacket',
+  st_flatiron:'Diamond-quilted work jacket',st_avalante3in1:'3-in-1: sealed shell + quilted high-loft inner jacket',st_matrix:'3-in-1: sealed H2XTREME shell + thermal liner',
+  rainier:'Full-length seam-sealed raincoat',st_axis:'Woven shell with a mesh lining',tnf_soft:'The North Face softshell',st_sierrajkt:'Value quilted jacket, windproof shell'};
+/* THE MATRIX: role|warmth|wet -> [our pick, lower cost, premium, why this is the pick]. null = deliberately none. */
+var JA_CUR={
+ca:{
+'office|1|0':['st_pacificawind','st_nautilusshell','st_stratus','A light windbreaker is all a commute needs on mild days — choose hood or hoodless and keep one look across the team.'],
+'office|2|0':['softshell','cs_l07240','tnf_soft','The office uniform for cool days: a clean, fleece-backed softshell that reads polished over a shirt, in matching men’s and women’s cuts.'],
+'office|3|0':['st_nautilusjkt','cs_l00980','cbc_evoke_puffer','A slim quilted jacket keeps people warm on winter commutes without looking like workwear — matching men’s and women’s cuts.'],
+'office|4|0':['cs_l06025',null,'st_denali','Deep cold on the commute calls for length: a long puffy coat that covers past the hips, without the bulk of an expedition parka.'],
+'office|1|1':['st_stratus','rainier','st_scirocco','Sealed seams keep steady rain out, and the ultra-light shell packs into a work bag on dry days.'],
+'office|2|1':['st_scirocco','cs_l02185','st_patrol','A seam-sealed shell over office layers: dry in steady rain, with the warmth coming from what’s underneath.'],
+'office|3|1':['st_nostromo',null,'st_avalante3in1','Insulation and a sealed waterproof shell in one sleek jacket — no separate rain layer on winter commutes.'],
+'office|4|1':['cs_l06000',null,'st_denali','A seam-sealed shell with a zip-out liner: the full system for the wettest, coldest commutes, the shell alone for spring rain.'],
+'drivers|1|0':['st_pacificawind','st_nautilusshell','st_greenwich','Light and unrestrictive for getting in and out of vehicles all day.'],
+'drivers|2|0':['cs_l07200','softshell','st_cruise','Stretch and a micro-fleece backing: moves with drivers and techs, and takes the edge off cool mornings.'],
+'drivers|3|0':['cs_l03170','cs_l03400','st_orbiter','An insulated stretch softshell — warm, but not bulky behind the wheel, and the hood comes off.'],
+'drivers|4|0':['cs_l01110',null,'cs_l01115','Heavy-duty Thinsulate warmth at bomber length, so it doesn’t bunch up in the driver’s seat.'],
+'drivers|1|1':['cs_l02185',null,'st_scirocco','Fully seam-sealed and stretchy, light enough to wear in and out of the vehicle all day.'],
+'drivers|2|1':['cs_l02185',null,'st_patrol','A seam-sealed stretch shell; a fleece or hoodie underneath supplies the warmth.'],
+'drivers|3|1':['st_nostromo',null,'cs_l01115','Insulated and sealed in one jacket — nothing extra to shed every time they climb back in the cab.'],
+'drivers|4|1':['cs_l01115','cs_l06000','st_magellan','A heavy-duty 3-in-1 bomber: sealed shell and warm inner jacket, at a length made for climbing in and out of cabs.'],
+'warehouse|1|0':['cs_l04200','st_nautilusshell','cs_l07200','Light and stretchy, so it doesn’t overheat indoors between quick trips out.'],
+'warehouse|2|0':['softshell','cs_l07240','cs_l07200','A simple fleece-backed softshell for quick trips outside — warm enough on the dock, not too warm inside.'],
+'warehouse|3|0':['cs_l03400',null,'cs_l03170','A straightforward insulated jacket for the loading dock, with a detachable hood for indoor stretches.'],
+'warehouse|4|0':['cs_l01110','cs_l01025','cs_l01115','Long cold stretches on the dock or in the yard: heavy-duty Thinsulate in a bomber cut that still lets them move.'],
+'warehouse|1|1':['cs_l02185',null,'st_scirocco','A seam-sealed rain shell for dock runs in the rain, light enough to leave on indoors.'],
+'warehouse|2|1':['cs_l02185',null,'st_scirocco','A seam-sealed shell over a hoodie: dry on the dock, not too warm inside.'],
+'warehouse|3|1':['cs_l06000','st_nostromo','cs_l01115','The liner zips out for indoor stretches, and the seam-sealed shell handles wet dock work.'],
+'warehouse|4|1':['cs_l01115','cs_l06000','st_magellan','Heavy-duty 3-in-1: sealed shell and warm inner jacket together for long wet, cold stretches outside.'],
+'outdoor|1|0':['cs_l07240','st_sierrashell','ch_102199','A stretch softshell stands up to a working day better than a thin windbreaker.'],
+'outdoor|2|0':['cs_l07200','softshell','cs_l01055','Stretch softshell bonded to micro fleece: moves with active crews and takes the edge off cool mornings.'],
+'outdoor|3|0':['cs_l01110','cs_l00910','ch_106674','Most of the shift outside in winter: heavy-duty 3M Thinsulate in a bomber cut that keeps arms free.'],
+'outdoor|4|0':['cs_l01100','cs_l01080','st_denali','Hours outside in deep cold: parka length adds coverage over the same heavy-duty Thinsulate.'],
+'outdoor|1|1':['cs_l02185',null,'st_scirocco','A fully seam-sealed stretch shell keeps active crews dry without slowing them down.'],
+'outdoor|2|1':['cs_l02185',null,'st_patrol','Seam-sealed and stretchy, worn over a fleece: dry all shift, and the layer underneath does the warming.'],
+'outdoor|3|1':['cs_l01115','cs_l06000','st_magellan','Heavy-duty 3-in-1: seam-sealed shell plus a warm inner jacket, and either piece works alone as the weather shifts.'],
+'outdoor|4|1':['cs_l01120',null,'st_denali','Parka-length heavy-duty 3-in-1 for long wet, cold shifts: sealed shell plus a zip-out quilted jacket.']},
+us:{
+'office|1|0':['st_pacificawind','st_nautilusshell','st_stratus','A light windbreaker is all a commute needs on mild days — choose hood or hoodless and keep one look across the team.'],
+'office|2|0':['cb_adapt',null,'cbc_rainier_hybrid','A Cutter & Buck hybrid reads polished in front of clients and takes the chill off cool days, in matching men’s and women’s cuts.'],
+'office|3|0':['st_nautilusjkt','st_sierrajkt','cbc_evoke_puffer','A slim quilted jacket keeps people warm on winter commutes without looking like workwear — matching men’s and women’s cuts.'],
+'office|4|0':['st_oslo',null,'st_denali','A quilted city parka with a waterproof shell: polished for the commute, warm for deep cold.'],
+'office|1|1':['st_stratus','st_squall','st_artimus','Sealed seams keep steady rain out, and the ultra-light shell packs into a work bag on dry days.'],
+'office|2|1':['st_scirocco','st_stratus','st_vertex','A seam-sealed shell over office layers: dry in steady rain, with the warmth coming from what’s underneath.'],
+'office|3|1':['st_nostromo',null,'st_atmosphere','Insulation and a sealed waterproof shell in one sleek jacket — no separate rain layer on winter commutes.'],
+'office|4|1':['st_atmosphere','st_oslo','st_denali','A sealed shell with a zip-out liner: the full system for the wettest, coldest commutes, the shell alone for spring rain.'],
+'drivers|1|0':['st_pacificawind','st_nautilusshell','st_greenwich','Light and unrestrictive for getting in and out of vehicles all day.'],
+'drivers|2|0':['st_cascades','st_greenwich','st_cruise','A stretch H2XTREME softshell that moves with drivers and techs and shrugs off a shower.'],
+'drivers|3|0':['st_orbiter','st_narvik','st_steelhead','An insulated softshell — warm, but not bulky behind the wheel.'],
+'drivers|4|0':['st_magellan','st_vortex','st_matrix','A 3-in-1 at jacket length: the full system for deep cold, the shell alone on milder days — and it won’t bunch in the seat.'],
+'drivers|1|1':['st_stratus','st_squall','st_artimus','Sealed seams and next to no weight, for wearing in and out of the vehicle all day.'],
+'drivers|2|1':['st_scirocco','st_squall','st_patrol','A seam-sealed shell; a fleece or hoodie underneath supplies the warmth.'],
+'drivers|3|1':['st_nostromo',null,'st_magellan','Insulated and sealed in one jacket — nothing extra to shed every time they climb back in the cab.'],
+'drivers|4|1':['st_magellan',null,'st_matrix','Fully sealed 3-in-1 at jacket length: deep-winter warmth that still works behind the wheel.'],
+'warehouse|1|0':['st_axis','st_sierrashell','st_greenwich','A light woven shell that won’t overheat indoors between quick trips out.'],
+'warehouse|2|0':['st_greenwich','st_axis','st_cascades','A lightweight softshell for quick trips outside — warm enough on the dock, not too warm inside.'],
+'warehouse|3|0':['st_narvik','st_sierrajkt','st_orbiter','An insulated hybrid: warm through the body for the dock, with less bulk for working indoors.'],
+'warehouse|4|0':['st_vortex',null,'st_magellan','A heavy-duty 3-in-1 parka for long cold stretches outside — the fleece comes out for indoor work.'],
+'warehouse|1|1':['st_squall',null,'st_scirocco','Welded seams keep the rain out on dock runs, and it’s light enough to leave on indoors.'],
+'warehouse|2|1':['st_squall',null,'st_scirocco','A welded-seam rain jacket over a hoodie: dry on the dock, not too warm inside.'],
+'warehouse|3|1':['st_atmosphere','st_nostromo','st_avalante3in1','The liner zips out for indoor stretches, and the sealed shell handles wet dock work.'],
+'warehouse|4|1':['st_magellan',null,'st_matrix','A fully sealed 3-in-1: shell and liner together for long wet, cold stretches outside.'],
+'outdoor|1|0':['st_greenwich','st_pacificawind','st_cascades','A light softshell stands up to a working day better than a thin windbreaker.'],
+'outdoor|2|0':['st_cascades','st_greenwich','st_cruise','A stretch H2XTREME softshell for active crews on cool days.'],
+'outdoor|3|0':['st_tradesmith','st_flatiron','st_steelhead','Most of the shift outside in winter: sherpa-lined canvas built for work.'],
+'outdoor|4|0':['st_vortex',null,'st_denali','Hours outside in deep cold: a heavy-duty 3-in-1 parka, fleece in for the coldest days.'],
+'outdoor|1|1':['st_squall',null,'st_artimus','Welded seams keep active crews dry in steady rain, at a price that works for a whole crew.'],
+'outdoor|2|1':['st_scirocco','st_squall','st_vertex','A seam-sealed shell over a fleece: dry all shift, and the layer underneath does the warming.'],
+'outdoor|3|1':['st_magellan','st_nostromo','st_denali','A fully sealed 3-in-1: shell plus a warm liner, and either piece works alone as the weather shifts.'],
+'outdoor|4|1':['st_denali','st_magellan',null,'Long wet, cold shifts: a parka with a sealed 10000/10000 shell and Thermolex fill.']}};
+function jaCurated(A,role){var M=JA_CUR[(typeof isUS==='function'&&isUS())?'us':'ca']||{},w=+A.warm||0,r=+A.rain||0;
+  var row=M[role+'|'+w+'|'+(r?1:0)];if(!row)return null;return {pick:row[0],lo:row[1],hi:row[2],ang:row[3]};}
 CADV.push({id:'jackets',one:'jacket',label:'Jacket advisor',noun:'jackets',noun2:'jackets',
   h:'Not sure which jacket? Start with the job.',
-  sub:'Three quick questions — who wears it, how cold, how wet. We match the warmth to how long each group is actually outside.',
+  sub:'Three quick questions — who wears it, how cold, how wet. Every answer leads to a jacket we’ve hand-picked for that job, plus a lower-cost and a premium option.',
   overWhy:'how cold and wet it gets',
   applies:function(c,s){return c==='outerwear'||(c==='ruggedwear'&&(s==='all'||/Insulated|Canvas|Parkas|Shells/.test(s)))||(c==='carhartt'&&/Jackets/.test(s));},
   preset:function(A,c){if(!(A.who&&A.who.length)&&c==='ruggedwear')A.who=['outdoor'];
     /* answers saved by the first jacket advisor used 'mixed' for drivers */
     if(A.who)A.who=A.who.map(function(x){return x==='mixed'?'drivers':x;}).filter(function(x,i,a){return x!=='site'&&a.indexOf(x)===i;});
-    /* the two-level wet answer "rain is part of the job" (1) meant steady rain: carry it to the new top level */
-    if(!A._wv){if(String(A.rain)==='1')A.rain='2';A._wv=2;}},
+    /* earlier versions: cold 1-3 (spring & fall / Canadian winter / deep winter) and wet as 2 (v1) or 3 (v2) levels */
+    if(A._wv!==3){if(A.cold!=null&&A.cold!==''&&(A.warm==null||A.warm===''))A.warm=String({1:2,2:3,3:4}[+A.cold]||'');
+      if(A.rain!=null&&A.rain!=='')A.rain=String(A._wv===2?(+A.rain>=2?1:0):(+A.rain?1:0));
+      delete A.cold;A._wv=3;}},
   who:true,
-  qs:[{id:'who',q:'Who are you outfitting?',short:'Who wears it',hint:'Pick every group that needs a jacket',multi:true,wide:true,opts:JA2_ROLES},
-      {id:'cold',q:'How cold does it get?',short:'How cold',opts:JA_COLD},
-      /* THREE LEVELS (2026-10-12). Two lumped "a shower on the walk in" with "out in the rain all day", which either
-         forced rain shells on people who only needed water-repellent or let a DWR finish pass for real rain. */
-      {id:'rain',q:'How wet does it get?',short:'How wet',opts:[{id:0,lab:'Mostly dry',sub:'The odd shower'},{id:1,lab:'Showers and wet snow',sub:'Water-repellent is enough'},{id:2,lab:'Steady rain, all day',sub:'Needs a waterproof, seam-sealed jacket'}]}],
+  qs:[{id:'who',q:'Who are you outfitting?',short:'Who wears it',hint:'Pick every group that needs a jacket — each gets its own pick',multi:true,wide:true,opts:JA2_ROLES},
+      {id:'warm',q:'How cold does it get when they’re outside?',short:'How cold',opts:JA_WARM4},
+      {id:'rain',q:'Rain or wet snow?',short:'How wet',opts:JA_WET2}],
+  curate:function(A,role){return jaCurated(A,role);},
+  /* a curated option must still suit THIS buyer: a women's cut when they need one */
+  curOk:function(it,A){return !(A.lad==='1'&&!hasLadies(it));},
+  angOf:function(k){return JA_ANG[k]||'';},
   fact:function(it){var w=jaWarm(it),f=jaFlags(it),sys=!!(it.sys||/in-1/i.test(it.name));
-    return caArt((sys?'3-in-1 ':'')+({1:'lightweight',2:'insulated',3:'winter-weight'}[w]||'')+' jacket')+(f.indexOf('waterproof')>=0?', waterproof':(f.indexOf('sealed seams')>=0?', seam-sealed':(f.indexOf('water-repellent')>=0?', water-repellent':'')))+(hasLadies(it)?', in men’s and women’s cuts':'');},
+    return caArt((sys?'3-in-1 ':'')+({1:'lightweight',2:'insulated',3:'winter-weight'}[w]||'')+' jacket')+(f.indexOf('sealed seams')>=0?', seam-sealed and waterproof':(f.indexOf('waterproof')>=0?', waterproof':(f.indexOf('water-repellent')>=0?', water-repellent':'')))+(hasLadies(it)?', in men’s and women’s cuts':'');},
   pool:function(){return jaPool().filter(function(k){return !jaHivis(BYKEY[k]);});},
-  score:function(it,A,role,p){var rain=+A.rain||0,cold=+A.cold||2,f=jaFlags(it),n=(it.name||'').toLowerCase(),w=jaWarm(it);
+  /* the FALLBACK (Carhartt aisle, or a curated pick this store can't show) */
+  score:function(it,A,role,p){var wet=+A.rain||0,warm=+A.warm||3,cold=ja3Cold(warm),f=jaFlags(it),n=(it.name||'').toLowerCase(),w=jaWarm(it),g=caGsm(it);
     var wp=f.indexOf('waterproof')>=0,ss=f.indexOf('sealed seams')>=0;
     if(A.lad==='1'&&!hasLadies(it))return null;                 // the buyer needs a matching women's cut
-    if(rain===2&&!wp&&!ss)return null;                          // steady rain: waterproof or seam-sealed, never just a DWR finish
-    if(rain===1&&!wp&&!ss&&f.indexOf('water-repellent')<0)return null;   // showers: at least water-repellent
-    var s=jaScore(it,JA2_BASE[role]||'mixed',ja2Eff(role,cold),rain===2?1:0,'x',p);if(s==null)return null;
-    if(rain===2)s+=wp?14:0;
-    if(role==='outdoor'&&cold===2&&w===3)s+=16;                  // most of the shift outside in a Canadian winter: lean warmer
-    if(role==='drivers'&&/parka/.test(n))s-=12;                  // long hems fight a driver's seat; bombers and jackets win
-    if(role==='warehouse'&&w===3)s-=14;                          // indoors most of the day: winter weight overheats
-    if(role==='office'&&/heavy-duty|canvas|duck/.test(n))s-=10;
+    if(wet&&!ss&&!(wp&&w>=2))return null;                       // rain is part of the job: sealed seams (or a waterproof insulated shell)
+    var s=jaScore(it,JA2_BASE[role]||'mixed',ja2Eff(role,cold),wet,'x',p);if(s==null)return null;
+    if(wet&&ss)s+=12;
+    if(warm===1&&g>=300)s-=10;                                  // mild: a heavy bonded softshell is too much
+    if(warm===2&&w===1&&/soft ?shell/.test(n))s+=14;             // cool: a fleece-backed softshell is the answer
+    if(role==='outdoor'&&warm===3&&w===3)s+=16;                  // most of the shift outside in winter: lean warmer
+    if(role==='drivers'&&/parka|full-length/.test(n))s-=12;      // long hems fight a driver's seat
+    if(role==='warehouse'&&w===3&&!(it.sys||/in-1/i.test(it.name)))s-=14;   // indoors most of the day: winter weight overheats unless the liner comes out
+    if(role==='office'&&/heavy-duty|canvas|duck|freezer/.test(n))s-=10;
     return s;},
   why:function(it,A,role){return jaWhy(it,JA2_BASE[role]==='office'?'office':role);},
   toggles:[{id:'lad',lab:'Women’s cut needed',sub:'Only show styles with a matching women’s cut'}],
-  note:function(A){return 'Matched to how long each group is outside: '+(A.who||[]).map(function(r){return '<b>'+esc((JA2_ROLES.filter(function(x){return x.id===r;})[0]||{}).lab||r)+'</b> '+esc(JA2_EXPO[r]||'');}).join(' · ')+'.';},
-  extra:function(it,A,role){var out='',f=jaFlags(it),fam=JA_FAMILY[it.key];
-    if(+A.rain===2&&f.indexOf('waterproof')<0&&f.indexOf('sealed seams')>=0)
-      out+='<p class="jaover">Water-repellent with sealed seams — right for wet snow and showers. For steady all-day rain, choose a waterproof option.</p>';
-    if(fam&&BYKEY[fam[0]]&&caRank(this,role,A).some(function(r){return r.k===fam[0];}))
+  note:function(A){return 'Picked for how long each group is outside: '+(A.who||[]).map(function(r){return '<b>'+esc((JA2_ROLES.filter(function(x){return x.id===r;})[0]||{}).lab||r)+'</b> '+esc(JA2_EXPO[r]||'');}).join(' · ')+'.';},
+  extra:function(it,A,role){var out='',f=jaFlags(it),fam=JA_FAMILY[it.key],pool=caPool(this,A);
+    if(+A.rain===1&&f.indexOf('sealed seams')<0&&f.indexOf('waterproof')>=0)
+      out+='<p class="jaover">Waterproof shell — the maker doesn’t list sealed seams, so for all-day downpours choose a seam-sealed option.</p>';
+    if(fam&&BYKEY[fam[0]]&&pool.indexOf(fam[0])>=0&&!(A.lad==='1'&&!hasLadies(BYKEY[fam[0]])))
       out+='<div class="cafam"><span>Also comes as</span><b>'+esc(fam[1])+'</b><button type="button" class="jasw" data-caswap="'+esc(role)+'|'+esc(fam[0])+'">Switch</button></div>';
-    if(jaWarm(it)===1){var L=(typeof CADV!=='undefined')?CADV.filter(function(g){return g.id==='layers';})[0]:null,lr=null;
+    if(jaWarm(it)===1&&+A.warm>=2){var L=(typeof CADV!=='undefined')?CADV.filter(function(g){return g.id==='layers';})[0]:null,lr=null;
       if(L){try{lr=caRank(L,{office:'office',drivers:'mixed',warehouse:'mixed',outdoor:'outdoor'}[role]||'mixed',{style:'auto',warm:'2'})[0];}catch(e){lr=null;}}
       if(lr){var li=BYKEY[lr.k];out+='<div class="capair"><span class="capairl">Layer it for cooler days</span><button type="button" class="caaimg" data-xpopen="'+esc(lr.k)+'">'+caThumb(lr.k)+'</button>'+
         '<div class="caab"><b class="caan">'+esc(li.name)+'</b><span class="cambr">'+esc(li.brand||'')+' · '+money(lr.p)+'/pc</span></div>'+
         '<button type="button" class="jasw" data-caadd="'+esc(lr.k)+'">'+(cartHasAny(lr.k)?'✓ In quote':'Add')+'</button></div>';}}
     return out;},
-  tips:function(A){var t=['Water-repellent sheds light rain; waterproof (sealed or welded seams) keeps out steady rain.',
+  tips:function(A){var t=['Water-repellent sheds a shower; for rain that’s part of the job we only recommend jackets whose maker lists sealed or welded seams.',
       'If they’ll wear a hoodie underneath, check the size chart before you set sizes.'];
     if((A.who||[]).indexOf('warehouse')>=0){t.push('Mostly indoors? A vest or a fleece often does the job better than a jacket — the Vests and Fleece aisles have their own advisors.');
       t.push('Cold storage or freezer work needs freezer-rated wear — ask Steven and we’ll spec it.');}
+    if(+A.warm===4)t.push('For long hours in deep cold, how long they’re out and how hard they’re working matter as much as the jacket — tell us on the quote and we’ll check the pick.');
     t.push('Site crews near traffic need CSA hi-vis — the Hi-Vis & Safety aisle has its own advisor.');
     return t;}
 });

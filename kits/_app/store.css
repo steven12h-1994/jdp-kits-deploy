@@ -3924,3 +3924,10 @@ body.giftview #padv{display:none}
 .catsw::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#fff;transition:left .15s}
 .catgl.on{border-color:var(--ink)}.catgl.on .catsw{background:var(--a)}.catgl.on .catsw::after{left:16px}
 @media(max-width:860px){.catgl{width:100%}.catgl i{display:none}}
+/* ---- JACKET ADVISOR v3: curated picks (2026-10-12) -- the reason we chose it, and what each alternative is ---- */
+.caang{margin:8px 0 4px;padding:8px 11px;border-left:3px solid var(--a);background:color-mix(in srgb,var(--a) 6%,#fff);border-radius:0 9px 9px 0;font-size:13.5px;line-height:1.45;color:#2d2924}
+.caang b{display:block;font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--a);margin-bottom:2px;font-weight:850}
+.caang2{display:block;font-size:12.5px;color:#2d2924;line-height:1.35;margin-top:2px;font-weight:600}
+@media (max-width:640px){.caang{font-size:13px;padding:7px 10px}}
+/* phones: three price tiers share one row without clipping the price; the saving drops below */
+@media(max-width:480px){.catiers{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}.catier{min-width:0;padding:5px 6px}.catier b{font-size:14px;white-space:nowrap}.catier span{font-size:10.5px}.catsave{grid-column:1/-1;margin:0}}
