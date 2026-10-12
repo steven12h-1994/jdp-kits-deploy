@@ -3907,3 +3907,12 @@ body.giftview #padv{display:none}
 .catiers.s{display:block;margin-top:3px;font-size:11.5px;color:#6b6458}
 .catiers.s b{font-weight:850;color:var(--ink)}
 @media(max-width:860px){.catier{min-width:0;flex:1}}
+/* ===== JACKET ADVISOR v2 (2026-10-12) ========================================================== */
+.canote{margin:-8px 0 14px;padding:9px 12px;border-radius:10px;background:#f2f6ef;border:1px solid #d7e6cf;font-size:13px;color:#2f4a28;line-height:1.45}
+.canote b{color:#1f3a19}
+.cafam{display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px;margin:8px 0 0;padding:8px 10px;border-radius:10px;background:#f7f5f0;border:1px dashed #d9d0bf;font-size:13px}
+.cafam span{font-size:11px;font-weight:850;letter-spacing:.06em;text-transform:uppercase;color:#7d7568}
+.cafam b{flex:1 1 200px;font-weight:750;color:var(--ink)}
+.capair{display:flex;align-items:center;gap:10px;margin:8px 0 0;padding:8px 10px;border-radius:12px;border:1px solid var(--line);background:#fff;flex-wrap:wrap}
+.capairl{flex-basis:100%;font-size:11px;font-weight:850;letter-spacing:.06em;text-transform:uppercase;color:#7d7568}
+.capair .caaimg{width:56px;height:56px}

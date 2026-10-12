@@ -3278,7 +3278,7 @@ function caTrade(main,alt,lo){var a=caFeat(BYKEY[main]),b=caFeat(BYKEY[alt]),out
         button on every card, plus a lower-cost and a step-up swap and a way to change any answer.
    Recommendations come from the same engine as before (caProgram), so nothing about the advice changed --
    only how clearly it is delivered. */
-var CA_FOR={office:'for people in front of clients',mixed:'for people in and out all day',outdoor:'for crews outside all day',
+var CA_FOR={office:'for people in front of clients',mixed:'for people in and out all day',drivers:'for drivers in and out of vehicles',warehouse:'for warehouse and shop staff',outdoor:'for crews outside all day',
   events:'for a crowd at an event',gift:'as a gift people keep',road:'for road and traffic crews',site:'for site crews',
   yard:'for warehouse and yard crews',night:'for night and low-light work',visit:'for visitors and occasional use',
   light:'for light-duty and service staff',shop:'for the shop floor',trades:'for trades and outdoor crews',all:''};
@@ -3307,6 +3307,7 @@ function caMainHtml(cfg,A,x){
       (v?('<p class="camv">'+esc(v)+'</p>'):'')+
       '<ul class="jaw">'+why.slice(0,4).map(function(w){return '<li>'+esc(w)+'</li>';}).join('')+'</ul>'+
       caSwatchHtml(r.k)+
+      (cfg.extra?(function(){try{return cfg.extra.call(cfg,it,A,x.role)||'';}catch(e){return '';}})():'')+
       '<div class="camfoot"><div class="camp"><b>'+money(r.p)+'</b><i>per piece at '+moq()+'+, your logo included</i>'+caTierHtml(r.k)+'</div>'+
         '<div class="cambtns"><button type="button" class="caadd'+(inQ?' done':'')+'" data-caadd="'+esc(r.k)+'">'+(inQ?'✓ In your quote':'Add to quote')+'</button>'+
         '<button type="button" class="xpsee" data-xpopen="'+esc(r.k)+'">Colours &amp; sizes</button></div></div>'+
@@ -3373,6 +3374,7 @@ function renderCatAdvisor(el,cfg){
       '<p class="cacmp">We weighed all '+nS+' '+esc(cfg.noun)+' in this store against your answers — fabric, fit, sizes and how they’re built for the job.</p></div>'+
       '<div class="casum"><span class="casuml">Based on</span>'+caSummary(cfg,A).map(function(t){return '<span class="casumc">'+esc(t)+'</span>';}).join('')+
         '<button type="button" class="jalink" data-cago="0">Change answers</button></div>'+
+      (cfg.note?(function(){try{var t=cfg.note(A);return t?('<p class="canote">'+t+'</p>'):'';}catch(e){return '';}})():'')+
       P.map(function(x){
         if(x.none)return '<div class="cagrp">'+(x.lab?('<div class="jarh">'+esc(x.lab)+'</div>'):'')+'<p class="janone">Nothing in this aisle matches all your answers for this group — try a wider budget, or <button type="button" class="jalink" data-caask="1">ask Steven</button>.</p></div>';
         return '<div class="cagrp">'+(x.lab?('<div class="jarh">'+(x.roles.length>1?'One pick for ':'For ')+esc(x.lab)+'</div>'):'')+caMainHtml(cfg,A,x)+caAltHtml(cfg,x)+'</div>';}).join('')+
@@ -3431,22 +3433,74 @@ var CADV=[];
 /* JACKETS -- the jacket advisor (2026-10-09) on the shared engine. Research: Brandsauce, Quality Imprint,
    Arklavo jacket-program guides -- start from the job; one core jacket per role; the deciding facts are
    warmth, water-repellent vs waterproof, men's and women's cuts, extended sizes and price per person. */
+/* JACKETS v2 (Steven, 2026-10-12: "build out the new and improved jacket advisor"; reviewed against the
+   "Enterprise Jacket Advisor" sheet). Kept from that sheet: drivers and warehouse staff are different buyers; near-
+   identical styles are ONE recommendation with a hood/length choice; freezer work is a different product; a rain shell
+   needs a layer under it. Changed: the sheet made the buyer judge warmth ("Everyday / Winter / Heavy winter") and then
+   marked nine of its 32 rows "provisional until exposure is known" -- but exposure follows from the job, so the role
+   carries it (office = commutes, drivers = in and out all shift, warehouse = mostly indoors, outdoor = most of the
+   shift) and the buyer only answers what they actually know: who, how cold, how wet. "Rain is part of the job" now
+   means waterproof or seam-sealed, never just water-repellent. Every recommendation is a product this store carries and
+   can price -- 14 of the sheet's picks were not. Research as before: Brandsauce, Quality Imprint, Arklavo. */
+var JA2_ROLES=[
+  {id:'office',lab:'Office & client-facing',sub:'Commutes and quick trips outside'},
+  {id:'drivers',lab:'Drivers & field techs',sub:'In and out of vehicles all shift'},
+  {id:'warehouse',lab:'Warehouse & shop',sub:'Mostly indoors, quick trips out'},
+  {id:'outdoor',lab:'Outdoor crews',sub:'Yards, construction, grounds — most of the shift'}];
+var JA2_BASE={office:'office',drivers:'mixed',warehouse:'mixed',outdoor:'outdoor'};
+var JA2_EXPO={office:'outside for commutes and quick trips',drivers:'in and out of vehicles all shift',warehouse:'mostly indoors with quick trips out',outdoor:'outside most of the shift'};
+function ja2Eff(role,cold){cold=+cold||2;return role==='warehouse'?Math.max(1,cold-1):cold;}
+/* ONE recommendation, two cuts of it: the buyer picks hood or length, we never present twins as two choices */
+var JA_FAMILY={cs_cyclone:['cs_l03170','Hurricane — adds a removable hood and storm cuffs'],cs_l03170:['cs_cyclone','Cyclone — no hood, a cleaner uniform look'],
+  cs_l01110:['cs_l01100','Defender — parka length for more coverage'],cs_l01100:['cs_l01110','Champion — bomber length, easier in and out of vehicles'],
+  cs_l01115:['cs_l01120','Pinnacle — parka length for more coverage'],cs_l01120:['cs_l01115','Glacier Bay — bomber length, easier to move in'],
+  st_pacificawind:['st_pacifica','Pacifica Full Zip — no hood, a cleaner uniform look'],st_pacifica:['st_pacificawind','Pacifica — with an attached hood'],
+  st_squall:['st_waterfall','Waterfall — mid-length and fully lined, for commuters'],st_waterfall:['st_squall','Squall — hip length, for active work'],
+  st_tradesmith:['st_tradesmithhoody','Tradesmith Hoody — the same sherpa-lined canvas with a hood'],st_tradesmithhoody:['st_tradesmith','Tradesmith Jacket — collar and snap front']};
 CADV.push({id:'jackets',one:'jacket',label:'Jacket advisor',noun:'jackets',noun2:'jackets',
   h:'Not sure which jacket? Start with the job.',
-  sub:'A few quick questions about the job, then one recommended jacket for each group you’re outfitting.',
-  overWhy:'how cold and wet it gets',budQ:'Budget per jacket',
+  sub:'Three quick questions — who wears it, how cold, how wet. We match the warmth to how long each group is actually outside.',
+  overWhy:'how cold and wet it gets',
   applies:function(c,s){return c==='outerwear'||(c==='ruggedwear'&&(s==='all'||/Insulated|Canvas|Parkas|Shells/.test(s)))||(c==='carhartt'&&/Jackets/.test(s));},
-  preset:function(A,c){if(!(A.who&&A.who.length)&&c==='ruggedwear')A.who=['outdoor'];},
+  preset:function(A,c){if(!(A.who&&A.who.length)&&c==='ruggedwear')A.who=['outdoor'];
+    /* answers saved by the first jacket advisor used 'mixed' for drivers */
+    if(A.who)A.who=A.who.map(function(x){return x==='mixed'?'drivers':x;}).filter(function(x,i,a){return x!=='site'&&a.indexOf(x)===i;});},
   who:true,
-  qs:[{id:'who',q:'Who are you outfitting?',short:'Who wears it',hint:'Pick every group that needs a jacket',multi:true,wide:true,opts:JA_ROLES.filter(function(r){return r.id!=='site';})},
+  qs:[{id:'who',q:'Who are you outfitting?',short:'Who wears it',hint:'Pick every group that needs a jacket',multi:true,wide:true,opts:JA2_ROLES},
       {id:'cold',q:'How cold does it get?',short:'How cold',opts:JA_COLD},
-      {id:'rain',q:'How wet does it get?',short:'How wet',opts:JA_RAIN}],
+      {id:'rain',q:'How wet does it get?',short:'How wet',opts:[{id:0,lab:'Mostly dry',sub:'Occasional showers'},{id:1,lab:'Rain or wet snow is part of the job',sub:'Needs a waterproof jacket'}]}],
   fact:function(it){var w=jaWarm(it),f=jaFlags(it),sys=!!(it.sys||/in-1/i.test(it.name));
-    return caArt((sys?'3-in-1 ':'')+({1:'lightweight',2:'insulated',3:'winter-weight'}[w]||'')+' jacket')+(f.indexOf('waterproof')>=0?', waterproof':(f.indexOf('water-repellent')>=0?', water-repellent':''))+(hasLadies(it)?', in men’s and women’s cuts':'');},
+    return caArt((sys?'3-in-1 ':'')+({1:'lightweight',2:'insulated',3:'winter-weight'}[w]||'')+' jacket')+(f.indexOf('waterproof')>=0?', waterproof':(f.indexOf('sealed seams')>=0?', seam-sealed':(f.indexOf('water-repellent')>=0?', water-repellent':'')))+(hasLadies(it)?', in men’s and women’s cuts':'');},
   pool:function(){return jaPool().filter(function(k){return !jaHivis(BYKEY[k]);});},
-  score:function(it,A,role,p){return jaScore(it,role,+A.cold||2,+A.rain||0,'x',p);},
-  why:function(it,A,role){return jaWhy(it,role);},
-  tips:function(){return ['Water-repellent sheds light rain; waterproof keeps out sustained rain.','If they’ll wear a hoodie underneath, check the size chart before you set sizes.','Need hi-vis jackets for site crews? The Hi-Vis & Safety aisle has its own advisor.'];}
+  score:function(it,A,role,p){var rain=+A.rain||0,cold=+A.cold||2,f=jaFlags(it),n=(it.name||'').toLowerCase(),w=jaWarm(it);
+    var wp=f.indexOf('waterproof')>=0,ss=f.indexOf('sealed seams')>=0;
+    if(rain===1&&!wp&&!ss)return null;                          // wet work: waterproof or seam-sealed, never just a DWR finish
+    var s=jaScore(it,JA2_BASE[role]||'mixed',ja2Eff(role,cold),rain,'x',p);if(s==null)return null;
+    if(rain===1)s+=wp?14:0;
+    if(role==='outdoor'&&cold===2&&w===3)s+=16;                  // most of the shift outside in a Canadian winter: lean warmer
+    if(role==='drivers'&&/parka/.test(n))s-=12;                  // long hems fight a driver's seat; bombers and jackets win
+    if(role==='warehouse'&&w===3)s-=14;                          // indoors most of the day: winter weight overheats
+    if(role==='office'&&/heavy-duty|canvas|duck/.test(n))s-=10;
+    return s;},
+  why:function(it,A,role){return jaWhy(it,JA2_BASE[role]==='office'?'office':role);},
+  note:function(A){return 'Matched to how long each group is outside: '+(A.who||[]).map(function(r){return '<b>'+esc((JA2_ROLES.filter(function(x){return x.id===r;})[0]||{}).lab||r)+'</b> '+esc(JA2_EXPO[r]||'');}).join(' · ')+'.';},
+  extra:function(it,A,role){var out='',f=jaFlags(it),fam=JA_FAMILY[it.key];
+    if(+A.rain===1&&f.indexOf('waterproof')<0&&f.indexOf('sealed seams')>=0)
+      out+='<p class="jaover">Water-repellent with sealed seams — right for wet snow and showers. For steady all-day rain, choose a waterproof option.</p>';
+    if(fam&&BYKEY[fam[0]]&&caRank(this,role,A).some(function(r){return r.k===fam[0];}))
+      out+='<div class="cafam"><span>Also comes as</span><b>'+esc(fam[1])+'</b><button type="button" class="jasw" data-caswap="'+esc(role)+'|'+esc(fam[0])+'">Switch</button></div>';
+    if(jaWarm(it)===1){var L=(typeof CADV!=='undefined')?CADV.filter(function(g){return g.id==='layers';})[0]:null,lr=null;
+      if(L){try{lr=caRank(L,{office:'office',drivers:'mixed',warehouse:'mixed',outdoor:'outdoor'}[role]||'mixed',{style:'auto',warm:'2'})[0];}catch(e){lr=null;}}
+      if(lr){var li=BYKEY[lr.k];out+='<div class="capair"><span class="capairl">Layer it for cooler days</span><button type="button" class="caaimg" data-xpopen="'+esc(lr.k)+'">'+caThumb(lr.k)+'</button>'+
+        '<div class="caab"><b class="caan">'+esc(li.name)+'</b><span class="cambr">'+esc(li.brand||'')+' · '+money(lr.p)+'/pc</span></div>'+
+        '<button type="button" class="jasw" data-caadd="'+esc(lr.k)+'">'+(cartHasAny(lr.k)?'✓ In quote':'Add')+'</button></div>';}}
+    return out;},
+  tips:function(A){var t=['Water-repellent sheds light rain; waterproof (sealed or welded seams) keeps out steady rain.',
+      'If they’ll wear a hoodie underneath, check the size chart before you set sizes.'];
+    if((A.who||[]).indexOf('warehouse')>=0){t.push('Mostly indoors? A vest or a fleece often does the job better than a jacket — the Vests and Fleece aisles have their own advisors.');
+      t.push('Cold storage or freezer work needs freezer-rated wear — ask Steven and we’ll spec it.');}
+    t.push('Site crews near traffic need CSA hi-vis — the Hi-Vis & Safety aisle has its own advisor.');
+    return t;}
 });
 /* POLOS & SHIRTS. Research (Swag.com, Custom2Wear, API Corporate/Armada 2026 fabric guide, 4imprint polo FAQ):
    the deciding questions are who wears it and where, how physical the work is, and the look -- polo, tee or
