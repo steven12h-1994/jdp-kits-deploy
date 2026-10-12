@@ -3916,3 +3916,11 @@ body.giftview #padv{display:none}
 .capair{display:flex;align-items:center;gap:10px;margin:8px 0 0;padding:8px 10px;border-radius:12px;border:1px solid var(--line);background:#fff;flex-wrap:wrap}
 .capairl{flex-basis:100%;font-size:11px;font-weight:850;letter-spacing:.06em;text-transform:uppercase;color:#7d7568}
 .capair .caaimg{width:56px;height:56px}
+/* advisor result toggles (2026-10-12) */
+.catog{display:flex;flex-wrap:wrap;gap:8px;margin:-6px 0 14px}
+.catgl{display:flex;align-items:center;gap:10px;padding:8px 12px;border:1.5px solid #ddd6c9;border-radius:12px;background:#fff;font:inherit;text-align:left;cursor:pointer}
+.catgl b{font-size:13.5px;font-weight:850;color:var(--ink)}.catgl i{font-style:normal;font-size:12px;color:#7d7568}
+.catsw{flex:none;width:32px;height:18px;border-radius:999px;background:#d9d3c6;position:relative;transition:background .15s}
+.catsw::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#fff;transition:left .15s}
+.catgl.on{border-color:var(--ink)}.catgl.on .catsw{background:var(--a)}.catgl.on .catsw::after{left:16px}
+@media(max-width:860px){.catgl{width:100%}.catgl i{display:none}}

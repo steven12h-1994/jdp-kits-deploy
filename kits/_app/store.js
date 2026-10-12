@@ -1372,6 +1372,7 @@ var RUGGED_CROSS={
   st_basecampvest:'Vests', st_sierravest:'Vests',
   /* Fall 2026 adds: the trades pieces a US crew without Carhartt needs, shopped where trades buyers look */
   st_tradesmith:'Canvas & Shackets', st_flatiron:'Insulated & Quilted', st_tradesmithhoody:'Hoodies & Thermals', st_cambridge:'Work Shirts',
+  cs_l01055:'Insulated & Quilted', cs_l06025:'Parkas',
   st_logan:'Hoodies & Thermals', st_nautilushoody:'Hoodies & Thermals',
   // Uniform shirts live in Polos, Shirts & Tees but a trades buyer shops Rugged Wear — surface them in both.
   dk_2574:'Work Shirts', rk_sx20:'Work Shirts', rk_sy20:'Work Shirts', rk_sp24:'Work Shirts', rk_sp14:'Work Shirts',
@@ -1506,7 +1507,9 @@ function headwearSub(n){
    Hoody and the Flatiron are lined, insulated work jackets. */
 var HOME_BY_KEY={st_stocktonhoody:{mega:'layers',sub:'Hoodies'},st_stocktoncrew:{mega:'layers',sub:'Crewnecks & Sweatshirts'},
   st_tradesmithhoody:{mega:'outerwear',sub:'Insulated & Quilted'},st_flatiron:{mega:'outerwear',sub:'Insulated & Quilted'},
-  st_tradesmith:{mega:'outerwear',sub:'Shirt Jackets & Shackets'}};
+  st_tradesmith:{mega:'outerwear',sub:'Shirt Jackets & Shackets'},
+  /* 2026-10-12 Canada Sportswear adds: Nunavut is 300 gsm winter weight (a coat, not a quilt); Boulder is a sherpa softshell JACKET, not a hoodie */
+  cs_l06025:{mega:'outerwear',sub:'Winter Parkas & 3-in-1'},cs_l01055:{mega:'outerwear',sub:'Softshell Jackets'}};
 function classify(it){
   if(it&&HOME_BY_KEY[it.key])return HOME_BY_KEY[it.key];
   // A kit that references a product the catalogue no longer carries must degrade to "not shown",
@@ -2130,7 +2133,7 @@ var SUBGUIDE={
     'the fill, the colder the day it answers.',
   'Winter Parkas & 3-in-1':'Deep winter \u2014 the warmest thing we sell. The 3-in-1 and 5-in-1 '+
     'systems pair a shell with a zip-out liner that can each be worn on their own, so one order '+
-    'covers three seasons. Published insulation here runs 170 gsm to 220 gsm, and the Defender '+
+    'covers three seasons. Published insulation here runs 170 gsm to 300 gsm, and the Defender '+
     'carries 3M Thinsulate at 200 gsm behind a 3000 mm waterproof shell.'
 };
 function catGuideHtml(){
@@ -3083,7 +3086,7 @@ function jaWarm(it){
 function jaFlags(it){var w=it.warm||{},f=(w.flags||[]).slice(),fin=((it.fab||{}).finishes||[]).join(' ').toLowerCase();
   if(/waterproof/.test(fin)&&f.indexOf('waterproof')<0)f.push('waterproof');return f;}
 function jaHivis(it){return itemCategory(it)==='hivis';}
-function jaRugged(it){var n=(it.name||'').toLowerCase(),b=String(it.brand||it.sku||'');return /heavy-duty|canvas|duck|freezer|bomber|utility/.test(n)||/Rugged Wear|Carhartt/.test(b);}
+function jaRugged(it){var n=(it.name||'').toLowerCase(),b=String(it.brand||it.sku||''),f=((it.fab&&it.fab.finishes)||[]).join(' ');return /heavy-duty|canvas|duck|freezer|bomber|utility/.test(n)||/Rugged Wear|Carhartt/.test(b)||/abrasion/i.test(f);}
 function jaOffice(it){return !jaHivis(it)&&!jaRugged(it);}
 function jaMaxSize(it){var s=itemSizes(it,'mens');return s[s.length-1]||'';}
 function jaBig(it){return /^[4-6]XL$/.test(jaMaxSize(it));}
@@ -3375,6 +3378,8 @@ function renderCatAdvisor(el,cfg){
       '<div class="casum"><span class="casuml">Based on</span>'+caSummary(cfg,A).map(function(t){return '<span class="casumc">'+esc(t)+'</span>';}).join('')+
         '<button type="button" class="jalink" data-cago="0">Change answers</button></div>'+
       (cfg.note?(function(){try{var t=cfg.note(A);return t?('<p class="canote">'+t+'</p>'):'';}catch(e){return '';}})():'')+
+      (cfg.toggles?('<div class="catog">'+cfg.toggles.map(function(g){var on=A[g.id]==='1';
+        return '<button type="button" class="catgl'+(on?' on':'')+'" data-catog="'+esc(g.id)+'" aria-pressed="'+on+'"><span class="catsw" aria-hidden="true"></span><b>'+esc(g.lab)+'</b><i>'+esc(g.sub)+'</i></button>';}).join('')+'</div>'):'')+
       P.map(function(x){
         if(x.none)return '<div class="cagrp">'+(x.lab?('<div class="jarh">'+esc(x.lab)+'</div>'):'')+'<p class="janone">Nothing in this aisle matches all your answers for this group — try a wider budget, or <button type="button" class="jalink" data-caask="1">ask Steven</button>.</p></div>';
         return '<div class="cagrp">'+(x.lab?('<div class="jarh">'+(x.roles.length>1?'One pick for ':'For ')+esc(x.lab)+'</div>'):'')+caMainHtml(cfg,A,x)+caAltHtml(cfg,x)+'</div>';}).join('')+
@@ -3404,6 +3409,8 @@ function renderCatAdvisor(el,cfg){
     caProgram(cfg,A).forEach(function(x){if(!x.none&&grp&&x.main.k===grp.main.k)CA_PICK[cfg.id+'.'+x.role]=p[1];});
     CA_PICK[cfg.id+'.'+p[0]]=p[1];jdpTrack('ca_swap',{c:cfg.id,k:p[1]});renderCatAdvisor(el,cfg);});});
   el.querySelectorAll('[data-xpopen]').forEach(function(b){b.addEventListener('click',function(){jdpTrack('xp_open',{k:b.dataset.xpopen,src:'ca_'+cfg.id});openSheet(b.dataset.xpopen);});});
+  el.querySelectorAll('[data-catog]').forEach(function(b){b.addEventListener('click',function(){var t=b.dataset.catog;A[t]=A[t]==='1'?'':'1';CA_PICK={};
+    jdpTrack('ca_q',{c:cfg.id,q:t,v:A[t]||'0'});caSave();renderCatAdvisor(el,cfg);});});
   el.querySelectorAll('[data-cacol]').forEach(function(b){b.addEventListener('click',function(){var p=b.dataset.cacol.split('|'),k=p[0],c=p.slice(1).join('|');
     CA_COL[k]=c;jdpTrack('ca_col',{c:cfg.id,k:k});
     var card=b.closest('.cam');if(card){var im=card.querySelector('.camimg');if(im)im.innerHTML=caThumb(k,c)+'<span class="camlogo">Shown with your logo</span>';
@@ -3464,28 +3471,35 @@ CADV.push({id:'jackets',one:'jacket',label:'Jacket advisor',noun:'jackets',noun2
   applies:function(c,s){return c==='outerwear'||(c==='ruggedwear'&&(s==='all'||/Insulated|Canvas|Parkas|Shells/.test(s)))||(c==='carhartt'&&/Jackets/.test(s));},
   preset:function(A,c){if(!(A.who&&A.who.length)&&c==='ruggedwear')A.who=['outdoor'];
     /* answers saved by the first jacket advisor used 'mixed' for drivers */
-    if(A.who)A.who=A.who.map(function(x){return x==='mixed'?'drivers':x;}).filter(function(x,i,a){return x!=='site'&&a.indexOf(x)===i;});},
+    if(A.who)A.who=A.who.map(function(x){return x==='mixed'?'drivers':x;}).filter(function(x,i,a){return x!=='site'&&a.indexOf(x)===i;});
+    /* the two-level wet answer "rain is part of the job" (1) meant steady rain: carry it to the new top level */
+    if(!A._wv){if(String(A.rain)==='1')A.rain='2';A._wv=2;}},
   who:true,
   qs:[{id:'who',q:'Who are you outfitting?',short:'Who wears it',hint:'Pick every group that needs a jacket',multi:true,wide:true,opts:JA2_ROLES},
       {id:'cold',q:'How cold does it get?',short:'How cold',opts:JA_COLD},
-      {id:'rain',q:'How wet does it get?',short:'How wet',opts:[{id:0,lab:'Mostly dry',sub:'Occasional showers'},{id:1,lab:'Rain or wet snow is part of the job',sub:'Needs a waterproof jacket'}]}],
+      /* THREE LEVELS (2026-10-12). Two lumped "a shower on the walk in" with "out in the rain all day", which either
+         forced rain shells on people who only needed water-repellent or let a DWR finish pass for real rain. */
+      {id:'rain',q:'How wet does it get?',short:'How wet',opts:[{id:0,lab:'Mostly dry',sub:'The odd shower'},{id:1,lab:'Showers and wet snow',sub:'Water-repellent is enough'},{id:2,lab:'Steady rain, all day',sub:'Needs a waterproof, seam-sealed jacket'}]}],
   fact:function(it){var w=jaWarm(it),f=jaFlags(it),sys=!!(it.sys||/in-1/i.test(it.name));
     return caArt((sys?'3-in-1 ':'')+({1:'lightweight',2:'insulated',3:'winter-weight'}[w]||'')+' jacket')+(f.indexOf('waterproof')>=0?', waterproof':(f.indexOf('sealed seams')>=0?', seam-sealed':(f.indexOf('water-repellent')>=0?', water-repellent':'')))+(hasLadies(it)?', in men’s and women’s cuts':'');},
   pool:function(){return jaPool().filter(function(k){return !jaHivis(BYKEY[k]);});},
   score:function(it,A,role,p){var rain=+A.rain||0,cold=+A.cold||2,f=jaFlags(it),n=(it.name||'').toLowerCase(),w=jaWarm(it);
     var wp=f.indexOf('waterproof')>=0,ss=f.indexOf('sealed seams')>=0;
-    if(rain===1&&!wp&&!ss)return null;                          // wet work: waterproof or seam-sealed, never just a DWR finish
-    var s=jaScore(it,JA2_BASE[role]||'mixed',ja2Eff(role,cold),rain,'x',p);if(s==null)return null;
-    if(rain===1)s+=wp?14:0;
+    if(A.lad==='1'&&!hasLadies(it))return null;                 // the buyer needs a matching women's cut
+    if(rain===2&&!wp&&!ss)return null;                          // steady rain: waterproof or seam-sealed, never just a DWR finish
+    if(rain===1&&!wp&&!ss&&f.indexOf('water-repellent')<0)return null;   // showers: at least water-repellent
+    var s=jaScore(it,JA2_BASE[role]||'mixed',ja2Eff(role,cold),rain===2?1:0,'x',p);if(s==null)return null;
+    if(rain===2)s+=wp?14:0;
     if(role==='outdoor'&&cold===2&&w===3)s+=16;                  // most of the shift outside in a Canadian winter: lean warmer
     if(role==='drivers'&&/parka/.test(n))s-=12;                  // long hems fight a driver's seat; bombers and jackets win
     if(role==='warehouse'&&w===3)s-=14;                          // indoors most of the day: winter weight overheats
     if(role==='office'&&/heavy-duty|canvas|duck/.test(n))s-=10;
     return s;},
   why:function(it,A,role){return jaWhy(it,JA2_BASE[role]==='office'?'office':role);},
+  toggles:[{id:'lad',lab:'Women’s cut needed',sub:'Only show styles with a matching women’s cut'}],
   note:function(A){return 'Matched to how long each group is outside: '+(A.who||[]).map(function(r){return '<b>'+esc((JA2_ROLES.filter(function(x){return x.id===r;})[0]||{}).lab||r)+'</b> '+esc(JA2_EXPO[r]||'');}).join(' · ')+'.';},
   extra:function(it,A,role){var out='',f=jaFlags(it),fam=JA_FAMILY[it.key];
-    if(+A.rain===1&&f.indexOf('waterproof')<0&&f.indexOf('sealed seams')>=0)
+    if(+A.rain===2&&f.indexOf('waterproof')<0&&f.indexOf('sealed seams')>=0)
       out+='<p class="jaover">Water-repellent with sealed seams — right for wet snow and showers. For steady all-day rain, choose a waterproof option.</p>';
     if(fam&&BYKEY[fam[0]]&&caRank(this,role,A).some(function(r){return r.k===fam[0];}))
       out+='<div class="cafam"><span>Also comes as</span><b>'+esc(fam[1])+'</b><button type="button" class="jasw" data-caswap="'+esc(role)+'|'+esc(fam[0])+'">Switch</button></div>';
