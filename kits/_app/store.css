@@ -4047,3 +4047,181 @@ body.giftview #padv{display:none}
 .heroadvb:hover{transform:translateY(-1px);box-shadow:0 18px 34px -16px color-mix(in srgb,var(--a) 90%,#000)}
 .heroadv>span{font-size:13px;color:var(--mut);font-weight:700}
 @media(max-width:560px){.heroadvb{width:100%;justify-content:center}}
+/* =====================================================================================================
+   ENTERPRISE THEME (Steven, 2026-10-13: "UI is terrible. the page is way too busy for our enterprise buyer!
+   overall looks salesy and not enterprise level. Make it top tier professional and simple to navigate").
+   This layer replaces the earlier "Carhartt-grade rugged" identity: no condensed all-caps headlines, no beige
+   canvas, no pill badges in brand colour, no drop shadows. A white page, one typeface (Inter) in sentence case,
+   hairline borders, a single accent reserved for the primary action and links, and generous space. It is the
+   register of a procurement tool a buyer trusts, not a promotional flyer.
+   ===================================================================================================== */
+:root{--amber:#9ca3af;--amber-d:#6b7280;--ink:#111827;--mut:#6b7280;--line:#e5e7eb;--bg:#ffffff;--card:#fff;--rad:10px;--canvas:#f8f9fb;
+  --disp:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;--sh:none;--shx:0 1px 2px rgba(16,24,40,.06)}
+body{background:#fff;color:var(--ink);font-feature-settings:"cv11","ss01"}
+/* ---- typography: one family, sentence case, calm weights ---- */
+h1,h2,h3,h4,.hero h1,.xph,.gridhd h2,.gridhd .gh,.subhd,.seclbl,.kithd h2,.schd h2,.hband h2,.gfh,.gftoph,.gfsechd h3,.pasum h3,
+.jaresh h4,.xbox h3,.whyhd h2,.exh,.rhh,.svhd,.sxh,.syshd,.mchd,.fabhd,.nutx b,.mctx b,.sctx b,.hotx b,.kittx b,.curhd b,.gxlh,
+.ctab,.schip,.wtog,.cpill,.brand b,.mrec,.mcsa,.hvbadge,.hvc b,.stat b,.rsn b,.audbanner .audk,.audhd .audk,.audbanner .audgo,.kittag,.krsku,.incl,.mmeta,.nulab,.eyb{
+  font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif!important;text-transform:none!important;letter-spacing:-.01em!important}
+.hero h1{font-size:clamp(28px,3.2vw,38px)!important;font-weight:700!important;line-height:1.15!important;letter-spacing:-.025em!important;margin-bottom:10px}
+.xph,.cadv2 .xph{font-size:21px!important;font-weight:700!important;line-height:1.25!important}
+.gridhd h2,.glbl{font-size:22px!important;font-weight:700!important}
+.subhd{font-size:17px!important;font-weight:650!important}
+.exh,.rhh{font-size:22px!important;font-weight:700!important;letter-spacing:-.02em!important;line-height:1.25!important}
+.mmeta{font-size:12.5px!important;color:var(--mut)!important;font-weight:500!important;letter-spacing:0!important}
+/* small labels keep their tracking but lose the colour fill */
+.xpeyb,.cadv2 .xpeyb,.ahey,.rhlbl,.gfeeyb,.hbey,.beyb{background:none!important;color:var(--mut)!important;padding:0!important;font-size:11.5px!important;letter-spacing:.06em!important;font-weight:650!important;border-radius:0!important}
+/* ---- surfaces: white, hairlines, no shadows ---- */
+.hero,.excats,.navwrap,.subbar,main,.faq,footer,.recohero,#recohero>section{background:#fff!important}
+.mcard,.xpert,.cadv2,.cam,.caalt,.catake,.rhcard,.ahtile,.ectile,.inbar,.seemore,.canudge,.hnsteps,.faq details,.fq,.kitcard,.nucard,.upnext,.nu{box-shadow:none!important}
+.mcard{border:1px solid var(--line)!important;border-radius:12px!important;background:#fff!important}
+.mcard:hover{border-color:#c9ccd3!important;transform:none!important}
+.mstage{background:#f8f9fb!important}
+/* cards say less: one quiet label, no logo chip, the maker line carries the cut */
+.mrec{background:#fff!important;color:var(--ink)!important;border:1px solid var(--line)!important;font-size:11px!important;font-weight:600!important;padding:3px 8px!important;border-radius:6px!important;box-shadow:none!important}
+.mvid{background:rgba(17,24,39,.72)!important;color:#fff!important;width:28px;height:28px;padding:0!important;border-radius:50%!important;font-size:10px!important;display:flex;align-items:center;justify-content:center}
+.inc-card{display:none!important}
+.mfit{display:inline-block!important;background:none!important;border:0!important;padding:0!important;color:var(--mut)!important;font-size:12.5px!important;font-weight:500!important;margin:0 0 6px!important}
+.mfit.alt{color:var(--mut)!important}
+.mfab{color:var(--mut)!important;font-size:12.5px!important}
+.cdlbl{color:var(--mut)!important;font-size:12px!important}.cdlbl b{font-weight:600!important;color:var(--ink)!important}
+.mprice b{font-size:18px!important;font-weight:700!important;color:var(--ink)!important}
+.mprice small{color:var(--mut)!important;font-weight:500!important}
+.mvol{color:var(--mut)!important;font-size:12.5px!important}.mvol b{color:var(--ink)!important;font-weight:600!important}
+.madd{background:#fff!important;color:var(--ink)!important;border:1px solid var(--line)!important;box-shadow:none!important;font-weight:600!important;border-radius:8px!important}
+.madd.has{background:var(--ink)!important;color:#fff!important;border-color:var(--ink)!important}
+.mb h3{font-size:15px!important;font-weight:600!important;line-height:1.3!important}
+/* ---- buttons: one primary, everything else outlined or a link ---- */
+.jaall,.heroadvb,.caadd,.hnprim,.cbarbtn,.ahgo,.cango{border-radius:8px!important;box-shadow:none!important;font-weight:600!important;transform:none!important}
+.heroadvb{background:var(--a)!important;color:#fff!important;padding:12px 20px!important;font-size:15px!important}
+.herobrw,.hnsec{display:inline-flex;align-items:center;padding:11px 18px;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--ink);font:inherit;font-size:15px;font-weight:600;cursor:pointer}
+.herobrw:hover,.hnsec:hover{border-color:#9ca3af}
+.jalink{text-decoration:none!important;font-weight:600!important}.jalink:hover{text-decoration:underline!important}
+/* ---- hero ---- */
+.hero{border-bottom:1px solid var(--line);padding:12px 0 0!important}
+.heroin{align-items:center!important}
+.herosub{font-size:16px!important;color:var(--mut)!important;max-width:58ch;line-height:1.55!important}
+.heroadv{gap:10px!important;margin:22px 0 14px!important}
+.hproof{color:var(--mut)!important;font-size:13px!important;gap:6px!important;font-weight:500}
+.hproof .hpleaf{display:none}
+.hproof a,.hprate{color:var(--mut)!important;text-decoration:none;font-weight:500!important}
+.heroshot{border-radius:12px!important;background:#f8f9fb!important;box-shadow:none!important;border:1px solid var(--line)}
+/* how ordering works: a calm three-column row under the hero */
+.hnrow{padding-top:28px;padding-bottom:28px}
+.hnrow .hnext{display:flex;flex-direction:row;align-items:flex-end;justify-content:space-between;gap:20px 32px;flex-wrap:wrap;max-width:none;width:100%;margin:0;padding:24px 0 0;border-top:1px solid var(--line)}
+.hnrow .hnsteps{flex:1 1 620px;display:block;padding:0!important;border:0!important;background:none!important;border-radius:0!important}
+.hnrow .hnsh{font-size:13px!important;font-weight:600!important;color:var(--mut)!important;letter-spacing:.04em;text-transform:uppercase!important;margin:0 0 12px}
+.hnrow .hnsteps ol{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px 28px;margin:0;padding:0;list-style:none;counter-reset:hn}
+.hnrow .hnsteps li{display:flex;align-items:flex-start;gap:10px;font-size:14px;color:var(--mut);line-height:1.45;counter-increment:hn;margin:0}
+.hnrow .hnsteps li:before{content:counter(hn);flex:none;width:24px;height:24px;border-radius:50%;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:var(--ink);background:#fff;margin-top:-2px}
+.hnrow .hnsteps li b{color:var(--ink);font-weight:600}
+.hnrow .hnbtns{display:flex;gap:8px;margin:16px 0 0}
+.hnrow .hnsec{padding:8px 14px;font-size:13.5px}
+.hnrow .hnlsub{margin-top:10px;font-size:12.5px;color:var(--mut)}
+.hnrow .hnwho{flex:0 0 auto;display:flex;align-items:center;gap:10px;font-size:13px;color:var(--mut);margin:0;padding:0;border:0;background:none}
+.hnav{background:var(--ink)!important;color:#fff!important}
+/* ---- shop by category ---- */
+.entcats{padding:40px 0 8px!important}
+.enthd{margin-bottom:18px}.enthd .exsub{margin:6px 0 0;font-size:14.5px;color:var(--mut);max-width:70ch}
+.ectiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+.ectile{display:flex;align-items:center;gap:14px;padding:12px 14px 12px 12px;border:1px solid var(--line);border-radius:12px;background:#fff;font:inherit;text-align:left;cursor:pointer;transition:border-color .15s,background .15s}
+.ectile:hover{border-color:#9ca3af;background:#fcfcfd}
+.ecimg{flex:none;width:52px;height:52px;border-radius:8px;background:#f8f9fb;overflow:hidden;display:flex;align-items:center;justify-content:center}
+.ecimg img{width:100%;height:100%;object-fit:contain;padding:4px}
+.ectx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.ectx b{font-size:15px;font-weight:600;color:var(--ink)}.ectx i{font-style:normal;font-size:12.5px;color:var(--mut)}
+.ecgo{flex:none;font-size:22px;color:#9ca3af;line-height:1}
+/* ---- programs ---- */
+#recohero section,.recohero{padding-top:36px!important}
+.rhcard{border:1px solid var(--line)!important;border-radius:12px!important;background:#fff!important}
+.rhcard:hover{transform:none!important;border-color:#9ca3af!important}
+.rharrow{background:none!important;color:#9ca3af!important;border:0!important}
+/* ---- catalogue navigation & filters ---- */
+.navwrap{border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.ctab,.schip{border-radius:8px!important;font-weight:600!important;font-size:13.5px!important;box-shadow:none!important}
+.ctab.on,.schip.on{background:var(--ink)!important;color:#fff!important;border-color:var(--ink)!important}
+.inbar{border:1px solid var(--line)!important;border-radius:12px!important;background:#fff!important;padding:6px 16px!important}
+.fitlbl,.inbar .fitlbl{font-size:12px!important;color:var(--mut)!important;letter-spacing:.04em!important;font-weight:600!important}
+.fitbar button,.colbar button{box-shadow:none!important;font-weight:500!important}
+/* ---- shelves: a plain "View all" instead of a banner of thumbnails ---- */
+.seemore{border:1px solid var(--line)!important;background:#fff!important;border-radius:10px!important;padding:12px 16px!important;min-height:0!important}
+.seemore .smths{display:none!important}
+.seemore .smtx b{font-weight:600!important;font-size:14px!important}
+.seemore .smgo{background:none!important;color:var(--a)!important;font-weight:600!important;padding:0!important}
+.seetop{font-weight:600!important;color:var(--a)!important;background:none!important}
+.subgrp{margin-bottom:34px!important}
+.gguide,.subguide,.catguide{color:var(--mut)!important;font-size:13.5px!important}
+/* ---- the advisor: flat, quiet frame ---- */
+.xpert.cadv2{border:1px solid var(--line)!important;background:#fff!important;border-radius:14px!important}
+.cadv2 .xpadv{color:var(--mut)!important;font-size:14px!important}
+.caoi{background:#f3f4f6!important;color:var(--ink)!important;width:40px!important;height:40px!important;border-radius:10px!important}
+.cadv2 .caopt{border:1px solid var(--line)!important;border-radius:12px!important;min-height:68px!important;box-shadow:none!important}
+.cadv2 .caopt:hover{border-color:#9ca3af!important;transform:none!important;box-shadow:none!important}
+.cadv2 .caopt.on{background:#fff!important;border-color:var(--ink)!important;box-shadow:inset 0 0 0 1px var(--ink)!important}
+.cadv2 .caopt.on .caot b{color:var(--ink)!important}.cadv2 .caopt.on .caot i{color:var(--mut)!important}
+.cadv2 .caopt.on .caoi{background:var(--ink)!important;color:#fff!important}
+.cadv2 .caopt.on .caok{background:var(--ink)!important;border-color:var(--ink)!important;color:#fff!important}
+.caprog.seg i.done,.caprog.seg i.now{background:var(--ink)!important}
+.caprog.seg i{background:#e5e7eb!important;height:4px!important}
+.castep{border:0!important;background:#f3f4f6!important;color:var(--mut)!important;font-weight:600!important}
+.cadv2 .caq{font-size:19px!important;font-weight:650!important}
+.cam{border:1px solid var(--line)!important;border-radius:12px!important}
+.cambadge{background:#f3f4f6!important;color:var(--ink)!important;font-weight:600!important;letter-spacing:.02em!important}
+.caang{background:#f8f9fb!important;border-left:2px solid var(--ink)!important}
+.caang b{color:var(--mut)!important}
+.catake{border:1px solid var(--line)!important;background:#f8f9fb!important}
+.catakav{box-shadow:none!important}
+.catakp{background:#fff!important;color:var(--ink)!important;border:1px solid var(--line)}
+.canote{background:#f8f9fb!important;border:1px solid var(--line)!important;color:var(--mut)!important}
+.cabar{background:#f8f9fb!important;border:1px solid var(--line)!important}
+.cabart b,.cakit,.cakit b{color:var(--ink)!important}.cabart i{color:var(--mut)!important}.cabarl .jalink{color:var(--ink)!important}
+.caalt.t-hi{background:#fff!important}
+.caal em{color:var(--mut)!important}
+.canudge{border:1px solid var(--line)!important;background:#f8f9fb!important}
+.canudge:hover{border-color:#9ca3af!important}
+.cani{background:var(--ink)!important}
+.cango{background:none!important;color:var(--a)!important;padding:0!important}
+.golfx{background:#f8f9fb!important;border:1px solid var(--line)!important}.golfx span{color:var(--mut)!important}
+/* advisor picker */
+.appanel{border-radius:16px!important}
+.ahtile{border:1px solid var(--line)!important;border-radius:12px!important;box-shadow:none!important}
+.ahtile:hover{transform:none!important;border-color:#9ca3af!important;box-shadow:none!important}
+.ahgo{background:none!important;color:var(--a)!important;padding:0!important}
+.ahq{color:var(--mut)!important;font-weight:500!important}
+/* ---- chrome: rail, help, market hint ---- */
+.rail{background:#fff!important;border-right:1px solid var(--line)!important}
+.railb.on{background:#f3f4f6!important;color:var(--ink)!important}
+.railb.railadv{color:var(--ink)!important}.railb.railadv svg{filter:none!important}
+.jhelp>button,.jhbtn,#jhBtn{background:#fff!important;color:var(--ink)!important;border:1px solid var(--line)!important;box-shadow:0 2px 8px rgba(16,24,40,.08)!important;font-weight:600!important}
+.mkthint{background:#fff!important;color:var(--ink)!important;border:1px solid var(--line)!important;box-shadow:0 4px 16px rgba(16,24,40,.08)!important}
+.mkthint button{box-shadow:none!important}
+/* ---- FAQ & footer ---- */
+.faq{border-top:1px solid var(--line);padding-top:36px!important}
+footer{border-top:1px solid var(--line);color:var(--mut)!important}
+@media(max-width:860px){
+  .hero{padding-top:26px!important}
+  .hero h1{font-size:26px!important}
+  .heroadv{flex-direction:column;align-items:stretch}
+  .heroadvb,.herobrw{width:100%;justify-content:center}
+  .hnrow{padding-top:18px;padding-bottom:18px}
+  .hnrow .hnsteps{grid-template-columns:1fr}
+  .hnrow .hnsh{grid-row:auto}
+  .hnrow .hnsteps ol{grid-template-columns:1fr;gap:10px}
+  .hnrow .hnbtns{flex-wrap:wrap}
+  .ectiles{grid-template-columns:1fr 1fr;gap:8px}
+  .ectile{flex-direction:column;align-items:flex-start;gap:8px;padding:10px}
+  .ecimg{width:100%;height:72px}.ecgo{display:none}
+  .xph,.cadv2 .xph{font-size:19px!important}
+}
+.hero{border-top:0!important;background:#fff!important}
+.mstage{background:#fff!important}
+/* one "Recommended" per shelf, not a badge on every card */
+.menu .mcard:not(:first-child) .mrec{display:none!important}
+.canudge.wide{width:100%}
+.nextup{background:#fff!important;border:1px solid var(--line)!important;box-shadow:none!important;border-radius:12px!important}
+.nextup:hover{border-color:#9ca3af!important;transform:none!important}
+.nulab{color:var(--mut)!important;font-family:Inter,system-ui,sans-serif!important;letter-spacing:.06em!important;font-weight:600!important}
+.nutx b{font-size:17px!important;font-weight:650!important}
+.nugo{background:none!important;color:var(--ink)!important;box-shadow:none!important;border:1px solid var(--line);width:38px!important;height:38px!important;font-size:18px!important;font-weight:500!important}
+.subn{background:#f3f4f6!important;color:var(--mut)!important;font-weight:500!important}
+.mkthint{max-width:520px}

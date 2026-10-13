@@ -1202,7 +1202,7 @@ function menuCard(key){
   var _dd=defaultDecos(key);
   var startP=unitPrice(key,_dd,moq());
   var bestP=unitPrice(key,_dd,topcol);
-  var rec=(key===CFG.feature||item.rec)?'<span class="mrec">★ Top pick</span>':'';
+  var rec=(key===CFG.feature||item.rec)?'<span class="mrec">Recommended</span>':'';
   // Class badge: a specific published class reads bold; styles whose maker publishes only the generic
   // "meets CSA" claim (no class number) render muted — we never invent a class.
   var csa=item.csa?'<span class="mcsa'+(/^Meets/.test(item.csa)?' gen':'')+'" title="'+(/^Meets/.test(item.csa)?'Certified high-visibility apparel — ask us to confirm the exact class for your job':'Certified high-visibility rating')+'">🛡 '+esc(item.csa)+'</span>':'';
@@ -1215,7 +1215,7 @@ function menuCard(key){
   var inkit=q?' inkit':'';
   var addlbl=q?('<span class="mqk">✓</span><b>'+q+'</b>'):'<span class="mqk">+</span><span class="mqt">Quote</span>';
   return '<article class="mcard'+inkit+'" data-key="'+key+'" data-name="'+esc(searchText(item).replace(/"/g,''))+'" tabindex="0" role="button" aria-label="'+esc(item.name)+'">'+
-    '<div class="mstage">'+curToggleHtml(key)+rec+(item.video?'<button class="mvid" data-vid="'+esc(item.video)+'" data-vname="'+esc(item.name)+'" aria-label="Play product video">▶ Video</button>':'')+'<img class="g" src="'+o.g+'" alt="'+esc(item.name)+'" loading="lazy" decoding="async">'+o.lg+
+    '<div class="mstage">'+curToggleHtml(key)+rec+(item.video?'<button class="mvid" data-vid="'+esc(item.video)+'" data-vname="'+esc(item.name)+'" aria-label="Play product video">▶</button>':'')+'<img class="g" src="'+o.g+'" alt="'+esc(item.name)+'" loading="lazy" decoding="async">'+o.lg+
       '<button class="madd'+(q?' has':'')+'" data-key="'+key+'" aria-label="'+(q?(esc(item.name)+' is in your quote — view quote'):('Add '+esc(item.name)+' to your quote'))+'">'+addlbl+'</button></div>'+
     '<div class="mb"><h3>'+esc(item.name)+'</h3>'+
       '<div class="mmeta">'+esc(item.sku)+(item.layer==='promo'?'':(item.unisex?' · Unisex':''))+'</div>'+
@@ -1242,7 +1242,7 @@ function menuCard(key){
            '<div class="mprice"><b>'+money(item.price_cad)+'</b> <small>/'+(item.unit==='dozen'?'dozen':'pc')+' · min '+item.moq+' · logo included</small></div>'+
            promoVolLine(item))
         : incHtml(item,_dd,'card')+
-          '<div class="mprice"><b>'+money(startP)+'</b> <small>/pc'+(hasDecoPlace(item)?'':' · blank')+'</small></div>'+
+          '<div class="mprice"><b>'+money(startP)+'</b> <small>/pc'+(hasDecoPlace(item)?' · logo included':' · blank')+'</small></div>'+
            '<div class="mvol">at '+moq()+' pcs'+(bestP<startP?(' · <b>'+money(bestP)+'</b>/pc at '+topcol+'+'):'')+'</div>')+
       '</div></article>';
 }
@@ -3490,7 +3490,7 @@ function renderCatAdvisor(el,cfg){
   /* no start screen: an unstarted advisor opens on its first question */
   var mode=A._m||(ready?'res':'q');if(mode==='intro')mode='q';if(mode==='res'&&!ready)mode='q';
   var i=Math.max(0,Math.min(n-1,A._i||0));
-  var head='<div class="cahd"><span class="xpeyb">'+caSvg('spark',15)+' '+esc(cfg.label)+'</span>';
+  var head='<div class="cahd"><span class="xpeyb">'+esc(cfg.label)+'</span>';
   var body='';
   if(mode==='q'){
     var q=qs[i],answered=q.multi?((A[q.id]||[]).length>0):(A[q.id]!=null&&A[q.id]!=='');
@@ -4515,7 +4515,7 @@ function homeProofHtml(){
     return (i?'<span class="hpsep" aria-hidden="true">·</span>':'')+'<span>'+esc(b)+'</span>';}).join('')+
     /* the rating left the top bar to give search its room, so it sits with the other proof */
     '<span class="hpsep" aria-hidden="true">·</span><a class="hprate" href="'+T.reviewsUrl+'" target="_blank" rel="noopener noreferrer">'+
-      '<span class="hpst" aria-hidden="true">★</span>'+T.rating.toFixed(1)+' on Google</a></div>';
+      T.rating.toFixed(1)+' Google rating</a></div>';
 }
 var STAR_SVG='<svg class="hbst" viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path fill="#f5b301" d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.6-4.9-4.6 6.6-.8z"/></svg>';
 function homeBandHtml(){
@@ -4723,9 +4723,10 @@ function buildStore(){
      'gap:32px;justify-content:space-between;flex-wrap:wrap">'+
      '<div class="herotx" style="flex:1 1 320px;min-width:0">'+
        '<h1>'+esc(poss(CFG.client))+" team store</h1>"+
-       '<p class="herosub">'+(demo?'This is a live sample. Every item shows exactly where your logo goes — swap in your brand and it becomes your team’s store. Live pricing, exact quote, no obligation.':'Your logo is already on every piece. Not sure what to order? Our advisor asks two or three one-tap questions and picks it for you — then download an itemized quote your approver can sign.')+'</p>'+
-       /* the advisor's front door, in the hero itself */
-       (demo?'':'<div class="heroadv"><button type="button" class="heroadvb" id="heroAdv">'+caSvg('spark',18)+' Help me choose <span aria-hidden="true">→</span></button><span>Answer a few questions · get our pick with your logo on it</span></div>')+
+       '<p class="herosub">'+(demo?'This is a live sample. Every item shows exactly where your logo goes — swap in your brand and it becomes your team’s store. Live pricing, exact quote, no obligation.':'Branded apparel for your team, with your logo already applied. Get a recommendation, or browse the catalogue and build an itemized quote for approval.')+'</p>'+
+       /* ENTERPRISE HERO (2026-10-13: "the page is way too busy ... looks salesy"). Two actions, no more: the
+          advisor's front door and the catalogue. Proof is one quiet line under them. */
+       (demo?'':'<div class="heroadv"><button type="button" class="heroadvb" id="heroAdv">Get a recommendation</button><button type="button" class="herobrw" id="heroBrowse">Browse the catalogue</button></div>')+
        homeProofHtml()+
        /* 4imprint opens every category with a named person ("David with 4imprint, 11 years"). The
           person who actually answers these stores is Steven, so say so, with the number that reaches
@@ -4735,10 +4736,12 @@ function buildStore(){
        /* HOW IT WORKS, restored (Steven, 2026-10-09 13:15: "you removed the 3 step how it works section
           with rfq that has messaging for enterprise and made it super clear how it works we should keep
           that"). Three steps, the program shortcut, the RFQ upload, and the person who answers. */
-       (demo||!trustOn()?'':heroNextHtml())+
      '</div>'+
      heroShotsHtml()+
-   '</div></section>'+
+   '</div>'+
+   /* how ordering works: one calm row across the page, under the hero (kept, per Steven 2026-10-09) */
+   (demo||!trustOn()?'':('<div class="w hnrow">'+heroNextHtml()+'</div>'))+
+   '</section>'+
    /* The value strip is gone. It stacked three more claims directly beneath a hero that already
       carries three trust chips AND the sample offer -- six competing assertions above the fold, which
       reads as sales noise to an enterprise buyer rather than reassurance. Two of the three were weak
@@ -4756,10 +4759,10 @@ function buildStore(){
    /* The studio itself renders here but is hidden until `?view=gifts` -- see setGiftView(). What
       the homepage shows is the one-line strip, directly under the programmes. */
    giftsSectionHtml()+
-   '<div class="w gfentrywrap">'+giftEntryHtml()+'</div>'+
+   /* the gifts banner left the home page (2026-10-13): gifts stay one tap away on the rail */
    /* No empty band: on a demo kit with no CTA this strip has nothing to hold, and an empty
       bordered section between the programs and the catalogue reads as a broken page. */
-   (heroCta?('<section class="offerstrip"><div class="w">'+heroCta+'</div></section>'):'')+
+   ((heroCta&&(demo||SHARED))?('<section class="offerstrip"><div class="w">'+heroCta+'</div></section>'):'')+
    '<div class="navwrap" id="navwrap">'+
      '<div class="fscrim" id="fscrim"></div>'+
      '<div class="fpanel" id="fpanel" role="dialog" aria-label="Filter products">'+
@@ -4811,10 +4814,12 @@ function buildStore(){
    /* THE BOTTOM, CALMED (2026-10-07). Was: open FAQ -> ROI stats essay -> "Why Just Deals" essay ->
       a ~3,000px photo wall -> footer, ~400 words after the buyer had already seen the product. Now:
       one row of real work (expandable), the home-advantage band that closes, the FAQ as questions only. */
-   (C.feed?('<section class="social"><div class="w"><div class="sochd"><h2 class="seclbl">Recent work from our shop floor</h2>'+
+   /* the photo wall and the stats band left the home page (2026-10-13): an enterprise buyer reads them as
+      advertising. Proof lives in one line under the hero and in the footer. */
+   ((C.feed&&CFG.demo)?('<section class="social"><div class="w"><div class="sochd"><h2 class="seclbl">Recent work from our shop floor</h2>'+
      '<button type="button" class="socmore" id="socMore">See more of our work</button></div>'+
      '<div class="socclip" id="socClip"><behold-widget feed-id="'+esc(C.feed)+'"></behold-widget></div></div></section>'):'')+
-   homeBandHtml()+
+   (CFG.demo?homeBandHtml():'')+
    (CFG.demo||!trustOn()?'':faqHtml())+
    '<footer><div class="w">Just Deals Promotions'+(trustOn()?(' · '+(isUS()?'Family-owned since ':'Canadian since ')+JDP_TRUST.since+' · '+JDP_ADDR):'')+
      '<br>Prepared for '+esc(CFG.client)+' · Concept visuals on representative product photography · Pricing confirmed by formal quote.</div></footer>'+
@@ -9732,13 +9737,13 @@ function heroNextHtml(){
   return '<div class="hnext">'+
     /* HOW AN ENTERPRISE ORDER WORKS, in three steps they can see. The offer is the document their
        approver needs, not a mockup. RFQ upload for buyers who arrive with a spec already written. */
-    '<div class="hnsteps"><div class="hnsh">Get a formal quote in minutes</div>'+
+    '<div class="hnsteps"><div class="hnsh">How ordering works</div>'+
       '<ol><li><span><b>Choose</b> a ready program, or let the advisor in any category pick for you</span></li><li><span><b>Set</b> how many people</span></li>'+
         '<li><span><b>Download</b> an itemized quote (PDF) for approval</span></li></ol>'+
-      '<div class="hnbtns"><button type="button" class="hnprim" id="hnPrograms">Start with a program <span class="ar">↓</span></button>'+
+      '<div class="hnbtns"><button type="button" class="hnsec" id="hnPrograms">See ready programs</button>'+
         '<button type="button" class="hnsec" id="hnRfq">Upload an RFQ or spec</button></div>'+
       '<div class="hnlsub">No payment · no obligation · confirmed in writing by a real person</div></div>'+
-    whoS.replace(/<\/div>$/,'<button type="button" class="hnlink hnask2" id="hnAsk">Not sure? Ask Steven</button></div>')+'</div>';
+    whoS+'</div>';
 }
 /* ---- RFQ UPLOAD: for the buyer who arrives with a spec already written ------------------------------
    Enterprise purchasing often starts from a document -- an RFQ, a spec sheet, last year's order. Let
@@ -9966,19 +9971,22 @@ function catHasAdvisor(c){try{if(typeof CADV==='undefined')return false;var keep
    buyer had to notice. Now the first thing under the hero says what the advisor does and hands over a tile per
    advisor -- each showing the first question it will ask -- and one tap lands on that question. Aisles without an
    advisor stay one tap away as plain links underneath. */
+/* SHOP BY CATEGORY (2026-10-13). One grid, every aisle, the same quiet tile -- name, style count, and for aisles that
+   have one, a plain "Advisor" note. A category with an advisor opens on its first question, so the tile itself is
+   the way in; no separate hub of loud Start buttons competing with the catalogue. */
 function catTilesHtml(){
   var cats=(typeof CATS!=='undefined'&&CATS.length)?CATS:[];
   if(!cats.length)return '';
-  var adv=caCats(),rest=cats.filter(function(c){return adv.indexOf(c)<0;});
-  if(!adv.length)return '<section class="excats"><div class="w"><h2 class="exh">What are you shopping for?</h2><div class="cattiles">'+cats.map(function(c){
-      return '<button type="button" class="cattile" data-catgo="'+esc(c)+'"><span class="ctlab"><b>'+esc(shortCat(c))+'</b><i>'+((TOTALS&&TOTALS[c])||0)+' styles</i></span></button>';}).join('')+'</div></div></section>';
-  return '<section class="excats advhub"><div class="w">'+
-    '<div class="ahhd"><span class="ahey">'+caSvg('spark',15)+' Advisor</span>'+
-      '<h2 class="exh">Not sure what to order? Tell us about your team — we’ll pick it.</h2>'+
-      '<p class="exsub">Choose what you’re shopping for. Two or three one-tap questions, then the piece we’d choose for each group — with your logo on it, the reasons, and a lower-cost and a premium option.</p></div>'+
-    '<div class="ahtiles">'+caHubTiles('')+'</div>'+
-    (rest.length?('<div class="ahbrowse"><span>Or browse</span>'+rest.map(function(c){return '<button type="button" class="ahchip" data-catgo="'+esc(c)+'">'+esc(shortCat(c))+' <i>'+((TOTALS&&TOTALS[c])||0)+'</i></button>';}).join('')+'</div>'):'')+
-    '</div></section>';
+  var adv=caCats();
+  return '<section class="excats entcats"><div class="w">'+
+    '<div class="enthd"><h2 class="exh">Shop by category</h2>'+
+      (adv.length?'<p class="exsub">Each apparel category starts with a short advisor: answer two or three questions and we recommend the right piece for each group.</p>':'')+'</div>'+
+    '<div class="ectiles">'+cats.map(function(c){var a=adv.indexOf(c)>=0,img=catTileImg(c),n=(TOTALS&&TOTALS[c])||0;
+      return '<button type="button" class="ectile" '+(a?'data-advgo':'data-catgo')+'="'+esc(c)+'">'+
+        '<span class="ecimg">'+(img?('<img src="'+img+'" alt="" loading="lazy">'):'')+'</span>'+
+        '<span class="ectx"><b>'+esc(shortCat(c))+'</b><i>'+n+' style'+(n===1?'':'s')+(a?' · Advisor':'')+'</i></span>'+
+        '<span class="ecgo" aria-hidden="true">›</span></button>';}).join('')+
+    '</div></div></section>';
 }
 function wireExplore(){
   var ts=document.getElementById('topSearch'),ks=document.getElementById('kitSearch');
@@ -10002,6 +10010,8 @@ function wireExplore(){
   if(sv&&!sv.dataset.wired){sv.dataset.wired='1';sv.addEventListener('click',shareView);}
   wireAdvGo(document);
   var ha=document.getElementById('heroAdv');if(ha&&!ha.dataset.w){ha.dataset.w='1';ha.addEventListener('click',function(){jdpTrack('adv_hero');openAdvPicker();});}
+  var hb=document.getElementById('heroBrowse');if(hb&&!hb.dataset.w){hb.dataset.w='1';hb.addEventListener('click',function(){jdpTrack('browse_hero');
+    var t=document.querySelector('.entcats')||document.getElementById('navwrap');if(t)window.scrollTo({top:window.scrollY+t.getBoundingClientRect().top-70,behavior:'smooth'});});}
   document.querySelectorAll('[data-catgo]').forEach(function(b){
     b.addEventListener('click',function(){
       setCat(b.dataset.catgo,true);
