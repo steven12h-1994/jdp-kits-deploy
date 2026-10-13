@@ -1,0 +1,16 @@
+{
+  "generator": "client-app",
+  "version": "1791918788",
+  "slug": "societe-via",
+  "client": "Soci\u00e9t\u00e9 VIA",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_2ca8e0.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}

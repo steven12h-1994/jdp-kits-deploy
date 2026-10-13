@@ -1,0 +1,17 @@
+{
+  "generator": "client-app",
+  "version": "1791918805",
+  "slug": "precise-parklink",
+  "client": "Precise ParkLink",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_033b5b.png",
+    "img/lg_full_06856c.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}
