@@ -1,0 +1,17 @@
+{
+  "generator": "client-app",
+  "version": "1792005733",
+  "slug": "hickeys-timber-mart",
+  "client": "Hickey's TIMBER MART",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_005fb3.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_d0202e.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}
