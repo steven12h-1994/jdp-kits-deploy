@@ -4287,3 +4287,15 @@ footer{border-top:1px solid var(--line);color:var(--mut)!important}
 .casuml{color:var(--mut)!important}
 .catgl{background:#fff!important;border:1px solid var(--line)!important;box-shadow:none!important}
 .catgl.on{border-color:var(--ink)!important}
+/* advisor v5.1 rows: hooded option, freezer caveat, labelled alternatives */
+.cpfam{margin:4px 0 0;font-size:13px;color:#374151;line-height:1.45}
+.cpfam span{color:var(--mut)}.cpfam b{font-weight:600;color:var(--ink)}
+.cpsw{margin-left:4px;padding:2px 9px;border:1px solid var(--line);border-radius:6px;background:#fff;font:inherit;font-size:12px;font-weight:600;color:var(--ink);cursor:pointer}
+.cpsw:hover{border-color:#9ca3af}
+.cpnote{margin:6px 0 0;padding:7px 10px;border-radius:8px;background:#fff7ed;border:1px solid #fed7aa;color:#7c2d12;font-size:12.5px;line-height:1.45}
+.cpalts{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:8px}
+.cpalts>span{font-size:12px;color:var(--mut);font-weight:600;margin-right:2px}
+.cpalt{display:inline-flex;align-items:baseline;gap:5px;padding:5px 10px;border:1px solid var(--line);border-radius:8px;background:#fff;font:inherit;font-size:12.5px;color:var(--ink);cursor:pointer;text-align:left}
+.cpalt:hover{border-color:#9ca3af;background:#fcfcfd}
+.cpalt em{font-style:normal;font-weight:650}
+.cpalt i{font-style:normal;color:var(--mut);font-size:12px}

@@ -1356,7 +1356,9 @@ function classifyHivis(n){
    golf day: a golf-brand or performance polo, a light knit quarter-zip (not a fleece or a hoodie), a golf-brand
    windshirt/vest/hybrid, or a performance cap. Read from the name, brand and the maker's own fabric facts. */
 var GOLF_BRAND=/cutter|clique|nike|adidas|callaway|titleist|taylormade|puma golf|footjoy/i;
-var GOLF_KEYS={st_pacificawind:'Windshirts & Vests',cb_adapt:'Windshirts & Vests'};
+var GOLF_KEYS={st_pacificawind:'Windshirts & Vests',cb_adapt:'Windshirts & Vests',
+  /* golf caps from the program brands (2026-10-14: no Nike in the advice): structured poly and recycled-nylon caps */
+  at_whippy:'Golf Caps',at_recyfive:'Golf Caps',st_summitcap:'Golf Caps'};
 function golfOf(it,c,n){
   if(GOLF_KEYS[it.key])return GOLF_KEYS[it.key];
   var b=((it.brand||'')+' '+(it.sku||'')),gb=GOLF_BRAND.test(b),fin=((it.fab&&it.fab.finishes)||[]).join(' ').toLowerCase();
@@ -1498,7 +1500,9 @@ var HOME_BY_KEY={st_stocktonhoody:{mega:'layers',sub:'Hoodies'},st_stocktoncrew:
   st_tradesmithhoody:{mega:'outerwear',sub:'Insulated & Quilted'},st_flatiron:{mega:'outerwear',sub:'Insulated & Quilted'},
   st_tradesmith:{mega:'outerwear',sub:'Shirt Jackets & Shackets'},
   /* 2026-10-12 Canada Sportswear adds: Nunavut is 300 gsm winter weight (a coat, not a quilt); Boulder is a sherpa softshell JACKET, not a hoodie */
-  cs_l06025:{mega:'outerwear',sub:'Winter Parkas & 3-in-1'},cs_l01055:{mega:'outerwear',sub:'Softshell Jackets'}};
+  cs_l06025:{mega:'outerwear',sub:'Winter Parkas & 3-in-1'},cs_l01055:{mega:'outerwear',sub:'Softshell Jackets'},
+  /* 2026-10-14: an insulated softshell whose name says "Hooded" is a jacket, not a hoodie */
+  cq_equinox:{mega:'outerwear',sub:'Softshell Jackets'},cbc_evoke_fleece:{mega:'outerwear',sub:'Softshell Jackets'}};
 function classify(it){
   if(it&&HOME_BY_KEY[it.key])return HOME_BY_KEY[it.key];
   // A kit that references a product the catalogue no longer carries must degrade to "not shown",
@@ -3189,14 +3193,24 @@ function caInCats(it,list){var hit=false;list.forEach(function(p){if(((BUCKETS[p
 function caKeys(list){var out=[],seen={};list.forEach(function(p){((BUCKETS[p[0]]||{})[p[1]]||[]).forEach(function(k){var it=BYKEY[k];if(!it||seen[k]||it.layer==='promo')return;if(/\bdog\b|leash|collar|throw|blanket/i.test(it.name||''))return;seen[k]=1;out.push(k);});});return out;}
 /* ---- the engine ---- */
 /* in the Carhartt aisle the advice stays Carhartt -- that is the shelf the buyer chose */
-function caPool(cfg,A,role){var ks=cfg.pool(A,role)||[];if(VIEW.cat==='carhartt')ks=ks.filter(function(k){return /carhartt/i.test(caBrand(BYKEY[k]||{}));});return ks;}
+/* NOT IN THE ADVICE (Steven, 2026-10-14: "Carhartt, Nike, Adidas, North Face should not be in the advisor
+   recommendations"). Those brands stay in the store to browse; the advisor recommends from the program brands. With
+   no Carhartt left to recommend, the Carhartt aisle no longer opens with an advisor. */
+var CA_NOREC=/carhartt|nike|adidas|north face/i;
+function caRecOk(k){var it=BYKEY[k]||{};return !CA_NOREC.test((it.brand||'')+' '+(it.sku||''));}
+function caPool(cfg,A,role){return (cfg.pool(A,role)||[]).filter(caRecOk);}
 function caCfg(){
+  if(VIEW.cat==='carhartt')return null;   /* no advisor on the Carhartt shelf: Carhartt is not recommended (2026-10-14) */
   var c=VIEW.cat,s=VIEW.sub||'all';
   for(var i=0;i<CADV.length;i++){var g=CADV[i];if(g.applies(c,s)&&caPool(g,caSt(g.id)).length>=3)return g;}
   return null;
 }
 function caQs(cfg,A){
-  var qs=(cfg.qs||[]).filter(function(q){return !q.when||q.when(A);});
+  var qs=(cfg.qs||[]).filter(function(q){return !q.when||q.when(A);}).map(function(q){
+    if(!q.optsFor)return q;var o=q.optsFor(A)||[],v=A[q.id];
+    /* an answer the new option list no longer offers (e.g. freezer after warehouse was un-ticked) falls back to the default */
+    if(v!=null&&v!==''&&!o.some(function(x){return String(x.id)===String(v);}))A[q.id]=q.def!=null?String(q.def):'';
+    return Object.assign({},q,{opts:o});});
   /* NO BUDGET QUESTION (Steven, 2026-10-09 14:19: "we do not want Your budget -- you can show lower and more
      premium options after you know what they need"). The advisor recommends the best fit for the job, then
      shows a lower-cost and a premium alternative with what each gains or gives up. */
@@ -3249,15 +3263,35 @@ function caProgramRaw(cfg,A){
           rowOf=function(k){return rows.filter(function(r){return r.k===k;})[0]||{k:k,s:0,p:sxPrice(k)};};
       var ck=okK(cur.pick)?cur.pick:null;
       if(!ck&&cur.pick&&typeof JA_FAMILY!=='undefined'&&JA_FAMILY[cur.pick]&&okK(JA_FAMILY[cur.pick][0]))ck=JA_FAMILY[cur.pick][0];   // the twin with the cut they need
+      /* still nothing? the first NAMED option that fits steps up -- it was chosen for the same job (e.g. a freezer
+         jacket with a women's cut), which a scored stranger from the ranking would not be */
+      /* a job-specific row (the freezer range) never gives way to an unrelated jacket: if nothing in it has the cut the
+         buyer asked for, keep the right garment and say so */
+      if(!ck&&cur.only&&inPool[cur.pick]&&BYKEY[cur.pick]&&!(cur.alts||[]).some(function(a){return okK(a.k);})){ck=cur.pick;
+        cur=Object.assign({},cur,{alts:[],note:((cur.note?cur.note+' ':'')+'This range comes in a men’s / unisex cut only — no matching women’s cut.')});}
+      var stepUp='';if(!ck&&cur.alts){var nx=cur.alts.filter(function(a){return okK(a.k);})[0];if(nx){ck=nx.k;stepUp=nx.why||'';cur=Object.assign({},cur,{alts:cur.alts.filter(function(a){return a.k!==nx.k;})});}}
       var cm=(mine&&rows.filter(function(r){return r.k===mine;})[0])||(mine&&okK(mine)?rowOf(mine):null);
+      /* the buyer swapped in one of the named options: it leads, and our pick stays one tap away as "Our pick" */
+      if(ck&&cm&&cm.k!==ck&&cur.alts&&cur.alts.some(function(a){return a.k===cm.k;})){var was=cur.alts.filter(function(a){return a.k===cm.k;})[0];
+        cur={pick:cm.k,ang:was.why||'',note:cur.note,only:cur.only,alts:[{k:ck,lab:'Our pick',why:cur.ang}].concat(cur.alts.filter(function(a){return a.k!==cm.k;}))};ck=cm.k;}
       if(ck&&(!cm||cm.k===ck)){var m0=rowOf(ck);
         var g0=Math.max(3,m0.p*0.05),slot=function(k,lo){if(k===null)return null;var r=okK(k)?rowOf(k):undefined;if(r&&r.p>0&&(lo?r.p<=m0.p-g0:r.p>=m0.p+g0))return r;return undefined;};   /* a real price step: hand-picked options may sit closer (5%, $3) than scored ones (10%) */
         var lo0=slot(cur.lo,true),hi0=slot(cur.hi,false),rest0=rows.filter(function(r){return r.k!==m0.k;}),gap0=Math.max(3,m0.p*0.1),
             restC0=rest0.filter(function(r){return !isCh(r);});
         if(lo0===undefined)lo0=restC0.filter(function(r){return r.p<=m0.p-gap0;})[0]||null;
         if(hi0===undefined)hi0=rest0.filter(function(r){return isCh(r)&&r.p>m0.p+0.5;})[0]||rest0.filter(function(r){return r.p>=m0.p+gap0&&r!==lo0;})[0]||null;
-        var alts0=[];if(lo0)alts0.push({r:lo0,lab:'Lower cost',t:'lo',ang:cfg.angOf?cfg.angOf(lo0.k):''});if(hi0)alts0.push({r:hi0,lab:'Premium',t:'hi',ang:cfg.angOf?cfg.angOf(hi0.k):''});
-        return {role:role,main:m0,alts:alts0,n:Math.max(rows.length,1),cur:true,ang:(ck===cur.pick?cur.ang:'')};}
+        var alts0=[];
+        /* LABELLED ALTERNATIVES (Steven, 2026-10-14): an enterprise buyer chooses between purposes -- "Polished",
+           "Weather-ready", "Value", "Heavy-duty" -- not just a cheaper and a dearer neighbour. A row that names its
+           alternatives keeps them in its order, whatever their price; anything it can't show is topped up from the
+           ranking as Value / Premium. */
+        if(cur.alts){cur.alts.forEach(function(a){if(alts0.length>=2||!a||!okK(a.k)||a.k===m0.k)return;var r=rowOf(a.k);if(!(r.p>0))return;
+            alts0.push({r:r,lab:a.lab,t:r.p<m0.p?'lo':'hi',ang:a.why||(cfg.angOf?cfg.angOf(a.k):''),named:true});});
+          var used=function(r){return r.k===m0.k||alts0.some(function(a){return a.r.k===r.k;});};
+          if(alts0.length<2&&!cur.only){var v=restC0.filter(function(r){return !used(r)&&r.p<=m0.p-gap0;})[0];if(v&&!alts0.some(function(a){return a.t==='lo';}))alts0.push({r:v,lab:'Value',t:'lo',ang:cfg.angOf?cfg.angOf(v.k):''});}
+          if(alts0.length<2&&!cur.only){var pr=restC0.filter(function(r){return !used(r)&&r.p>=m0.p+gap0;})[0];if(pr)alts0.push({r:pr,lab:'Premium',t:'hi',ang:cfg.angOf?cfg.angOf(pr.k):''});}}
+        else{if(lo0)alts0.push({r:lo0,lab:'Value',t:'lo',ang:cfg.angOf?cfg.angOf(lo0.k):''});if(hi0)alts0.push({r:hi0,lab:'Premium',t:'hi',ang:cfg.angOf?cfg.angOf(hi0.k):''});}
+        return {role:role,main:m0,alts:alts0,n:Math.max(rows.length,1),cur:true,ang:(ck===cur.pick?cur.ang:stepUp),note:cur.note||''};}
     }
     var main=(mine&&rows.filter(function(r){return r.k===mine;})[0])||core[0]||rows[0];
     var rest=rows.filter(function(r){return r.k!==main.k;});
@@ -3266,7 +3300,7 @@ function caProgramRaw(cfg,A){
     var lower=restCore.filter(function(r){return r.p<=main.p-gap;})[0]||restCore.filter(function(r){return r.p<main.p-0.5;})[0];
     var chPrem=inCh?null:rest.filter(function(r){return isCh(r)&&r.p>main.p+0.5;})[0];
     var prem=chPrem||rest.filter(function(r){return r.p>=main.p+gap&&r!==lower;})[0]||rest.filter(function(r){return r.p>main.p+0.5&&r!==lower;})[0];
-    var alts=[];if(lower)alts.push({r:lower,lab:'Lower cost',t:'lo',ang:cfg.angOf?cfg.angOf(lower.k):''});if(prem)alts.push({r:prem,lab:'Premium',t:'hi',ang:cfg.angOf?cfg.angOf(prem.k):''});
+    var alts=[];if(lower)alts.push({r:lower,lab:'Value',t:'lo',ang:cfg.angOf?cfg.angOf(lower.k):''});if(prem)alts.push({r:prem,lab:'Premium',t:'hi',ang:cfg.angOf?cfg.angOf(prem.k):''});
     return {role:role,main:main,alts:alts,n:rows.length};
   });
 }
@@ -3360,9 +3394,9 @@ function caSwatchHtml(k){var it=BYKEY[k],cs=browseCols(it)||[],cur=caColOf(k);if
     (cs.length>max?('<span class="cmore">+'+(cs.length-max)+'</span>'):'')+'</div></div>';}
 function caAltHtml(cfg,x){
   if(!x.alts.length)return '';
-  return '<div class="caalts"><span class="caaltsh">Want a different price point?</span>'+x.alts.map(function(a){var it=BYKEY[a.r.k],d=a.r.p-x.main.p,lo=a.t==='lo';
+  return '<div class="caalts"><span class="caaltsh">Other options for this group</span>'+x.alts.map(function(a){var it=BYKEY[a.r.k],d=a.r.p-x.main.p,lo=d<0;
     return '<div class="caalt t-'+a.t+'"><button type="button" class="caaimg" data-xpopen="'+esc(a.r.k)+'" aria-label="See '+esc(it.name)+'">'+caThumb(a.r.k)+'</button>'+
-      '<div class="caab"><span class="caal"><em>'+esc(a.lab)+'</em> <b>'+money(a.r.p)+'</b> <span class="cadiff">'+(lo?'save ':'+')+money(Math.abs(d))+'/pc</span></span>'+
+      '<div class="caab"><span class="caal"><em>'+esc(a.lab)+'</em> <b>'+money(a.r.p)+'</b> <span class="cadiff">'+(Math.abs(d)<0.5?'same price':((lo?'save ':'+')+money(Math.abs(d))+'/pc'))+'</span></span>'+
         '<b class="caan">'+esc(it.name)+'</b><span class="cambr">'+esc(it.brand||'')+'</span>'+
         (a.ang?('<span class="caang2">'+esc(a.ang)+'</span>'):'')+'<span class="catrade">'+esc(caTrade(x.main.k,a.r.k,lo))+'</span>'+caTierHtml(a.r.k,true)+'</div>'+
       '<button type="button" class="jasw" data-caswap="'+esc(x.role)+'|'+esc(a.r.k)+'">Use this</button></div>';}).join('')+'</div>';
@@ -3422,7 +3456,7 @@ var CA_ICO_Q={'who|office':'office','who|mixed':'truck','who|drivers':'truck','w
   'warm|1':'wind','warm|2':'leaf','warm|3':'snow','warm|4':'thermo','rain|0':'dry','rain|1':'rain','look|polo':'polo','look|tee':'tee','look|woven':'shirt',
   'kind|vest':'vest','kind|tee':'tee','kind|layer':'hoodie','kind|jacket':'jacket','snag|1':'yes','snag|0':'no','season|hot':'sun','season|mild':'leaf','season|cold':'snow','season|wet':'rain',
   'style|qz':'zip','style|hood':'hoodie','style|fz':'jacket','style|crew':'tee','style|auto':'spark','warm|in':'office',
-  'occ|host':'flag','occ|team':'team','occ|staff':'badge','wx|warm':'sun','wx|cool':'wind','wash|home':'home','wash|ind':'wash'};
+  'work|gen':'hardhat','work|abr':'layer3','work|canvas':'jacket','work|frz':'snow','occ|host':'flag','occ|team':'team','occ|staff':'badge','wx|warm':'sun','wx|cool':'wind','wash|home':'home','wash|ind':'wash'};
 function caIcoKey(q,o){var k=CA_ICO_Q[q.id+'|'+o.id];if(k)return k;var t=(o.lab+' '+(o.sub||'')).toLowerCase();
   var R=[[/gift/,'gift'],[/office|client|front/,'office'],[/driver|vehicle/,'truck'],[/warehouse|shop|dock/,'warehouse'],[/crew|outdoor|construction|trade|site/,'hardhat'],
     [/event|volunteer|show/,'tent'],[/rain|wet/,'rain'],[/deep|hours/,'thermo'],[/cold|winter|toque/,'snow'],[/summer|sun|hot/,'sun'],[/spring|fall|cool|mild/,'leaf'],
@@ -3446,6 +3480,10 @@ function caTakeLine(cfg,A,x,many,brief){
   if(!why){var f='';try{f=cfg.fact?cfg.fact(it,A,x.role):'';}catch(e){}why=f?('It’s '+f):'';}
   why=caCap(why);if(why&&!/[.!?]$/.test(why))why+='.';
   var out=(cfg.roleLabs?('<span class="catakp">'+esc(String(lab).replace(/^The /,''))+'</span> I’d go with the '):(lab?('For '+esc(lab.toLowerCase())+', I’d go with the '):'I’d go with the '))+nm+'.'+((why&&!brief)?(' '+esc(why)):'');
+  if((x.alts||[]).some(function(a){return a.named;})){
+    x.alts.forEach(function(a){var it2=BYKEY[a.r.k],d=a.r.p-x.main.p;
+      out+=' '+esc(a.lab)+': the '+esc(caShort(it2.name))+(Math.abs(d)<0.5?'':(' ('+(d<0?'saves ':'')+money(Math.abs(d))+(d<0?'':' more')+' a piece)'))+'.';});
+    return out;}
   var lo=(x.alts||[]).filter(function(a){return a.t==='lo';})[0],hi=(x.alts||[]).filter(function(a){return a.t==='hi';})[0];
   if(lo){var tl=caTrade(x.main.k,lo.r.k,true),d=money(Math.abs(x.main.p-lo.r.p));
     out+=' Tighter budget? The '+esc(caShort(BYKEY[lo.r.k].name))+(/^Gives up /.test(tl)?(' saves '+d+' a piece but gives up '+esc(tl.replace(/^Gives up /,''))):(' does the same job for '+d+' less a piece'))+'.';}
@@ -3466,7 +3504,7 @@ function caKitSum(cfg,P){var ok=P.filter(function(x){return !x.none;});if(!ok.le
   return '';}
 /* where every advisor lives, for the hub, the rail button and the grid nudge */
 function caCats(){var cats=(typeof CATS!=='undefined'&&CATS.length)?CATS:[];return cats.filter(function(c){return catHasAdvisor(c);});}
-function caCfgFor(c){for(var i=0;i<CADV.length;i++){var g=CADV[i];if(g.applies(c,'all')&&caPool(g,caSt(g.id)).length>=3)return g;}return null;}
+function caCfgFor(c){if(c==='carhartt')return null;for(var i=0;i<CADV.length;i++){var g=CADV[i];if(g.applies(c,'all')&&caPool(g,caSt(g.id)).length>=3)return g;}return null;}
 /* jump straight to the first unanswered question of a category's advisor */
 function advGo(c,src){var g=caCfgFor(c);if(!g){setCat(c,true);return;}var A=caSt(g.id);
   if(!caReady(g,A)){A._m='q';var L=caQs(g,A),k=0;while(k<L.length-1&&(L[k].multi?(A[L[k].id]||[]).length:(A[L[k].id]!=null&&A[L[k].id]!=='')))k++;A._i=k;}else A._m='res';
@@ -3526,13 +3564,24 @@ function caRowHtml(cfg,A,x){
   return '<div class="cprow" data-row="'+esc(x.role)+'">'+
     '<button type="button" class="cpimg" data-xpopen="'+esc(x.main.k)+'" aria-label="See '+esc(it.name)+' with your logo">'+caThumb(x.main.k)+'</button>'+
     '<div class="cpmain">'+(x.lab?('<span class="cpfor">'+(cfg.roleLabs?'':'For ')+esc(x.lab)+'</span>'):'')+
-      '<b class="cpname">'+esc(caShort(it.name))+'</b><span class="cpbr">'+esc(it.brand||it.sku||'')+(hasLadies(it)?' · men’s & women’s cuts':'')+'</span>'+
-      '<p class="cpwhy">'+esc(caWhyLine(cfg,A,x))+'</p>'+
+      '<b class="cpname">'+esc(caShort(it.name))+'</b><span class="cpbr">'+esc(it.brand||it.sku||'')+(it.msku?(' · '+esc(it.msku)):'')+(hasLadies(it)?' · men’s & women’s cuts':'')+'</span>'+
+      '<p class="cpwhy">'+esc(caWhyLine(cfg,A,x).replace(/\s*Hooded option: [^.]*\.?$/,''))+'</p>'+caFamHtml(cfg,A,x)+
+      (function(){var nt=x.note||'';if(!nt&&cfg.rowNote){try{nt=cfg.rowNote(A,x.role,BYKEY[x.main.k])||'';}catch(e){nt='';}}return nt?('<p class="cpnote">'+esc(nt)+'</p>'):'';})()+caAltChips(cfg,x)+
       '<button type="button" class="cpdet'+(open?' on':'')+'" data-cadet="'+esc(x.role)+'" aria-expanded="'+open+'">'+(open?'Hide details':'Compare options & details')+' <span aria-hidden="true">'+(open?'▴':'▾')+'</span></button></div>'+
     (cfg.roles?'':('<div class="cpqty"><span class="cpql">People</span>'+caStepper(esc(x.role),q)+'</div>'))+
     '<div class="cpprice"><b data-cpu="'+esc(x.role)+'">'+money(u)+'</b><i data-cpq="'+esc(x.role)+'">/pc at '+q+'</i><span class="cpline" data-cpl="'+esc(x.role)+'">'+money(u*q)+'</span></div>'+
   '</div>'+
   '<div class="cpdetail" data-detail="'+esc(x.role)+'"'+(open?'':' hidden')+'>'+(open?(caMainHtml(cfg,A,x)+caAltHtml(cfg,x)):'')+'</div>';}
+/* the same garment with a hood (or a longer cut) is ONE recommendation -- name it on the row, with its style number */
+function caFamHtml(cfg,A,x){if(typeof JA_FAMILY==='undefined')return '';var f=JA_FAMILY[x.main.k];if(!f||!BYKEY[f[0]]||caPool(cfg,A,x.role).indexOf(f[0])<0)return '';
+  var t=BYKEY[f[0]],nm=caShort(t.name).replace(/\s+(Insulated|Heavy-Duty).*$/,'');
+  return '<p class="cpfam"><span>'+esc(/hood/i.test(f[1])?'Hooded option':'Also comes as')+':</span> <b>'+esc(nm)+(t.msku?(' '+esc(t.msku)):'')+'</b> — '+esc(f[1].replace(/^[^—]*—\s*/,''))+
+    ' <button type="button" class="cpsw" data-caswap="'+esc(x.role)+'|'+esc(f[0])+'">Switch</button></p>';}
+/* the alternatives, by purpose, right on the row: one tap swaps them in */
+function caAltChips(cfg,x){if(!(x.alts||[]).length)return '';
+  return '<div class="cpalts"><span>Also consider</span>'+x.alts.map(function(a){var it=BYKEY[a.r.k],d=a.r.p-x.main.p;
+    return '<button type="button" class="cpalt" data-caswap="'+esc(x.role)+'|'+esc(a.r.k)+'" title="'+esc(a.ang||it.name)+'"><em>'+esc(a.lab)+'</em> '+esc(caShort(it.name))+
+      ' <i>'+(Math.abs(d)<0.5?'same price':((d<0?'−':'+')+money(Math.abs(d))))+'</i></button>';}).join('')+'</div>';}
 function caTotals(cfg,A,P){var t=0,n=0;P.forEach(function(x){if(x.none)return;var q=caQtyOf(cfg,A,x.role);t+=caUnit(x.main.k,q)*q;n+=q;});return {t:t,n:n};}
 function caProgHtml(cfg,A,P){var ok=P.filter(function(x){return !x.none;}),T=caTotals(cfg,A,P),allIn=ok.length&&ok.every(function(x){return cartHasAny(x.main.k);});
   var kq=cfg.roles?caQtyOf(cfg,A,'_kit'):0;
@@ -3723,16 +3772,16 @@ var JA_ANG={st_pacificawind:'Ultra-light 65 gsm windbreaker with a hood',st_paci
 var JA_CUR={
 ca:{
 'office|1|0':['st_pacificawind','st_nautilusshell','st_stratus','A light windbreaker is all a commute needs on mild days — choose hood or hoodless and keep one look across the team.'],
-'office|2|0':['softshell','cs_l07240','tnf_soft','The office uniform for cool days: a clean, fleece-backed softshell that reads polished over a shirt, in matching men’s and women’s cuts.'],
-'office|3|0':['st_nautilusjkt','cs_l00980','cbc_evoke_puffer','A slim quilted jacket keeps people warm on winter commutes without looking like workwear — matching men’s and women’s cuts.'],
+'office|2|0':{p:'softshell',ang:'Clean everyday corporate uniform: a fleece-backed softshell that reads polished over a shirt, in matching men’s and women’s cuts.',alts:[['cbc_evoke_fleece','Polished','Cutter & Buck Evoke Eco — a refined corporate softshell'],['st_cruise','Weather-ready','Hooded H2XTREME stretch softshell for wind and rain']]},
+'office|3|0':{p:'cs_cyclone',ang:'A structured insulated softshell — warm on winter commutes, with a clean, tailored look for client-facing staff. Hooded option: Hurricane L03170.',alts:[['st_stavanger','Lightweight puffer','Stormtech Stavanger — a light, everyday quilted puffer'],['cbc_rainier_puffer','Polished premium','Cutter & Buck Rainier PrimaLoft — the polished premium puffer']]},
 'office|4|0':['cs_l06025',null,'st_oslo','Deep cold on the commute calls for length: a long puffy coat that covers past the hips, without the bulk of an expedition parka.'],
 'office|1|1':['st_stratus','rainier','st_scirocco','Sealed seams keep steady rain out, and the ultra-light shell packs into a work bag on dry days.'],
 'office|2|1':['st_scirocco','cs_l02185','st_vertex','A seam-sealed shell over office layers: dry in steady rain, with the warmth coming from what’s underneath.'],
 'office|3|1':['st_nostromo',null,'st_avalante3in1','Insulation and a sealed waterproof shell in one sleek jacket — no separate rain layer on winter commutes.'],
 'office|4|1':['cs_l06000',null,'st_denali','A seam-sealed shell with a zip-out liner: the full system for the wettest, coldest commutes, the shell alone for spring rain.'],
 'drivers|1|0':['st_pacificawind','st_nautilusshell','st_greenwich','Light and unrestrictive for getting in and out of vehicles all day.'],
-'drivers|2|0':['cs_l07200','softshell','st_cruise','Stretch and a micro-fleece backing: moves with drivers and techs, and takes the edge off cool mornings.'],
-'drivers|3|0':['cs_l03170','cs_l03400','st_orbiter','An insulated stretch softshell — warm, but not bulky behind the wheel, and the hood comes off.'],
+'drivers|2|0':{p:'cs_l07200',ang:'Stretch and a micro-fleece backing: moves with drivers and techs, and takes the edge off cool mornings.',alts:[['softshell','Value','Balmy — the economical everyday softshell'],['st_cruise','Weather-ready','Hooded H2XTREME stretch softshell']]},
+'drivers|3|0':{p:'cs_cyclone',ang:'An insulated stretch softshell — warm, but not bulky behind the wheel. Hooded option: Hurricane L03170.',alts:[['cs_l03400','Value','Playmaker — a conventional insulated jacket with a detachable hood'],['st_orbiter','Technical','Stormtech Orbiter — insulated softshell, Thermolex fill']]},
 'drivers|4|0':['cs_l01110',null,'cs_l01115','Heavy-duty Thinsulate warmth at bomber length, so it doesn’t bunch up in the driver’s seat.'],
 'drivers|1|1':['cs_l02185',null,'st_scirocco','Fully seam-sealed and stretchy, light enough to wear in and out of the vehicle all day.'],
 'drivers|2|1':['cs_l02185',null,'st_patrol','A seam-sealed stretch shell; a fleece or hoodie underneath supplies the warmth.'],
@@ -3746,9 +3795,9 @@ ca:{
 'warehouse|2|1':['cs_l02185',null,'st_scirocco','A seam-sealed shell over a hoodie: dry on the dock, not too warm inside.'],
 'warehouse|3|1':['cs_l06000','st_nostromo','cs_l01115','The liner zips out for indoor stretches, and the seam-sealed shell handles wet dock work.'],
 'warehouse|4|1':['cs_l01115','cs_l06000','st_magellan','Heavy-duty 3-in-1: sealed shell and warm inner jacket together for long wet, cold stretches outside.'],
-'outdoor|1|0':['cs_l07240','st_sierrashell','ch_102199','A stretch softshell stands up to a working day better than a thin windbreaker.'],
+'outdoor|1|0':{p:'cs_l07240',ang:'A stretch softshell stands up to a working day better than a thin windbreaker.',alts:[['st_sierrashell','Value','Budget lightweight shell'],['st_cruise','Weather-ready','Hooded H2XTREME stretch softshell']]},
 'outdoor|2|0':['cs_l07200','softshell','cs_l01055','Stretch softshell bonded to micro fleece: moves with active crews and takes the edge off cool mornings.'],
-'outdoor|3|0':['cs_l01110','cs_l00910','ch_106674','Most of the shift outside in winter: heavy-duty 3M Thinsulate in a bomber cut that keeps arms free.'],
+'outdoor|3|0':{p:'cs_l01110',ang:'Most of the shift outside in winter: heavy-duty 3M Thinsulate in a bomber cut that keeps arms free.',alts:[['cs_l00910','Traditional canvas','Big Red — cotton canvas, sherpa lined'],['st_steelhead','Technical heavy-duty','Stormtech Steelhead HD — the technical counterpart to Champion']]},
 'outdoor|4|0':['cs_l01100','cs_l01080','st_denali','Hours outside in deep cold: parka length adds coverage over the same heavy-duty Thinsulate.'],
 'outdoor|1|1':['cs_l02185',null,'st_scirocco','A fully seam-sealed stretch shell keeps active crews dry without slowing them down.'],
 'outdoor|2|1':['cs_l02185',null,'st_vertex','Seam-sealed and stretchy, worn over a fleece: dry all shift, and the layer underneath does the warming.'],
@@ -3756,16 +3805,16 @@ ca:{
 'outdoor|4|1':['cs_l01120',null,'st_denali','Parka-length heavy-duty 3-in-1 for long wet, cold shifts: sealed shell plus a zip-out quilted jacket.']},
 us:{
 'office|1|0':['st_pacificawind','st_nautilusshell','st_stratus','A light windbreaker is all a commute needs on mild days — choose hood or hoodless and keep one look across the team.'],
-'office|2|0':['cb_adapt',null,'cbc_rainier_hybrid','A Cutter & Buck hybrid reads polished in front of clients and takes the chill off cool days, in matching men’s and women’s cuts.'],
-'office|3|0':['st_nautilusjkt','st_sierrajkt','cbc_evoke_puffer','A slim quilted jacket keeps people warm on winter commutes without looking like workwear — matching men’s and women’s cuts.'],
+'office|2|0':{p:'cbc_evoke_fleece',ang:'A refined corporate softshell from Cutter & Buck — polished in front of clients, in matching men’s and women’s cuts.',alts:[['cq_tempest','Practical','Clique Tempest — a waterproof stretch softshell at a uniform-friendly price'],['st_cruise','Weather-ready','Hooded H2XTREME stretch softshell']]},
+'office|3|0':{p:'cq_equinox',ang:'A structured insulated softshell with a hood — clean and warm for winter commutes, in matching men’s and women’s cuts.',alts:[['st_stavanger','Lightweight puffer','Stormtech Stavanger — a light, everyday quilted puffer'],['cbc_rainier_puffer','Polished premium','Cutter & Buck Rainier PrimaLoft — the polished premium puffer']]},
 'office|4|0':['st_oslo',null,'st_denali','A quilted city parka with a waterproof shell: polished for the commute, warm for deep cold.'],
 'office|1|1':['st_stratus','st_squall','st_artimus','Sealed seams keep steady rain out, and the ultra-light shell packs into a work bag on dry days.'],
 'office|2|1':['st_scirocco','st_stratus','st_vertex','A seam-sealed shell over office layers: dry in steady rain, with the warmth coming from what’s underneath.'],
 'office|3|1':['st_nostromo',null,'st_atmosphere','Insulation and a sealed waterproof shell in one sleek jacket — no separate rain layer on winter commutes.'],
 'office|4|1':['st_atmosphere','st_oslo','st_denali','A sealed shell with a zip-out liner: the full system for the wettest, coldest commutes, the shell alone for spring rain.'],
 'drivers|1|0':['st_pacificawind','st_nautilusshell','st_greenwich','Light and unrestrictive for getting in and out of vehicles all day.'],
-'drivers|2|0':['st_cascades','st_greenwich','st_cruise','A stretch H2XTREME softshell that moves with drivers and techs and shrugs off a shower.'],
-'drivers|3|0':['st_orbiter','st_narvik','st_steelhead','An insulated softshell — warm, but not bulky behind the wheel.'],
+'drivers|2|0':{p:'cq_tempest',ang:'A waterproof stretch softshell that moves with drivers and techs all day.',alts:[['cq_tempo','Value','Clique Tempo — the stretch softshell at a lower price'],['st_cruise','Weather-ready','Hooded H2XTREME stretch softshell']]},
+'drivers|3|0':{p:'cq_equinox',ang:'An insulated stretch softshell with a hood — warm, but not bulky behind the wheel.',alts:[['cq_hudson','Value puffer','Clique Hudson — an insulated puffer at a uniform-friendly price'],['st_orbiter','Technical','Stormtech Orbiter — insulated softshell, Thermolex fill']]},
 'drivers|4|0':['st_magellan','st_vortex','st_matrix','A 3-in-1 at jacket length: the full system for deep cold, the shell alone on milder days — and it won’t bunch in the seat.'],
 'drivers|1|1':['st_stratus','st_squall','st_artimus','Sealed seams and next to no weight, for wearing in and out of the vehicle all day.'],
 'drivers|2|1':['st_scirocco','st_squall','st_patrol','A seam-sealed shell; a fleece or hoodie underneath supplies the warmth.'],
@@ -3773,22 +3822,56 @@ us:{
 'drivers|4|1':['st_magellan',null,'st_matrix','Fully sealed 3-in-1 at jacket length: deep-winter warmth that still works behind the wheel.'],
 'warehouse|1|0':['st_axis','st_sierrashell','st_greenwich','A light woven shell that won’t overheat indoors between quick trips out.'],
 'warehouse|2|0':['st_greenwich','st_axis','st_cascades','A lightweight softshell for quick trips outside — warm enough on the dock, not too warm inside.'],
-'warehouse|3|0':['st_narvik','st_sierrajkt','st_orbiter','An insulated hybrid: warm through the body for the dock, with less bulk for working indoors.'],
+'warehouse|3|0':{p:'st_narvik',ang:'An insulated hybrid: warm through the body for the dock, with less bulk for working indoors.',alts:[['cq_hudson','Value puffer','Clique Hudson insulated puffer'],['cq_equinox','Insulated softshell','Clique Equinox — hooded insulated softshell']]},
 'warehouse|4|0':['st_vortex',null,'st_magellan','A heavy-duty 3-in-1 parka for long cold stretches outside — the fleece comes out for indoor work.'],
 'warehouse|1|1':['st_squall',null,'st_scirocco','Welded seams keep the rain out on dock runs, and it’s light enough to leave on indoors.'],
 'warehouse|2|1':['st_squall',null,'st_scirocco','A welded-seam rain jacket over a hoodie: dry on the dock, not too warm inside.'],
 'warehouse|3|1':['st_atmosphere','st_nostromo','st_avalante3in1','The liner zips out for indoor stretches, and the sealed shell handles wet dock work.'],
 'warehouse|4|1':['st_magellan',null,'st_matrix','A fully sealed 3-in-1: shell and liner together for long wet, cold stretches outside.'],
 'outdoor|1|0':['st_greenwich','st_pacificawind','st_cascades','A light softshell stands up to a working day better than a thin windbreaker.'],
-'outdoor|2|0':['st_cascades','st_greenwich','st_cruise','A stretch H2XTREME softshell for active crews on cool days.'],
-'outdoor|3|0':['st_tradesmith','st_flatiron','st_steelhead','Most of the shift outside in winter: sherpa-lined canvas built for work.'],
+'outdoor|2|0':{p:'st_cascades',ang:'A stretch H2XTREME softshell for active crews on cool days.',alts:[['cq_tempest','Value','Clique Tempest — waterproof stretch softshell'],['st_cruise','Weather-ready','Hooded H2XTREME stretch softshell']]},
+'outdoor|3|0':{p:'st_steelhead',ang:'Heavy-duty insulated work jacket with an HD 5000/5000 waterproof shell — the US counterpart to our Canadian Champion pick.',alts:[['st_tradesmith','Traditional canvas','Tradesmith — sherpa-lined canvas work jacket'],['st_flatiron','Value','Flatiron — diamond-quilted work jacket']]},
 'outdoor|4|0':['st_vortex',null,'st_denali','Hours outside in deep cold: a heavy-duty 3-in-1 parka, fleece in for the coldest days.'],
 'outdoor|1|1':['st_squall',null,'st_artimus','Welded seams keep active crews dry in steady rain, at a price that works for a whole crew.'],
 'outdoor|2|1':['st_scirocco','st_squall','st_vertex','A seam-sealed shell over a fleece: dry all shift, and the layer underneath does the warming.'],
 'outdoor|3|1':['st_magellan','st_nostromo','st_denali','A fully sealed 3-in-1: shell plus a warm liner, and either piece works alone as the weather shifts.'],
 'outdoor|4|1':['st_denali','st_magellan',null,'Long wet, cold shifts: a parka with a sealed 10000/10000 shell and Thermolex fill.']}};
-function jaCurated(A,role){var M=JA_CUR[(typeof isUS==='function'&&isUS())?'us':'ca']||{},w=+A.warm||0,r=+A.rain||0;
-  var row=M[role+'|'+w+'|'+(r?1:0)];if(!row)return null;return {pick:row[0],lo:row[1],hi:row[2],ang:row[3]};}
+/* a curated row is either the original trio [pick, lower, premium, why] or, where the buyer is choosing between
+   purposes, {p, ang, alts:[[key, label, line], ...], note, only} */
+function caRow(row){if(!row)return null;if(Array.isArray(row))return {pick:row[0],lo:row[1],hi:row[2],ang:row[3]};
+  return {pick:row.p,ang:row.ang||'',note:row.note||'',only:!!row.only,alts:(row.alts||[]).map(function(a){return {k:a[0],lab:a[1],why:a[2]||''};})};}
+/* THE KIND OF WORK (Steven, 2026-10-14: "they might need more rugged workwear like the CSW Boulder L01055 for colder
+   abrasive work; CSW Big Red for traditional canvas styling or the CSW freezer-jacket range, including Contender L01025,
+   subject to the actual temperature and work assessment"). Asked only when the buyer is outfitting outdoor crews or
+   warehouse staff; it re-points THOSE groups' picks and leaves office and drivers alone. Freezer wear is offered for
+   warehouse staff only, in the market that stocks it, and always with the assessment caveat. */
+var JA_WORK={
+ca:{
+'abr|cool':{p:'cs_l01055',ang:'A 600 gsm softshell bonded to sherpa fleece and finished to resist abrasion — built for rough, colder work.',alts:[['cs_l00910','Traditional canvas','Big Red — cotton canvas, sherpa lined'],['cs_l07200','Lighter','Navigator — stretch softshell for active days']]},
+'abr|cold':{p:'cs_l01055',ang:'Abrasion-resistant softshell bonded to sherpa fleece — the rugged answer for colder, abrasive work.',alts:[['cs_l01110','Heavy-duty insulated','Champion — 3M Thinsulate in a heavy-duty bomber'],['cs_l00910','Traditional canvas','Big Red — cotton canvas, sherpa lined']]},
+'abr|deep':{p:'cs_l01110',ang:'Deep cold and rough work: heavy-duty 3M Thinsulate in a bomber cut that keeps arms free.',alts:[['cs_l01100','Parka length','Defender — the same build, longer coverage'],['cs_l01055','Abrasion-resistant','Boulder — sherpa-bonded softshell for rough work']]},
+'canvas|cool':{p:'cs_l00910',ang:'Traditional workwear styling: a cotton-canvas bomber with a sherpa lining and a detachable hood.',alts:[['st_oxide','Stormtech canvas','Oxide — sherpa-lined canvas jacket'],['st_tradesmith','Canvas work jacket','Tradesmith — sherpa-lined canvas, light thermal fill']]},
+'canvas|cold':{p:'cs_l00910',ang:'Traditional workwear styling: a cotton-canvas bomber with a sherpa lining and a detachable hood.',alts:[['st_tradesmith','Canvas work jacket','Tradesmith — sherpa-lined canvas, light thermal fill'],['cs_l01110','Warmer','Champion — heavy-duty 3M Thinsulate bomber']]},
+'canvas|deep':{p:'cs_l00910',ang:'The canvas look in deep cold: Big Red’s sherpa-lined canvas — layer underneath for long hours outside.',alts:[['cs_l01110','Warmer','Champion — heavy-duty 3M Thinsulate bomber'],['cs_l01100','Warmest','Defender — heavy-duty parka']]},
+'frz|any':{p:'cs_l01025',only:true,ang:'A quilted freezer jacket from Canada Sportswear’s freezer range, for cold-storage and freezer work.',alts:[['cs_l01090','Modern quilted','Nomad — stylized quilted freezer jacket']],
+  note:'Freezer wear is recommended subject to your actual temperatures and a work assessment — tell us the temperature and how long staff are inside.'}},
+us:{
+'abr|cool':{p:'st_steelhead',ang:'Heavy-duty Taslan oxford with an HD waterproof shell — built for rough work.',alts:[['st_tradesmith','Traditional canvas','Tradesmith — sherpa-lined canvas'],['st_flatiron','Value','Flatiron — diamond-quilted work jacket']]},
+'abr|cold':{p:'st_steelhead',ang:'Heavy-duty Taslan oxford with an HD waterproof shell — the rugged answer for colder, abrasive work.',alts:[['st_tradesmith','Traditional canvas','Tradesmith — sherpa-lined canvas'],['st_flatiron','Value','Flatiron — diamond-quilted work jacket']]},
+'abr|deep':{p:'st_steelhead',ang:'Heavy-duty Taslan oxford with an HD waterproof shell — layer underneath for long hours in deep cold.',alts:[['st_vortex','3-in-1 parka','Vortex HD — heavy-duty 3-in-1 with a zip-out fleece'],['st_tradesmith','Traditional canvas','Tradesmith — sherpa-lined canvas']]},
+'canvas|cool':{p:'st_tradesmith',ang:'Traditional workwear styling: sherpa-lined canvas with a light thermal fill.',alts:[['st_oxide','Sherpa canvas','Oxide — sherpa-lined canvas jacket'],['st_tradesmithhoody','Hooded','Tradesmith Hoody — the same canvas with a hood']]},
+'canvas|cold':{p:'st_tradesmith',ang:'Traditional workwear styling: sherpa-lined canvas with a light thermal fill.',alts:[['st_oxide','Sherpa canvas','Oxide — sherpa-lined canvas jacket'],['st_steelhead','Warmer','Steelhead HD — heavy-duty insulated']]},
+'canvas|deep':{p:'st_tradesmith',ang:'The canvas look in deep cold — layer underneath for long hours outside.',alts:[['st_steelhead','Warmer','Steelhead HD — heavy-duty insulated'],['st_vortex','Warmest','Vortex HD 3-in-1 parka']]}}};
+function jaMkt(){return (typeof isUS==='function'&&isUS())?'us':'ca';}
+function jaWorkOpts(A){var who=A.who||[],w=+A.warm||0,o=[{id:'gen',lab:'Standard work',sub:'Yards, sites, docks — nothing unusual'}];
+  var rough=(who.indexOf('outdoor')>=0||who.indexOf('warehouse')>=0)&&w>=2;
+  if(rough){o.push({id:'abr',lab:'Rough, abrasive work',sub:'Trades, heavy handling — needs tough fabric'});o.push({id:'canvas',lab:'Traditional canvas look',sub:'Classic workwear styling'});}
+  if(who.indexOf('warehouse')>=0&&JA_WORK[jaMkt()]['frz|any'])o.push({id:'frz',lab:'Cold storage or freezer',sub:'Freezer jackets — confirm against your temperature assessment'});
+  return o;}
+function jaCurated(A,role){var mk=jaMkt(),M=JA_CUR[mk]||{},w=+A.warm||0,r=+A.rain||0,wk=A.work||'gen';
+  if(wk!=='gen'&&(role==='outdoor'||role==='warehouse')){var band=w>=4?'deep':(w>=3?'cold':'cool');
+    var o=wk==='frz'?(role==='warehouse'?JA_WORK[mk]['frz|any']:null):JA_WORK[mk][wk+'|'+band];if(o&&!(wk!=='frz'&&w<2))return caRow(o);}
+  return caRow(M[role+'|'+w+'|'+(r?1:0)]);}
 CADV.push({id:'jackets',tile:'Warmth, rain and the job — the right jacket for each group',one:'jacket',label:'Jacket advisor',noun:'jackets',noun2:'jackets',
   h:'Not sure which jacket? Start with the job.',
   sub:'Three quick questions — who wears it, how cold, how wet. Every answer leads to a jacket we’ve hand-picked for that job, plus a lower-cost and a premium option.',
@@ -3804,7 +3887,9 @@ CADV.push({id:'jackets',tile:'Warmth, rain and the job — the right jacket for 
   who:true,
   qs:[{id:'who',q:'Who are you outfitting?',short:'Who wears it',hint:'Pick every group that needs a jacket — each gets its own pick',multi:true,wide:true,opts:JA2_ROLES},
       {id:'warm',q:'How cold does it get when they’re outside?',short:'How cold',def:'3',opts:JA_WARM4},
-      {id:'rain',q:'Rain or wet snow?',short:'How wet',def:'0',opts:JA_WET2}],
+      {id:'work',q:'What kind of work do they do?',short:'The work',def:'gen',hint:'This only changes the pick for outdoor crews and warehouse staff.',
+        when:function(A){return jaWorkOpts(A).length>1;},optsFor:jaWorkOpts},
+      {id:'rain',q:'Rain or wet snow?',short:'How wet',def:'0',opts:JA_WET2,when:function(A){var w=A.who||[];return !(A.work==='frz'&&w.length===1&&w[0]==='warehouse');}}],
   curate:function(A,role){return jaCurated(A,role);},
   /* a curated option must still suit THIS buyer: a women's cut when they need one */
   curOk:function(it,A){return !(A.lad==='1'&&!hasLadies(it));},
@@ -3861,7 +3946,11 @@ CADV.push({id:'tops',tile:'Polo, tee or button-up, picked for each group',one:'s
   preset:function(A,c,s){if(!A.look){if(/Tees|T-Shirts/.test(s||''))A.look='tee';else if(/Shirts/.test(s||''))A.look='woven';else if(/Polos/.test(s||''))A.look='polo';}},
   who:true,
   qs:[{id:'who',q:'Who wears it?',short:'Who wears it',hint:'Pick every group',multi:true,wide:true,opts:CA_WHO_WEAR},
-      {id:'look',q:'What look are you after?',short:'The look',def:'polo',opts:[{id:'polo',lab:'Polo',sub:'Collared, the uniform default'},{id:'tee',lab:'T-shirt',sub:'Casual, events, crews'},{id:'woven',lab:'Button-up',sub:'Woven, most formal'}]}],
+      {id:'look',q:'What look are you after?',short:'The look',def:'polo',opts:[{id:'polo',lab:'Polo',sub:'Collared, the uniform default'},{id:'tee',lab:'T-shirt',sub:'Casual, events, crews'},{id:'woven',lab:'Button-up',sub:'Woven, most formal'}]},
+      /* conditional (2026-10-14): crews in button-ups often go through a uniform laundry -- then industrial-wash shirts */
+      {id:'twash',q:'Who launders the shirts?',short:'The laundry',def:'home',hint:'This only changes the pick for crews and in-and-out staff.',
+        when:function(A){var w=A.who||[];return A.look==='woven'&&(w.indexOf('mixed')>=0||w.indexOf('outdoor')>=0);},
+        opts:[{id:'home',lab:'Staff, at home',sub:'A regular home wash'},{id:'ind',lab:'A uniform laundry service',sub:'Industrial washing — needs industrial-wash shirts'}]}],
   fact:function(it,A){var L=A.look||'polo',n={polo:'polo',tee:'tee',woven:'button-up shirt'}[L],m=caPerf(it)?'wicking performance':(/piqu|pique/i.test(it.name+' '+caFab(it))?'piqué':(caCotton(it)>=90?'cotton':(/industrial/i.test(it.name)?'industrial-wash':'')));
     return caArt((m?m+' ':'')+n)+(hasLadies(it)?' in men’s and women’s cuts':'');},
   pool:function(A){var L=A.look||'polo';
@@ -3887,6 +3976,7 @@ CADV.push({id:'tops',tile:'Polo, tee or button-up, picked for each group',one:'s
     }else{ /* events: a crowd, often one day -- price and colour range lead */
       s+=Math.max(0,24-p/2);var nc=(it.cols||[]).length;if(nc>=10)s+=8;if(hasLadies(it))s+=6;if(caLuxe(it))s-=10;
     }
+    if(A.twash==='ind'&&L==='woven'&&(role==='mixed'||role==='outdoor')){if(ind||/industrial/i.test(n))s+=26;else if(caCotton(it)>=60)s-=12;}
     return s;},
   why:function(it,A,role){var out=[],mx=caMixTxt(it),w=caWeightTxt(it);
     if(mx)out.push(mx+(w?(', '+w):''));
@@ -3997,7 +4087,11 @@ CADV.push({id:'layers',tile:'Quarter-zip, hoodie or fleece — by who wears it',
   who:true,
   qs:[{id:'who',q:'Who wears it?',short:'Who wears it',hint:'Pick every group',multi:true,wide:true,opts:CA_WHO_LAYER},
       {id:'style',q:'Which style?',short:'The style',def:'auto',opts:[{id:'auto',lab:'Best for each group',sub:'Let us choose'},{id:'qz',lab:'Quarter-zip',sub:'The polished default'},{id:'hood',lab:'Pullover hoodie',sub:'Casual, everyday'},{id:'fz',lab:'Full-zip',sub:'Hoodie or fleece jacket'},{id:'crew',lab:'Crewneck',sub:'Cleaner than a hoodie'}]},
-      {id:'warm',q:'How warm should it be?',short:'How warm',def:'2',opts:[{id:'1',lab:'Light layer',sub:'Under a jacket'},{id:'2',lab:'Midweight',sub:'The everyday weight'},{id:'3',lab:'Heavyweight',sub:'Warm on its own'}]}],
+      {id:'warm',q:'How warm should it be?',short:'How warm',def:'2',opts:[{id:'1',lab:'Light layer',sub:'Under a jacket'},{id:'2',lab:'Midweight',sub:'The everyday weight'},{id:'3',lab:'Heavyweight',sub:'Warm on its own'}]},
+      /* conditional (2026-10-14): for crews, is this the OUTER layer? Then water-repellent, heavier fabric wins */
+      {id:'outer',q:'Will crews wear it as the outer layer outside?',short:'Outer layer',def:'0',hint:'This only changes the pick for outdoor crews and in-and-out staff.',
+        when:function(A){var w=A.who||[];return w.indexOf('outdoor')>=0||w.indexOf('mixed')>=0;},
+        opts:[{id:'0',lab:'Under a jacket or hi-vis',sub:'A mid-layer'},{id:'1',lab:'Yes, on its own outside',sub:'Water-repellent, heavier fabric'}]}],
   fact:function(it){var g=caGsm(it),st={qz:'quarter-zip',fz:'full-zip',hood:'pullover hoodie',crew:'crewneck'}[caStyle(it)];
     return caArt((g?(g+' gsm '):'')+st)+(hasLadies(it)?' in men’s and women’s cuts':'');},
   pool:function(){var ks=caKeys([['layers','Quarter & Half-Zips'],['layers','Hoodies'],['layers','Crewnecks & Sweatshirts'],['layers','Fleece'],['carhartt','Sweatshirts & Hoodies']]);
@@ -4010,7 +4104,8 @@ CADV.push({id:'layers',tile:'Quarter-zip, hoodie or fleece — by who wears it',
     if(b)s+=(b===w)?18:(Math.abs(b-w)===1?4:-10);else if(st==='fz'&&w>=2)s+=6;
     if(role==='office'){if(hasLadies(it))s+=16;if(/carhartt/i.test(caBrand(it)))s-=16;if(caLuxe(it))s+=6;if(caPoly(it)>=60)s+=6;}
     else if(role==='mixed'){if(hasLadies(it))s+=8;if(caFin(it,/water-repellent/i))s+=8;if(caPoly(it)>=30)s+=4;}
-    else if(role==='outdoor'){if(b===3&&w===3)s+=12;if(caFin(it,/water-repellent/i)||/rain defender|repel/i.test(it.name))s+=12;if(/carhartt/i.test(caBrand(it)))s+=8;if(/Cutter & Buck|Nike/i.test(caBrand(it)))s-=10;}
+    else if(role==='outdoor'){if(b===3&&w===3)s+=12;if(caFin(it,/water-repellent/i)||/rain defender|repel/i.test(it.name))s+=12;if(/Cutter & Buck|Nike/i.test(caBrand(it)))s-=10;}
+    if(A.outer==='1'&&(role==='outdoor'||role==='mixed')){if(caFin(it,/water-repellent/i)||/repel|water-repellent/i.test(it.name))s+=18;if(caGsm(it)>=380)s+=8;if(st==='qz')s-=8;}
     else{if(caLuxe(it))s+=20;if(b===3)s+=8;if(hasLadies(it))s+=6;}
     return s;},
   why:function(it,A,role){var out=[],g=caGsm(it),mx=caMixTxt(it),st=caStyle(it);
@@ -4041,11 +4136,20 @@ CADV.push({id:'vests',tile:'Indoors, over a hoodie, or real warmth',one:'vest',l
   applies:function(c,s){return (c==='vests'&&!/Hi-Vis/.test(s))||(c==='carhartt'&&/Vests/.test(s));},
   who:true,
   qs:[{id:'who',q:'Who wears it?',short:'Who wears it',hint:'Pick every group',multi:true,wide:true,opts:CA_WHO_LAYER},
-      {id:'worn',q:'Where is it worn?',short:'Where it’s worn',opts:[{id:'in',lab:'Indoors all day',sub:'Office, shop, show floor'},{id:'over',lab:'Over a hoodie, outside',sub:'Wind and light rain'},{id:'cold',lab:'On its own in the cold',sub:'Real insulation'}]}],
+      {id:'worn',q:'Where is it worn?',short:'Where it’s worn',opts:[{id:'in',lab:'Indoors all day',sub:'Office, shop, show floor'},{id:'over',lab:'Over a hoodie, outside',sub:'Wind and light rain'},{id:'cold',lab:'On its own in the cold',sub:'Real insulation'}]},
+      /* conditional (2026-10-14): crews and in-and-out staff wearing it outside may need canvas for rough work, or the
+         freezer range for cold storage -- the freezer answer always carries the assessment caveat */
+      {id:'vwork',q:'What kind of work do they do?',short:'The work',def:'gen',hint:'This only changes the pick for outdoor crews and in-and-out staff.',
+        when:function(A){var w=A.who||[];return (w.indexOf('outdoor')>=0||w.indexOf('mixed')>=0)&&!!A.worn;},
+        optsFor:function(A){var o=[{id:'gen',lab:'Standard work',sub:'Nothing unusual'},{id:'abr',lab:'Rough, abrasive work',sub:'Canvas and duck stand up to it'}];
+          if(caKeys([['vests','Quilted & Puffer'],['vests','Fleece & Softshell'],['vests','Canvas & Lined']]).some(function(k){return BYKEY[k]&&BYKEY[k].freezer&&caRecOk(k);}))
+            o.push({id:'frz',lab:'Cold storage or freezer',sub:'Freezer vests — confirm against your temperature assessment'});return o;}}],
   fact:function(it){var t={quilt:'quilted vest',soft:'softshell vest',fleece:'fleece vest',canvas:'canvas work vest'}[caVestType(it)],f=jaFlags(it);
     return caArt(t)+(f.indexOf('windproof')>=0?', windproof':'')+(hasLadies(it)?', in men’s and women’s cuts':'');},
   pool:function(){return caKeys([['vests','Quilted & Puffer'],['vests','Fleece & Softshell'],['vests','Canvas & Lined'],['carhartt','Vests']]).filter(function(k){return !jaHivis(BYKEY[k]);});},
-  score:function(it,A,role,p){var t=caVestType(it),s=0,f=jaFlags(it),W=A.worn||'in';
+  rowNote:function(A,role,it){return (A.vwork==='frz'&&(role==='outdoor'||role==='mixed')&&it&&it.freezer)?'Freezer wear is recommended subject to your actual temperatures and a work assessment — tell us the temperature and how long staff are inside.':'';},
+  score:function(it,A,role,p){var t=caVestType(it),s=0,f=jaFlags(it),W=A.worn||'in',VW=A.vwork||'gen';
+    if(role==='outdoor'||role==='mixed'){if(VW==='frz'){if(!it.freezer)return null;s+=40;}else if(VW==='abr')s+=(t==='canvas'?30:-8);}
     if(W==='in'){s+={fleece:14,soft:10,quilt:2,canvas:-12}[t];}
     else if(W==='over'){s+={soft:12,quilt:12,canvas:6,fleece:-10}[t];}
     else{s+={quilt:16,canvas:12,soft:-6,fleece:-12}[t];if(jaWarm(it)>=2)s+=6;}
@@ -4167,22 +4271,25 @@ var GOLF_PIECE={gpolo:'The polo',glayer:'The layer',gcap:'The cap'};
 var GOLF_SUB={gpolo:['Golf Polos'],glayer:['Quarter-Zips & Pullovers','Windshirts & Vests'],gcap:['Golf Caps']};
 var GOLF_CUR={
 ca:{
-'host|gpolo':['cbc_prospect_polo','cq_spin_polo','nk_polo','The polo is the gift, so it has to be one golfers wear again: Cutter & Buck’s textured-stretch Prospect, in men’s and women’s cuts.'],
-'host|glayer':['cbc_coastline_qz','st_treeline','cbc_stealth_jacket','A lightweight quarter-zip for a cool early tee time — it comes off easily once the day warms up.'],
-'host|gcap':['nk_fb6447','at_sportsand',null,'The one piece every golfer uses on the day: a Nike Dri-FIT cap with your logo on the front.'],
-'team|gpolo':['cbc_forge_polo','cbc_prospect_polo','nk_polo','Your people are playing with clients, so the polo has to look as sharp on the 18th green as at lunch: a Cutter & Buck performance polo.'],
-'team|glayer':['cbc_traverse_qz','cbc_coastline_qz','cbc_stealth_jacket','A stretch quarter-zip that layers over the polo on the course and still looks right walking into the clubhouse.'],
-'team|gcap':['nk_fb6445','at_sportsand',null,'The perforated Nike Dri-FIT cap — the premium cap for people playing with clients.'],
-'staff|gpolo':['cq_spin_polo','','st_milanopolo','Staff and volunteers need to be easy to spot and easy on the budget: a performance polo that comes in a wide range of colours, so guests know who to ask.'],
-'staff|glayer':['st_pacificawind','','cbc_coastline_qz','A light windbreaker for a breezy day on the course — easy to wear over the polo.'],
-'staff|gcap':['at_sportsand','','nk_fb6447','A value cap for everyone working the event, in your colours.']},
+'host|gpolo':{p:'cbc_prospect_polo',ang:'The polo is the gift, so it has to be one golfers wear again: Cutter & Buck’s textured-stretch Prospect, in men’s and women’s cuts.',alts:[['cq_spin_polo','Value','Clique Spin — the value tournament polo'],['cbc_forge_polo','Premium performance','Cutter & Buck Forge performance polo']]},
+'host|glayer':{p:'cbc_coastline_qz',ang:'A lightweight quarter-zip for a cool early tee time — it comes off easily once the day warms up.',alts:[['st_treeline','Value','Stormtech Treeline performance quarter-zip'],['cbc_stealth_jacket','Windshirt','Cutter & Buck Stealth hybrid windbreaker']]},
+'host|gcap':{p:'at_whippy',ang:'The one piece every golfer uses on the day: a structured six-panel poly cap with your logo on the front.',alts:[['at_recyfive','Value','Recycled-poly five-panel cap'],['at_sportsand','Visor','Sport Sandwich visor cap']]},
+'team|gpolo':{p:'cbc_forge_polo',ang:'Your people are playing with clients, so the polo has to look as sharp on the 18th green as at lunch: a Cutter & Buck performance polo.',alts:[['cbc_prospect_polo','Textured stretch','Cutter & Buck Prospect'],['cbc_advantage_polo','Classic piqué','Cutter & Buck Advantage cotton-blend piqué']]},
+'team|glayer':{p:'cbc_traverse_qz',ang:'A stretch quarter-zip that layers over the polo on the course and still looks right walking into the clubhouse.',alts:[['cbc_coastline_qz','Lighter','Cutter & Buck Coastline lightweight quarter-zip'],['cbc_stealth_jacket','Windshirt','Cutter & Buck Stealth hybrid windbreaker']]},
+'team|gcap':{p:'at_whippy',ang:'A structured six-panel poly cap — clean and crisp for people playing with clients.',alts:[['at_recyfive','Value','Recycled-poly five-panel cap'],['at_sportsand','Visor','Sport Sandwich visor cap']]},
+'staff|gpolo':{p:'cq_spin_polo',ang:'Staff and volunteers need to be easy to spot and easy on the budget: a performance polo that comes in a wide range of colours, so guests know who to ask.',alts:[['st_milanopolo','Stormtech','Stormtech Milano sports polo'],['cbc_prospect_polo','Premium','Cutter & Buck Prospect']]},
+'staff|glayer':{p:'st_pacificawind',ang:'A light windbreaker for a breezy day on the course — easy to wear over the polo.',alts:[['st_treeline','Quarter-zip','Stormtech Treeline performance quarter-zip'],['cbc_coastline_qz','Premium','Cutter & Buck Coastline quarter-zip']]},
+'staff|gcap':{p:'at_recyfive',ang:'A value cap for everyone working the event, in your colours.',alts:[['at_whippy','Structured','Whippy six-panel poly cap'],['at_sportsand','Visor','Sport Sandwich visor cap']]}},
 us:{
-'host|gpolo':['cbc_prospect_polo','st_monterey','cbc_forge_polo','The polo is the gift, so it has to be one golfers wear again: Cutter & Buck’s textured-stretch Prospect, in men’s and women’s cuts.'],
-'host|glayer':['cbc_coastline_qz','','cbc_stealth_jacket','A lightweight quarter-zip for a cool early tee time — it comes off easily once the day warms up.'],
-'team|gpolo':['cbc_forge_polo','cbc_prospect_polo','','Your people are playing with clients, so the polo has to look as sharp on the 18th green as at lunch: a Cutter & Buck performance polo.'],
-'team|glayer':['cbc_traverse_qz','cbc_coastline_qz','cbc_stealth_jacket','A stretch quarter-zip that layers over the polo on the course and still looks right walking into the clubhouse.'],
-'staff|gpolo':['st_monterey','','cbc_prospect_polo','Staff and volunteers need to be easy to spot and easy on the budget: a polo that comes in a wide range of colours, so guests know who to ask.'],
-'staff|glayer':['st_pacificawind','','cb_adapt','A light windbreaker for a breezy day on the course — easy to wear over the polo.']}};
+'host|gpolo':{p:'cbc_prospect_polo',ang:'The polo is the gift, so it has to be one golfers wear again: Cutter & Buck’s textured-stretch Prospect, in men’s and women’s cuts.',alts:[['cq_spin_polo','Value','Clique Spin — the value tournament polo'],['cbc_forge_polo','Premium performance','Cutter & Buck Forge performance polo']]},
+'host|glayer':{p:'cbc_coastline_qz',ang:'A lightweight quarter-zip for a cool early tee time — it comes off easily once the day warms up.',alts:[['st_treeline','Value','Stormtech Treeline performance quarter-zip'],['cbc_stealth_jacket','Windshirt','Cutter & Buck Stealth hybrid windbreaker']]},
+'host|gcap':{p:'st_summitcap',ang:'A lightweight recycled-nylon cap with your logo on the front — the piece every golfer uses on the day.',alts:[]},
+'team|gpolo':{p:'cbc_forge_polo',ang:'Your people are playing with clients, so the polo has to look as sharp on the 18th green as at lunch: a Cutter & Buck performance polo.',alts:[['cbc_prospect_polo','Textured stretch','Cutter & Buck Prospect'],['cbc_advantage_polo','Classic piqué','Cutter & Buck Advantage cotton-blend piqué']]},
+'team|glayer':{p:'cbc_traverse_qz',ang:'A stretch quarter-zip that layers over the polo on the course and still looks right walking into the clubhouse.',alts:[['cbc_coastline_qz','Lighter','Cutter & Buck Coastline lightweight quarter-zip'],['cbc_stealth_jacket','Windshirt','Cutter & Buck Stealth hybrid windbreaker']]},
+'team|gcap':{p:'st_summitcap',ang:'A lightweight recycled-nylon cap — clean and simple for people playing with clients.',alts:[]},
+'staff|gpolo':{p:'cq_spin_polo',ang:'Staff and volunteers need to be easy to spot and easy on the budget: a performance polo that comes in a wide range of colours, so guests know who to ask.',alts:[['st_monterey','Stormtech','Stormtech Monterey polo, many colours'],['cbc_prospect_polo','Premium','Cutter & Buck Prospect']]},
+'staff|glayer':{p:'st_pacificawind',ang:'A light windbreaker for a breezy day on the course — easy to wear over the polo.',alts:[['st_treeline','Quarter-zip','Stormtech Treeline performance quarter-zip'],['cb_adapt','Premium','Cutter & Buck Adapt hybrid']]},
+'staff|gcap':{p:'st_summitcap',ang:'A lightweight cap for everyone working the event, in your colours.',alts:[]}}};
 CADV.push({id:'golf',tile:'Polo, layer and cap for your golf day',one:'piece',label:'Golf advisor',noun:'golf pieces',noun2:'pieces',
   h:'Outfitting a golf day? We’ll build the kit.',
   sub:'Two quick questions — the occasion and the weather. You get our pick for each piece, with a lower-cost and a premium option.',
@@ -4192,8 +4299,7 @@ CADV.push({id:'golf',tile:'Polo, layer and cap for your golf day',one:'piece',la
       {id:'wx',q:'What will the weather be like?',short:'The weather',def:'warm',opts:[{id:'warm',lab:'Warm and sunny',sub:'Polo and cap'},{id:'cool',lab:'Cool or breezy',sub:'Adds a quarter-zip or windshirt'}]}],
   roleLabs:GOLF_PIECE,
   roles:function(A){var self=this;return ['gpolo','glayer','gcap'].filter(function(r){return (r!=='glayer'||A.wx==='cool')&&caPool(self,A,r).length;});},
-  curate:function(A,role){var M=GOLF_CUR[(typeof isUS==='function'&&isUS())?'us':'ca']||{},row=M[(A.occ||'host')+'|'+role];
-    return row?{pick:row[0],lo:row[1],hi:row[2],ang:row[3]}:null;},
+  curate:function(A,role){var M=GOLF_CUR[(typeof isUS==='function'&&isUS())?'us':'ca']||{};return caRow(M[(A.occ||'host')+'|'+role]);},
   curOk:function(it,A){return !(A.lad==='1'&&!hasLadies(it)&&!/cap|hat|visor/i.test(it.name||''));},
   angOf:function(k){return (typeof JA_ANG!=='undefined'&&JA_ANG[k])||GOLF_ANG[k]||'';},
   fact:function(it,A,role){var n=it.name||'';
@@ -10046,7 +10152,7 @@ function heroShotsHtml(){
 }
 /* only promise an advisor where one will actually open: the aisle has to carry enough qualifying styles
    (a US store with three caps has a Headwear aisle but no hat advisor) */
-function catHasAdvisor(c){try{if(typeof CADV==='undefined')return false;var keep=VIEW.cat;VIEW.cat=c;
+function catHasAdvisor(c){try{if(typeof CADV==='undefined'||c==='carhartt')return false;var keep=VIEW.cat;VIEW.cat=c;
   var ok=CADV.some(function(g){return g.applies(c,'all')&&caPool(g,caSt(g.id)).length>=3;});VIEW.cat=keep;return ok;}catch(e){return false;}}
 /* THE HOME PAGE LEADS WITH THE ADVISOR (2026-10-13). The old grid of category tiles carried a small "Advisor" tag a
    buyer had to notice. Now the first thing under the hero says what the advisor does and hands over a tile per
