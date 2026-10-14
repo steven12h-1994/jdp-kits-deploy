@@ -1,0 +1,17 @@
+{
+  "generator": "client-app",
+  "version": "1792012232",
+  "slug": "keyera",
+  "client": "Keyera",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_005a9c.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_ea6f0b.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}
