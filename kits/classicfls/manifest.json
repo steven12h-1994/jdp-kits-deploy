@@ -1,0 +1,18 @@
+{
+ "generator": "client-app",
+ "version": "1792001886",
+ "slug": "classicfls",
+ "client": "Classic Fire + Life Safety",
+ "files": [
+  "index.html",
+  "client.json",
+  "img/favicon.png",
+  "img/lg_full_29344c.png",
+  "img/lg_full_brand.png",
+  "img/lg_full_dark.png",
+  "img/lg_full_f26533.png",
+  "img/lg_full_white.png",
+  "img/logo-white.png",
+  "img/lg_full_ondark.png"
+ ]
+}
