@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<meta name="referrer" content="no-referrer">
+<title>Store Leads · Just Deals Promotions</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#101418;--sub:#5b6470;--mute:#8a929c;--line:#e6e8eb;--soft:#f5f6f8;--bg:#fafbfc;--card:#fff;--acc:#d71f2b;--hot:#d71f2b;--hotbg:#fdecee;--warm:#b45309;--warmbg:#fef3e2;--cool:#475569;--coolbg:#eef1f5;--ok:#0f7b4f;--okbg:#e6f5ee;--live:#12a150;--r:10px}
+*{box-sizing:border-box}html,body{margin:0}body{font:14px/1.5 Inter,system-ui,-apple-system,Segoe UI,sans-serif;color:var(--ink);background:var(--bg);-webkit-font-smoothing:antialiased}
+button,input,select{font:inherit;color:inherit}a{color:inherit}
+.top{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.94);backdrop-filter:saturate(1.4) blur(8px);border-bottom:1px solid var(--line)}
+.bar{max-width:1280px;margin:0 auto;padding:12px 28px;display:flex;align-items:center;gap:18px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;letter-spacing:-.01em;font-size:15px}
+.brand i{width:9px;height:9px;border-radius:50%;background:var(--acc);display:inline-block}
+.brand small{font-weight:500;color:var(--mute);font-size:13px}
+.tabs{display:flex;gap:2px;margin-left:18px}
+.tab{border:0;background:none;padding:8px 12px;border-radius:7px;color:var(--sub);font-weight:500;cursor:pointer}
+.tab:hover{background:var(--soft);color:var(--ink)}.tab[aria-selected=true]{background:var(--ink);color:#fff}
+.tab b{font-weight:600;margin-left:6px;font-size:12px;opacity:.75}
+.sp{flex:1}
+.ctl{display:flex;align-items:center;gap:10px;color:var(--sub);font-size:13px}
+.ctl select{border:1px solid var(--line);background:#fff;border-radius:7px;padding:5px 8px}
+.pulse{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;color:var(--sub);white-space:nowrap}
+.pulse i{width:8px;height:8px;border-radius:50%;background:var(--live);box-shadow:0 0 0 0 rgba(18,161,80,.5);animation:pl 2s infinite}
+.pulse.off i{background:var(--mute);animation:none}
+@keyframes pl{0%{box-shadow:0 0 0 0 rgba(18,161,80,.45)}70%{box-shadow:0 0 0 7px rgba(18,161,80,0)}100%{box-shadow:0 0 0 0 rgba(18,161,80,0)}}
+.btn{border:1px solid var(--line);background:#fff;border-radius:7px;padding:6px 11px;cursor:pointer;font-weight:500;font-size:13px;text-decoration:none;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.btn:hover{border-color:#cfd3d8;background:var(--soft)}
+.btn.pri{background:var(--ink);border-color:var(--ink);color:#fff}.btn.pri:hover{background:#262c33}
+.btn.call{background:var(--live);border-color:var(--live);color:#fff}.btn.call:hover{background:#0e8b44}
+.btn.sm{padding:4px 9px;font-size:12.5px}
+main{max-width:1280px;margin:0 auto;padding:22px 28px 60px}
+.kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:22px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px}
+.kpi span{display:block;color:var(--sub);font-size:12.5px;font-weight:500}
+.kpi b{display:block;font-size:24px;font-weight:700;letter-spacing:-.02em;margin-top:2px;font-variant-numeric:tabular-nums}
+.kpi em{font-style:normal;color:var(--mute);font-size:12px}
+.kpi.l b{color:var(--live)}.kpi.h b{color:var(--hot)}
+.sect{display:none}.sect.on{display:block}
+.h2{display:flex;align-items:baseline;gap:12px;margin:4px 0 12px}.h2 h2{font-size:17px;margin:0;letter-spacing:-.01em}.h2 p{margin:0;color:var(--sub);font-size:13px}
+.filters{display:flex;gap:6px;margin-left:auto}
+.chip{border:1px solid var(--line);background:#fff;border-radius:999px;padding:4px 11px;font-size:12.5px;cursor:pointer;color:var(--sub)}
+.chip[aria-pressed=true]{background:var(--ink);color:#fff;border-color:var(--ink)}
+.leads{display:grid;gap:12px}
+.lead{background:var(--card);border:1px solid var(--line);border-radius:var(--r);display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) 290px;gap:0;overflow:hidden}
+.lead.quiet{opacity:.62}
+.lead>div{padding:16px 18px}.lead>div+div{border-left:1px solid var(--line)}
+.lh{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.lh h3{font-size:16px;margin:0;letter-spacing:-.01em}
+.tier{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:2px 8px;border-radius:5px}
+.tier.hot{background:var(--hotbg);color:var(--hot)}.tier.warm{background:var(--warmbg);color:var(--warm)}.tier.cool{background:var(--coolbg);color:var(--cool)}
+.livepill{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;color:var(--live);text-transform:uppercase;letter-spacing:.04em}
+.livepill i{width:7px;height:7px;border-radius:50%;background:var(--live);animation:pl 2s infinite}
+.meta{color:var(--mute);font-size:12.5px;margin-top:3px}
+.score{display:flex;align-items:center;gap:8px;margin:10px 0 8px}
+.score .tr{flex:1;height:5px;background:var(--soft);border-radius:3px;overflow:hidden}.score .tr i{display:block;height:100%;background:var(--ink);border-radius:3px}
+.score b{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--sub);min-width:34px;text-align:right}
+ul.sig{list-style:none;margin:0;padding:0;display:grid;gap:5px}
+ul.sig li{display:flex;gap:8px;align-items:flex-start;font-size:13.3px}
+ul.sig li:before{content:"";flex:none;width:6px;height:6px;border-radius:50%;margin-top:7px;background:var(--mute)}
+ul.sig li.h:before{background:var(--hot)}ul.sig li.w:before{background:var(--warm)}
+.lbl{font-size:11.5px;font-weight:600;color:var(--mute);text-transform:uppercase;letter-spacing:.05em;margin:0 0 6px}
+.pchips{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:12px}
+.pchip{background:var(--soft);border-radius:6px;padding:3px 8px;font-size:12.5px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pchip.q{background:#fff;border:1px dashed #cfd3d8}.pchip.q0{border-color:var(--hot);color:var(--hot)}
+.ct{display:grid;gap:3px;font-size:13.3px}
+.ct .nm{font-weight:600}.ct .mu{color:var(--sub)}
+.ct a{text-decoration:none}.ct a:hover{text-decoration:underline}
+.acts{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.nocontact{color:var(--mute);font-size:13px}
+.mark{margin-top:9px;font-size:12px;color:var(--sub);background:var(--soft);border-radius:6px;padding:5px 8px}
+details.tl{grid-column:1/-1;border-top:1px solid var(--line);padding:0 18px}
+details.tl summary{cursor:pointer;color:var(--sub);font-size:12.5px;font-weight:500;padding:9px 0;list-style:none}
+details.tl summary::-webkit-details-marker{display:none}details.tl summary:before{content:"▸ ";}details.tl[open] summary:before{content:"▾ "}
+.tlrows{display:grid;grid-template-columns:110px 54px 1fr;gap:3px 12px;font-size:12.8px;padding:0 0 14px}
+.tlrows .t{color:var(--mute);font-variant-numeric:tabular-nums}.tlrows .s{color:var(--mute);font-family:'JetBrains Mono',monospace;font-size:11px}
+.edit{display:none;grid-column:1/-1;border-top:1px solid var(--line);padding:14px 18px;background:var(--soft)}
+.edit.on{display:grid;grid-template-columns:repeat(4,1fr) auto;gap:8px;align-items:end}
+.edit label{font-size:12px;color:var(--sub);display:grid;gap:3px}
+.edit input{border:1px solid var(--line);border-radius:6px;padding:6px 8px;background:#fff;min-width:0}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:18px 20px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+.livelist{display:grid;gap:8px}
+.lv{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:12px 16px;display:grid;grid-template-columns:220px 1fr auto;gap:16px;align-items:start}
+.lv.staff{opacity:.55}
+.lv h4{margin:0;font-size:14.5px}.lv .meta{margin:2px 0 0}
+.lv ol{margin:0;padding:0;list-style:none;display:grid;gap:2px;font-size:13px}
+.lv ol li span{color:var(--mute);font-variant-numeric:tabular-nums;margin-right:8px;font-size:12px}
+.staffb{font-size:10.5px;font-weight:700;background:var(--coolbg);color:var(--cool);border-radius:4px;padding:1px 6px;margin-left:6px;text-transform:uppercase}
+table{width:100%;border-collapse:collapse;font-size:13.2px}
+th{font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--mute);font-weight:600;text-align:left;padding:7px 8px;border-bottom:1px solid var(--line)}
+td{padding:8px;border-bottom:1px solid #f0f1f3;vertical-align:top}td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+tr:last-child td{border-bottom:0}
+.fun{display:grid;gap:7px}
+.fr{display:grid;grid-template-columns:150px 1fr 54px 44px;gap:10px;align-items:center;font-size:13px}
+.fr .b{height:20px;background:var(--soft);border-radius:4px;overflow:hidden}.fr .b i{display:block;height:100%;background:var(--ink)}
+.fr .n{text-align:right;font-weight:600;font-variant-numeric:tabular-nums}.fr .p{text-align:right;color:var(--mute);font-size:12px}
+.fix{display:grid;gap:8px;margin-bottom:14px}
+.fixi{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--acc);border-radius:8px;padding:11px 14px;font-size:13.5px}
+.fixi b{font-weight:600}.fixi small{display:block;color:var(--sub);margin-top:2px;font-size:12.5px}
+.days{display:flex;align-items:flex-end;gap:3px;height:70px;margin-top:6px}
+.days i{flex:1;background:var(--ink);border-radius:2px 2px 0 0;min-height:2px;position:relative}
+.days i.e{background:#9aa3ad}
+.empty{color:var(--mute);padding:26px;text-align:center;background:var(--card);border:1px dashed var(--line);border-radius:var(--r)}
+.gate{max-width:440px;margin:12vh auto;background:#fff;border:1px solid var(--line);border-radius:14px;padding:30px;text-align:center}
+.gate h1{font-size:20px;margin:0 0 6px}.gate p{color:var(--sub);margin:0 0 18px}
+.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:9px 16px;border-radius:8px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:50}
+.toast.on{opacity:1}
+.mu{color:var(--sub)}.mono{font-family:'JetBrains Mono',monospace;font-size:12px}
+@media (max-width:1100px){.lead{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.lead>div:nth-child(3){grid-column:1/-1;border-left:0;border-top:1px solid var(--line)}.kpis{grid-template-columns:repeat(3,1fr)}}
+@media (max-width:760px){.bar{flex-wrap:wrap;padding:10px 16px}.tabs{margin-left:0;order:3;width:100%;overflow:auto}main{padding:16px}.lead{grid-template-columns:1fr}.lead>div+div{border-left:0;border-top:1px solid var(--line)}.grid2{grid-template-columns:1fr}.lv{grid-template-columns:1fr}.kpis{grid-template-columns:repeat(2,1fr)}.edit.on{grid-template-columns:1fr 1fr}.fr{grid-template-columns:110px 1fr 44px 40px}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div class="toast" id="toast"></div>
+<script>
+(function(){
+'use strict';
+var API='/kits/_api/events.php';
+var KEY='',D=null,DAYS=+(localStorage.getItem('jdp_dash_days')||14),TAB=localStorage.getItem('jdp_dash_tab')||'leads',
+    SHOW_STAFF=false,TIER='all',OPEN={},EDIT={},LAST_OK=0,TIMER=null,SEEN_LIVE={},NOTIFY=false,FIRST=true;
+/* ---- key: from the emailed link (#k=...), kept on this device, never left in the address bar ---- */
+try{
+  var m=/[#&]k=([a-f0-9]{32,})/i.exec(location.hash);
+  if(m){localStorage.setItem('jdp_dash_key',m[1]);history.replaceState(null,'',location.pathname);}
+  KEY=localStorage.getItem('jdp_dash_key')||'';
+  localStorage.setItem('jdp_internal','1');          // this browser is staff: the stores stop counting it as a lead
+  NOTIFY=localStorage.getItem('jdp_dash_notify')==='1'&&'Notification' in window&&Notification.permission==='granted';
+}catch(e){}
+var $=function(id){return document.getElementById(id);};
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function toast(t){var el=$('toast');el.textContent=t;el.classList.add('on');clearTimeout(toast._t);toast._t=setTimeout(function(){el.classList.remove('on');},2200);}
+function ago(t){var s=Math.max(0,Math.round(Date.now()/1000-t));if(s<60)return'just now';if(s<3600)return Math.round(s/60)+' min ago';
+  if(s<86400)return Math.round(s/3600)+' h ago';var d=Math.round(s/86400);return d+(d===1?' day ago':' days ago');}
+function when(t){var d=new Date(t*1000),n=new Date();var same=d.toDateString()===n.toDateString();
+  return (same?'Today ':d.toLocaleDateString(undefined,{month:'short',day:'numeric'})+' ')+d.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'});}
+function clock(t){return new Date(t*1000).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'});}
+var CATN={jackets:'Jackets',tops:'Shirts & polos',layers:'Layers & fleece',vests:'Vests',headwear:'Headwear',pants:'Pants',hivis:'Hi-vis',golf:'Golf',bags:'Bags',gifts:'Gifts'};
+function catn(c){return CATN[c]||String(c||'').replace(/[-_]/g,' ').replace(/^./,function(x){return x.toUpperCase();});}
+function pn(r){return r.kn?r.kn.split(' · ')[0]:(r.k?String(r.k).replace(/_/g,' '):'a product');}
+var QN={who:'who wears it',look:'garment',warm:'warmth',wet:'weather',bud:'budget',style:'style',kind:'type',worn:'how it is worn',use:'season',for:'who it is for',wash:'laundry',cargo:'pockets',work:'type of work',fit:'fit',outer:'outer layer',twash:'laundry',vwork:'type of work',qty:'quantity'};
+/* one plain-English line per thing a buyer did */
+function say(r){var e=r.e,c=catn(r.c),q=r.q||'',v=r.v||'';
+  switch(e){
+  case'view':return'Opened the store';case'engaged':return'Started browsing';
+  case'sheet':return'Looked at '+pn(r);case'add':return'Added '+pn(r)+' to their board';
+  case'search':return'Searched “'+q+'”';case'search0':return'Searched “'+q+'” — nothing found';case'search_go':return'Ran a search';
+  case'board':return'Opened their board';case'checkout':return'Opened checkout';case'sent':return'Sent a quote request';
+  case'quote_view':return'Viewed their quote';case'quote_pdf':return'Downloaded the quote PDF';case'quote_share':return'Shared the quote';
+  case'quote_qty':case'quote_line_qty':return'Changed quantities';case'quote_sizes':case'quote_sizes_open':return'Set sizes';
+  case'rfq_open':return'Opened “request a quote”';case'quote_open':return'Opened the quote';
+  case'adv_go':case'ca_start':return'Started the '+c+' advisor';case'ca_q':return c+' advisor — '+(QN[q]||q)+(v?': '+v:'');
+  case'ca_result':return'Got '+c+' recommendations';case'ca_add':return'Added the recommended '+c+' program to the quote';
+  case'ca_add1':return'Added '+pn(r)+' from the advisor';case'ca_choose':return'Picked '+pn(r)+' in the comparison';
+  case'ca_swap':return'Swapped a recommendation';case'ca_det':return'Compared options ('+c+')';case'ca_reset':return'Restarted the '+c+' advisor';
+  case'ca_skip':return'Skipped a question';case'ca_col':return'Changed a colour';case'ca_qty':return'Set advisor quantities';
+  case'market':return'Switched to '+(v||'').toUpperCase()+' pricing';case'aisle':return'Browsed '+String(r.k||'').replace(/-/g,' ');
+  case'filter':return'Filtered the shelf';case'gift_open':return'Opened gifts';case'program':return'Opened a ready-made program';
+  case'program_quote':return'Quoted a ready-made program';case'help_ask':case'faq_ask':case'hero_ask':case'xp_ask':return'Asked a question';
+  case'xp_add':return'Added '+pn(r);case'xp_open':return'Opened '+pn(r);case'lead_focus':return'Started filling in their details';
+  case'exit_show':return'Was about to leave';case'logo_home':return'Clicked the logo';
+  }
+  return e.replace(/_/g,' ');}
+/* ---- data ---- */
+function api(qs,body){
+  var o=body?{method:'POST',body:JSON.stringify(body),headers:{'Content-Type':'text/plain'}}:{cache:'no-store'};
+  return fetch(API+'?'+qs+'&key='+encodeURIComponent(KEY),o).then(function(r){if(r.status===403)throw new Error('key');return r.json();});
+}
+function load(){
+  if(!KEY){gate();return;}
+  api('dash=1&days='+DAYS).then(function(d){D=d;LAST_OK=Date.now();alerts();var a=document.activeElement;if(a&&a.closest&&a.closest('.edit'))return;render();})
+  .catch(function(e){if(String(e.message)==='key'){localStorage.removeItem('jdp_dash_key');KEY='';gate('That link has expired.');return;}
+    var p=$('pulse');if(p){p.classList.add('off');p.lastChild.textContent=' Reconnecting…';}});
+}
+function schedule(){clearInterval(TIMER);TIMER=setInterval(function(){if(!document.hidden)load();},20000);}
+document.addEventListener('visibilitychange',function(){if(!document.hidden&&Date.now()-LAST_OK>15000)load();});
+function alerts(){
+  var fresh=[];(D.live||[]).forEach(function(s){if(s.staff)return;var id=s.kit+'|'+s.sid;if(!SEEN_LIVE[id]){SEEN_LIVE[id]=1;if(!FIRST)fresh.push(s);}});
+  FIRST=false;var n=(D.live||[]).filter(function(s){return!s.staff;}).length;
+  document.title=(n?'('+n+' live) ':'')+'Store Leads · JDP';
+  if(fresh.length&&NOTIFY){try{fresh.slice(0,3).forEach(function(s){new Notification(s.client+' is in their store',{body:say(s.ev[s.ev.length-1]||{e:'view'}),tag:s.kit});});}catch(e){}}
+}
+function gate(msg){
+  $('app').innerHTML='<div class="gate"><h1>Store Leads</h1><p>'+esc(msg||'This dashboard opens from the private link we email to Steven.')+'</p>'
+   +'<button class="btn pri" id="sendlink">Email me the link</button><p class="mu" style="margin-top:14px;font-size:12.5px">It goes only to steven@justdealspromotions.com.</p></div>';
+  $('sendlink').onclick=function(){fetch(API+'?send=1').then(function(r){return r.json();}).then(function(j){toast(j.sent?'Sent — check your inbox':'Already sent within the hour — check your inbox');});};
+}
+/* ---- render ---- */
+function render(){
+  var leads=(D.leads||[]),hot=leads.filter(function(l){return l.tier==='hot'&&!l.quiet;}),warm=leads.filter(function(l){return l.tier==='warm'&&!l.quiet;});
+  var live=(D.live||[]).filter(function(s){return SHOW_STAFF||!s.staff;}),liveN=(D.live||[]).filter(function(s){return!s.staff;}).length;
+  var f=D.improve.funnel||{},sent=f.sent||0,eng=f.view?Math.round(100*(f.engaged||0)/f.view):0;
+  var h='<div class="top"><div class="bar"><div class="brand"><i></i>Store Leads <small>Just Deals Promotions</small></div>'
+   +'<div class="tabs" role="tablist">'
+   +tab('leads','Call list',hot.length+warm.length)+tab('live','Live now',liveN)+tab('improve','Improve the store','')+'</div><div class="sp"></div>'
+   +'<div class="ctl"><span class="pulse" id="pulse"><i></i> Live · updated '+clock(D.now)+'</span>'
+   +'<select id="days" aria-label="Time window">'+[[1,'Last 24 hours'],[7,'Last 7 days'],[14,'Last 14 days'],[30,'Last 30 days'],[60,'Last 60 days']].map(function(o){return'<option value="'+o[0]+'"'+(o[0]===DAYS?' selected':'')+'>'+o[1]+'</option>';}).join('')+'</select>'
+   +('Notification' in window?'<button class="btn sm" id="notif">'+(NOTIFY?'Alerts on':'Alert me')+'</button>':'')+'</div></div></div><main>';
+  h+='<div class="kpis">'+kpi('l','In a store now',liveN,'last 15 min')+kpi('h','Hot leads',hot.length,'call today')+kpi('','Warm leads',warm.length,'follow up')
+   +kpi('','Visits',D.sessions-(D.internal_sessions||0),DAYS===1?'24 h':DAYS+' days')+kpi('','Quote requests sent',sent,'in window')+kpi('','Real engagement',eng+'%','visits that browsed')+'</div>';
+  h+='<section class="sect'+(TAB==='leads'?' on':'')+'">'+leadsHtml(leads)+'</section>';
+  h+='<section class="sect'+(TAB==='live'?' on':'')+'">'+liveHtml(live)+'</section>';
+  h+='<section class="sect'+(TAB==='improve'?' on':'')+'">'+improveHtml()+'</section></main>';
+  var y=window.scrollY;$('app').innerHTML=h;window.scrollTo(0,y);
+}
+function tab(id,l,n){return'<button class="tab" role="tab" data-tab="'+id+'" aria-selected="'+(TAB===id)+'">'+l+(n!==''&&n!=null?'<b>'+n+'</b>':'')+'</button>';}
+function kpi(c,l,v,s){return'<div class="kpi '+c+'"><span>'+l+'</span><b>'+esc(v)+'</b><em>'+esc(s)+'</em></div>';}
+function leadsHtml(leads){
+  var list=leads.filter(function(l){return TIER==='all'?(l.tier!=='cool'||l.live||l.engaged>0):(TIER==='quiet'?l.quiet:(l.tier===TIER&&!l.quiet));});
+  var h='<div class="h2"><h2>Who to call</h2><p>Ranked by what each company actually did in their store. Recent activity counts most.</p><div class="filters">'
+   +[['all','Worth a call'],['hot','Hot'],['warm','Warm'],['cool','Browsing'],['quiet','Called / not now']].map(function(o){return'<button class="chip" data-tier="'+o[0]+'" aria-pressed="'+(TIER===o[0])+'">'+o[1]+'</button>';}).join('')+'</div></div>';
+  if(!list.length)return h+'<div class="empty">No companies in this group for the selected window yet.</div>';
+  var max=Math.max.apply(null,leads.map(function(l){return l.score;}).concat([1]));
+  return h+'<div class="leads">'+list.map(function(l){return leadHtml(l,max);}).join('')+'</div>';
+}
+function leadHtml(l,max){
+  var c=l.contact||{},store='https://justdealspromotions.com/kits/'+encodeURIComponent(l.kit)+'/?jdpstaff=1';
+  var h='<article class="lead'+(l.quiet?' quiet':'')+'" data-kit="'+esc(l.kit)+'"><div>'
+   +'<div class="lh"><h3>'+esc(c.company||l.client)+'</h3><span class="tier '+l.tier+'">'+({hot:'Hot',warm:'Warm',cool:'Browsing'}[l.tier])+'</span>'
+   +(l.live?'<span class="livepill"><i></i>In the store now</span>':'')+'</div>'
+   +'<div class="meta">Last active '+ago(l.last)+' · '+l.sessions+' visit'+(l.sessions>1?'s':'')+(l.days>1?' over '+l.days+' days':'')
+   +(l.market?' · '+esc(String(l.market).toUpperCase())+' pricing':'')+(l.refs&&l.refs.length?' · from '+esc(l.refs.slice(0,2).join(', ')):'')+'</div>'
+   +'<div class="score"><div class="tr"><i style="width:'+Math.max(3,Math.round(100*l.score/max))+'%"></i></div><b>'+Math.round(l.score)+'</b></div>'
+   +'<ul class="sig">'+(l.signals||[]).slice(0,6).map(function(s){return'<li class="'+s[0]+'">'+esc(s[1])+'</li>';}).join('')+'</ul></div>';
+  h+='<div>';
+  if(l.products&&l.products.length)h+='<p class="lbl">Interested in</p><div class="pchips">'+l.products.slice(0,6).map(function(p){return'<span class="pchip" title="'+esc(p.name)+'">'+esc(p.name.split(' · ')[0])+'</span>';}).join('')+'</div>';
+  var qs=Object.keys(l.searches||{});
+  if(qs.length)h+='<p class="lbl">Searched for</p><div class="pchips">'+qs.slice(0,6).map(function(q){return'<span class="pchip q'+(l.searches[q]==='search0'?' q0':'')+'">'+esc(q)+'</span>';}).join('')+'</div>';
+  var adv=Object.keys(l.advisor||{});
+  if(adv.length)h+='<p class="lbl">Advisor</p><div class="pchips">'+adv.map(function(a){var x=l.advisor[a];return'<span class="pchip">'+esc(catn(a))+(x.ca_add||x.ca_add1?' · added':x.ca_result?' · got picks':' · started')+'</span>';}).join('')+'</div>';
+  if(!(l.products||[]).length&&!qs.length&&!adv.length)h+='<p class="mu" style="font-size:13px;margin:0">Opened the store; no product activity yet.</p>';
+  h+='</div><div>';
+  if(c.name||c.phone||c.email){
+    h+='<div class="ct">'+(c.name?'<span class="nm">'+esc(c.name)+'</span>':'')+(c.title?'<span class="mu">'+esc(c.title)+'</span>':'')
+      +(c.phone?'<a href="tel:'+esc(c.phone.replace(/[^\d+]/g,''))+'">'+esc(c.phone)+'</a>':'')
+      +(c.email?'<a href="mailto:'+esc(c.email)+'">'+esc(c.email)+'</a>':'')+(c.team?'<span class="mu">Team size: '+esc(c.team)+'</span>':'')+'</div>';
+  }else h+='<p class="nocontact">No contact on file for this store yet.</p>';
+  h+='<div class="acts">'+(c.phone?'<a class="btn call sm" href="tel:'+esc(c.phone.replace(/[^\d+]/g,''))+'">Call</a>':'')
+    +(c.email?'<a class="btn sm" href="'+esc(mailto(l,c))+'">Email</a>':'')
+    +'<a class="btn sm" href="'+esc(store)+'" target="_blank" rel="noopener">Open store</a>'
+    +'<button class="btn sm" data-edit="'+esc(l.kit)+'">'+(c.name||c.phone?'Edit contact':'Add contact')+'</button></div>'
+    +'<div class="acts"><button class="btn sm" data-mark="called">Called</button><button class="btn sm" data-mark="snooze">Not now</button>'
+    +(l.mark?'<button class="btn sm" data-mark="clear">Undo</button>':'')+'</div>';
+  if(l.mark)h+='<div class="mark">'+({called:'Called',snooze:'Not now',won:'Won'}[l.mark.s]||l.mark.s)+' · '+ago(l.mark.t)+(l.mark.t<l.last?' — they have been back since':'')+(l.mark.note?' · '+esc(l.mark.note):'')+'</div>';
+  h+='</div>';
+  var e=EDIT[l.kit];
+  h+='<form class="edit'+(e?' on':'')+'" data-form="'+esc(l.kit)+'">'
+    +fld('name','Contact name',c.name)+fld('title','Title',c.title)+fld('phone','Phone',c.phone)+fld('email','Email',c.email)
+    +'<button class="btn pri sm" type="submit">Save</button></form>';
+  h+='<details class="tl" data-tl="'+esc(l.kit)+'"'+(OPEN[l.kit]?' open':'')+'><summary>Activity ('+(l.timeline||[]).length+' recent actions)</summary><div class="tlrows">'
+    +(l.timeline||[]).map(function(r){return'<span class="t">'+when(r.t)+'</span><span class="s">visit '+esc(r.s)+'</span><span>'+esc(say(r))+'</span>';}).join('')+'</div></details>';
+  return h+'</article>';
+}
+function fld(n,l,v){return'<label>'+l+'<input name="'+n+'" value="'+esc(v||'')+'" autocomplete="off"></label>';}
+function mailto(l,c){
+  var first=String(c.name||'').split(' ')[0]||'there',co=c.company||l.client;
+  var p=(l.products||[])[0];
+  var body='Hi '+first+',\n\nThanks for taking a look at the '+co+' store we put together.'
+    +(p?' I noticed the '+p.name.split(' · ')[0]+' caught your eye.':'')
+    +'\n\nHappy to send free digital proofs with your logo on whichever pieces you like, no cost and no obligation. If you reply with your picks and a rough headcount, I will put the proofs and a quote together.\n\nhttps://justdealspromotions.com/kits/'+l.kit+'/\n\nSteven\nJust Deals Promotions';
+  return'mailto:'+c.email+'?subject='+encodeURIComponent('Your '+co+' apparel store')+'&body='+encodeURIComponent(body);
+}
+function liveHtml(live){
+  var h='<div class="h2"><h2>In a store right now</h2><p>Everyone active in the last 15 minutes. Refreshes every 20 seconds.</p><div class="filters"><button class="chip" id="staff" aria-pressed="'+SHOW_STAFF+'">Show our own visits</button></div></div>';
+  if(!live.length)return h+'<div class="empty">Nobody is in a store at the moment. Leave this tab open and it will update itself.</div>';
+  return h+'<div class="livelist">'+live.map(function(s){var lead=(D.leads||[]).filter(function(l){return l.kit===s.kit;})[0],c=lead&&lead.contact||{};
+    return'<div class="lv'+(s.staff?' staff':'')+'"><div><h4>'+esc(c.company||s.client)+(s.staff?'<span class="staffb">Us</span>':'')+'</h4><div class="meta">Arrived '+clock(s.first)+' · '+s.n+' actions'+(lead?' · '+lead.tier:'')+'</div></div>'
+     +'<ol>'+s.ev.slice().reverse().map(function(r){return'<li><span>'+clock(r.t)+'</span>'+esc(say(r))+'</li>';}).join('')+'</ol>'
+     +'<div class="acts" style="margin:0">'+(c.phone?'<a class="btn call sm" href="tel:'+esc(c.phone.replace(/[^\d+]/g,''))+'">Call '+esc(String(c.name||'').split(' ')[0])+'</a>':'')
+     +'<a class="btn sm" href="https://justdealspromotions.com/kits/'+encodeURIComponent(s.kit)+'/?jdpstaff=1" target="_blank" rel="noopener">Open store</a></div></div>';}).join('')+'</div>';
+}
+function improveHtml(){
+  var I=D.improve,f=I.funnel||{},top=Math.max(1,f.view||0);
+  var h='<div class="h2"><h2>Improve the store</h2><p>What buyers did across every store in the selected window, our own visits excluded.</p></div>';
+  var fx=fixes(I);
+  if(fx.length)h+='<p class="lbl">Fix first</p><div class="fix">'+fx.map(function(x){return'<div class="fixi"><b>'+esc(x[0])+'</b><small>'+esc(x[1])+'</small></div>';}).join('')+'</div>';
+  var L=[['view','Opened a store'],['engaged','Browsed (scrolled / tapped)'],['search','Searched'],['sheet','Opened a product'],['add','Added to a board'],['checkout','Opened checkout'],['sent','Sent a request']];
+  h+='<div class="grid2"><div class="panel"><p class="lbl">Funnel · visits reaching each step</p><div class="fun">'+L.map(function(x){var v=f[x[0]]||0;
+    return'<div class="fr"><span>'+x[1]+'</span><div class="b"><i style="width:'+Math.max(1,Math.round(100*v/top))+'%"></i></div><span class="n">'+v+'</span><span class="p">'+Math.round(100*v/top)+'%</span></div>';}).join('')+'</div>';
+  var bd=I.by_day||{},ks=Object.keys(bd),mx=Math.max.apply(null,ks.map(function(k){return bd[k].sessions||0;}).concat([1]));
+  if(ks.length>1)h+='<p class="lbl" style="margin-top:18px">Visits per day <span class="mu" style="text-transform:none;letter-spacing:0;font-weight:500">(dark = browsed)</span></p><div class="days">'+ks.map(function(k){var v=bd[k];
+    return'<i class="e" title="'+esc(k+': '+(v.sessions||0)+' visits, '+(v.engaged||0)+' browsed, '+(v.sent||0)+' sent')+'" style="height:'+Math.round(100*(v.sessions||0)/mx)+'%"><i style="position:absolute;bottom:0;left:0;right:0;border-radius:2px 2px 0 0;background:var(--ink);height:'+((v.sessions?Math.round(100*(v.engaged||0)/v.sessions):0))+'%"></i></i>';}).join('')+'</div>';
+  h+='</div><div class="panel"><p class="lbl">Advisor · by category</p>'+advTable(I.advisor||{})+'</div></div>';
+  h+='<div class="grid2"><div class="panel"><p class="lbl">Searches that found nothing</p>'+tbl(['Search','Times','Stores'],(I.zero||[]).slice(0,15).map(function(z){return[esc(z.q),z.n,esc(z.kits.slice(0,3).join(', '))];}),'Nothing yet. Every search found something.')
+   +'<p class="lbl" style="margin-top:18px">Top searches</p>'+tbl(['Search','Times'],Object.keys(I.searches||{}).slice(0,10).map(function(q){return[esc(q),I.searches[q]];}),'No searches yet.')+'</div>';
+  var pr=(I.products||[]);
+  var stuck=pr.filter(function(p){return p.opened>=3&&p.added===0;}).slice(0,10),win=pr.filter(function(p){return p.added>0;}).sort(function(a,b){return b.added-a.added;}).slice(0,8);
+  h+='<div class="panel"><p class="lbl">Looked at often, never added</p>'+tbl(['Product','Opened','Added'],stuck.map(function(p){return[esc(p.name),p.opened,p.added];}),'Not enough product views yet.')
+   +'<p class="lbl" style="margin-top:18px">Most added</p>'+tbl(['Product','Opened','Added'],win.map(function(p){return[esc(p.name),p.opened,p.added];}),'No adds yet.')+'</div></div>';
+  var b=(I.bounce||[]).filter(function(x){return x.rate>=.6;});
+  var refs=I.refs||{},dv=I.devices||{},tot=(dv.mobile||0)+(dv.desktop||0);
+  h+='<div class="grid2"><div class="panel"><p class="lbl">Stores where visitors leave at the cover</p>'+tbl(['Store','Visits','Browsed'],b.slice(0,12).map(function(x){return[esc(x.client),x.sessions,x.engaged];}),'No store is losing most of its visitors at the cover.')+'</div>'
+   +'<div class="panel"><p class="lbl">Where visitors come from</p>'+tbl(['Source','Visits'],Object.keys(refs).map(function(r){return[esc(r),refs[r]];}),'Mostly direct: email links and typed addresses (sources are recorded from today).')
+   +(tot?'<p class="lbl" style="margin-top:18px">Device</p><p style="margin:0">Phone '+Math.round(100*(dv.mobile||0)/tot)+'% · Desktop '+Math.round(100*(dv.desktop||0)/tot)+'%</p>':'')+'</div></div>';
+  return h;
+}
+function advTable(A){
+  var ks=Object.keys(A).filter(function(c){var a=A[c];return(a.start||a.open||0)>0;}).sort(function(a,b){return(A[b].start||A[b].open||0)-(A[a].start||A[a].open||0);});
+  if(!ks.length)return'<p class="mu">No advisor use in this window yet.</p>';
+  return tbl(['Category','Started','Got picks','Added','Gave up at'],ks.map(function(c){var a=A[c],st=a.start||a.open||0,qs=a.qs||{},qk=Object.keys(qs),last='';
+    if(a.abandon&&qk.length){qk.sort(function(x,y){return qs[x]-qs[y];});last=(QN[qk[0]]||qk[0]);}
+    return[esc(catn(c)),st,(a.result||0)+(st?' <span class="mu">('+Math.round(100*(a.result||0)/st)+'%)</span>':''),(a.add||0)+(a.add1||0),a.abandon?esc(last||'—')+' <span class="mu">('+a.abandon+')</span>':'—'];}),'');
+}
+function tbl(head,rows,empty){
+  if(!rows.length)return'<p class="mu" style="margin:0">'+esc(empty)+'</p>';
+  return'<table><thead><tr>'+head.map(function(x,i){return'<th'+(i?' class="n"':'')+'>'+x+'</th>';}).join('')+'</tr></thead><tbody>'
+    +rows.map(function(r){return'<tr>'+r.map(function(x,i){return'<td'+(i?' class="n"':'')+'>'+x+'</td>';}).join('')+'</tr>';}).join('')+'</tbody></table>';
+}
+/* Plain recommendations, only from what the numbers show. */
+function fixes(I){
+  var out=[],f=I.funnel||{};
+  (I.zero||[]).filter(function(z){return z.n>=2;}).slice(0,3).forEach(function(z){out.push(['Buyers searched “'+z.q+'” '+z.n+' times and found nothing','Add the product to the catalogue, or a search synonym that points to the closest item we carry.']);});
+  if(f.view>=20&&f.engaged/f.view<.25)out.push([Math.round(100*(1-f.engaged/f.view))+'% of visits leave without scrolling or tapping','The cover is the problem: check it loads fast on phones and that the logo mockups show straight away.']);
+  if(f.sheet>=10&&f.add/f.sheet<.08)out.push(['Only '+Math.round(100*f.add/f.sheet)+'% of visits that open a product go on to add one','Make “Add to board” the obvious next step on the product sheet and show the price per piece clearly.']);
+  if(f.checkout>=3&&f.sent/f.checkout<.5)out.push([(f.checkout-f.sent)+' visits opened checkout but did not send','Shorten the request form, and call these stores first: they are on the Call list.']);
+  var A=I.advisor||{};Object.keys(A).forEach(function(c){var a=A[c],st=a.start||0;if(st>=4&&(a.abandon||0)/st>=.4)out.push(['The '+catn(c)+' advisor loses '+Math.round(100*a.abandon/st)+'% of the people who start it','Look at the question where they stop (Advisor table) and make it optional or simpler.']);});
+  (I.products||[]).filter(function(p){return p.opened>=6&&p.added===0;}).slice(0,2).forEach(function(p){out.push([p.name.split(' · ')[0]+' was opened '+p.opened+' times and never added','Check its photos, price and colours. It is attracting interest but not converting.']);});
+  return out.slice(0,6);
+}
+/* ---- events ---- */
+document.addEventListener('click',function(ev){
+  var t=ev.target.closest('[data-tab],[data-tier],[data-edit],[data-mark],#staff,#notif');if(!t)return;
+  if(t.dataset.tab){TAB=t.dataset.tab;localStorage.setItem('jdp_dash_tab',TAB);render();return;}
+  if(t.dataset.tier){TIER=t.dataset.tier;render();return;}
+  if(t.id==='staff'){SHOW_STAFF=!SHOW_STAFF;render();return;}
+  if(t.id==='notif'){if(NOTIFY){NOTIFY=false;localStorage.removeItem('jdp_dash_notify');render();return;}
+    Notification.requestPermission().then(function(p){NOTIFY=p==='granted';if(NOTIFY)localStorage.setItem('jdp_dash_notify','1');toast(NOTIFY?'You will get an alert when a company enters its store':'Alerts are blocked in this browser');render();});return;}
+  if(t.dataset.edit){var k=t.dataset.edit;EDIT[k]=!EDIT[k];render();return;}
+  if(t.dataset.mark){var kit=t.closest('[data-kit]').dataset.kit,s=t.dataset.mark,note='';
+    if(s==='snooze')note=prompt('Note (optional)','')||'';
+    api('mark=1',{kit:kit,s:s,note:note}).then(function(){toast(s==='clear'?'Cleared':s==='called'?'Marked as called':'Hidden until they come back');load();});}
+});
+document.addEventListener('toggle',function(ev){var d=ev.target;if(d.dataset&&d.dataset.tl)OPEN[d.dataset.tl]=d.open;},true);
+document.addEventListener('change',function(ev){if(ev.target.id==='days'){DAYS=+ev.target.value;localStorage.setItem('jdp_dash_days',DAYS);load();}});
+document.addEventListener('submit',function(ev){var fm=ev.target.closest('[data-form]');if(!fm)return;ev.preventDefault();
+  var kit=fm.dataset.form,row={};['name','title','phone','email'].forEach(function(n){row[n]=fm.elements[n].value.trim();});
+  var b={};b[kit]=row;api('contacts=1',b).then(function(){EDIT[kit]=false;toast('Contact saved');load();});});
+load();schedule();
+})();
+</script>
+</body>
+</html>
