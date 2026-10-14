@@ -113,6 +113,9 @@ const LEAD_W = ['view' => 1, 'engaged' => 3, 'search' => 2, 'search0' => 3, 'she
     'sheet_quote' => 8, 'band_quote' => 6, 'board_quote' => 8, 'help_ask' => 6, 'hero_ask' => 4, 'faq_ask' => 4,
     'pa_add' => 8, 'ja_add' => 8, 'lead_focus' => 4, 'sheet_qty' => 3, 'sheet_sizes_open' => 3, 'quote_open' => 4,
     'adv_pick' => 2, 'adv_go' => 2, 'filter' => 1, 'aisle' => 1, 'gift_open' => 1, 'quote_line_qty' => 2];
+/* Stores we used as a test bench before staff flagging existed (2026-10-14): their older events are our own clicks
+   (previews, checkout tests), so the dashboard reads them only from this moment on. */
+const DASH_SINCE = ['farm-girl' => 1792006200];
 const LEAD_HALF_H = 96;                        // a signal loses half its weight every four days
 function dash_dir(): string { $d = data_root() . '/_dash'; ensure_dir($d); return $d; }
 function jread(string $f): array { $d = is_file($f) ? json_decode((string)@file_get_contents($f), true) : null; return is_array($d) ? $d : []; }
@@ -164,6 +167,7 @@ function dash_feed(int $days): array {
             $r = json_decode($line, true); if (!is_array($r)) continue;
             $kit = (string)($r['kit'] ?? ''); $e = (string)($r['e'] ?? ''); $t = (int)($r['t'] ?? 0);
             if ($kit === '' || in_array($kit, DASH_KITS_SKIP, true) || strpos($kit, 'test') === 0) continue;
+            if (isset(DASH_SINCE[$kit]) && $t < DASH_SINCE[$kit]) continue;
             $sid = $kit . '|' . ($r['sid'] ?? '');
             if (!empty($r['i'])) { $sess[$sid]['i'] = 1; }
             $sess[$sid]['kit'] = $kit; $sess[$sid]['ev'][] = $r; $evn++;
