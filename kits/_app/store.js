@@ -4407,6 +4407,114 @@ var GOLF_ANG={cbc_prospect_polo:'Cutter & Buck’s textured-stretch performance 
   nk_fb6447:'Nike Dri-FIT Legacy cap',nk_fb6445:'Nike Dri-FIT perforated cap',at_sportsand:'Value cotton visor cap',st_milanopolo:'Stormtech sports polo',
   st_monterey:'Stormtech value polo, many colours',cbc_stealth_vest:'Cutter & Buck windbreaker vest',cb_adapt:'Cutter & Buck hybrid full-zip',
   c3_88181:'CORE365 performance piqué',st_sonora:'Stormtech knit polo',cbc_coastline_polo:'Cutter & Buck everyday polo'};
+/* CURATED TRIOS FOR EVERY APPAREL ADVISOR (Steven, 2026-10-14: "fill out US for other categories so their comparisons
+   are curated too"). Like jackets: for each answer, a hand-picked pick plus two NAMED alternatives that differ by
+   purpose (Premium, Value, Classic cotton, Water-repellent...), per market. Every angle restates catalogue facts only.
+   A pick this store can't show steps up to the first named option that fits; anything still missing falls back to the
+   ranking. Rows for answers not listed here (a chosen layer style, rough or freezer work) stay with the ranking. */
+var CUR_TOPS={
+ca:{
+'polo|office':{p:'st_sonora',ang:'A cotton-rich knit polo with stretch — snag-resistant and UPF 40+, polished at the front desk without the fuss.',alts:[['cbc_advantage_polo','Premium brand','Cutter & Buck Advantage — recycled cotton-blend piqué with stretch'],['st_nevadass','Classic cotton','Nevada — 100% cotton micro-piqué with mechanical stretch']]},
+'polo|mixed':{p:'st_monterey',ang:'A wicking polyester polo, snag-resistant with UPF 40+ — keeps its shape through an active shift.',alts:[['cs_s05735','Value','Ace — wicking piqué mesh, snag-resistant'],['cbc_forge_polo','Premium performance','Cutter & Buck Forge — recycled performance stretch, UPF 50+']]},
+'polo|outdoor':{p:'st_milanopolo',ang:'H2X-DRY moisture management, UPF 50+ and snag resistance — the polo for sun and sweat.',alts:[['cs_s05735','Value','Ace — wicking piqué mesh'],['st_torrente','Cooling performance','Torrente — H2X-DRY with UPF 50+']]},
+'polo|events':{p:'cq_spin_polo',ang:'Solution-dyed performance piqué: the colour holds and the price suits a crowd.',alts:[['cs_s05785','Cotton-blend','Elite — 220 gsm cotton-blend piqué, fade-resistant'],['st_sonora','Step up','Sonora — cotton-rich knit, UPF 40+']]},
+'tee|office':{p:'st_baseline',ang:'180 gsm cotton with H2X-DRY wicking and UPF 50+ — a tee that still looks put-together.',alts:[['cbc_coastline_tee','Premium','Cutter & Buck Coastline — double-peached recycled performance'],['crewtee','Value','Parkour — 160 gsm cotton']]},
+'tee|mixed':{p:'cs_s05935',ang:'Performance polyester jersey that wicks — comfortable on an active shift.',alts:[['st_baseline','Cotton comfort','Baseline — 180 gsm cotton, H2X-DRY wicking'],['crewtee','Value','Parkour — 160 gsm cotton']]},
+'tee|outdoor':{p:'st_baseline',ang:'Cotton with H2X-DRY wicking and UPF 50+ sun protection for long days outside.',alts:[['cs_s05935','Lightweight performance','Coast — 100% polyester performance jersey'],['cs_s05937','Long-sleeve sun cover','Shore — performance long-sleeve tee']]},
+'tee|events':{p:'crewtee',ang:'160 gsm cotton at the friendliest price — built for a crowd.',alts:[['cs_s05935','Performance','Coast — polyester performance jersey'],['cs_s05670','Premium feel','Horizon — 240 gsm garment-dyed vintage wash']]},
+'woven|office':{p:'shirt',ang:'A wrinkle-resistant, stain-release poly-cotton twill — a crisp button-up that survives the workday.',alts:[['st_sonora_shirt','Modern stretch','Sonora — 4-way stretch knit button-up with H2X-DRY'],['ashton','Short sleeve','Ashton — the same easy-care twill, short sleeves']]},
+'woven|mixed':{p:'ashton',ang:'Short-sleeve easy-care twill, wrinkle-resistant with stain release — tidy in and out all day.',alts:[['st_logan','Snap-front','Logan — cotton-poly snap-front shirt'],['rk_sp24','Industrial wash','Red Kap — made for uniform laundry services']]},
+'woven|outdoor':{p:'st_logan',ang:'A cotton-poly snap-front work shirt with character — at home in the yard.',alts:[['st_cambridge','Flannel','Cambridge — woven flannel for cooler days'],['rk_sp24','Industrial wash','Red Kap — made for uniform laundry services']]},
+'woven|events':{p:'ashton',ang:'Easy-care twill that arrives looking sharp — short sleeves for a long day on your feet.',alts:[['shirt','Long sleeve','Camden — the same twill, long sleeves'],['st_sonora_shirt','Modern stretch','Sonora — stretch knit button-up']]},
+'woven|mixed|ind':{p:'rk_sp24',ang:'Built for industrial laundering: wrinkle-resistant Touchtex poly-cotton that comes back from the service looking right.',alts:[['rk_sx20','Flex panels','Red Kap MIMIX — flex panels for reaching and lifting'],['dk_2574','Stain release','Dickies — traditional work shirt with stain release']]},
+'woven|outdoor|ind':{p:'rk_sp24',ang:'Built for industrial laundering: wrinkle-resistant Touchtex poly-cotton that comes back from the service looking right.',alts:[['rk_sx20','Flex panels','Red Kap MIMIX — flex panels for reaching and lifting'],['dk_2574','Stain release','Dickies — traditional work shirt with stain release']]}},
+us:{
+'polo|office':{p:'st_sonora',ang:'A cotton-rich knit polo with stretch — snag-resistant and UPF 40+, polished at the front desk without the fuss.',alts:[['cbc_advantage_polo','Premium brand','Cutter & Buck Advantage — recycled cotton-blend piqué with stretch'],['st_nevadass','Classic cotton','Nevada — 100% cotton micro-piqué with mechanical stretch']]},
+'polo|mixed':{p:'st_monterey',ang:'A wicking polyester polo, snag-resistant with UPF 40+ — keeps its shape through an active shift.',alts:[['cq_spin_polo','Value','Clique Spin — solution-dyed performance piqué'],['cbc_forge_polo','Premium performance','Cutter & Buck Forge — recycled performance stretch, UPF 50+']]},
+'polo|outdoor':{p:'st_milanopolo',ang:'H2X-DRY moisture management, UPF 50+ and snag resistance — the polo for sun and sweat.',alts:[['cq_spin_polo','Value','Clique Spin — solution-dyed performance piqué'],['st_torrente','Cooling performance','Torrente — H2X-DRY with UPF 50+']]},
+'polo|events':{p:'cq_spin_polo',ang:'Solution-dyed performance piqué: the colour holds and the price suits a crowd.',alts:[['st_monterey','Step up','Monterey — wicking, UPF 40+, snag-resistant'],['st_nevadass','Classic cotton','Nevada — 100% cotton micro-piqué']]},
+'tee|office':{p:'st_baseline',ang:'180 gsm cotton with H2X-DRY wicking and UPF 50+ — a tee that still looks put-together.',alts:[['cbc_coastline_tee','Premium','Cutter & Buck Coastline — double-peached recycled performance'],['st_stockton_ss','Value','Stockton — cotton-rich jersey']]},
+'tee|mixed':{p:'cq_charge_tee',ang:'Active jersey that wicks — comfortable on a shift that never sits still.',alts:[['st_baseline','Cotton comfort','Baseline — 180 gsm cotton, H2X-DRY wicking'],['cq_spin_tee','Value','Clique Spin — solution-dyed performance jersey']]},
+'tee|outdoor':{p:'st_baseline',ang:'Cotton with H2X-DRY wicking and UPF 50+ sun protection for long days outside.',alts:[['cq_charge_tee','Lightweight performance','Clique Charge — active performance jersey'],['st_stockton_ls','Long-sleeve sun cover','Stockton — long-sleeve cotton-rich jersey']]},
+'tee|events':{p:'cq_spin_tee',ang:'Solution-dyed performance jersey at a crowd-friendly price — the colour holds wash after wash.',alts:[['st_stockton_ss','Cotton-rich','Stockton — cotton-rich jersey'],['st_baseline','Premium cotton','Baseline — 180 gsm cotton, UPF 50+']]},
+'woven|office':{p:'cbc_skyline_shirt',ang:'Cutter & Buck Skyline: a recycled-stretch end-on-end button-down that wicks and resists wrinkles — polished for the office.',alts:[['st_sonora_shirt','Modern stretch','Sonora — 4-way stretch knit button-up with H2X-DRY'],['cq_hustle_shirt','Value','Clique Hustle — cotton / recycled-poly easy-care button-down']]},
+'woven|mixed':{p:'st_sonora_shirt',ang:'A 4-way-stretch knit button-up with H2X-DRY moisture management — moves easily in and out all day.',alts:[['cbc_skyline_shirt','Premium woven','Cutter & Buck Skyline — recycled stretch end-on-end, wrinkle-resistant'],['cq_hustle_shirt','Value','Clique Hustle — cotton / recycled-poly easy-care button-down']]},
+'woven|outdoor':{p:'st_logan',ang:'A cotton-poly snap-front work shirt with character — at home in the yard.',alts:[['st_cambridge','Flannel','Cambridge — woven flannel for cooler days'],['cq_hustle_shirt','Value','Clique Hustle — cotton / recycled-poly easy-care button-down']]},
+'woven|events':{p:'cq_hustle_shirt',ang:'A cotton / recycled-poly easy-care button-down at an event-friendly price.',alts:[['cbc_skyline_shirt','Step up','Cutter & Buck Skyline — recycled stretch end-on-end'],['st_sonora_shirt','Modern stretch','Sonora — stretch knit button-up']]}}};
+var CUR_LAYERS={
+ca:{
+'office|1':{p:'cbc_coastline_qz',ang:'A lightweight recycled-performance quarter-zip with UPF 50+ — layers cleanly over a polo.',alts:[['cbc_traverse_qz','Premium stretch','Cutter & Buck Traverse — recycled stretch quarter-zip'],['st_treeline','Warmer knit','Treeline — 270 gsm stretch quarter-zip']]},
+'office|2':{p:'st_treeline',ang:'A 270 gsm stretch quarter-zip that wicks — the everyday office layer.',alts:[['cbc_traverse_qz','Premium brand','Cutter & Buck Traverse — recycled stretch quarter-zip'],['flux','Value','Flux — 280 gsm cotton-blend quarter-zip']]},
+'office|3':{p:'st_avalanteqz',ang:'320 gsm recycled fleece in a quarter-zip — warm enough to wear on its own.',alts:[['st_avalante','Full-zip','Avalante — the same fleece as a full-zip jacket'],['cs_l00602','Value','Fairmount — 330 gsm cotton-rich quarter-zip']]},
+'mixed|1':{p:'st_stocktonhoody',ang:'A 240 gsm fleece pullover hoodie with UPF 50+ — light enough to wear under a jacket.',alts:[['vault','Value','Vault — 280 gsm cotton-blend hoodie'],['cbc_coastline_qz','Quarter-zip','Cutter & Buck Coastline — lightweight quarter-zip']]},
+'mixed|2':{p:'surfer',ang:'A 280 gsm full-zip hoodie — on and off all day without a fight.',alts:[['st_avalante','Premium fleece','Avalante — 320 gsm recycled fleece jacket'],['vault','Pullover','Vault — 280 gsm pullover hoodie']]},
+'mixed|3':{p:'forge',ang:'440 gsm heavyweight fleece — a hoodie that is warm on its own.',alts:[['repel','Water-repellent','Repel — 440 gsm with a water-repellent finish'],['st_avalante','Fleece jacket','Avalante — 320 gsm full-zip fleece']]},
+'outdoor|1':{p:'vault',ang:'A 280 gsm cotton-blend pullover hoodie — the layer crews actually wear.',alts:[['st_stocktonhoody','Step up','Stockton — fleece hoody, UPF 50+'],['crew','Crewneck','Crew — 280 gsm crewneck sweatshirt']]},
+'outdoor|2':{p:'vault',ang:'A 280 gsm cotton-blend pullover hoodie — the layer crews actually wear.',alts:[['repel','Water-repellent','Repel — 440 gsm water-repellent hoodie'],['surfer','Full-zip','Surfer — 280 gsm full-zip hoodie']]},
+'outdoor|3':{p:'forge',ang:'440 gsm heavyweight fleece — warm on its own on cold mornings.',alts:[['repel','Water-repellent','Repel — 440 gsm with a water-repellent finish'],['foundry','Crewneck','Foundry — 440 gsm heavyweight crewneck']]},
+'outer':{p:'repel',ang:'440 gsm fleece with a PFAS-free water-repellent finish — made to be the outer layer.',alts:[['cs_l00880','Fortress','Fortress — 440 gsm water-repellent pullover hoodie'],['forge','Heavyweight','Forge — 440 gsm heavyweight hoodie']]},
+'gift|1':{p:'cbc_coastline_qz',ang:'A lightweight Cutter & Buck quarter-zip with UPF 50+ — a gift that gets worn.',alts:[['cb_roamqz','Premium soft-knit','Cutter & Buck Roam — soft-knit quarter-zip jacket'],['st_treeline','Stormtech','Treeline — 270 gsm stretch quarter-zip']]},
+'gift|2':{p:'cbc_traverse_qz',ang:'Cutter & Buck Traverse: a recycled-stretch quarter-zip people keep reaching for.',alts:[['cb_roamqz','Premium soft-knit','Cutter & Buck Roam — water-repellent soft-knit'],['st_treeline','Value','Treeline — 270 gsm stretch quarter-zip']]},
+'gift|3':{p:'st_avalante',ang:'A 320 gsm recycled-fleece full-zip — the warm, keep-forever welcome gift.',alts:[['st_avalanteqz','Quarter-zip','Avalante — the same fleece as a quarter-zip'],['cbc_roam_hoodie','Premium hoodie','Cutter & Buck Roam — water-repellent hoodie']]}},
+us:{
+'office|1':{p:'cbc_coastline_qz',ang:'A lightweight recycled-performance quarter-zip with UPF 50+ — layers cleanly over a polo.',alts:[['cbc_traverse_qz','Premium stretch','Cutter & Buck Traverse — recycled stretch quarter-zip'],['cq_ice_hz','Value','Clique Ice — piqué tech half-zip']]},
+'office|2':{p:'st_treeline',ang:'A 270 gsm stretch quarter-zip that wicks — the everyday office layer.',alts:[['cbc_adapt_heather_qz','Premium brand','Cutter & Buck Adapt — heathered quarter-zip'],['cq_summit_hz','Value fleece','Clique Summit — performance fleece half-zip']]},
+'office|3':{p:'st_avalanteqz',ang:'320 gsm recycled fleece in a quarter-zip — warm enough to wear on its own.',alts:[['cbc_peshastin_hz','Premium fleece','Cutter & Buck Peshastin — recycled fleece half-zip'],['cq_powder_fz','Value full-zip','Clique Powder — recycled fleece full-zip']]},
+'mixed|1':{p:'st_stocktonhoody',ang:'A 240 gsm fleece pullover hoodie with UPF 50+ — light enough to wear under a jacket.',alts:[['cq_lift_hoodie','Value','Clique Lift — performance pullover hoodie'],['cbc_coastline_qz','Quarter-zip','Cutter & Buck Coastline — lightweight quarter-zip']]},
+'mixed|2':{p:'cq_powder_fz',ang:'A recycled-fleece full-zip — on and off all day without a fight.',alts:[['st_avalante','Premium fleece','Avalante — 320 gsm recycled fleece jacket'],['st_stocktonhoody','Pullover hoodie','Stockton — fleece hoody, UPF 50+']]},
+'mixed|3':{p:'st_avalante',ang:'320 gsm recycled fleece in a full-zip jacket — warm on its own.',alts:[['cbc_roam_hoodie','Water-repellent','Cutter & Buck Roam — water-repellent hoodie'],['cq_powder_fz','Value','Clique Powder — recycled fleece full-zip']]},
+'outdoor|1':{p:'st_stocktonhoody',ang:'A 240 gsm fleece pullover hoodie with UPF 50+ — the layer crews actually wear.',alts:[['cq_lift_hoodie','Value','Clique Lift — performance pullover hoodie'],['cbc_roam_hoodie','Water-repellent','Cutter & Buck Roam — water-repellent hoodie']]},
+'outdoor|2':{p:'st_stocktonhoody',ang:'A 240 gsm fleece pullover hoodie with UPF 50+ — the layer crews actually wear.',alts:[['cbc_roam_hoodie','Water-repellent','Cutter & Buck Roam — water-repellent hoodie'],['cq_powder_fz','Full-zip','Clique Powder — recycled fleece full-zip']]},
+'outdoor|3':{p:'st_avalante',ang:'320 gsm recycled fleece — warm on its own on cold mornings.',alts:[['cbc_roam_hoodie','Water-repellent','Cutter & Buck Roam — water-repellent hoodie'],['cq_powder_fz','Value','Clique Powder — recycled fleece full-zip']]},
+'outer':{p:'cbc_roam_hoodie',ang:'A water-repellent soft-knit hoodie — made to be worn as the outer layer.',alts:[['cb_roamqz','Quarter-zip','Cutter & Buck Roam — water-repellent quarter-zip jacket'],['st_avalante','Warm fleece','Avalante — 320 gsm full-zip fleece']]},
+'gift|1':{p:'cbc_coastline_qz',ang:'A lightweight Cutter & Buck quarter-zip with UPF 50+ — a gift that gets worn.',alts:[['cb_roamqz','Premium soft-knit','Cutter & Buck Roam — soft-knit quarter-zip jacket'],['st_treeline','Stormtech','Treeline — 270 gsm stretch quarter-zip']]},
+'gift|2':{p:'cbc_traverse_qz',ang:'Cutter & Buck Traverse: a recycled-stretch quarter-zip people keep reaching for.',alts:[['cbc_peshastin_hz','Cozy fleece','Cutter & Buck Peshastin — recycled fleece half-zip'],['st_treeline','Value','Treeline — 270 gsm stretch quarter-zip']]},
+'gift|3':{p:'st_avalante',ang:'A 320 gsm recycled-fleece full-zip — the warm, keep-forever welcome gift.',alts:[['cbc_peshastin_hz','Premium half-zip','Cutter & Buck Peshastin — recycled fleece half-zip'],['cbc_roam_hoodie','Premium hoodie','Cutter & Buck Roam — water-repellent hoodie']]}}};
+var CUR_VESTS={
+ca:{
+'office|in':{p:'st_avalantevest',ang:'A full-zip fleece vest — soft and breathable for indoors all day.',alts:[['cq_trail_vest','Softshell','Clique Trail — recycled stretch softshell vest'],['cq_summit_vest','Value','Clique Summit — performance fleece vest']]},
+'office|over':{p:'cq_equinox_vest',ang:'An insulated softshell vest — blocks the wind and still looks sharp.',alts:[['cbc_stealth_vest','Premium','Cutter & Buck Stealth — hybrid quilted windbreaker vest'],['st_sierravest','Quilted','Sierra — quilted vest']]},
+'office|cold':{p:'st_stavangervest',ang:'A water-repellent quilted vest with real insulation — warmth with a clean, corporate look.',alts:[['cbc_evoke_vest','Premium brand','Cutter & Buck Evoke — puffer vest'],['cq_hudson_vest','Value','Clique Hudson — insulated puffer vest']]},
+'mixed|in':{p:'cq_trail_vest',ang:'A recycled stretch softshell vest — moves with you and blocks a draft at the loading door.',alts:[['st_avalantevest','Fleece','Avalante — full-zip fleece vest'],['cq_summit_vest','Value','Clique Summit — performance fleece vest']]},
+'mixed|over':{p:'vest',ang:'Stormtech’s quilted vest — warmth over a hoodie with the arms free.',alts:[['cq_equinox_vest','Softshell','Clique Equinox — insulated softshell vest'],['cq_hudson_vest','Value','Clique Hudson — insulated puffer vest']]},
+'mixed|cold':{p:'st_basecampvest',ang:'A quilted vest built for real cold — the core stays warm, the arms stay free.',alts:[['st_stavangervest','Water-repellent','Stavanger — water-repellent quilted vest'],['cq_hudson_vest','Value','Clique Hudson — insulated puffer vest']]},
+'outdoor|in':{p:'cq_trail_vest',ang:'A recycled stretch softshell vest — tough enough for the shop floor.',alts:[['cs_l00915','Canvas','Ram — cotton canvas with sherpa lining'],['cq_summit_vest','Value','Clique Summit — performance fleece vest']]},
+'outdoor|over':{p:'cs_l00915',ang:'Cotton canvas with a sherpa lining — a work vest built for the yard.',alts:[['vest','Quilted','Stormtech — quilted vest'],['cq_equinox_vest','Softshell','Clique Equinox — insulated softshell vest']]},
+'outdoor|cold':{p:'st_basecampvest',ang:'A quilted vest built for real cold — the core stays warm, the arms stay free.',alts:[['cs_l00915','Canvas','Ram — cotton canvas with sherpa lining'],['cq_hudson_vest','Value','Clique Hudson — insulated puffer vest']]},
+'gift|in':{p:'cbc_charter_vest',ang:'A Cutter & Buck packable vest — light, easy to wear, and a brand people know.',alts:[['st_avalantevest','Fleece','Avalante — full-zip fleece vest'],['cq_trail_vest','Value','Clique Trail — recycled stretch softshell vest']]},
+'gift|over':{p:'cbc_stealth_vest',ang:'Cutter & Buck Stealth: a hybrid quilted windbreaker vest that reads premium.',alts:[['cq_equinox_vest','Softshell','Clique Equinox — insulated softshell vest'],['st_sierravest','Value','Sierra — quilted vest']]},
+'gift|cold':{p:'cbc_evoke_vest',ang:'The Cutter & Buck Evoke puffer — the premium, keep-forever vest.',alts:[['st_stavangervest','Stormtech','Stavanger — water-repellent quilted vest'],['cq_hudson_vest','Value','Clique Hudson — insulated puffer vest']]}},
+us:{
+'office|in':{p:'st_avalantevest',ang:'A full-zip fleece vest — soft and breathable for indoors all day.',alts:[['cq_trail_vest','Softshell','Clique Trail — recycled stretch softshell vest'],['cq_summit_vest','Value','Clique Summit — performance fleece vest']]},
+'office|over':{p:'cq_equinox_vest',ang:'An insulated softshell vest — blocks the wind and still looks sharp.',alts:[['cbc_stealth_vest','Premium','Cutter & Buck Stealth — hybrid quilted windbreaker vest'],['st_sierravest','Quilted','Sierra — quilted vest']]},
+'office|cold':{p:'st_stavangervest',ang:'A water-repellent quilted vest with real insulation — warmth with a clean, corporate look.',alts:[['cbc_evoke_vest','Premium brand','Cutter & Buck Evoke — puffer vest'],['cq_hudson_vest','Value','Clique Hudson — insulated puffer vest']]},
+'mixed|in':{p:'cq_trail_vest',ang:'A recycled stretch softshell vest — moves with you and blocks a draft at the loading door.',alts:[['st_avalantevest','Fleece','Avalante — full-zip fleece vest'],['cq_summit_vest','Value','Clique Summit — performance fleece vest']]},
+'mixed|over':{p:'vest',ang:'Stormtech’s quilted vest — warmth over a hoodie with the arms free.',alts:[['cq_equinox_vest','Softshell','Clique Equinox — insulated softshell vest'],['cq_hudson_vest','Value','Clique Hudson — insulated puffer vest']]},
+'mixed|cold':{p:'st_basecampvest',ang:'A quilted vest built for real cold — the core stays warm, the arms stay free.',alts:[['st_stavangervest','Water-repellent','Stavanger — water-repellent quilted vest'],['cq_hudson_vest','Value','Clique Hudson — insulated puffer vest']]},
+'outdoor|in':{p:'cq_trail_vest',ang:'A recycled stretch softshell vest — tough enough for the shop floor.',alts:[['cq_summit_vest','Value','Clique Summit — performance fleece vest'],['st_avalantevest','Fleece','Avalante — full-zip fleece vest']]},
+'outdoor|over':{p:'vest',ang:'Stormtech’s quilted vest — warmth over a hoodie with the arms free.',alts:[['cq_equinox_vest','Softshell','Clique Equinox — insulated softshell vest'],['cq_hudson_vest','Value','Clique Hudson — insulated puffer vest']]},
+'outdoor|cold':{p:'st_basecampvest',ang:'A quilted vest built for real cold — the core stays warm, the arms stay free.',alts:[['cq_hudson_vest','Value','Clique Hudson — insulated puffer vest'],['st_stavangervest','Water-repellent','Stavanger — water-repellent quilted vest']]},
+'gift|in':{p:'cbc_charter_vest',ang:'A Cutter & Buck packable vest — light, easy to wear, and a brand people know.',alts:[['st_avalantevest','Fleece','Avalante — full-zip fleece vest'],['cq_trail_vest','Value','Clique Trail — recycled stretch softshell vest']]},
+'gift|over':{p:'cbc_stealth_vest',ang:'Cutter & Buck Stealth: a hybrid quilted windbreaker vest that reads premium.',alts:[['cq_equinox_vest','Softshell','Clique Equinox — insulated softshell vest'],['st_sierravest','Value','Sierra — quilted vest']]},
+'gift|cold':{p:'cbc_evoke_vest',ang:'The Cutter & Buck Evoke puffer — the premium, keep-forever vest.',alts:[['st_stavangervest','Stormtech','Stavanger — water-repellent quilted vest'],['cq_hudson_vest','Value','Clique Hudson — insulated puffer vest']]}}};
+function curMkt(){return (typeof isUS==='function'&&isUS())?'us':'ca';}
+function curAngFrom(T){var o={};['ca','us'].forEach(function(m){var M=T[m]||{};for(var k in M){var r=M[k];(r.alts||[]).forEach(function(a){if(!o[a[0]])o[a[0]]=a[2]||'';});}});return o;}
+var CUR_ANG=Object.assign({},curAngFrom(CUR_TOPS),curAngFrom(CUR_LAYERS),curAngFrom(CUR_VESTS));
+(function(){var C={};CADV.forEach(function(c){C[c.id]=c;});
+  var lad=function(it,A){return !(A.lad==='1'&&!hasLadies(it));},
+      tog={id:'lad',lab:'Women’s cut needed',sub:'Only show styles with a matching women’s cut'},
+      wrapScore=function(cfg){var s0=cfg.score;cfg.score=function(it,A,role,p){if(A.lad==='1'&&!hasLadies(it))return null;return s0.call(this,it,A,role,p);};},
+      ang=function(cfg){var a0=cfg.angOf;cfg.angOf=function(k){return (a0&&a0(k))||CUR_ANG[k]||'';};};
+  if(C.tops){C.tops.curate=function(A,role){var L=A.look||'polo',ind=L==='woven'&&A.twash==='ind'&&(role==='mixed'||role==='outdoor');
+      var M=CUR_TOPS[curMkt()]||{};return caRow(M[L+'|'+role+(ind?'|ind':'')]||(ind?null:undefined));};
+    C.tops.curOk=lad;C.tops.toggles=[tog];wrapScore(C.tops);ang(C.tops);}
+  if(C.layers){C.layers.curate=function(A,role){if(A.style&&A.style!=='auto')return null;var M=CUR_LAYERS[curMkt()]||{};
+      if(A.outer==='1'&&(role==='outdoor'||role==='mixed'))return caRow(M.outer);return caRow(M[role+'|'+(A.warm||'2')]);};
+    C.layers.curOk=lad;C.layers.toggles=[tog];wrapScore(C.layers);ang(C.layers);}
+  if(C.vests){C.vests.curate=function(A,role){if((A.vwork||'gen')!=='gen'&&(role==='outdoor'||role==='mixed'))return null;
+      var M=CUR_VESTS[curMkt()]||{};return caRow(M[role+'|'+(A.worn||'in')]);};
+    C.vests.curOk=lad;C.vests.toggles=[tog];wrapScore(C.vests);ang(C.vests);}
+})();
 var XP_SUB={};
 function renderXpert(){
   var el=document.getElementById('xpert');if(!el)return;
@@ -5816,6 +5924,8 @@ function itemCategory(it){
      written; found while changing the tee default, because the change would have swept up 30-odd
      crewnecks and quarter-zips with it. */
   if(/\btee\b|\bt-?shirts?\b/.test(n))return 'tee';
+  /* A FLEECE VEST IS A VEST (2026-10-14): it has no sleeves, so it must never be offered a sleeve badge. */
+  if(/\bvest\b/.test(n)&&!/hood/.test(n))return 'vest';
   if(/hood|crewneck|sweatshirt|quarter|1\/4-zip|half-zip|pullover|fleece|midlayer/.test(n))return 'fleece';
   if(/\bvest\b/.test(n))return 'vest';
   if(/jacket|parka|shell|softshell|shacket|puffer|\bcoat\b|rain|3-in-1|6-in-1/.test(n))return 'outer';
@@ -6993,10 +7103,27 @@ function jdpTrack(e,x){
   try{
     if(!jdpKit()||CFG&&CFG.notrack)return;
     var p={kit:jdpKit(),e:e,sid:jdpSid()};if(x)for(var k in x)p[k]=x[k];
+    if(jdpStaff())p.i=1;                                 // our own visits never score as a lead
     var body=JSON.stringify(p),url=apiBase()+'/events.php';
     if(navigator.sendBeacon){navigator.sendBeacon(url,new Blob([body],{type:'text/plain'}));}
     else{fetch(url,{method:'POST',body:body,keepalive:true,headers:{'Content-Type':'text/plain'}}).catch(function(){});}
   }catch(err){}
+}
+/* Staff traffic (Steven, 2026-10-14 leads dashboard): a browser that has opened kits/_dash/ (same origin) or any store
+   with ?jdpstaff=1 is flagged, so our own clicking around never shows up as a hot lead. ?jdpstaff=0 clears it. */
+var JDP_STAFF=null;
+function jdpStaff(){
+  if(JDP_STAFF!==null)return JDP_STAFF;
+  try{var m=/[?&]jdpstaff=([01])/.exec(location.search);
+    if(m){if(m[1]==='1')localStorage.setItem('jdp_internal','1');else localStorage.removeItem('jdp_internal');}
+    JDP_STAFF=localStorage.getItem('jdp_internal')==='1';}catch(e){JDP_STAFF=false;}
+  return JDP_STAFF;
+}
+function jdpViewCtx(){
+  var o={};try{var r=document.referrer||'';if(r&&r.indexOf(location.host)<0)o.ref=r.replace(/^[a-z]+:\/\//i,'').split('/')[0];}catch(e){}
+  try{o.m=(window.matchMedia&&matchMedia('(max-width: 760px)').matches)?1:0;}catch(e){}
+  try{var u=/[?&]utm_source=([a-z0-9_\-]+)/i.exec(location.search);if(u)o.src=u[1].toLowerCase();}catch(e){}
+  return o;
 }
 /* A search is logged once the buyer has stopped typing or pressed Enter -- not per keystroke. */
 function jdpTrackSearch(q){
@@ -11396,7 +11523,7 @@ function go(cfg){
     // Learn each logo's ink BEFORE first paint so garments render a thread colour that actually reads.
     Promise.all((cfg.logos||[]).map(probeInk)).then(function(){
       assignColourways();
-      SHARED=readSharedList();curateInit();loadCart();autoApplyShared();buildStore();jdpTrack('view');
+      SHARED=readSharedList();curateInit();loadCart();autoApplyShared();buildStore();jdpTrack('view',jdpViewCtx());
       var _bm=location.search.match(/[?&]board=([^&#]+)/);
       if(_bm){try{openBoard(decodeURIComponent(_bm[1]));}catch(e){}}
       /* ?b=<slug> is the live-board link. The legacy ?list=... links stay working via SHARED, so
