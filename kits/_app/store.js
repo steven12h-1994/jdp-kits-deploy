@@ -3464,11 +3464,62 @@ function caIcoKey(q,o){var k=CA_ICO_Q[q.id+'|'+o.id];if(k)return k;var t=(o.lab+
     [/laundry|industrial/,'wash'],[/home/,'home'],[/lower|budget|premium|any/,'any'],[/^yes/,'yes'],[/^no\b/,'no']];
   for(var i=0;i<R.length;i++)if(R[i][0].test(t))return R[i][1];return 'spark';}
 function caSvg(k,sz){return '<svg viewBox="0 0 24 24" width="'+(sz||26)+'" height="'+(sz||26)+'" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+(CA_ICO[k]||CA_ICO.spark)+'</svg>';}
+/* ===== COMPARE (Steven, 2026-10-14 12:38: "they want to compare each product and have clarity on what item they should
+   choose"). The old "details" view stacked one big product card above two cramped alternative cards, each saying different
+   things in a different order -- nothing lined up, so nothing could be compared. Now every group opens a side-by-side
+   table: our pick and its options as columns, the SAME facts on every row (what it's best for, price at this headcount,
+   volume tiers, warmth, weather protection, fabric, cuts, sizes, colours), cells that differ from our pick marked, and
+   one "Choose this" per column. The columns never move when the buyer switches: the chosen one is simply marked
+   Selected, so choosing, comparing again and choosing back is calm and reversible. */
+function caBaseOf(cfg,A,role){var keep={},pre=cfg.id+'.';for(var p in CA_PICK)if(p.indexOf(pre)===0){keep[p]=CA_PICK[p];delete CA_PICK[p];}
+  var P;try{P=caLabelled(cfg,A);}finally{for(var q in keep)CA_PICK[q]=keep[q];}
+  return P.filter(function(x){return x.roles&&x.roles.indexOf(role)>=0;})[0]||P.filter(function(x){return x.role===role;})[0];}
+function caSpec(it){var f=jaFlags(it),w=jaWarm(it),ws=it.warm||{},isJ=/jacket|parka|coat|shell|softshell|bomber|vest/i.test(it.name||'');
+  var warmth=isJ?({1:'Uninsulated shell',2:'Insulated',3:'Winter weight'}[w]||'—')+(ws.ins&&w>1?(' · '+ws.ins+(ws.gsm?(' '+ws.gsm):'')):''):(caWeightTxt(it)||'—');
+  var wx=[];if(f.indexOf('waterproof')>=0)wx.push('Waterproof'+(ws.wp?(' '+ws.wp):''));if(f.indexOf('sealed seams')>=0)wx.push('sealed seams');
+  if(!wx.length&&(f.indexOf('water-repellent')>=0||caFin(it,/water-repellent|DWR/i)))wx.push('Water-repellent');
+  if(f.indexOf('windproof')>=0)wx.push('windproof');else if(f.indexOf('wind-resistant')>=0||caFin(it,/wind/i))wx.push('wind-resistant');
+  var sz=itemSizes(it,'mens')||[],szs=sz.length?(sz[0]+'–'+sz[sz.length-1]):'—';
+  return {warmth:warmth,weather:wx.length?caCap(wx.join(', ')):'—',fabric:[caMixTxt(it),caWeightTxt(it)].filter(Boolean).join(' · ')||'—',
+    cuts:hasLadies(it)?'Men’s & women’s':(it.unisex?'Unisex':'Men’s / unisex only'),sizes:szs,cols:(it.cols||[]).length,freezer:!!it.freezer};}
+function caCompareHtml(cfg,A,x){var base=caBaseOf(cfg,A,x.role)||x;if(!base||base.none)return '';
+  var q=caQtyOf(cfg,A,x.role),cols=[{k:base.main.k,lab:'Our pick',why:String(base.ang||caWhyLine(cfg,A,base)).replace(/\s*Hooded option: [^.]*\.?$/,'')}].concat((base.alts||[]).map(function(a){return {k:a.r.k,lab:a.lab,why:a.ang||''};}));
+  var seen={};cols=cols.filter(function(c){if(seen[c.k])return false;seen[c.k]=1;return !!BYKEY[c.k];});
+  if(cols.length<2)return '';
+  var sel=x.main.k,S=cols.map(function(c){return caSpec(BYKEY[c.k]);}),U=cols.map(function(c){return caUnit(c.k,q);});
+  var cell=function(i,v,ref){return '<td class="'+(i>0&&v!==ref&&v!=='—'?'diff':'')+(cols[i].k===sel?' sel':'')+'">'+v+'</td>';};
+  /* only the SPEC rows mark differences -- a reason or a price always differs, so marking them would be noise */
+  var row=function(lab,f,mark){var ref=f(0);return '<tr><th scope="row">'+esc(lab)+'</th>'+cols.map(function(c,i){return cell(i,f(i),mark?ref:f(i));}).join('')+'</tr>';};
+  var T=cols.map(function(c){return caTiers(c.k);});
+  return '<div class="cmpwrap"><div class="cmphd"><b>Compare the options for '+esc(x.lab||'this group')+'</b><span>Prices at '+q+' pieces, your logo included · differences from our pick are highlighted</span></div>'+
+    (cols.length>2?'<p class="cmpswipe">Swipe to see all '+cols.length+' options →</p>':'')+'<div class="cmpscroll"><table class="cmp"><thead><tr><th class="cmpcorner" scope="col"><span class="vh">Option</span></th>'+cols.map(function(c,i){var it=BYKEY[c.k],on=c.k===sel;
+      return '<th scope="col" class="cmpcol'+(on?' sel':'')+'"><span class="cmptag'+(i===0?' pick':'')+'">'+esc(c.lab)+'</span>'+
+        '<button type="button" class="cmpimg" data-xpopen="'+esc(c.k)+'" aria-label="See '+esc(it.name)+' with your logo">'+caThumb(c.k)+'</button>'+
+        '<b class="cmpname">'+esc(caShort(it.name))+'</b><span class="cmpbr">'+esc(it.brand||it.sku||'')+(it.msku?(' · '+esc(it.msku)):'')+'</span>'+
+        '<span class="cmpprice"><b>'+money(U[i])+'</b>/pc'+(i>0?('<em class="cmpd'+(U[i]<U[0]?' lo':' hi')+'">'+(Math.abs(U[i]-U[0])<0.5?'same price':((U[i]<U[0]?'−':'+')+money(Math.abs(U[i]-U[0]))))+'</em>'):'')+'</span>'+
+        (on?'<span class="cmpsel" aria-label="Selected">✓ Selected</span>':('<button type="button" class="cmpchoose" data-cachoose="'+esc(x.role)+'|'+esc(c.k)+'">Choose this</button>'))+'</th>';}).join('')+'</tr></thead><tbody>'+
+      row('Best for',function(i){return esc(cols[i].why||'—');})+
+      row('Price at '+q,function(i){return '<b>'+money(U[i])+'</b> /pc · '+money(U[i]*q);})+
+      row('Volume pricing',function(i){return T[i].map(function(t){return t.q+'+ '+money(t.p);}).join(' · ')||'—';})+
+      row('Warmth',function(i){return esc(S[i].warmth)+(S[i].freezer?' · freezer range':'');},1)+
+      row('Weather',function(i){return esc(S[i].weather);},1)+
+      row('Fabric',function(i){return esc(S[i].fabric);},1)+
+      row('Cuts',function(i){return esc(S[i].cuts);},1)+
+      row('Sizes',function(i){return esc(S[i].sizes);},1)+
+      row('Colours',function(i){return S[i].cols+' colour'+(S[i].cols===1?'':'s');},1)+
+      '<tr class="cmpfoot"><th scope="row"></th>'+cols.map(function(c){return '<td'+(c.k===sel?' class="sel"':'')+'><button type="button" class="jalink" data-xpopen="'+esc(c.k)+'">Full details &amp; colours →</button></td>';}).join('')+'</tr>'+
+    '</tbody></table></div></div>';}
+/* the answer controls: a checkbox for "pick every group", a radio for one answer -- the control says which it is */
 function caOptHtml(q,A){var multi=!!q.multi,cur=A[q.id];
-  return '<div class="caopts'+(q.opts.length>4?' many':'')+(q.opts.length<=2?' two':'')+'" role="'+(multi?'group':'radiogroup')+'">'+q.opts.map(function(o){var v=String(o.id),on=multi?((cur||[]).indexOf(v)>=0):(cur!=null&&cur!==''&&String(cur)===v);
-    return '<button type="button" class="caopt'+(on?' on':'')+'" data-ca="'+esc(q.id)+'" data-v="'+esc(v)+'" aria-pressed="'+on+'">'+
+  return '<div class="caopts'+(q.opts.length>4?' many':'')+(q.opts.length<=2?' two':'')+(multi?' multi':' single')+'" role="'+(multi?'group':'radiogroup')+'" aria-label="'+esc(q.q)+'">'+q.opts.map(function(o){var v=String(o.id),on=multi?((cur||[]).indexOf(v)>=0):(cur!=null&&cur!==''&&String(cur)===v);
+    return '<button type="button" class="caopt'+(on?' on':'')+'" data-ca="'+esc(q.id)+'" data-v="'+esc(v)+'" role="'+(multi?'checkbox':'radio')+'" aria-checked="'+on+'">'+
+      '<span class="caok" aria-hidden="true"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>'+
       '<span class="caoi">'+caSvg(caIcoKey(q,o))+'</span>'+
-      '<span class="caot"><b>'+esc(o.lab)+'</b>'+(o.sub?('<i>'+esc(o.sub)+'</i>'):'')+'</span><span class="caok" aria-hidden="true">'+(on?'✓':'')+'</span></button>';}).join('')+'</div>';}
+      '<span class="caot"><b>'+esc(o.lab)+'</b>'+(o.sub?('<i>'+esc(o.sub)+'</i>'):'')+'</span></button>';}).join('')+'</div>';}
+/* the step bar: every question is a tab; answered ones show the answer and can be reopened in one tap */
+function caStepsHtml(cfg,A,qs,i){return '<ol class="castepsb">'+qs.map(function(q,j){var v=A[q.id],ans=q.multi?(v||[]).map(function(z){return caAnsLab(q,z);}).join(', '):caAnsLab(q,v),done=!!ans;
+  return '<li class="'+(j===i?'now':(done?'done':''))+'"><button type="button" data-cago="'+j+'"'+(j>i&&!done&&!(j===i+1&&false)?' disabled':'')+'><span class="csn">'+(done&&j!==i?'✓':(j+1))+'</span><span class="cst"><b>'+esc(q.short||q.q)+'</b>'+(ans?('<i>'+esc(ans)+'</i>'):'')+'</span></button></li>';}).join('')+'</ol>';}
+
 /* short product name for prose: "Champion Heavy-Duty Insulated Bomber Jacket with Detachable Hood" -> "Champion Heavy-Duty Insulated Bomber Jacket" */
 function caShort(n){n=String(n||'').replace(/\s+(with|w\/)\s+.*$/i,'');if(n.length>34)n=n.replace(/\b(Epic (Confidence|Comfort|Versatility)|Recycled|Solution-dyed)\s+/gi,'');return n.replace(/\s{2,}/g,' ').trim();}
 function caCap(t){t=String(t||'').trim();return t?(t.charAt(0).toUpperCase()+t.slice(1)):t;}
@@ -3566,12 +3617,18 @@ function caRowHtml(cfg,A,x){
     '<div class="cpmain">'+(x.lab?('<span class="cpfor">'+(cfg.roleLabs?'':'For ')+esc(x.lab)+'</span>'):'')+
       '<b class="cpname">'+esc(caShort(it.name))+'</b><span class="cpbr">'+esc(it.brand||it.sku||'')+(it.msku?(' · '+esc(it.msku)):'')+(hasLadies(it)?' · men’s & women’s cuts':'')+'</span>'+
       '<p class="cpwhy">'+esc(caWhyLine(cfg,A,x).replace(/\s*Hooded option: [^.]*\.?$/,''))+'</p>'+caFamHtml(cfg,A,x)+
-      (function(){var nt=x.note||'';if(!nt&&cfg.rowNote){try{nt=cfg.rowNote(A,x.role,BYKEY[x.main.k])||'';}catch(e){nt='';}}return nt?('<p class="cpnote">'+esc(nt)+'</p>'):'';})()+caAltChips(cfg,x)+
-      '<button type="button" class="cpdet'+(open?' on':'')+'" data-cadet="'+esc(x.role)+'" aria-expanded="'+open+'">'+(open?'Hide details':'Compare options & details')+' <span aria-hidden="true">'+(open?'▴':'▾')+'</span></button></div>'+
+      (function(){var nt=x.note||'';if(!nt&&cfg.rowNote){try{nt=cfg.rowNote(A,x.role,BYKEY[x.main.k])||'';}catch(e){nt='';}}return nt?('<p class="cpnote">'+esc(nt)+'</p>'):'';})()+
+      caChoiceTag(cfg,A,x)+
+      (function(){var bb=caBaseOf(cfg,A,x.role)||x;if(!(bb.alts||[]).length)return '';
+        return '<div class="cpcmpw"><button type="button" class="cpcmp'+(open?' on':'')+'" data-cadet="'+esc(x.role)+'" aria-expanded="'+open+'">'+(open?'Hide comparison':('Compare '+(bb.alts.length+1)+' options'))+' <span aria-hidden="true">'+(open?'▴':'▾')+'</span></button>'+
+          '<span class="cpcmpl">Our pick · '+bb.alts.map(function(a){return esc(a.lab);}).join(' · ')+'</span></div>';})()+'</div>'+
     (cfg.roles?'':('<div class="cpqty"><span class="cpql">People</span>'+caStepper(esc(x.role),q)+'</div>'))+
     '<div class="cpprice"><b data-cpu="'+esc(x.role)+'">'+money(u)+'</b><i data-cpq="'+esc(x.role)+'">/pc at '+q+'</i><span class="cpline" data-cpl="'+esc(x.role)+'">'+money(u*q)+'</span></div>'+
   '</div>'+
-  '<div class="cpdetail" data-detail="'+esc(x.role)+'"'+(open?'':' hidden')+'>'+(open?(caMainHtml(cfg,A,x)+caAltHtml(cfg,x)):'')+'</div>';}
+  '<div class="cpdetail" data-detail="'+esc(x.role)+'"'+(open?'':' hidden')+'>'+(open?caCompareHtml(cfg,A,x):'')+'</div>';}
+/* when the buyer has chosen something other than our pick, the row says so -- and offers the way back */
+function caChoiceTag(cfg,A,x){var b=caBaseOf(cfg,A,x.role);if(!b||b.none||b.main.k===x.main.k)return '';
+  return '<p class="cpchoice"><span>Your choice</span> — our pick was <b>'+esc(caShort(BYKEY[b.main.k].name))+'</b> <button type="button" class="cpsw" data-cachoose="'+esc(x.role)+'|'+esc(b.main.k)+'">Back to our pick</button></p>';}
 /* the same garment with a hood (or a longer cut) is ONE recommendation -- name it on the row, with its style number */
 function caFamHtml(cfg,A,x){if(typeof JA_FAMILY==='undefined')return '';var f=JA_FAMILY[x.main.k];if(!f||!BYKEY[f[0]]||caPool(cfg,A,x.role).indexOf(f[0])<0)return '';
   var t=BYKEY[f[0]],nm=caShort(t.name).replace(/\s+(Insulated|Heavy-Duty).*$/,'');
@@ -3608,18 +3665,24 @@ function renderCatAdvisor(el,cfg){
     var dflt=q.def!=null?(q.opts.filter(function(o){return String(o.id)===String(q.def);})[0]||null):null;
     body=head+'<span class="castep">'+(i+1)+' of '+n+'</span></div>'+
       (i===0?('<h3 class="xph">'+esc(cfg.h)+'</h3><p class="xpadv">'+esc(nwords(n))+' quick question'+(n>1?'s':'')+', then a recommended program'+(cfg.roles?' for your kit':(cfg.who?' for each group':''))+' — priced for your headcount, with your logo on it.</p>'):'')+
-      '<div class="caprog seg" aria-hidden="true">'+qs.map(function(x,j){return '<i class="'+(j<i?'done':(j===i?'now':''))+'"></i>';}).join('')+'</div>'+
-      '<h3 class="caq">'+esc(q.q)+'</h3>'+(q.hint||q.multi?('<p class="caqh">'+esc(q.multi?'Select every group that applies — each gets its own pick.':q.hint)+'</p>'):'')+
+      caStepsHtml(cfg,A,qs,i)+
+      '<h3 class="caq">'+esc(q.q)+'</h3>'+(q.hint||q.multi?('<p class="caqh">'+esc(q.multi?'Select every group that applies — each gets its own pick. Tap again to remove one.':q.hint)+'</p>'):'')+
+      (q.multi?('<div class="camulti"><span class="cacount" data-cacount="1">'+((A[q.id]||[]).length?((A[q.id]||[]).length+' selected'):'None selected yet')+'</span>'+
+        '<button type="button" class="jalink" data-casall="'+esc(q.id)+'">Select all</button><button type="button" class="jalink" data-caclr="'+esc(q.id)+'"'+((A[q.id]||[]).length?'':' hidden')+'>Clear</button></div>'):'')+
       caOptHtml(q,A)+
       '<div class="canav">'+(i>0?'<button type="button" class="jalink" data-cago="'+(i-1)+'">← Back</button>':'<button type="button" class="jalink" data-caask="1">Rather talk it through? Ask Steven</button>')+
         (dflt&&!answered?('<button type="button" class="jalink caskip" data-caskip="'+esc(q.id)+'">Not sure? We’ll assume “'+esc(dflt.lab)+'”</button>'):'')+
-        (q.multi?('<button type="button" class="jaall" data-cago="'+(i+1)+'"'+(answered?'':' disabled')+'>'+(i+1>=n?'See my program →':'Continue →')+'</button>'):(ready&&answered?'<button type="button" class="jaall" data-cares="1">See my program →</button>':''))+'</div>';
+        (q.multi?('<button type="button" class="jaall" data-cago="'+(i+1)+'"'+(answered?'':' disabled')+'>'+(i+1>=n?'See my program →':'Continue →')+'</button>'):
+          (answered?(ready&&i+1>=n?'<button type="button" class="jaall" data-cares="1">See my program →</button>':'<button type="button" class="jaall" data-cago="'+(i+1)+'">Next →</button>'):''))+'</div>';
   }else{
     P=caLabelled(cfg,A);
     var ok=P.filter(function(x){return !x.none;}),nS=caPool(cfg,A).length;
+    /* one group: the comparison IS the decision, so it starts open */
+    if(A._open===undefined&&ok.length===1&&(ok[0].alts||[]).length)A._open=ok[0].role;
     body=head+'<span class="castep done">✓ Recommended program</span></div>'+
       '<h3 class="xph">'+(cfg.roles?('Your golf kit — '+ok.length+' piece'+(ok.length===1?'':'s')):(ok.length>1?('Your '+esc(cfg.noun)+' program — '+ok.length+' groups'):('Our recommendation')))+'</h3>'+
-      '<div class="casum"><span class="casuml">Based on</span>'+caSummary(cfg,A).map(function(t){return '<span class="casumc">'+esc(t)+'</span>';}).join('')+
+      '<div class="casum"><span class="casuml">Based on</span>'+caQs(cfg,A).map(function(qq,j){var v=A[qq.id],t=qq.multi?(v||[]).map(function(z){return caAnsLab(qq,z);}).join(', '):caAnsLab(qq,v);
+          return t?('<button type="button" class="casumc" data-cago="'+j+'" title="Change: '+esc(qq.q)+'">'+esc(t)+' <span aria-hidden="true">✎</span></button>'):'';}).join('')+
         '<button type="button" class="jalink" data-cago="0">Change answers</button></div>'+
       (cfg.toggles?('<div class="catog">'+cfg.toggles.map(function(g){var on=A[g.id]==='1';
         return '<button type="button" class="catgl'+(on?' on':'')+'" data-catog="'+esc(g.id)+'" aria-pressed="'+on+'"><span class="catsw" aria-hidden="true"></span><b>'+esc(g.lab)+'</b><i>'+esc(g.sub)+'</i></button>';}).join('')+'</div>'):'')+
@@ -3637,6 +3700,8 @@ function renderCatAdvisor(el,cfg){
   if(el._caBound!==cfg.id){el._caBound=cfg.id;el.onclick=function(e){caClick(e,el,cfg);};el.oninput=function(e){caInput(e,el,cfg);};
     el.onchange=function(e){caInput(e,el,cfg,true);};}
 }
+function caMultiSync(el,l){var n=(l||[]).length,c=el.querySelector('[data-cacount]');if(c)c.textContent=n?(n+' selected'):'None selected yet';
+  var clr=el.querySelector('[data-caclr]');if(clr)clr.hidden=!n;var go=el.querySelector('.canav .jaall[data-cago]');if(go)go.disabled=!n;}
 function caScrollIn(el){var r=el.getBoundingClientRect();if(r.top<56)window.scrollTo({top:window.scrollY+r.top-84,behavior:'smooth'});}
 function caRefreshTotals(el,cfg,A){var P=caLabelled(cfg,A),T=caTotals(cfg,A,P);
   P.forEach(function(x){if(x.none)return;var q=caQtyOf(cfg,A,x.role),u=caUnit(x.main.k,q),r=x.role;
@@ -3654,13 +3719,20 @@ function caClick(e,el,cfg){
   var re=function(){caSave();renderCatAdvisor(el,cfg);};
   if(d.ca!=null){var nq=d.ca,v=d.v,L=caQs(cfg,A),qd=L.filter(function(x){return x.id===nq;})[0]||{};CA_PICK={};
     if(qd.multi){var l=A[nq]=(A[nq]||[]).slice(),k=l.indexOf(v);if(k>=0)l.splice(k,1);else l.push(v);caSave();jdpTrack('ca_q',{c:cfg.id,q:nq,v:v});
-      /* in place: no re-render, no flicker */
-      var on=l.indexOf(v)>=0;b.classList.toggle('on',on);b.setAttribute('aria-pressed',on);var ck=b.querySelector('.caok');if(ck)ck.textContent=on?'✓':'';
-      var go=el.querySelector('.canav .jaall[data-cago]');if(go)go.disabled=!l.length;return;}
-    A[nq]=v;caSave();jdpTrack('ca_q',{c:cfg.id,q:nq,v:v});
-    el.querySelectorAll('[data-ca="'+nq+'"]').forEach(function(x){x.classList.toggle('on',x===b);x.setAttribute('aria-pressed',x===b);});
+      /* in place: tick or untick, no re-render, no flicker */
+      var on=l.indexOf(v)>=0;b.classList.toggle('on',on);b.setAttribute('aria-checked',on);caMultiSync(el,l);return;}
+    var was=A[nq];A[nq]=v;caSave();jdpTrack('ca_q',{c:cfg.id,q:nq,v:v});
+    el.querySelectorAll('[data-ca="'+nq+'"]').forEach(function(x){x.classList.toggle('on',x===b);x.setAttribute('aria-checked',x===b);});
+    /* a new answer moves on by itself after a visible beat; re-tapping the same answer just confirms it */
     var L2=caQs(cfg,A),next=L2.indexOf(L2.filter(function(x){return x.id===nq;})[0])+1;
-    setTimeout(function(){if(next>=L2.length){A._m='res';A._shown=0;jdpTrack('ca_done',{c:cfg.id});}else{A._m='q';A._i=next;}re();caScrollIn(el);},90);return;}
+    setTimeout(function(){if(next>=L2.length){A._m='res';A._shown=0;jdpTrack('ca_done',{c:cfg.id});}else{A._m='q';A._i=next;}re();caScrollIn(el);},String(was)===String(v)?60:220);return;}
+  if(d.casall!=null){var qa=caQs(cfg,A).filter(function(x){return x.id===d.casall;})[0];if(!qa)return;A[qa.id]=qa.opts.map(function(o){return String(o.id);});CA_PICK={};caSave();
+    el.querySelectorAll('[data-ca="'+qa.id+'"]').forEach(function(x){x.classList.add('on');x.setAttribute('aria-checked','true');});caMultiSync(el,A[qa.id]);jdpTrack('ca_all',{c:cfg.id});return;}
+  if(d.caclr!=null){A[d.caclr]=[];CA_PICK={};caSave();el.querySelectorAll('[data-ca="'+d.caclr+'"]').forEach(function(x){x.classList.remove('on');x.setAttribute('aria-checked','false');});caMultiSync(el,[]);return;}
+  if(d.cachoose!=null){var pc=d.cachoose.split('|'),rl=pc[0],kk=pc[1],bs=caBaseOf(cfg,A,rl),grp2=(bs&&bs.roles)?bs.roles:[rl];
+    grp2.forEach(function(rr){if(bs&&bs.main.k===kk)delete CA_PICK[cfg.id+'.'+rr];else CA_PICK[cfg.id+'.'+rr]=kk;});
+    A._open=rl;jdpTrack('ca_choose',{c:cfg.id,k:kk});re();
+    var row=el.querySelector('[data-row="'+rl+'"]');if(row){row.classList.add('flash');setTimeout(function(){row.classList.remove('flash');},900);}return;}
   if(d.caskip!=null){var qd2=caQs(cfg,A).filter(function(x){return x.id===d.caskip;})[0];if(!qd2)return;A[d.caskip]=String(qd2.def);CA_PICK={};jdpTrack('ca_skip',{c:cfg.id,q:d.caskip});
     var L3=caQs(cfg,A),nx=L3.indexOf(qd2)+1;if(nx>=L3.length){A._m='res';A._shown=0;}else{A._m='q';A._i=nx;}re();caScrollIn(el);return;}
   if(d.cago!=null){var t=+d.cago,L4=caQs(cfg,A);if(t>=L4.length){A._m='res';A._shown=0;jdpTrack('ca_done',{c:cfg.id});}else{A._m='q';A._i=t;}re();caScrollIn(el);return;}
@@ -3668,9 +3740,9 @@ function caClick(e,el,cfg){
   if(d.careset!=null){CA[cfg.id]={_m:'q',_i:0};CA_PICK={};caSave();jdpTrack('ca_reset',{c:cfg.id});renderCatAdvisor(el,cfg);caScrollIn(el);return;}
   if(d.caq!=null){var pp=d.caq.split('|'),role=pp[0],step=+pp[1],cur=caQtyOf(cfg,A,role);caSetQty(el,cfg,A,role,cur+step);return;}
   if(d.cadet!=null){var r=d.cadet,box=el.querySelector('[data-detail="'+r+'"]');if(!box)return;var open=box.hidden;
-    if(open&&!box.innerHTML){var x=caLabelled(cfg,A).filter(function(y){return y.role===r;})[0];if(x&&!x.none)box.innerHTML=caMainHtml(cfg,A,x)+caAltHtml(cfg,x);}
+    if(open&&!box.innerHTML){var x=caLabelled(cfg,A).filter(function(y){return y.role===r;})[0];if(x&&!x.none)box.innerHTML=caCompareHtml(cfg,A,x);}
     box.hidden=!open;A._open=open?r:'';caSave();b.classList.toggle('on',open);b.setAttribute('aria-expanded',open);
-    b.innerHTML=(open?'Hide details':'Compare options & details')+' <span aria-hidden="true">'+(open?'▴':'▾')+'</span>';if(open)jdpTrack('ca_det',{c:cfg.id,r:r});return;}
+    var nb=(caBaseOf(cfg,A,r)||{alts:[]}).alts.length+1;b.innerHTML=(open?'Hide comparison':('Compare '+nb+' options'))+' <span aria-hidden="true">'+(open?'▴':'▾')+'</span>';if(open)jdpTrack('ca_det',{c:cfg.id,r:r});return;}
   if(d.caswap!=null){var p=d.caswap.split('|'),grp=caLabelled(cfg,A).filter(function(x){return !x.none&&x.roles.indexOf(p[0])>=0;})[0];
     (grp?grp.roles:[p[0]]).forEach(function(rr){CA_PICK[cfg.id+'.'+rr]=p[1];});A._open=p[0];jdpTrack('ca_swap',{c:cfg.id,k:p[1]});re();return;}
   if(d.catog!=null){var tg=d.catog;A[tg]=A[tg]==='1'?'':'1';CA_PICK={};jdpTrack('ca_q',{c:cfg.id,q:tg,v:A[tg]||'0'});re();return;}

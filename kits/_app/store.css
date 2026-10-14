@@ -4299,3 +4299,89 @@ footer{border-top:1px solid var(--line);color:var(--mut)!important}
 .cpalt:hover{border-color:#9ca3af;background:#fcfcfd}
 .cpalt em{font-style:normal;font-weight:650}
 .cpalt i{font-style:normal;color:var(--mut);font-size:12px}
+/* ===== ADVISOR: answering + comparing (2026-10-14 pm) ===== */
+/* step bar: every question is a tab; answered ones show the answer */
+.castepsb{display:flex;gap:6px;margin:12px 0 18px;padding:0;list-style:none;counter-reset:none}
+.castepsb li{flex:1;min-width:0}
+.castepsb button{width:100%;display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:#fff;font:inherit;text-align:left;cursor:pointer;min-height:48px}
+.castepsb button:disabled{cursor:default;opacity:.55}
+.castepsb .csn{flex:none;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11.5px;font-weight:700;background:#f3f4f6;color:var(--mut)}
+.castepsb .cst{min-width:0;display:flex;flex-direction:column}
+.castepsb .cst b{font-size:12.5px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.castepsb .cst i{font-style:normal;font-size:11.5px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.castepsb li.now button{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+.castepsb li.now .csn{background:var(--ink);color:#fff}
+.castepsb li.done .csn{background:#e8f4ec;color:#1e6b34}
+.castepsb li.done button:hover{border-color:#9ca3af}
+/* answers: the control says what it is -- a square checkbox (choose several) or a round radio (choose one) */
+.cadv2 .caopt{position:relative;padding-left:14px!important}
+.cadv2 .caok{order:-1;flex:none;width:22px;height:22px;margin:0!important;display:flex;align-items:center;justify-content:center;border:1.5px solid #c4c8cf;background:#fff;color:transparent;transition:background .12s,border-color .12s,color .12s}
+.cadv2 .caopts.multi .caok{border-radius:6px}
+.cadv2 .caopts.single .caok{border-radius:50%}
+.cadv2 .caopts.single .caok svg{display:none}
+.cadv2 .caopts.single .caopt.on .caok{border:6px solid var(--a)!important;background:#fff!important}
+.cadv2 .caopts.multi .caopt.on .caok{background:var(--a)!important;border-color:var(--a)!important;color:#fff!important}
+.cadv2 .caopt.on{border-color:var(--a)!important;background:color-mix(in srgb,var(--a) 5%,#fff)!important;box-shadow:inset 0 0 0 1px var(--a)!important}
+.cadv2 .caopt.on .caoi{background:color-mix(in srgb,var(--a) 14%,#fff)!important;color:var(--a)!important}
+.cadv2 .caopt.on .caot b{color:var(--ink)!important}
+.cadv2 .caopt:hover:not(.on){border-color:#9ca3af!important;background:#fcfcfd!important}
+.cadv2 .caopt:hover .caok{border-color:#9ca3af}
+.camulti{display:flex;align-items:center;gap:14px;margin:10px 0 -4px;font-size:13px}
+.cacount{color:var(--mut);font-weight:600;margin-right:auto}
+.camulti .jalink{font-size:13px}
+/* results: answer chips edit their own question */
+button.casumc{cursor:pointer;font:inherit;font-size:13px}
+button.casumc span{color:var(--mut);font-size:11px;margin-left:3px}
+button.casumc:hover{border-color:#9ca3af!important}
+/* the row: one clear compare control */
+.cpcmpw{display:flex;align-items:center;flex-wrap:wrap;gap:4px 10px;margin-top:8px}
+.cpcmp{padding:7px 12px;border:1px solid var(--ink);border-radius:8px;background:#fff;font:inherit;font-size:13px;font-weight:600;color:var(--ink);cursor:pointer}
+.cpcmp:hover,.cpcmp.on{background:var(--ink);color:#fff}
+.cpcmpl{font-size:12px;color:var(--mut)}
+.cpchoice{margin:6px 0 0;font-size:12.5px;color:var(--mut)}
+.cpchoice span{display:inline-block;padding:1px 7px;border-radius:5px;background:#eef2ff;color:#3730a3;font-weight:650}
+.cprow.flash{animation:cpflash .9s ease}
+@keyframes cpflash{0%{background:color-mix(in srgb,var(--a) 10%,#fff)}100%{background:#fff}}
+/* the comparison table */
+.cpdetail{background:#fbfbfc}
+.cmpwrap{border:1px solid var(--line);border-radius:12px;background:#fff;overflow:hidden}
+.cmphd{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:4px 14px;padding:12px 14px;border-bottom:1px solid var(--line)}
+.cmphd b{font-size:14.5px;font-weight:650}.cmphd span{font-size:12px;color:var(--mut)}
+.cmpscroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table.cmp{width:100%;border-collapse:separate;border-spacing:0;table-layout:fixed;min-width:640px}
+.cmp th,.cmp td{padding:10px 12px;border-bottom:1px solid #f0f1f3;vertical-align:top;text-align:left;font-size:13px;line-height:1.45;color:#374151}
+.cmp tbody th{width:140px;font-size:12px;font-weight:600;color:var(--mut);background:#fff;position:sticky;left:0;z-index:1}
+.cmpcorner{width:140px;background:#fff;position:sticky;left:0;z-index:2}
+.cmpcol{background:#fff}
+.cmp td.sel,.cmp th.sel{background:color-mix(in srgb,var(--a) 4%,#fff)}
+.cmp thead th.sel{box-shadow:inset 0 3px 0 var(--a)}
+.cmp td.diff{color:var(--ink);font-weight:600}
+.cmp td.diff::before{content:'';display:inline-block;width:6px;height:6px;border-radius:50%;background:#f59e0b;margin:0 6px 1px 0;vertical-align:middle}
+.cmptag{display:inline-block;margin-bottom:8px;padding:2px 8px;border-radius:6px;background:#f3f4f6;color:var(--ink);font-size:11px;font-weight:700;letter-spacing:.02em}
+.cmptag.pick{background:var(--ink);color:#fff}
+.cmpimg{display:block;width:100%;aspect-ratio:1/1;max-width:150px;border:1px solid var(--line);border-radius:10px;background:#fff;overflow:hidden;position:relative;padding:0;cursor:zoom-in;margin-bottom:8px}
+.cmpimg img.g{width:100%;height:100%;object-fit:contain}
+.cmpname{display:block;font-size:14px;font-weight:650;color:var(--ink);line-height:1.3}
+.cmpbr{display:block;font-size:12px;color:var(--mut);margin:2px 0 6px}
+.cmpprice{display:block;font-size:12.5px;color:var(--mut);margin-bottom:10px}
+.cmpprice b{font-size:17px;color:var(--ink);font-weight:700;margin-right:2px}
+.cmpd{display:block;font-style:normal;font-size:12px;font-weight:600;margin-top:1px}
+.cmpd.lo{color:#047857}.cmpd.hi{color:#92400e}
+.cmpchoose{width:100%;padding:9px 10px;border:1px solid var(--ink);border-radius:8px;background:#fff;font:inherit;font-size:13.5px;font-weight:600;color:var(--ink);cursor:pointer}
+.cmpchoose:hover{background:var(--ink);color:#fff}
+.cmpsel{display:block;width:100%;padding:9px 10px;border-radius:8px;background:var(--a);color:#fff;font-size:13.5px;font-weight:650;text-align:center}
+.cmpfoot td{border-bottom:0}.cmpfoot .jalink{font-size:12.5px}
+.vh{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+@media(max-width:760px){
+  .castepsb .cst i{display:none}.castepsb button{padding:7px 8px;min-height:42px}.castepsb .cst b{font-size:11.5px}
+  table.cmp{min-width:560px}.cmp tbody th,.cmpcorner{width:96px}.cmp th,.cmp td{padding:9px 9px;font-size:12.5px}
+  .cmpimg{max-width:110px}
+}
+.cmpswipe{display:none}
+@media(max-width:760px){
+  table.cmp{min-width:470px}.cmp tbody th,.cmpcorner{width:74px;font-size:11px}
+  .cmp th,.cmp td{padding:8px 7px;font-size:12px}
+  .cmpimg{max-width:96px}.cmpname{font-size:13px}.cmpprice b{font-size:15px}
+  .cmpchoose,.cmpsel{padding:8px 6px;font-size:12.5px}
+  .cmpswipe{display:block;margin:0;padding:6px 12px;font-size:12px;color:var(--mut);background:#f8f9fb;border-bottom:1px solid var(--line)}
+}
