@@ -1,0 +1,16 @@
+{
+  "generator": "client-app",
+  "version": "1792012336",
+  "slug": "mott-electric",
+  "client": "Mott Electric",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_f7db00.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}
