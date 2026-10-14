@@ -1,0 +1,17 @@
+{
+  "generator": "client-app",
+  "version": "1792012435",
+  "slug": "conglom",
+  "client": "Conglom",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_046e4d.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_f67f23.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}

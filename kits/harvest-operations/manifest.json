@@ -1,0 +1,17 @@
+{
+  "generator": "client-app",
+  "version": "1792012433",
+  "slug": "harvest-operations",
+  "client": "Harvest Operations",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_1b3f76.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_fcb814.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}
