@@ -1,0 +1,17 @@
+{
+  "generator": "client-app",
+  "version": "1792091692",
+  "slug": "volker-stevin",
+  "client": "Volker Stevin",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_003d78.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_fd5000.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}

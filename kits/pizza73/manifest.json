@@ -1,0 +1,18 @@
+{
+  "generator": "client-app",
+  "version": "1792091677",
+  "slug": "pizza73",
+  "client": "Pizza 73",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_1258a9.png",
+    "img/lg_full_68a63c.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_f7d81e.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}
