@@ -3482,6 +3482,51 @@ function caSpec(it){var f=jaFlags(it),w=jaWarm(it),ws=it.warm||{},isJ=/jacket|pa
   var sz=itemSizes(it,'mens')||[],szs=sz.length?(sz[0]+'–'+sz[sz.length-1]):'—';
   return {warmth:warmth,weather:wx.length?caCap(wx.join(', ')):'—',fabric:[caMixTxt(it),caWeightTxt(it)].filter(Boolean).join(' · ')||'—',
     cuts:hasLadies(it)?'Men’s & women’s':(it.unisex?'Unisex':'Men’s / unisex only'),sizes:szs,cols:(it.cols||[]).length,freezer:!!it.freezer};}
+/* WARMTH, MADE COMPARABLE (Steven, 2026-10-15: "improve warmth comparisons. it is not clear the difference"). The row
+   used to read "Insulated · Polyester 170 gsm / 130 gsm" against "Insulated · Recycled polyester 100 gsm / 80 gsm" --
+   the same word twice and two unexplained number pairs. Now every option gets ONE level on one scale, a plain label,
+   the fill spelled out (body / sleeves, the way the makers publish it), and a sentence saying how it compares with our
+   pick and why. The level comes only from catalogue facts: the warmth band, the published body-fill weight, and the
+   winter rating; a shell that is bonded to fleece or sherpa is named, because it adds warmth the fill number misses. */
+var CA_WLAB=['','Shell only — no insulation','Light insulation','Mid-weight insulation','Warm','Very warm'],
+    CA_KLAB=['','Light layer','Midweight','Heavyweight'];
+function caFillG(it){var g=String((it.warm||{}).gsm||''),m=g.match(/(\d{2,3})\s*g/g)||[];
+  var n=m.map(function(x){return parseInt(x,10);});return n.length?{b:n[0],s:n[1]||null}:null;}
+function caWarmInfo(it){var c=itemCategory(it),f=caFillG(it),ws=it.warm||{},fab=it.fab&&typeof it.fab==='object'?it.fab:{};
+  var shellTxt=String((fab.knit||'')+' '+(typeof it.fab==='string'?it.fab:'')+' '+(it.name||'')).toLowerCase();
+  var nm=String(it.name||'').toLowerCase();
+  /* a fleece vest has no fill: say so plainly, on the jacket/vest scale it is compared on */
+  if(!ws.band&&c==='vest'&&/fleece/.test(nm)){var gv=caGsm(it);return {lvl:2,max:5,lab:'Light — fleece, no fill',detail:gv?(gv+' gsm fleece'):'Fleece body, no insulation layer',extra:'',fill:0,est:true};}
+  /* knits are rated by fabric weight; anything with a warmth band (a "Detachable Hood" bomber is not a hoodie) is a jacket */
+  if(!ws.band&&(c==='fleece'||c==='tee'||c==='polo'||c==='woven')){var b=caWarmBand(it),g=caGsm(it);
+    return {lvl:b,max:3,lab:CA_KLAB[b]||'—',detail:g?(g+' gsm fabric'):'',knit:true,g:g||0};}
+  var w=jaWarm(it),lvl=0;
+  if(w===1)lvl=1;
+  else if(w>=2){var fb=f?f.b:0;
+    lvl=fb?(fb<130?2:(fb<180?3:(fb<220?4:5))):3;
+    if(w===3)lvl=Math.max(lvl,fb>=200?5:4);}
+  var detail='';
+  if(lvl===1)detail='No insulation layer';
+  else if(f)detail='Fill: '+f.b+' g body'+(f.s?(' · '+f.s+' g sleeves'):'')+(ws.ins&&!/thermal shell/i.test(ws.ins)?(' ('+String(ws.ins).toLowerCase()+')'):'');
+  else if(ws.ins)detail=caCap(String(ws.ins))+' — fill weight not published';
+  else if(lvl)detail='Fill weight not published';
+  var extra=/bonded|micro ?fleece|sherpa|fleece[- ]lined/.test(shellTxt)?(/sherpa/.test(shellTxt)?'Sherpa-fleece lining adds warmth':'Fleece-bonded shell adds warmth'):'';
+  return {lvl:lvl,max:5,lab:CA_WLAB[lvl]||'—',detail:detail,extra:extra,fill:f?f.b:0,est:lvl>=2&&!f,freezer:!!it.freezer};}
+function caWarmVs(a,b){   /* how option b compares with our pick a, in words a buyer can act on */
+  if(!a.lvl||!b.lvl)return '';
+  var why=(a.fill&&b.fill)?(' — '+b.fill+' g vs '+a.fill+' g body fill'):((a.g&&b.g&&a.knit)?(' — '+b.g+' vs '+a.g+' gsm'):'');
+  /* a level that rests on an unpublished fill weight is an estimate, and is worded as one */
+  var est=(a.est||b.est)&&!(a.fill&&b.fill),np=est?' (fill weight not published)':'';
+  if(b.lvl>a.lvl)return {t:(est?'Likely warmer':'Warmer')+' than our pick'+why+np,c:'up'};
+  if(b.lvl<a.lvl)return {t:(b.lvl===1?'No insulation — ':'')+(est&&b.lvl>1?'Likely less warm':'Less warm')+' than our pick'+why+(b.extra&&!a.extra?(' (but '+b.extra.toLowerCase()+')'):'')+(b.lvl>1?np:''),c:'dn'};
+  if(a.fill&&b.fill&&Math.abs(a.fill-b.fill)>=20)return {t:(b.fill>a.fill?'A little warmer':'A little lighter')+why,c:b.fill>a.fill?'up':'dn'};
+  return {t:(a.lvl===1?'Same — neither is insulated':'About the same warmth as our pick'+((a.fill&&b.fill)?why:np)),c:'eq'};}
+function caWarmCell(W,vs){if(!W.lvl)return '—';
+  var bars='';for(var i=1;i<=W.max;i++)bars+='<i'+(i<=W.lvl?' class="on"':'')+'></i>';
+  return '<span class="cwm"><span class="cwbar l'+W.lvl+(W.max===3?' k':'')+'" role="img" aria-label="Warmth '+W.lvl+' of '+W.max+'">'+bars+'</span><b>'+esc(W.lab)+'</b></span>'+
+    (W.detail?('<span class="cwd">'+esc(W.detail)+'</span>'):'')+(W.extra?('<span class="cwd">'+esc(W.extra)+'</span>'):'')+
+    (W.freezer?'<span class="cwd">Freezer range — confirm against your temperatures</span>':'')+
+    (vs&&vs.t?('<span class="cwvs '+vs.c+'">'+esc(vs.t)+'</span>'):'');}
 function caCompareHtml(cfg,A,x){var base=caBaseOf(cfg,A,x.role)||x;if(!base||base.none)return '';
   var q=caQtyOf(cfg,A,x.role),cols=[{k:base.main.k,lab:'Our pick',why:String(base.ang||caWhyLine(cfg,A,base)).replace(/\s*Hooded option: [^.]*\.?$/,'')}].concat((base.alts||[]).map(function(a){return {k:a.r.k,lab:a.lab,why:a.ang||''};}));
   var seen={};cols=cols.filter(function(c){if(seen[c.k])return false;seen[c.k]=1;return !!BYKEY[c.k];});
@@ -3499,9 +3544,12 @@ function caCompareHtml(cfg,A,x){var base=caBaseOf(cfg,A,x.role)||x;if(!base||bas
         '<span class="cmpprice"><b>'+money(U[i])+'</b>/pc'+(i>0?('<em class="cmpd'+(U[i]<U[0]?' lo':' hi')+'">'+(Math.abs(U[i]-U[0])<0.5?'same price':((U[i]<U[0]?'−':'+')+money(Math.abs(U[i]-U[0]))))+'</em>'):'')+'</span>'+
         (on?'<span class="cmpsel" aria-label="Selected">✓ Selected</span>':('<button type="button" class="cmpchoose" data-cachoose="'+esc(x.role)+'|'+esc(c.k)+'">Choose this</button>'))+'</th>';}).join('')+'</tr></thead><tbody>'+
       row('Best for',function(i){return esc(cols[i].why||'—');})+
+      (function(){var W=cols.map(function(c){return caWarmInfo(BYKEY[c.k]);});if(!W.some(function(w){return w.lvl;}))return '';
+        var fills=W.some(function(w){return w.fill;});
+        return '<tr class="cmpwarm"><th scope="row">Warmth'+(fills?'<small>Fill = grams of insulation per m². More grams, warmer.</small>':'')+'</th>'+cols.map(function(c,i){
+          var vs=i>0?caWarmVs(W[0],W[i]):null;return '<td class="'+(i>0&&W[i].lvl!==W[0].lvl?'wdiff':'')+(c.k===sel?' sel':'')+'">'+caWarmCell(W[i],vs)+'</td>';}).join('')+'</tr>';})()+
       row('Price at '+q,function(i){return '<b>'+money(U[i])+'</b> /pc · '+money(U[i]*q);})+
       row('Volume pricing',function(i){return T[i].map(function(t){return t.q+'+ '+money(t.p);}).join(' · ')||'—';})+
-      row('Warmth',function(i){return esc(S[i].warmth)+(S[i].freezer?' · freezer range':'');},1)+
       row('Weather',function(i){return esc(S[i].weather);},1)+
       row('Fabric',function(i){return esc(S[i].fabric);},1)+
       row('Cuts',function(i){return esc(S[i].cuts);},1)+
