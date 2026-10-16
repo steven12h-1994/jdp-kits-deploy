@@ -1,0 +1,16 @@
+{
+  "generator": "client-app",
+  "version": "1792175581",
+  "slug": "adamson",
+  "client": "Adamson Systems Engineering",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_8b6f4c.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}
