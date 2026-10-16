@@ -1,0 +1,17 @@
+{
+  "generator": "client-app",
+  "version": "1792175768",
+  "slug": "master-packaging",
+  "client": "Master Packaging",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_027b33.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_f6df02.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}
