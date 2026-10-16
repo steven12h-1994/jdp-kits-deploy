@@ -1,0 +1,16 @@
+{
+  "generator": "client-app",
+  "version": "1792156552",
+  "slug": "cad-railway",
+  "client": "CAD Railway Industries",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_fe0000.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}
