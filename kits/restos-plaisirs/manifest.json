@@ -1,0 +1,17 @@
+{
+  "generator": "client-app",
+  "version": "1792442378",
+  "slug": "restos-plaisirs",
+  "client": "Groupe Grandio",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_292f43.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_f7941d.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}
