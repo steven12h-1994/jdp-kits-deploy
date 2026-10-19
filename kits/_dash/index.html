@@ -150,7 +150,7 @@ function say(r){var e=r.e,c=catn(r.c),q=r.q||'',v=r.v||'';
   case'view':return'Opened the store';case'engaged':return'Started browsing';
   case'sheet':return'Looked at '+pn(r);case'add':return'Added '+pn(r)+' to their board';
   case'search':return'Searched “'+q+'”';case'search0':return'Searched “'+q+'” — nothing found';case'search_go':return'Ran a search';
-  case'board':return'Opened their board';case'checkout':return'Opened checkout';case'sent':return'Sent a quote request';
+  case'board':return'Opened their board';case'checkout':return'Opened checkout';case'sent':return r.src==='advisor'?('Requested free proofs + quote from the '+c+' advisor'):'Sent a quote request';
   case'quote_view':return'Viewed their quote';case'quote_pdf':return'Downloaded the quote PDF';case'quote_share':return'Shared the quote';
   case'quote_qty':case'quote_line_qty':return'Changed quantities';case'quote_sizes':case'quote_sizes_open':return'Set sizes';
   case'rfq_open':return'Opened “request a quote”';case'quote_open':return'Opened the quote';
@@ -302,9 +302,9 @@ function improveHtml(){
 function advTable(A){
   var ks=Object.keys(A).filter(function(c){var a=A[c];return(a.start||a.open||0)>0;}).sort(function(a,b){return(A[b].start||A[b].open||0)-(A[a].start||A[a].open||0);});
   if(!ks.length)return'<p class="mu">No advisor use in this window yet.</p>';
-  return tbl(['Category','Started','Got picks','Added','Gave up at'],ks.map(function(c){var a=A[c],st=a.start||a.open||0,qs=a.qs||{},qk=Object.keys(qs),last='';
+  return tbl(['Category','Started','Got picks','Requested proofs','Added to quote','Gave up at'],ks.map(function(c){var a=A[c],st=a.start||a.open||0,qs=a.qs||{},qk=Object.keys(qs),last='',rs=a.result||0,sd=a.send||0;
     if(a.abandon&&qk.length){qk.sort(function(x,y){return qs[x]-qs[y];});last=(QN[qk[0]]||qk[0]);}
-    return[esc(catn(c)),st,(a.result||0)+(st?' <span class="mu">('+Math.round(100*(a.result||0)/st)+'%)</span>':''),(a.add||0)+(a.add1||0),a.abandon?esc(last||'—')+' <span class="mu">('+a.abandon+')</span>':'—'];}),'');
+    return[esc(catn(c)),st,rs+(st?' <span class="mu">('+Math.round(100*rs/st)+'%)</span>':''),sd+(rs?' <span class="mu">('+Math.round(100*sd/rs)+'% of picks)</span>':''),(a.add||0)+(a.add1||0),a.abandon?esc(last||'—')+' <span class="mu">('+a.abandon+')</span>':'—'];}),'');
 }
 function tbl(head,rows,empty){
   if(!rows.length)return'<p class="mu" style="margin:0">'+esc(empty)+'</p>';
