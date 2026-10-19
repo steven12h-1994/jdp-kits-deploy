@@ -302,9 +302,9 @@ function improveHtml(){
 function advTable(A){
   var ks=Object.keys(A).filter(function(c){var a=A[c];return(a.start||a.open||0)>0;}).sort(function(a,b){return(A[b].start||A[b].open||0)-(A[a].start||A[a].open||0);});
   if(!ks.length)return'<p class="mu">No advisor use in this window yet.</p>';
-  return tbl(['Category','Started','Got picks','Requested proofs','Added to quote','Gave up at'],ks.map(function(c){var a=A[c],st=a.start||a.open||0,qs=a.qs||{},qk=Object.keys(qs),last='',rs=a.result||0,sd=a.send||0;
+  return tbl(['Category','Started','Got picks','Added to quote','Gave up at'],ks.map(function(c){var a=A[c],st=a.start||a.open||0,qs=a.qs||{},qk=Object.keys(qs),last='',rs=a.result||0,ad=(a.add||0)+(a.add1||0);
     if(a.abandon&&qk.length){qk.sort(function(x,y){return qs[x]-qs[y];});last=(QN[qk[0]]||qk[0]);}
-    return[esc(catn(c)),st,rs+(st?' <span class="mu">('+Math.round(100*rs/st)+'%)</span>':''),sd+(rs?' <span class="mu">('+Math.round(100*sd/rs)+'% of picks)</span>':''),(a.add||0)+(a.add1||0),a.abandon?esc(last||'—')+' <span class="mu">('+a.abandon+')</span>':'—'];}),'');
+    return[esc(catn(c)),st,rs+(st?' <span class="mu">('+Math.round(100*rs/st)+'%)</span>':''),ad+(rs?' <span class="mu">('+Math.round(100*ad/rs)+'% of picks)</span>':''),a.abandon?esc(last||'—')+' <span class="mu">('+a.abandon+')</span>':'—'];}),'');
 }
 function tbl(head,rows,empty){
   if(!rows.length)return'<p class="mu" style="margin:0">'+esc(empty)+'</p>';
