@@ -20,15 +20,15 @@ CSS = r"""
 .actg{padding:14px 18px 4px}.actg+.actg{border-top:1px dashed var(--line)}
 .actg h3{margin:0 0 10px;font-size:14px;display:flex;align-items:baseline;gap:8px}.actg h3 i{font-style:normal;font-weight:500;color:var(--sub);font-size:12.5px}
 .actg h3 em{font-style:normal;font-size:11.5px;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--ink);color:#fff}
-.actl{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:10px;margin-bottom:10px}
+.actl{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:10px;margin-bottom:10px;align-items:start}
 .ac{border:1px solid var(--line);border-radius:10px;padding:12px 13px;background:#fff;display:flex;flex-direction:column;gap:6px;min-width:0}
 .ac.REPLY{border-left:3px solid var(--hot)}.ac.EMAIL{border-left:3px solid #1a56c4}.ac.CALL{border-left:3px solid var(--ok)}.ac.VENDOR{border-left:3px solid var(--warm)}.ac.NOTE{border-left:3px solid var(--cool)}
 .ac .co{display:flex;align-items:center;gap:8px;font-weight:700;font-size:14.5px}.ac .co span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ac .op{margin-left:auto;flex:none;font-size:11.5px;font-weight:700;background:var(--hotbg);color:var(--hot);border-radius:999px;padding:2px 8px}
 .ac .op.lo{background:var(--soft);color:var(--sub)}
 .ac .who{color:var(--sub);font-size:12.5px}.ac .what{font-size:13.5px;line-height:1.45}
-.ac .qt{font-size:12px;color:var(--sub);background:var(--soft);border-radius:6px;padding:6px 8px;white-space:pre-line}
-.ac .oth{font-size:11.5px;color:var(--mute)}
+.ac .qt{font-size:12px;color:var(--sub);background:var(--soft);border-radius:6px;padding:6px 8px;white-space:pre-line;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;cursor:pointer}.ac .qt.on{-webkit-line-clamp:unset;display:block}
+.ac .oth{font-size:11.5px;color:var(--mute);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;cursor:pointer}.ac .oth.on{-webkit-line-clamp:unset;display:block}
 .ac .due{font-size:12px;color:var(--sub)}.ac .due.late{color:var(--hot);font-weight:600}.ac .due.now{color:var(--ok);font-weight:600}
 .ac .lk{display:flex;flex-wrap:wrap;gap:6px;margin-top:2px}
 .actmore{margin:0 0 12px}.actmore>summary{cursor:pointer;color:var(--sub);font-size:13px;font-weight:600;padding:6px 0;list-style:none}
@@ -116,7 +116,7 @@ function actionsHtml(){
   return h+'</section>';
 }
 document.addEventListener('toggle',function(ev){var d=ev.target;if(d.dataset&&d.dataset.actmore)ACT_MORE[d.dataset.actmore]=d.open;},true);
-document.addEventListener('click',function(ev){var t=ev.target.closest('[data-actfold]');if(!t)return;ACT_FOLD=!ACT_FOLD;localStorage.setItem('jdp_dash_act_fold',ACT_FOLD?'1':'0');render();});
+document.addEventListener('click',function(ev){var q=ev.target.closest('.ac .qt,.ac .oth');if(q){q.classList.toggle('on');return;}var t=ev.target.closest('[data-actfold]');if(!t)return;ACT_FOLD=!ACT_FOLD;localStorage.setItem('jdp_dash_act_fold',ACT_FOLD?'1':'0');render();});
 /* ACT:END js */
 """
 
