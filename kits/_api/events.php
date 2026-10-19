@@ -220,6 +220,7 @@ function dash_feed(int $days): array {
             if ($e === 'search') { $x = $r['q'] ?? ''; if ($x !== '') $q[$x] = ($q[$x] ?? 0) + 1; }
             if ($e === 'search0') { $x = $r['q'] ?? ''; if ($x !== '') { $q0[$x]['n'] = ($q0[$x]['n'] ?? 0) + 1; $q0[$x]['kits'][$kit] = 1; } }
             if (($e === 'sheet' || $e === 'add') && !empty($r['k'])) $prod[$r['k']][$e][$sid] = 1;
+            if ($c !== '' && $e === 'sent' && ($r['src'] ?? '') === 'advisor') $aseen[$c]['send'] = 1;   // a request sent straight from a recommendation (2026-10-19)
             if ($c !== '' && (strpos($e, 'ca_') === 0 || $e === 'adv_go' || $e === 'xp_ask')) {
                 $tag = $e === 'adv_go' ? 'open' : substr($e, 3);
                 if ($e === 'ca_q') { $qq = (string)($r['q'] ?? ''); if ($qq !== '') $aseen[$c]['__q'][$qq] = 1; }
@@ -233,7 +234,7 @@ function dash_feed(int $days): array {
             if ($e === 'market' && !empty($r['v'])) $mkt[$r['v']] = ($mkt[$r['v']] ?? 0) + 1;
         }
         foreach ($aseen as $c => $A) {
-            foreach (['open', 'start', 'result', 'add', 'add1', 'det', 'choose', 'swap', 'reset', 'skip', 'qty', 'col'] as $st)
+            foreach (['open', 'start', 'result', 'add', 'add1', 'send', 'det', 'choose', 'swap', 'reset', 'skip', 'qty', 'col'] as $st)
                 if (!empty($A[$st])) $adv[$c][$st] = ($adv[$c][$st] ?? 0) + 1;
             foreach (($A['__q'] ?? []) as $qq => $_) $adv[$c]['qs'][$qq] = ($adv[$c]['qs'][$qq] ?? 0) + 1;
             if (!empty($A['start']) && empty($A['result'])) $adv[$c]['abandon'] = ($adv[$c]['abandon'] ?? 0) + 1;
