@@ -7,7 +7,7 @@ https://justdealspromotions.com/kits/_dash/ — this will be the central CRM".
 SOURCE   Airtable appCYDBvfvfaLfzyi / ACCOUNTS_V2 tblPvNwroPHjI0OSV / record recf6llLkG4mZOqSr /
          field "Dash Actions" (fldHM0joaNVuYhN9I) — JSON written by the Outbound Ops pipeline every run:
          {generated_at, summary{REPLY,EMAIL,CALL,VENDOR,NOTE}, actions[...]}.
-OUTPUT   kits/_dash/actions.enc.json in the jdp-kits-deploy repo (mirrored to the live site).
+OUTPUT   kits/_dash/actions.json in the jdp-kits-deploy repo (mirrored to the live site).
 
 PRIVACY  The actions carry names, emails and phone numbers, and the deploy repo and the site are public,
          so NOTHING is written in plain text. The payload is encrypted to the dashboard's public key
@@ -43,8 +43,8 @@ import urllib.request
 
 BASE, TABLE, RECORD, FIELD = "appCYDBvfvfaLfzyi", "tblPvNwroPHjI0OSV", "recf6llLkG4mZOqSr", "fldHM0joaNVuYhN9I"
 OWNER, REPO, BRANCH = "steven12h-1994", "jdp-kits-deploy", "main"
-REPO_PATH = "kits/_dash/actions.enc.json"
-STAGE = os.environ.get("JDP_DASH_STAGE", "/agent/workspace/_dash_stage/actions.enc.json")
+REPO_PATH = "kits/_dash/actions.json"
+STAGE = os.environ.get("JDP_DASH_STAGE", "/agent/workspace/_dash_stage/actions.json")
 STAGE_MAX_AGE_H = 12
 # Dashboard public key (not secret). Matches the private key the page derives from the events.php key.
 PUB = {"kty": "EC", "crv": "P-256", "x": "tX2z6qLrFdKTC6UxpydMWGUNk1eXnzRTpQz-VLQ76FY",

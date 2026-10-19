@@ -6,7 +6,7 @@ src, dst = sys.argv[1], sys.argv[2]
 s = open(src, encoding="utf-8").read()
 
 CSS = r"""
-/* ACT:BEGIN css — Today's revenue actions (decrypted in the browser from actions.enc.json) */
+/* ACT:BEGIN css — Today's revenue actions (decrypted in the browser from actions.json) */
 .act{background:var(--card);border:1px solid var(--line);border-radius:14px;margin:0 0 22px;overflow:hidden}
 .acth{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:16px 18px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,#fff,#fbfbfc)}
 .acth h2{margin:0;font-size:18px;letter-spacing:-.015em}.acth .mu{color:var(--mute);font-size:12.5px}
@@ -40,7 +40,7 @@ CSS = r"""
 """
 
 JS = r"""
-/* ACT:BEGIN js — "Today's revenue actions". Data: actions.enc.json beside this page, refreshed by
+/* ACT:BEGIN js — "Today's revenue actions". Data: actions.json (encrypted) beside this page, refreshed by
    tools/dash/refresh_actions.py from Airtable ACCOUNTS_V2 "Dash Actions". It is encrypted to this
    dashboard: the private key is derived here from KEY (the events.php key carried by Steven's link),
    so the public file is useless to anyone without the link. */
@@ -65,7 +65,7 @@ function actLoad(force){
   if(!KEY||ACT_BUSY||(!force&&ACT&&Date.now()-ACT_AT<120000))return;
   if(!(window.crypto&&crypto.subtle)){ACT_ERR='This browser cannot unlock the actions (no WebCrypto).';return;}
   ACT_BUSY=true;
-  fetch('actions.enc.json?c='+Date.now(),{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('http '+r.status);return r.json();})
+  fetch('actions.json?c='+Date.now(),{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('http '+r.status);return r.json();})
   .then(actDecrypt).then(function(a){ACT=a;ACT_ERR='';ACT_AT=Date.now();})
   .catch(function(e){ACT_ERR=/http 404/.test(String(e))?'No actions published yet.':'Could not unlock the actions — reopen the dashboard from your latest emailed link.';ACT_AT=Date.now();})
   .then(function(){ACT_BUSY=false;var a=document.activeElement;if(D&&!(a&&a.closest&&a.closest('.edit')))render();});
