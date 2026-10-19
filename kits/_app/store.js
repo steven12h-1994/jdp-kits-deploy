@@ -3695,46 +3695,18 @@ function caProgHtml(cfg,A,P){var ok=P.filter(function(x){return !x.none;}),T=caT
     '<div class="cphead"><span>'+(cfg.roles?'Piece':'Group & our pick')+'</span>'+(cfg.roles?'':'<span>People</span>')+'<span>Price</span></div>'+
     P.map(function(x){return caRowHtml(cfg,A,x);}).join('')+
     '<div class="cptot"><div class="cptott"><b>Program estimate <span data-cptot="1">'+money(T.t)+'</span></b>'+
-      '<i><span data-cptn="1">'+(cfg.roles?(kq+' people · '+ok.length+' pieces each'):(T.n+' pieces'))+'</span> · your logo included · before one-time setup, tax &amp; freight</i></div></div>'+
-    (ok.length?caCloseHtml(cfg,A,allIn):'')+
+      '<i><span data-cptn="1">'+(cfg.roles?(kq+' people · '+ok.length+' pieces each'):(T.n+' pieces'))+'</span> · your logo included · before one-time setup, tax &amp; freight</i></div>'+
+      (ok.length?('<button type="button" class="jaall cpadd'+(allIn?' done':'')+'" data-caall="1">'+(allIn?'✓ Added — view my quote →':'Add all to quote →')+'</button>'):'')+'</div>'+
+    (allIn?'<div class="cpadded">Added to your quote. Keep adding anything else you need — then send it all from your quote.</div>':'')+
+    '<div class="cpfoot"><span>Free digital proof with your logo before anything is made · no payment to get a quote</span>'+
+      '<button type="button" class="jalink" data-caask="1">Have Steven review it</button></div>'+
   '</div>';}
-/* ===== CONVERTING ON THE RECOMMENDATION (Steven, 2026-10-19: "once they get Our recommendation, adding to quote is low
-   converting. we need people converting after they get their recommendation! execute what you think is best for our ICP").
-   Who is reading this: an operations / HR / procurement lead at a mid-size company, handed a store by us, usually NOT the
-   person who signs. "Add all to quote" asked them to put things in a cart -- a buying gesture -- and then opened a second
-   full-screen document with a five-field form. Most stopped there. What they will do is ask for something free and
-   reversible, or pass it up the chain. So the recommendation now ends in ONE ask, right under the price:
-     1. Free digital proofs + the formal quote: one work-email field (remembered), one button. It loads the program onto
-        the quote and sends the request in the same tap; the confirmation (with reference) appears in place.
-     2. For a buyer who doesn't sign off: "Send to my approver" (a frozen quote link + summary, by email or share sheet)
-        and "Download PDF quote".
-     3. "Review & edit in my quote" keeps the old path for anyone who wants to fiddle first.
-   A slim bar follows the buyer while the ask is off-screen (long comparisons), so the next step is never a scroll away.
-   Nothing here promises anything new: proofs, no payment and the reply time are the store's existing commitments. */
-var CA_SENT={},CA_ST1={};
-function caSavedContact(){try{return JSON.parse(localStorage.getItem('jdpkit_contact')||'{}')||{};}catch(e){return {};}}
-function caCloseHtml(cfg,A,allIn){
-  var sc=caSavedContact(),em=sc.email||'',done=CA_SENT[cfg.id];
-  if(done)return caSentHtml(cfg,done);
-  return '<div class="cpclose" id="cpclose-'+esc(cfg.id)+'">'+
-    '<div class="cpch"><b>Next step: free proofs of your logo on these, plus your written quote</b>'+
-      '<i>We mock up each piece with your logo and confirm the price in writing — usually within '+esc(JDP_TRUST.reply)+'. No payment, no obligation.</i></div>'+
-    '<form class="cpcf" data-casend="1" novalidate>'+
-      '<input class="cpce" type="email" name="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" enterkeyhint="send" placeholder="Your work email" aria-label="Your work email" value="'+esc(em)+'">'+
-      '<button type="submit" class="jaall cpgo">Send me the proofs &amp; quote <span aria-hidden="true">→</span></button>'+
-      '<span class="cpcerr" role="alert" hidden></span></form>'+
-    '<div class="cpcalt"><span>Not the one who signs off?</span>'+
-      '<button type="button" class="jalink" data-caappr="1">Send it to my approver</button>'+
-      '<button type="button" class="jalink" data-capdf="1">Download a PDF quote</button>'+
-      '<button type="button" class="jalink" data-caall="1">'+(allIn?'View my quote':'Review &amp; edit in my quote')+'</button></div>'+
-    '<div class="cpctrust"><span>✓ Free digital proofs</span><span>✓ No payment to get a quote</span><span>✓ Have Steven review it — <button type="button" class="jalink" data-caask="1">ask a question</button></span></div>'+
-  '</div>';}
-function caSentHtml(cfg,d){
-  return '<div class="cpclose sent" id="cpclose-'+esc(cfg.id)+'"><div class="cpok"><span class="cpokic" aria-hidden="true">✓</span><div>'+
-    '<b>Sent — reference '+esc(d.ref)+'</b><i>Steven will reply to <b>'+esc(d.email)+'</b> with your proofs and written quote, usually within '+esc(JDP_TRUST.reply)+'. No payment now.</i>'+
-    '<div class="cpcalt"><button type="button" class="jalink" data-caappr="1">Forward it to my approver</button><button type="button" class="jalink" data-capdf="1">Keep a PDF copy</button><button type="button" class="jalink" data-caall="1">View my quote</button></div>'+
-  '</div></div></div>';}
-/* the program onto the quote, quantified and size-split, without opening anything */
+/* ADD TO QUOTE, THEN KEEP GOING (Steven, 2026-10-19: "should be simple and easy ... we want them to use the quote feature
+   and convert from there after they have finished adding all the products they want"). The recommendation has ONE
+   action -- "Add all to quote". Adding no longer throws the buyer into the full-screen quote: the program lands on the
+   quote (quantified, size-split, colour shown), the button turns into "View my quote", and they carry on shopping.
+   The quote is where they send it, once, with everything they chose. */
+var CA_ST1={};
 function caLoadProgram(cfg,A){var P=caLabelled(cfg,A).filter(function(x){return !x.none;}),want={};
   P.forEach(function(x){var q=caQtyOf(cfg,A,x.role);want[x.main.k]=(want[x.main.k]||0)+q;});
   Object.keys(want).forEach(function(k){var it=BYKEY[k],q=want[k];if(!cartHasAny(k))addToQuoteQuick(k);var ck=cartAnyKey(k)||k,c=CART[ck];if(!c)return;
@@ -3742,60 +3714,6 @@ function caLoadProgram(cfg,A){var P=caLabelled(cfg,A).filter(function(x){return 
     c.colour=CA_COL[k]||caColOf(k)||c.colour;});
   saveCart();refreshCartUI();try{syncBoardIfOpen();}catch(e){}
   return {P:P,tot:caTotals(cfg,A,P)};}
-function caAnswersText(cfg,A){var L=[];caQs(cfg,A).forEach(function(x){var v=A[x.id];if(v==null||v===''||(x.multi&&!(v||[]).length))return;
-  L.push(x.short||x.q);L[L.length-1]+=': '+(x.multi?(v||[]).map(function(z){return caAnsLab(x,z);}).join(', '):caAnsLab(x,v));});return L;}
-function caProgramLines(cfg,A,P){return P.map(function(x){var q=caQtyOf(cfg,A,x.role);return (x.lab?x.lab+': ':'')+BYKEY[x.main.k].name+' ('+(BYKEY[x.main.k].brand||BYKEY[x.main.k].sku||'')+') × '+q+' @ '+money(caUnit(x.main.k,q));});}
-function caSendQuote(cfg,A,el,form){
-  var inp=form.querySelector('.cpce'),err=form.querySelector('.cpcerr'),btn=form.querySelector('.cpgo'),email=(inp.value||'').trim();
-  if(!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)){inp.classList.add('err');inp.focus();err.hidden=false;
-    err.textContent=email?'That email doesn’t look complete — check it and try again.':'Enter your work email — the proofs and quote go there.';return;}
-  var L=caLoadProgram(cfg,A),sc=caSavedContact();QREF=stableRef();APPROVER=false;
-  var c={name:sc.name||'',email:email,company:sc.company||CFG.client||'',
-    note:'Requested from the '+cfg.label+' recommendation — free proofs + written quote.\n'+caAnswersText(cfg,A).join('\n')+'\nRecommended program:\n'+caProgramLines(cfg,A,L.P).join('\n')};
-  persistContact(c);try{localStorage.setItem('jdp_lead_sent','1');}catch(x){}
-  try{quoteSnapshot();}catch(x){}
-  var body=orderText(c),subj='🧾 New quote request (advisor) — '+(c.company||CFG.client)+' — '+money(cartSubtotal()+cartSetup())+(isUS()?' USD':'')+' — '+QREF;
-  var payload={name:c.name||'(not given)',email:c.email,company:c.company,_subject:subj,_template:'table',_captcha:'false',
-    reference:QREF,source:'Advisor: '+cfg.label,profit_report:profitReportText(),kit:body,kit_link:location.href.split('#')[0].split('?')[0],their_list:quoteShareUrl(),
-    sizes_from:'all sizes estimated from headcount (advisor)'};
-  btn.disabled=true;btn.innerHTML='Sending…';
-  var done=false,fell=false;
-  var ok=function(){if(done||fell)return;done=true;CA_SENT[cfg.id]={ref:QREF,email:email};jdpTrack('sent',{src:'advisor',c:cfg.id,n:cartCount()});
-    var box=el.querySelector('#cpclose-'+cfg.id);if(box)box.outerHTML=caSentHtml(cfg,CA_SENT[cfg.id]);caStickySync(el,cfg);};
-  var fail=function(){if(done||fell)return;fell=true;btn.disabled=false;btn.innerHTML='Send me the proofs &amp; quote <span aria-hidden="true">→</span>';mailtoFallback(c,body,subj);
-    err.hidden=false;err.textContent='Opening your email app with the request — just press send. (Your list is also copied.)';};
-  var to=setTimeout(fail,12000);
-  fetch('https://formsubmit.co/ajax/'+JDP_EMAIL,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(payload)})
-    .then(function(r){return r.json().catch(function(){return {};});})
-    .then(function(j){clearTimeout(to);if(j&&String(j.success)==='true')ok();else fail();})
-    .catch(function(){clearTimeout(to);fail();});}
-/* the buyer who doesn't sign: a frozen link to this exact quote, with the program spelled out, by email or share sheet */
-function caApprover(cfg,A){var L=caLoadProgram(cfg,A);QREF=stableRef();var u=quoteShareUrl();jdpTrack('quote_share',{src:'advisor',c:cfg.id});
-  var subj='For approval: '+cfg.noun+' program for '+(CFG.client||'our team')+' — '+money(L.tot.t);
-  var txt=['Hi,','','Here’s the '+cfg.noun+' program I’d like to go with — '+L.tot.n+' pieces, about '+money(L.tot.t)+' before setup, tax and freight, our logo included.','']
-    .concat(caProgramLines(cfg,A,L.P)).concat(['','The quote (reference '+QREF+') with every line and price:',u,'','If it looks good, I’ll ask Just Deals Promotions for the free proofs.']).join('\n');
-  try{if(navigator.share&&matchMedia('(hover:none)').matches){navigator.share({title:subj,text:txt}).catch(function(){});return;}}catch(e){}
-  clipCopy(u);window.location.href='mailto:?subject='+encodeURIComponent(subj)+'&body='+encodeURIComponent(txt);
-  toast('Opening an email to your approver · the quote link is also copied');}
-function caPdf(cfg,A){caLoadProgram(cfg,A);openQuote('advisor');setTimeout(function(){var b=document.getElementById('qPdf');if(b)b.click();},250);}
-/* a slim bar that follows the buyer while the ask is off-screen */
-var CA_IO=null;
-function caStickySync(el,cfg){var bar=document.getElementById('castick');
-  var box=el.querySelector('.cpclose'),sec=el.querySelector('.cadv2.m-res');
-  if(!box||!sec||box.classList.contains('sent')){if(bar)bar.remove();if(CA_IO){CA_IO.disconnect();CA_IO=null;}return;}
-  if(!bar){bar=document.createElement('div');bar.id='castick';bar.className='castick';document.body.appendChild(bar);}
-  var T=caTotals(cfg,caSt(cfg.id),caLabelled(cfg,caSt(cfg.id)));
-  bar.innerHTML='<span><b>Your '+esc(cfg.noun)+' program · '+money(T.t)+'</b><i>Free proofs + written quote · no payment</i></span><button type="button" class="jaall">Get my proofs &amp; quote →</button>';
-  bar.querySelector('button').onclick=function(){jdpTrack('lead_focus',{src:'advisor_bar'});box.scrollIntoView({behavior:'smooth',block:'center'});
-    setTimeout(function(){var i=box.querySelector('.cpce');if(i)try{i.focus({preventScroll:true});}catch(e){}},450);};
-  if(CA_IO)CA_IO.disconnect();
-  if(!('IntersectionObserver' in window))return;
-  var vis={box:false,sec:false};
-  CA_IO=new IntersectionObserver(function(es){es.forEach(function(e){vis[e.target===box?'box':'sec']=e.isIntersecting;});
-    bar.classList.toggle('on',vis.sec&&!vis.box);},{threshold:0});
-  CA_IO.observe(box);CA_IO.observe(sec);
-  if(!window._caStickScroll){window._caStickScroll=1;window.addEventListener('scroll',function(){var b=document.getElementById('castick');
-    if(b&&b.classList.contains('on')&&!document.querySelector('.cadv2.m-res .cpclose:not(.sent)'))b.classList.remove('on');},{passive:true});}}
 function renderCatAdvisor(el,cfg){
   var A=caSt(cfg.id);
   if(cfg.preset)try{cfg.preset(A,VIEW.cat,VIEW.sub);}catch(e){}
@@ -3841,9 +3759,7 @@ function renderCatAdvisor(el,cfg){
   if(mode==='q'){if(i===n-1)caWarm(cfg,A);}   /* ca_start now means a first ANSWER (2026-10-19) -- it used to fire on every render, so 122 "starts" were page views */
   else if(!A._shown){A._shown=1;jdpTrack('ca_result',{c:cfg.id,n:(P||[]).filter(function(x){return !x.none;}).length});}
   /* ONE delegated listener: rows' details are built on demand, and their buttons must work the moment they exist */
-  try{caStickySync(el,cfg);}catch(e){}
-  if(el._caBound!==cfg.id){el._caBound=cfg.id;el.onsubmit=function(e){var f=e.target.closest&&e.target.closest('[data-casend]');if(f){e.preventDefault();caSendQuote(cfg,caSt(cfg.id),el,f);}};
-    el.addEventListener('focusin',function(e){if(e.target.classList&&e.target.classList.contains('cpce')&&!el._lf){el._lf=1;jdpTrack('lead_focus',{src:'advisor'});}});el.onclick=function(e){caClick(e,el,cfg);};el.oninput=function(e){caInput(e,el,cfg);};
+  if(el._caBound!==cfg.id){el._caBound=cfg.id;el.onclick=function(e){caClick(e,el,cfg);};el.oninput=function(e){caInput(e,el,cfg);};
     el.onchange=function(e){caInput(e,el,cfg,true);};}
 }
 function caMultiSync(el,l){var n=(l||[]).length,c=el.querySelector('[data-cacount]');if(c)c.textContent=n?(n+' selected'):'None selected yet';
@@ -3899,15 +3815,14 @@ function caClick(e,el,cfg){
     if(cartHasAny(k2)){var ck2=cartAnyKey(k2);if(CART[ck2]){CART[ck2].colour=col;saveCart();refreshCartUI();}}return;}
   if(d.caadd!=null){var k3=d.caadd;if(cartHasAny(k3)){openQuote('advisor');return;}addToQuoteQuick(k3);if(CA_COL[k3]&&CART[k3]){CART[k3].colour=CA_COL[k3];saveCart();refreshCartUI();}
     jdpTrack('ca_add1',{c:cfg.id,k:k3});b.textContent='✓ In your quote';b.classList.add('done');return;}
-  if(d.caall!=null){caAddProgram(cfg,A);return;}
-  if(d.caappr!=null){caApprover(cfg,A);return;}
-  if(d.capdf!=null){jdpTrack('quote_pdf',{src:'advisor',c:cfg.id});caPdf(cfg,A);return;}
+  if(d.caall!=null){var okP=caLabelled(cfg,A).filter(function(x){return !x.none;});
+    if(okP.length&&okP.every(function(x){return cartHasAny(x.main.k);})){openQuote('advisor');return;}caAddProgram(cfg,A);re();return;}
   if(d.caask!=null){caAsk(cfg,A);return;}
   if(d.xpopen!=null){jdpTrack('xp_open',{k:d.xpopen,src:'ca_'+cfg.id});openSheet(d.xpopen);return;}
 }
 /* every line lands on the quote at its headcount, size-split, in the colour the buyer looked at */
 function caAddProgram(cfg,A){var L=caLoadProgram(cfg,A),P=L.P,tot=L.tot;jdpTrack('ca_add',{c:cfg.id,n:P.length,q:tot.n});
-  toast('Added '+P.length+' line'+(P.length===1?'':'s')+' · '+tot.n+' pieces to your quote');openQuote('advisor');}
+  toast('Added '+P.length+' line'+(P.length===1?'':'s')+' · '+tot.n+' pieces to your quote');}
 function caAsk(cfg,A){jdpTrack('xp_ask',{c:cfg.id});openSourcing('');
   var nt=document.getElementById('coNote');if(nt&&!nt.value){
     var lines=['Please review this '+cfg.noun+' program for our team.'];
