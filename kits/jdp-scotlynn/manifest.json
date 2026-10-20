@@ -1,0 +1,16 @@
+{
+  "generator": "client-app",
+  "version": "1792516393",
+  "slug": "jdp-scotlynn",
+  "client": "Scotlynn",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_f47920.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}
