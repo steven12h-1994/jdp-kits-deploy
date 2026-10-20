@@ -1,0 +1,13 @@
+{
+  "generator": "client-app",
+  "version": "1792500095",
+  "slug": "jdp-van-kam-freightways",
+  "client": "Van-Kam Freightways Ltd.",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_brand.png",
+    "img/logo-white.png"
+  ]
+}
