@@ -1,0 +1,16 @@
+{
+  "generator": "client-app",
+  "version": "1792543801",
+  "slug": "laprairie",
+  "client": "LaPrairie Group of Companies",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_ef7725.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}
