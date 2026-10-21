@@ -1,0 +1,16 @@
+{
+  "generator": "client-app",
+  "version": "1792609333",
+  "slug": "fellfab",
+  "client": "Fellfab",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_0094c7.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}
