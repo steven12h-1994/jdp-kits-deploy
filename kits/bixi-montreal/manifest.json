@@ -1,0 +1,16 @@
+{
+  "generator": "client-app",
+  "version": "1792595806",
+  "slug": "bixi-montreal",
+  "client": "BIXI Montr\u00e9al",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_d52b1e.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}
