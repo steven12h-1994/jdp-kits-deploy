@@ -1,0 +1,16 @@
+{
+  "generator": "client-app",
+  "version": "1792599257",
+  "slug": "kenaidan-contracting",
+  "client": "Kenaidan Contracting",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_004990.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}
