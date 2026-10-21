@@ -1,0 +1,18 @@
+{
+  "generator": "client-app",
+  "version": "1792543914",
+  "slug": "jdp-vallen-canada",
+  "client": "Vallen Canada",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_0066a5.png",
+    "img/lg_full_91b386.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_fdc589.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}
