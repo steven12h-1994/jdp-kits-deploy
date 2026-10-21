@@ -1,13 +1,13 @@
 {
   "generator": "client-app",
-  "version": "1792182558",
+  "version": "1792611449",
   "slug": "avmax-group",
   "client": "Avmax Group",
   "files": [
     "index.html",
     "client.json",
     "img/favicon.png",
-    "img/lg_full_005288.png",
+    "img/lg_full_1e509f.png",
     "img/lg_full_brand.png",
     "img/lg_full_dark.png",
     "img/lg_full_white.png",
