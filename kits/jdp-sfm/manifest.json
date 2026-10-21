@@ -1,0 +1,17 @@
+{
+  "generator": "client-app",
+  "version": "1792606941",
+  "slug": "jdp-sfm",
+  "client": "SFM",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_124296.png",
+    "img/lg_full_2852ee.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}
