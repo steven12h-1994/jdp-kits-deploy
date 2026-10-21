@@ -678,24 +678,7 @@ function realDecos(item,decos){
   return activeDecos(decos).filter(function(d){return !!vpl[d.pl];});
 }
 function hasDecoPlace(item){return !!((item.places||[]).some(function(p){return p.logo;}));}
-/* HIDDEN VOLUME TIER (Steven, 2026-10-21). Optional per-kit config: "volumeTier": 250 adds a 4th price break
-   ONLY on that store. Blank/absent = nothing changes anywhere. Until Steven sets "volumeTierDiscountPct", the
-   tier shows "Ask Steven" and quantities at/above it are priced at the 144+ tier and flagged as quoted by Steven.
-   Once the pct is set, price = 144+ price less pct, rounded to the nearest $0.50, everywhere the ladder appears. */
-var VOL_ASK_SHORT='Ask Steven',VOL_ASK_FULL='Volume pricing: ask Steven';
-function volTier(){var v=Number(CFG&&CFG.volumeTier),cs=(CFG&&CFG.pricing&&CFG.pricing.cols)||[12,48,144];return (v>0&&isFinite(v)&&v>cs[cs.length-1])?v:0;}
-function volTierPct(){var p=Number(CFG&&CFG.volumeTierDiscountPct);return (p>0&&p<100)?p:0;}
-function volTop(){var cs=(CFG.pricing&&CFG.pricing.cols)||[12,48,144];return cs[cs.length-1];}
-function tierCols(){var cs=((CFG.pricing&&CFG.pricing.cols)||[12,48,144]).slice(),v=volTier();if(v)cs.push(v);return cs;}
-function volAsk(t){var v=volTier();return !!(v&&t>=v&&!volTierPct());}
-function volQuoted(q){return volAsk(q);}
-function unitPrice(key,decos,q){var vt=volTier();
-  if(!vt||q<vt)return unitPriceCore(key,decos,q);
-  var it=BYKEY[bkey(key)];if(it&&it.layer==='promo')return unitPriceCore(key,decos,q);
-  var base=unitPriceCore(key,decos,volTop()),p=volTierPct();
-  if(!p||!(base>0))return base;
-  return Math.round(base*(1-p/100)*2)/2;}
-function unitPriceCore(key,decos,q){var _wfit=/#w$/.test(String(key));key=bkey(key);var r=CFG.rates;
+function unitPrice(key,decos,q){var _wfit=/#w$/.test(String(key));key=bkey(key);var r=CFG.rates;
   var _it=BYKEY[key]; if(_it&&_it.layer==='promo')return _it.price_cad||0;   // promo: flat Debco CAD price (customer price)
   if(!r||r.blank==null){return unitAt(BYKEY[key],q);}
   var item=BYKEY[key],c0=isUS()?usBlank(key,_wfit):blankOf(key),c=c0*blankBreak(q),dec=0,decc=0;
@@ -3396,13 +3379,13 @@ function caMainHtml(cfg,A,x){
 /* PRICE TIERS (Steven, 2026-10-09 16:38: "you should showing pricing tiers in the advisor UI"). Enterprise buyers
    budget by volume, so every recommendation shows the store's own quantity breaks -- the same unitPrice() the quote
    uses, so the advisor and the quote can never disagree. */
-function caTiers(k){var cols=tierCols(),it=BYKEY[k],d=null;try{d=defaultDecos(k);}catch(e){}
-  return cols.map(function(q){var p=0;try{p=unitPrice(k,d,Math.max(q,moq()));}catch(e){p=0;}return {q:Math.max(q,moq()),p:p,ask:volAsk(q)};}).filter(function(t){return t.p>0;});}
+function caTiers(k){var cols=(CFG.pricing&&CFG.pricing.cols)||[12,48,144],it=BYKEY[k],d=null;try{d=defaultDecos(k);}catch(e){}
+  return cols.map(function(q){var p=0;try{p=unitPrice(k,d,Math.max(q,moq()));}catch(e){p=0;}return {q:Math.max(q,moq()),p:p};}).filter(function(t){return t.p>0;});}
 function caTierHtml(k,compact){var T=caTiers(k);if(T.length<2)return '';
-  var _T2=T.filter(function(t){return !t.ask;}),lo=_T2[_T2.length-1],hi=T[0],pct=hi.p>0?Math.round((1-lo.p/hi.p)*100):0;
-  if(compact)return '<span class="catiers s">'+T.map(function(t){return t.q+'+ <b>'+(t.ask?VOL_ASK_SHORT:money(t.p))+'</b>';}).join(' · ')+'</span>';
+  var lo=T[T.length-1],hi=T[0],pct=hi.p>0?Math.round((1-lo.p/hi.p)*100):0;
+  if(compact)return '<span class="catiers s">'+T.map(function(t){return t.q+'+ <b>'+money(t.p)+'</b>';}).join(' · ')+'</span>';
   return '<div class="catiers" role="table" aria-label="Price per piece by quantity">'+T.map(function(t,i){
-    return '<div class="catier'+(i===0?' first':'')+'" role="row"><span role="cell">'+t.q+'+ pcs</span><b role="cell">'+(t.ask?VOL_ASK_SHORT:money(t.p))+'</b></div>';}).join('')+
+    return '<div class="catier'+(i===0?' first':'')+'" role="row"><span role="cell">'+t.q+'+ pcs</span><b role="cell">'+money(t.p)+'</b></div>';}).join('')+
     (pct>0?('<span class="catsave">Save '+pct+'% at '+lo.q+'+</span>'):'')+'</div>';}
 /* see it in your colour: the mockup re-renders with the buyer's logo on the colour they tap */
 function caSwatchHtml(k){var it=BYKEY[k],cs=browseCols(it)||[],cur=caColOf(k);if(cs.length<2)return '';
@@ -6724,10 +6707,9 @@ function renderSheet(){
   var decos=sheetDecos();
   var q=effQty(),tiers=CFG.pricing.cols||[12],topcol=tiers[tiers.length-1];
   var unit=unitPrice(SH.key,decos,q||moq()),line=unit*q;
-  var tcs=tierCols();
-  var ptable=tcs.map(function(t,i){var u=unitPrice(SH.key,decos,t);
-    var on=q>=t&&(i===tcs.length-1||q<tcs[i+1]);
-    return '<div class="pt'+(on?' on':'')+'"'+(volAsk(t)?' title="'+VOL_ASK_FULL+'"':'')+'><span>'+t+'+ pcs</span><b>'+(volAsk(t)?VOL_ASK_SHORT:money(u))+'</b>'+(volAsk(t)?'':'<i>/pc</i>')+'</div>';}).join('');
+  var ptable=tiers.map(function(t,i){var u=unitPrice(SH.key,decos,t);
+    var on=q>=t&&(i===tiers.length-1||q<tiers[i+1]);
+    return '<div class="pt'+(on?' on':'')+'"><span>'+t+'+ pcs</span><b>'+money(u)+'</b><i>/pc</i></div>';}).join('');
   var nud=savingsNudge(SH.key,decos,q||moq());
   var nudHtml=nud?('<div class="nudge">💡 Add '+nud.need+' more to reach the '+nud.tier+'+ price — <b>save '+nud.pct+'% per piece</b></div>'):'';
   // Quantity = a size breakdown, always (the ONLY quantity control — no confusing total-vs-sizes choice).
@@ -6741,7 +6723,7 @@ function renderSheet(){
      not have yet and can set on the quote. So: one quantity box with quick picks at the price breaks,
      and "Split by size" opens the maker's own run for anyone who does know. */
   var szOn=sizeTotal()>0,szOpen=SH.szOpen||szOn;
-  var quick=[moq(),24].concat(tcs.slice(1)).filter(function(v,i,a){return a.indexOf(v)===i;}).sort(function(a,b){return a-b;});
+  var quick=[moq(),24].concat(tiers.slice(1)).filter(function(v,i,a){return a.indexOf(v)===i;}).sort(function(a,b){return a-b;});
   var qtyGrp='<section class="step" id="shQty"><div class="steph"><span class="stepn">3</span><span class="stept">How many?</span><i>'+moq()+' minimum</i></div>'+
     '<div class="pqrow"><div class="qty pq"><button type="button" id="pqm" aria-label="Fewer">–</button>'+
       '<input id="pqin" type="number" inputmode="numeric" min="1" value="'+q+'" aria-label="Quantity"'+(szOn?' title="Total of your size split"':'')+'>'+
@@ -6759,7 +6741,7 @@ function renderSheet(){
   var fromP=unitPrice(SH.key,decos,topcol);
   var step1='<section class="step"><div class="steph"><span class="stepn">1</span><span class="stept">Select a colour</span><i>'+esc(SH.colour)+'</i></div><div class="cchips">'+chips+'</div></section>';
   var priceClar=canAdd
-    ? '<div class="shprice"><span>'+q+' pcs × '+money(unit)+'/pc'+(volQuoted(q)?' <em>· '+volTier()+'+ pricing confirmed by Steven</em>':'')+'</span><b>'+money(line)+' total</b></div>'
+    ? '<div class="shprice"><span>'+q+' pcs × '+money(unit)+'/pc</span><b>'+money(line)+' total</b></div>'
     : '<div class="shprice under"><span>Minimum '+moq()+' pieces</span><b>add '+(moq()-q)+' more</b></div>';
   /* The media row used to sit between the hero photo and the product NAME, so a buyer met "See it
      worn" and "Watch video" before they knew what they were looking at, or what it cost. Identify
@@ -8271,12 +8253,12 @@ function boardCardHtml(ck){
          their current tier marked, rather than a single number they have to take on trust. */
       (function(){
         if(isPromo)return '';
-        var cols=tierCols();
+        var cols=(CFG.pricing&&CFG.pricing.cols)||[12,48,144];
         var here=-1;
         for(var i=0;i<cols.length;i++){if(_tq>=cols[i])here=i;}
         var rows=cols.map(function(t,i){
           var u=unitPrice(ck,c.decos,t);
-          return '<span class="btr'+(i===here?' on':'')+'"><i>'+t+'+</i><b>'+(volAsk(t)?VOL_ASK_SHORT:money(u))+'</b></span>';
+          return '<span class="btr'+(i===here?' on':'')+'"><i>'+t+'+</i><b>'+money(u)+'</b></span>';
         }).join('');
         return '<div class="btiers">'+rows+'</div>'+
           ((_tq>q)?('<div class="btier">Tier set by '+_tq+' pcs of this garment across both cuts</div>'):'');
@@ -9851,7 +9833,7 @@ function pvCardHtml(ck,n){
   var o=null;try{o=overlayHtml(it,{decos:decos},col.name,'front',cols,pl);}catch(e){o=null;}
   var stage=o?('<div class="bstage"><img class="g" src="'+o.g+'" alt="'+esc(it.name)+'" loading="lazy" decoding="async">'+o.lg+'</div>')
              :('<img class="bimg" src="'+gurl(col.front)+'" alt="'+esc(it.name)+'" loading="lazy">');
-  var tiers=tierCols();
+  var tiers=(CFG.pricing&&CFG.pricing.cols)||[12,48,144];
   var u=tiers.map(function(t){try{return unitPrice(ck,decos,t);}catch(e){return 0;}});
   var gal=(it.gallery||[]).slice(0,3);
   var cuts=(it.wcols&&it.wcols.length)?'Men’s & ladies’ cuts':(it.unisex?'Unisex':'');
@@ -9869,7 +9851,7 @@ function pvCardHtml(ck,n){
       (brand?('<div class="pvbrand">'+esc(brand)+'</div>'):'')+
       '<h3 class="pvname">'+esc(it.name)+'</h3>'+
       '<div class="pvprice"><b>'+money(u[0])+'</b><span>/pc at '+tiers[0]+'+ · logo included</span>'+
-        '<i>'+tiers.slice(1).map(function(t,i){return (volAsk(t)?VOL_ASK_SHORT:money(u[i+1]))+' at '+t+'+';}).join(' · ')+'</i></div>'+
+        '<i>'+tiers.slice(1).map(function(t,i){return money(u[i+1])+' at '+t+'+';}).join(' · ')+'</i></div>'+
       incHtml(it,decos,'board')+
       bColourRowHtml(ck)+
       (why?('<p class="pvwhy">'+esc(why)+'</p>'):'')+
@@ -11019,7 +11001,6 @@ function orderText(c){c=c||{};
   lines.push('  '+styles+' styles · '+pieces+' pieces');
   lines.push('  Apparel: '+money(sub)+(setup>0?('   One-time setup: '+money(setup)):''));
   lines.push('  Estimated total: '+money(sub+setup));
-  try{var _vq=Object.keys(CART).filter(function(ck){var e=lineEconomics(ck);return e&&volQuoted(e.qty);}).length;if(_vq)lines.push('  VOLUME TIER: '+_vq+' line(s) at '+volTier()+'+ pcs shown at the 144+ price; volume pricing to be quoted by Steven.');}catch(_e){}
   lines.push('  Their board: '+boardUrl);
   lines.push('');
   if(c.name||c.email||c.company){lines.push('From:');
@@ -11074,7 +11055,7 @@ var JDP_ADDR='4490 Chesswood Drive, Unit 6, Toronto, ON';
 var QREF='';
 function quoteOpen(){var e=document.getElementById('qdoc');return !!(e&&e.classList.contains('on'));}
 function quoteLines(){
-  var tiers=tierCols();
+  var tiers=(CFG.pricing&&CFG.pricing.cols)||[12,48,144];
   return Object.keys(CART).map(function(ck){
     var e=lineEconomics(ck);if(!e)return null;
     var it=BYKEY[bkey(ck)],c=CART[ck];
@@ -11085,7 +11066,7 @@ function quoteLines(){
           '<img class="g" src="'+o.g+'" alt="" style="width:100%;height:100%;object-fit:contain">'+o.lg+'</span>';}catch(x){}}
     else{var pc=colInList(it.cols,c.colour)||it.cols[0]||{};
       thumb='<span class="qth" style="display:block;width:64px;height:64px;border-radius:8px;background:#fff url('+gurl(pc.front)+') center/contain no-repeat"></span>';}
-    var vol=e.promo?'':tiers.slice(1).map(function(t){return t+'+: '+(volAsk(t)?VOL_ASK_SHORT:money(unitPrice(ck,c.decos,t)));}).join(' · ');
+    var vol=e.promo?'':tiers.slice(1).map(function(t){return t+'+: '+money(unitPrice(ck,c.decos,t));}).join(' · ');
     /* within reach of the next price break: say how many more and what each would cost */
     var nud=null;
     if(!e.promo){var tq=tierQty(ck),nt=nextTier(tq);
@@ -11157,7 +11138,6 @@ function quoteDocHtml(){
       '<div class="qnotes"><b>Notes</b><ul>'+
         (isUS()?'<li>All prices are in US dollars (USD).</li>':'')+
         '<li>Your logo decoration is included in every unit price above.</li>'+
-        (L.some(function(l){return volQuoted(l.e.qty);})?'<li>Lines of '+volTier()+'+ pieces are shown at our 144+ price for now; Steven confirms volume pricing personally.</li>':'')+
         '<li>Nothing is produced until you approve a proof of your logo and this quote.</li>'+
         '<li>Taxes and freight are not included. Just Deals Promotions confirms this quote in writing — usually within '+esc(T.reply)+'.</li>'+
         '<li>Price-match: send us a lower written quote for the same job and we will match it. Every order carries our Logo Reprint Guarantee.</li>'+
