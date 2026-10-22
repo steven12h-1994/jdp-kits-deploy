@@ -1,0 +1,16 @@
+{
+  "generator": "client-app",
+  "version": "1792699656",
+  "slug": "red-wireless",
+  "client": "Red Wireless",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_da1212.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}
