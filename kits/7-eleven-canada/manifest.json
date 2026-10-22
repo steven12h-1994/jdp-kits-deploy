@@ -1,0 +1,18 @@
+{
+  "generator": "client-app",
+  "version": "1792692284",
+  "slug": "7-eleven-canada",
+  "client": "7-Eleven Canada",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_008061.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_ed1b2d.png",
+    "img/lg_full_f5821f.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}
