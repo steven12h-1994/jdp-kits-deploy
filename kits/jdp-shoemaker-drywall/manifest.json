@@ -1,0 +1,17 @@
+{
+  "generator": "client-app",
+  "version": "1792788945",
+  "slug": "jdp-shoemaker-drywall",
+  "client": "Shoemaker Drywall",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_153f36.png",
+    "img/lg_full_5b7a73.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}
