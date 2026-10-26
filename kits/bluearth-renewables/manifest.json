@@ -1,0 +1,18 @@
+{
+  "generator": "client-app",
+  "version": "1793047055",
+  "slug": "bluearth-renewables",
+  "client": "BluEarth Renewables",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_019acd.png",
+    "img/lg_full_02679a.png",
+    "img/lg_full_abe0f9.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}
