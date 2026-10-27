@@ -1,0 +1,17 @@
+{
+  "generator": "client-app",
+  "version": "1793137375",
+  "slug": "jdp-triple-m-metal",
+  "client": "Triple M Metal",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_007332.png",
+    "img/lg_full_79c020.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}
