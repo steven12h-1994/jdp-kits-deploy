@@ -1,0 +1,17 @@
+{
+  "generator": "client-app",
+  "version": "1793202841",
+  "slug": "rodan-energy",
+  "client": "Rodan Energy Solutions Inc.",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_0c2a6e.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_e31e3c.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}
