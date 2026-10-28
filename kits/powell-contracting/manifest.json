@@ -1,0 +1,16 @@
+{
+  "generator": "client-app",
+  "version": "1793197388",
+  "slug": "powell-contracting",
+  "client": "Powell Contracting",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_1a532a.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}
