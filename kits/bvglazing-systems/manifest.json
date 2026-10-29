@@ -1,0 +1,18 @@
+{
+  "generator": "client-app",
+  "version": "1793280086",
+  "slug": "bvglazing-systems",
+  "client": "BVGlazing Systems",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_1c2245.png",
+    "img/lg_full_1e71ab.png",
+    "img/lg_full_35bce1.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}
