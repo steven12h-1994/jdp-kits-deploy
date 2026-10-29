@@ -1,0 +1,18 @@
+{
+  "generator": "client-app",
+  "version": "1793294365",
+  "slug": "la-rocca-creative-cakes",
+  "client": "La Rocca Creative Cakes",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_3e1953.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_d91f3f.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_ffc830.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}
