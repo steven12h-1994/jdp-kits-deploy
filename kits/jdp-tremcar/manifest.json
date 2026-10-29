@@ -1,0 +1,17 @@
+{
+  "generator": "client-app",
+  "version": "1793306234",
+  "slug": "jdp-tremcar",
+  "client": "Tremcar",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_07428d.png",
+    "img/lg_full_5d85b7.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}
