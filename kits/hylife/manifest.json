@@ -1,0 +1,18 @@
+{
+  "generator": "client-app",
+  "version": "1793390825",
+  "slug": "hylife",
+  "client": "HyLife",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_156495.png",
+    "img/lg_full_7ebd44.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_e9d450.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}
