@@ -1,13 +1,14 @@
 {
   "generator": "client-app",
-  "version": "1792766423",
+  "version": "1793654834",
   "slug": "jdp-taylor-ford",
   "client": "Taylor Ford",
   "files": [
     "index.html",
     "client.json",
     "img/favicon.png",
-    "img/lg_full_30539c.png",
+    "img/lg_full_183870.png",
+    "img/lg_full_5483ac.png",
     "img/lg_full_brand.png",
     "img/lg_full_dark.png",
     "img/lg_full_white.png",
