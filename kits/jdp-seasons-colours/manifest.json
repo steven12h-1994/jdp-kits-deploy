@@ -1,0 +1,17 @@
+{
+  "generator": "client-app",
+  "version": "1793730615",
+  "slug": "jdp-seasons-colours",
+  "client": "Seasons Colours",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_1f376c.png",
+    "img/lg_full_477cbf.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}
