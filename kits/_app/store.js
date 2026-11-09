@@ -407,7 +407,28 @@ function cartQtyOf(k){
   return t;}
 function cartHasAny(k){return !!(CART[k]||CART[k+'#w']);}
 function cartAnyKey(k){return CART[k]?k:(CART[k+'#w']?(k+'#w'):k);}
-function vmOf(key){key=bkey(key);return (CFG.items||{})[key]||{colour:(BYKEY[key].cols[0]||{}).name,decos:[]};}
+/* THE OPENING COLOUR (audit 2026-11-09). The fleet sync stamps each store's default colour as the supplier's
+   FIRST colour, which is alphabetical: 409 of 731 products opened in Acid Green, Campus Purple or Athletic
+   Gold, and a one-tap "+ Quote" booked 12 of them in that colour. An enterprise uniform opens on a neutral --
+   navy when the brand is blue, otherwise black, then charcoal/grey -- and hi-vis opens on its fluorescent colour.
+   A colour a store was given on purpose (anything other than the supplier's first) is kept. */
+var NEU_RX=[/^black\b/i,/navy/i,/charcoal|graphite|carbon|iron|gunmetal|dark heather|heather charcoal/i,/^(grey|gray)|steel|granite|slate/i];
+function brandIsBlue(){try{var a=hex2rgbArr(CFG.accent||'');return a&&a[2]>a[0]+30&&a[2]>a[1];}catch(e){return false;}}
+function openColour(it){var cols=(it&&it.cols)||[];if(!cols.length)return '';
+  var nm=function(rx){for(var i=0;i<cols.length;i++)if(rx.test(cols[i].name||''))return cols[i].name;return '';};
+  if(it.layer==='promo')return cols[0].name;
+  if(it.csa||/hi-?vis/i.test(it.name||'')){return nm(/hi-?vis|fluor|safety (orange|yellow|green)|^orange|^yellow|lime/i)||cols[0].name;}
+  var order=brandIsBlue()?[NEU_RX[1],NEU_RX[0],NEU_RX[2],NEU_RX[3]]:NEU_RX;
+  for(var j=0;j<order.length;j++){var c=nm(order[j]);if(c)return c;}
+  return cols[0].name;}
+var VM_FIX={};
+function vmOf(key){key=bkey(key);var it=BYKEY[key],v=(CFG.items||{})[key];
+  if(!it)return v||{colour:'',decos:[]};
+  if(!v)return {colour:openColour(it),decos:[]};
+  if(VM_FIX[key])return VM_FIX[key];
+  var first=(it.cols&&it.cols[0]||{}).name;
+  if(!v.colour||v.colour===first){var oc=openColour(it);if(oc&&oc!==v.colour){VM_FIX[key]=Object.assign({},v,{colour:oc});return VM_FIX[key];}}
+  return v;}
 /* Volume tiers are set by how many of a GARMENT you order, not by how many of one cut. 30 men's
    plus 30 women's Avalante fleece is a 60-piece run on one blank with one decoration setup, so it
    prices at 48+. Each fit was being tiered on its own 30 and quoted at 12+ -- overcharging the
@@ -517,8 +538,11 @@ function mktHint(){
   /* bottom-left card, not a box pinned under the header (audit 2026-11-09: it covered the Categories menu, the search
      results and the quote header on every page until dismissed) */
   var nar=window.matchMedia&&window.matchMedia('(max-width:720px)').matches;
-  el.style.cssText='position:fixed;top:auto;left:'+(nar?'12px':'88px')+';right:auto;bottom:'+(nar?'96px':'20px')+';transform:none;max-width:'+(nar?'calc(100vw - 24px)':'380px')+';z-index:60';
+  var hc=document.documentElement.classList.contains('hascart');
+  el.style.cssText='position:fixed;top:auto;left:'+(nar?'12px':'88px')+';right:auto;bottom:'+(nar?(hc?'158px':'74px'):'20px')+';transform:none;max-width:'+(nar?'calc(100vw - 24px)':'380px')+';z-index:60';
   document.body.appendChild(el);jdpTrack('market_hint',{v:want});
+  /* a one-time nudge, not a fixture: it clears itself so it never sits over the quote bar or the rail */
+  setTimeout(function(){if(el.parentNode){try{done();}catch(e){el.remove();}}},12000);
   var done=function(){try{localStorage.setItem('jdp_mkt_hint_'+SLUG,'1');}catch(e){}el.remove();};
   el.querySelector('.mkthx').addEventListener('click',done);
   el.querySelector('.mkthgo').addEventListener('click',function(){done();setMarket(want==='US','hint');});
