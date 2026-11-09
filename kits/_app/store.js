@@ -1291,7 +1291,7 @@ var MEGA=[
   {id:'fr',name:'Flame-Resistant'},
   {id:'accessories',name:'Accessories'}
 ];
-var SHACKET_KEYS={st_bushwick:1,st_highlandplaid:1,st_oxide:1};
+var SHACKET_KEYS={st_bushwick:1,st_highlandplaid:1,st_oxide:1,ff_hvflannel:1};   // + ForceField's quilted plaid shirt jacket (2026-11-09)
 var MEGASUB={
   tops:['Polos','Shirts','Tees'],
   layers:['Quarter & Half-Zips','Crewnecks & Sweatshirts','Hoodies','Fleece'],   // bottoms live in the Pants & Joggers tab
@@ -1330,7 +1330,9 @@ var MEGASUB={
      two places and would still miss the bibs. Two buckets by GARMENT, brand-agnostic, plus the
      joggers and the shorts. Work pants lead because that is what the aisle is for. */
   bottoms:['Work Pants','Bibs & Coveralls','Joggers & Sweatpants','Shorts'],
-  fr:['FR Hoodies','FR Shirts','FR Tees','FR Pants','FR Jackets','FR Accessories'],
+  /* FR by garment, the order an FR program is specced in: the base layer (shirts, tees) first, then the warm layer, the
+     outer layers, pants, full-cover coveralls, and the FR hi-vis/rain gear worn over them (2026-11-09, ForceField line). */
+  fr:['FR Shirts','FR Tees','FR Hoodies','FR Jackets','FR Pants','FR Coveralls','FR Hi-Vis & Rain','FR Accessories'],
   /* Drinkware split by what it IS. 32 items in one flat "Drinkware" grid, half of them named
      "Easy Breezy" or "Shot Caller", is unnavigable -- a buyer looking for a water bottle had to open
      products one by one to find out which ones were bottles. Buyers shop drinkware by type first,
@@ -1343,9 +1345,20 @@ var MEGASUB={
 };
 // Hi-vis by NAME (any layer). Organized how safety buyers actually shop — vests lead (the #1 entry
 // hi-vis item), then shirts, warm mid-layers, insulated jackets, winter parkas, and rain/gear last.
+function classifyFR(n){
+  if(/coverall/.test(n))return {mega:'fr',sub:'FR Coveralls'};
+  if(/\bvest\b|rain|poncho/.test(n))return {mega:'fr',sub:'FR Hi-Vis & Rain'};
+  if(/hood/.test(n))return {mega:'fr',sub:'FR Hoodies'};
+  if(/\bpants?\b|cargo|dungaree|\bbib\b|overall/.test(n))return {mega:'fr',sub:'FR Pants'};
+  if(/balaclava|beanie|hood scarf|gaiter|glove/.test(n))return {mega:'fr',sub:'FR Accessories'};
+  if(/jacket|coat|parka/.test(n))return {mega:'fr',sub:'FR Jackets'};
+  if(/tee|t-shirt|henley/.test(n))return {mega:'fr',sub:'FR Tees'};
+  return {mega:'fr',sub:'FR Shirts'};
+}
 function classifyHivis(n){
   if(/rain|poncho|\bpants?\b|overall|bib|coverall|gaiter/.test(n))return {mega:'hivis',sub:'Rain & Gear'};
   if(/parka/.test(n))return {mega:'hivis',sub:'Winter Parkas'};
+  if(/shirt jacket|shacket/.test(n))return {mega:'hivis',sub:'Hi-Vis Jackets'};
   if(/vest/.test(n))return {mega:'hivis',sub:'Safety Vests'};
   if(/hood|sweatshirt|sweater|crewneck|fleece|pullover/.test(n))return {mega:'hivis',sub:'Sweatshirts & Hoodies'};
   if(/tee|t-shirt|shirt|polo/.test(n))return {mega:'hivis',sub:'Hi-Vis T-Shirts'};
@@ -1426,7 +1439,12 @@ function crossAlso(it,c){
     out.push({mega:'bottoms',sub:/coverall|bib|overall/.test(n)?'Bibs & Coveralls':'Work Pants'});
   // A vest keeps its brand home (Carhartt, Rugged Wear) or its PPE home (Hi-Vis) AND appears in the
   // Vests category, so neither shopper loses it: one browses by brand, the other by garment.
-  if(c.mega!=='vests'&&/vest/.test(n))out.push({mega:'vests',sub:vestSub(n)});
+  /* ONE FR AISLE (2026-11-09). Carhartt FR keeps its brand shelf and also stands in Flame-Resistant, so a buyer specifying
+     an FR program sees every FR garment we carry in one place, by garment. */
+  if(c.mega==='carhartt'&&c.sub==='Flame-Resistant'){var fr=classifyFR(n);out.push(fr);}
+  /* a hi-vis bib or overall is still a pair of work bottoms: it also stands in Pants > Bibs & Coveralls */
+  if(c.mega==='hivis'&&/\bbib\b|overall|coverall/.test(n))out.push({mega:'bottoms',sub:'Bibs & Coveralls'});
+  if(c.mega!=='vests'&&c.mega!=='fr'&&/vest/.test(n))out.push({mega:'vests',sub:vestSub(n)});
   /* Carhartt keeps its brand aisle; its bags ALSO stand in the Bags aisle. Dog gear and throws share
      Carhartt's "Bags & Accessories" shelf but are not bags, so the test is the bag itself. */
   if(c.mega!=='bags'&&isBag(it,n)&&!/\bdog\b|leash|collar|throw|blanket/.test(n))out.push({mega:'bags',sub:bagSub(n)});
@@ -1534,6 +1552,10 @@ function classify(it){
   // Hi-Vis T-Shirts, and it deliberately does NOT use 'tops': worlds filter by mega and 'tops' is
   // office-only, so a uniform shirt routed there would never reach the crews who actually wear it.
   if(_brand.indexOf('red kap')>=0||_brand.indexOf('dickies')>=0||/work shirt|uniform shirt/.test(n))return classifyWorkShirt(n);
+  /* FLAME-RESISTANT BEFORE HI-VIS (2026-11-09). Most FR workwear also carries reflective tape, and the old order filed an
+     "Inherent FR ... Hi-Vis Safety Tee" under Hi-Vis T-Shirts, where an FR buyer never looks and a standard hi-vis buyer
+     might pick it up by mistake. An FR garment is bought against a hazard assessment first, so it lives in the FR aisle. */
+  if(/\bfr\b|flame[- ]resistant|fire[- ]resistant/.test(n))return classifyFR(n);
   if(/hi-?vis|safety/.test(n))return classifyHivis(n);           // hi-vis items (any brand/layer) -> Hi-Vis & Safety
   if(layer==='bags')return {mega:'bags',sub:bagSub(n)};      // every Stormtech / Nike bag -> Bags
   if(layer==='field')return classifyHivis(n);   // all Ground Force traffic gear routes by garment type
@@ -1541,6 +1563,7 @@ function classify(it){
   // layers (zip/sweatshirt/hood) before "shirt" so "…Sweatshirt" doesn't read as a shirt.
   // Flame-Resistant gets its own tab — route FR items here first (before bottoms/headwear/garment rules).
   if(/\bfr\b|flame[- ]resistant/.test(n)){
+    return classifyFR(n);
     if(/hood/.test(n))return {mega:'fr',sub:'FR Hoodies'};
     if(/\bpant\b|cargo|dungaree/.test(n))return {mega:'fr',sub:'FR Pants'};
     if(/balaclava|beanie|hood scarf|gaiter/.test(n))return {mega:'fr',sub:'FR Accessories'};
@@ -3926,7 +3949,7 @@ ca:{
 'drivers|4|1':['cs_l01115','cs_l06000','st_magellan','A heavy-duty 3-in-1 bomber: sealed shell and warm inner jacket, at a length made for climbing in and out of cabs.'],
 'warehouse|1|0':['cs_l04200','st_nautilusshell','cs_l07200','Light and stretchy, so it doesn’t overheat indoors between quick trips out.'],
 'warehouse|2|0':['softshell','cs_l07240','cs_l07200','A simple fleece-backed softshell for quick trips outside — warm enough on the dock, not too warm inside.'],
-'warehouse|3|0':['cs_l03400',null,'cs_l03170','A straightforward insulated jacket for the loading dock, with a detachable hood for indoor stretches.'],
+'warehouse|3|0':['cs_l03400','cq_elevation','cs_l03170','A straightforward insulated jacket for the loading dock, with a detachable hood for indoor stretches.'],
 'warehouse|4|0':['cs_l01110','cs_l01025','cs_l01115','Long cold stretches on the dock or in the yard: heavy-duty Thinsulate in a bomber cut that still lets them move.'],
 'warehouse|1|1':['cs_l02185',null,'st_scirocco','A seam-sealed rain shell for dock runs in the rain, light enough to leave on indoors.'],
 'warehouse|2|1':['cs_l02185',null,'st_scirocco','A seam-sealed shell over a hoodie: dry on the dock, not too warm inside.'],
@@ -4508,19 +4531,19 @@ us:{
 'woven|events':{p:'cq_hustle_shirt',ang:'A cotton / recycled-poly easy-care button-down at an event-friendly price.',alts:[['cbc_skyline_shirt','Step up','Cutter & Buck Skyline — recycled stretch end-on-end'],['st_sonora_shirt','Modern stretch','Sonora — stretch knit button-up']]}}};
 var CUR_LAYERS={
 ca:{
-'office|1':{p:'cbc_coastline_qz',ang:'A lightweight recycled-performance quarter-zip with UPF 50+ — layers cleanly over a polo.',alts:[['cbc_traverse_qz','Premium stretch','Cutter & Buck Traverse — recycled stretch quarter-zip'],['st_treeline','Warmer knit','Treeline — 270 gsm stretch quarter-zip']]},
+'office|1':{p:'cbc_coastline_qz',ang:'A lightweight recycled-performance quarter-zip with UPF 50+ — layers cleanly over a polo.',alts:[['cbc_traverse_qz','Premium stretch','Cutter & Buck Traverse — recycled stretch quarter-zip'],['st_montereyqz','Value','Monterey — 145 gsm H2X-DRY piqué quarter-zip, UPF 40+']]},
 'office|2':{p:'st_treeline',ang:'A 270 gsm stretch quarter-zip that wicks — the everyday office layer.',alts:[['cbc_traverse_qz','Premium brand','Cutter & Buck Traverse — recycled stretch quarter-zip'],['flux','Value','Flux — 280 gsm cotton-blend quarter-zip']]},
-'office|3':{p:'st_avalanteqz',ang:'320 gsm recycled fleece in a quarter-zip — warm enough to wear on its own.',alts:[['st_avalante','Full-zip','Avalante — the same fleece as a full-zip jacket'],['cs_l00602','Value','Fairmount — 330 gsm cotton-rich quarter-zip']]},
+'office|3':{p:'st_avalanteqz',ang:'320 gsm recycled fleece in a quarter-zip — warm enough to wear on its own.',alts:[['rw_tremblant','Made in Canada','Redwood Classics Tremblant — 16 oz fleece mock-neck zip, made in Canada'],['cs_l00602','Value','Fairmount — 330 gsm cotton-rich quarter-zip']]},
 'mixed|1':{p:'st_stocktonhoody',ang:'A 240 gsm fleece pullover hoodie with UPF 50+ — light enough to wear under a jacket.',alts:[['vault','Value','Vault — 280 gsm cotton-blend hoodie'],['cbc_coastline_qz','Quarter-zip','Cutter & Buck Coastline — lightweight quarter-zip']]},
 'mixed|2':{p:'surfer',ang:'A 280 gsm full-zip hoodie — on and off all day without a fight.',alts:[['st_avalante','Premium fleece','Avalante — 320 gsm recycled fleece jacket'],['vault','Pullover','Vault — 280 gsm pullover hoodie']]},
 'mixed|3':{p:'forge',ang:'440 gsm heavyweight fleece — a hoodie that is warm on its own.',alts:[['repel','Water-repellent','Repel — 440 gsm with a water-repellent finish'],['st_avalante','Fleece jacket','Avalante — 320 gsm full-zip fleece']]},
 'outdoor|1':{p:'vault',ang:'A 280 gsm cotton-blend pullover hoodie — the layer crews actually wear.',alts:[['st_stocktonhoody','Step up','Stockton — fleece hoody, UPF 50+'],['crew','Crewneck','Crew — 280 gsm crewneck sweatshirt']]},
 'outdoor|2':{p:'vault',ang:'A 280 gsm cotton-blend pullover hoodie — the layer crews actually wear.',alts:[['repel','Water-repellent','Repel — 440 gsm water-repellent hoodie'],['surfer','Full-zip','Surfer — 280 gsm full-zip hoodie']]},
-'outdoor|3':{p:'forge',ang:'440 gsm heavyweight fleece — warm on its own on cold mornings.',alts:[['repel','Water-repellent','Repel — 440 gsm with a water-repellent finish'],['foundry','Crewneck','Foundry — 440 gsm heavyweight crewneck']]},
+'outdoor|3':{p:'forge',ang:'440 gsm heavyweight fleece — warm on its own on cold mornings.',alts:[['repel','Water-repellent','Repel — 440 gsm with a water-repellent finish'],['rw_hudson','Made in Canada','Redwood Classics Hudson — 16 oz fleece hoodie, made in Canada']]},
 'outer':{p:'repel',ang:'440 gsm fleece with a PFAS-free water-repellent finish — made to be the outer layer.',alts:[['cs_l00880','Fortress','Fortress — 440 gsm water-repellent pullover hoodie'],['forge','Heavyweight','Forge — 440 gsm heavyweight hoodie']]},
 'gift|1':{p:'cbc_coastline_qz',ang:'A lightweight Cutter & Buck quarter-zip with UPF 50+ — a gift that gets worn.',alts:[['cb_roamqz','Premium soft-knit','Cutter & Buck Roam — soft-knit quarter-zip jacket'],['st_treeline','Stormtech','Treeline — 270 gsm stretch quarter-zip']]},
 'gift|2':{p:'cbc_traverse_qz',ang:'Cutter & Buck Traverse: a recycled-stretch quarter-zip people keep reaching for.',alts:[['cb_roamqz','Premium soft-knit','Cutter & Buck Roam — water-repellent soft-knit'],['st_treeline','Value','Treeline — 270 gsm stretch quarter-zip']]},
-'gift|3':{p:'st_avalante',ang:'A 320 gsm recycled-fleece full-zip — the warm, keep-forever welcome gift.',alts:[['st_avalanteqz','Quarter-zip','Avalante — the same fleece as a quarter-zip'],['cbc_roam_hoodie','Premium hoodie','Cutter & Buck Roam — water-repellent hoodie']]}},
+'gift|3':{p:'st_avalante',ang:'A 320 gsm recycled-fleece full-zip — the warm, keep-forever welcome gift.',alts:[['rw_peregrine','Made in Canada','Redwood Classics Peregrine — 20 oz French terry full-zip, made in Canada'],['cbc_roam_hoodie','Premium hoodie','Cutter & Buck Roam — water-repellent hoodie']]}},
 us:{
 'office|1':{p:'cbc_coastline_qz',ang:'A lightweight recycled-performance quarter-zip with UPF 50+ — layers cleanly over a polo.',alts:[['cbc_traverse_qz','Premium stretch','Cutter & Buck Traverse — recycled stretch quarter-zip'],['cq_ice_hz','Value','Clique Ice — piqué tech half-zip']]},
 'office|2':{p:'st_treeline',ang:'A 270 gsm stretch quarter-zip that wicks — the everyday office layer.',alts:[['cbc_adapt_heather_qz','Premium brand','Cutter & Buck Adapt — heathered quarter-zip'],['cq_summit_hz','Value fleece','Clique Summit — performance fleece half-zip']]},
@@ -4539,16 +4562,16 @@ var CUR_VESTS={
 ca:{
 'office|in':{p:'st_avalantevest',ang:'A full-zip fleece vest — soft and breathable for indoors all day.',alts:[['cq_trail_vest','Softshell','Clique Trail — recycled stretch softshell vest'],['cq_summit_vest','Value','Clique Summit — performance fleece vest']]},
 'office|over':{p:'cq_equinox_vest',ang:'An insulated softshell vest — blocks the wind and still looks sharp.',alts:[['cbc_stealth_vest','Premium','Cutter & Buck Stealth — hybrid quilted windbreaker vest'],['st_sierravest','Quilted','Sierra — quilted vest']]},
-'office|cold':{p:'st_stavangervest',ang:'A water-repellent quilted vest with real insulation — warmth with a clean, corporate look.',alts:[['cbc_evoke_vest','Premium brand','Cutter & Buck Evoke — puffer vest'],['cq_hudson_vest','Value','Clique Hudson — insulated puffer vest']]},
+'office|cold':{p:'st_stavangervest',ang:'A water-repellent quilted vest with real insulation — warmth with a clean, corporate look.',alts:[['cbc_evoke_vest','Premium brand','Cutter & Buck Evoke — puffer vest'],['cq_elevation_vest','Value','Clique Elevation — recycled insulated puffer vest']]},
 'mixed|in':{p:'cq_trail_vest',ang:'A recycled stretch softshell vest — moves with you and blocks a draft at the loading door.',alts:[['st_avalantevest','Fleece','Avalante — full-zip fleece vest'],['cq_summit_vest','Value','Clique Summit — performance fleece vest']]},
-'mixed|over':{p:'vest',ang:'Stormtech’s quilted vest — warmth over a hoodie with the arms free.',alts:[['cq_equinox_vest','Softshell','Clique Equinox — insulated softshell vest'],['cq_hudson_vest','Value','Clique Hudson — insulated puffer vest']]},
-'mixed|cold':{p:'st_basecampvest',ang:'A quilted vest built for real cold — the core stays warm, the arms stay free.',alts:[['st_stavangervest','Water-repellent','Stavanger — water-repellent quilted vest'],['cq_hudson_vest','Value','Clique Hudson — insulated puffer vest']]},
+'mixed|over':{p:'vest',ang:'Stormtech’s quilted vest — warmth over a hoodie with the arms free.',alts:[['cq_equinox_vest','Softshell','Clique Equinox — insulated softshell vest'],['cq_elevation_vest','Value','Clique Elevation — recycled insulated puffer vest']]},
+'mixed|cold':{p:'st_basecampvest',ang:'A quilted vest built for real cold — the core stays warm, the arms stay free.',alts:[['st_stavangervest','Water-repellent','Stavanger — water-repellent quilted vest'],['cq_elevation_vest','Value','Clique Elevation — recycled insulated puffer vest']]},
 'outdoor|in':{p:'cq_trail_vest',ang:'A recycled stretch softshell vest — tough enough for the shop floor.',alts:[['cs_l00915','Canvas','Ram — cotton canvas with sherpa lining'],['cq_summit_vest','Value','Clique Summit — performance fleece vest']]},
 'outdoor|over':{p:'cs_l00915',ang:'Cotton canvas with a sherpa lining — a work vest built for the yard.',alts:[['vest','Quilted','Stormtech — quilted vest'],['cq_equinox_vest','Softshell','Clique Equinox — insulated softshell vest']]},
-'outdoor|cold':{p:'st_basecampvest',ang:'A quilted vest built for real cold — the core stays warm, the arms stay free.',alts:[['cs_l00915','Canvas','Ram — cotton canvas with sherpa lining'],['cq_hudson_vest','Value','Clique Hudson — insulated puffer vest']]},
+'outdoor|cold':{p:'st_basecampvest',ang:'A quilted vest built for real cold — the core stays warm, the arms stay free.',alts:[['cs_l00915','Canvas','Ram — cotton canvas with sherpa lining'],['cq_elevation_vest','Value','Clique Elevation — recycled insulated puffer vest']]},
 'gift|in':{p:'cbc_charter_vest',ang:'A Cutter & Buck packable vest — light, easy to wear, and a brand people know.',alts:[['st_avalantevest','Fleece','Avalante — full-zip fleece vest'],['cq_trail_vest','Value','Clique Trail — recycled stretch softshell vest']]},
 'gift|over':{p:'cbc_stealth_vest',ang:'Cutter & Buck Stealth: a hybrid quilted windbreaker vest that reads premium.',alts:[['cq_equinox_vest','Softshell','Clique Equinox — insulated softshell vest'],['st_sierravest','Value','Sierra — quilted vest']]},
-'gift|cold':{p:'cbc_evoke_vest',ang:'The Cutter & Buck Evoke puffer — the premium, keep-forever vest.',alts:[['st_stavangervest','Stormtech','Stavanger — water-repellent quilted vest'],['cq_hudson_vest','Value','Clique Hudson — insulated puffer vest']]}},
+'gift|cold':{p:'cbc_evoke_vest',ang:'The Cutter & Buck Evoke puffer — the premium, keep-forever vest.',alts:[['st_stavangervest','Stormtech','Stavanger — water-repellent quilted vest'],['cq_elevation_vest','Value','Clique Elevation — recycled insulated puffer vest']]}},
 us:{
 'office|in':{p:'st_avalantevest',ang:'A full-zip fleece vest — soft and breathable for indoors all day.',alts:[['cq_trail_vest','Softshell','Clique Trail — recycled stretch softshell vest'],['cq_summit_vest','Value','Clique Summit — performance fleece vest']]},
 'office|over':{p:'cq_equinox_vest',ang:'An insulated softshell vest — blocks the wind and still looks sharp.',alts:[['cbc_stealth_vest','Premium','Cutter & Buck Stealth — hybrid quilted windbreaker vest'],['st_sierravest','Quilted','Sierra — quilted vest']]},
@@ -10565,10 +10588,28 @@ var _caProgramRaw0=caProgramRaw;
 caProgramRaw=function(cfg,A){var P=_caProgramRaw0(cfg,A);if(!caFrOn(cfg,A))return P;var R=FR_ROLES[cfg.id];
   P=P.map(function(x){if(x.none||R.indexOf(x.role)<0)return x;return Object.assign({},x,{note:(x.note?(x.note+' '):'')+FR_NOTE});});
   P.push({role:'fr',none:true,fr:true});return P;};
+/* THE FR ROW RECOMMENDS (2026-11-09). Until now the store's only FR garments were Carhartt, which the advisor does not
+   recommend, so this row could only say "ask Steven". With ForceField's arc-rated range in the catalogue it names the
+   piece for this aisle -- the arc rating restated from the maker's own page -- one tap from the product with the
+   buyer's logo, and still sends anything beyond it (a higher arc rating, FR winter parkas) to Steven. */
+var FR_PICKS={tops:['ff_frtee','ff_frshirt'],layers:['ff_frhoodie','ff_frfleece'],jackets:['ff_frhoodie','ff_frrain'],
+  vests:['ff_frvest','ff_frhoodie'],hivis:['ff_frvest','ff_frtee'],pants:['ff_frpant','ff_frcoverall'],_:['ff_frtee','ff_frhoodie']};
+var FR_PICKNOTE={jackets:'For winter FR work, layer the FR hoodie under an FR-rated parka — we source the parka to your arc rating.',
+  hivis:'The FR vest is an outer layer: it goes over arc-rated FR clothing, never over standard polyester.'};
+function frRating(it){var f=it.fr||{};
+  if(f.atpv)return 'Arc rated ATPV '+f.atpv+' cal/cm²'+(f.cat?(' · CAT '+f.cat):'')+(f.inherent?' · inherent FR':'');
+  if(f.limited)return 'FR outer layer — wear it over arc-rated FR clothing';return 'Flame-resistant';}
 function caFrRowHtml(cfg){var fr=(typeof CATS!=='undefined')&&CATS.indexOf('fr')>=0;
+  var picks=(FR_PICKS[cfg.id]||FR_PICKS._).filter(function(k){return BYKEY[k]&&caRecOk(k);}).slice(0,2),q=moq();
+  var tiles=picks.length?('<div class="frpicks">'+picks.map(function(k){var it=BYKEY[k],u=caUnit(k,q);
+      return '<button type="button" class="frpick" data-xpopen="'+esc(k)+'" aria-label="See '+esc(it.name)+' with your logo">'+
+        '<span class="cpimg frpimg">'+caThumb(k)+'</span><span class="frptx"><b>'+esc(caShort(it.name))+'</b><i>'+esc(frRating(it))+'</i>'+
+        '<em>'+(u?('from '+money(u)+'/pc'):'')+(hasLadies(it)?' · men’s & women’s cuts':'')+'</em></span></button>';}).join('')+'</div>'):'';
+  var nt=FR_PICKNOTE[cfg.id]||'';
   return '<div class="cprow none frrow" data-row="fr"><div class="cpmain"><span class="cpfor">Crews who need FR</span>'+
-    '<b class="cpname">Flame-resistant, rated to your hazard</b><p class="cpwhy">'+esc(FR_TXT[cfg.id]||FR_TXT._)+'</p>'+
-    '<div class="frbtns">'+(fr?'<button type="button" class="jaall" data-cafr="1">See flame-resistant gear →</button>':'')+
+    '<b class="cpname">'+(picks.length?'Our FR pick for these crews':'Flame-resistant, rated to your hazard')+'</b><p class="cpwhy">'+esc(FR_TXT[cfg.id]||FR_TXT._)+'</p>'+
+    tiles+(nt?('<p class="cpnote">'+esc(nt)+'</p>'):'')+
+    '<div class="frbtns">'+(fr?'<button type="button" class="jaall" data-cafr="1">See all flame-resistant gear →</button>':'')+
     '<button type="button" class="jalink" data-caask="1">Have Steven spec an FR program</button></div></div></div>';}
 var _caTakeHtml0=caTakeHtml;
 caTakeHtml=function(cfg,A,P,brief){var h=_caTakeHtml0(cfg,A,P,brief),l='';if(!h||!l)return h;
