@@ -3268,11 +3268,12 @@ function caQs(cfg,A){
 }
 /* HONEST COUNTS (audit 2026-11-09: "1 of 2" ended at "3 of 3"). A follow-up question that an unanswered earlier
    question can still switch on is counted from the start, so the promise is "two or three", never a surprise. */
-function caQmax(cfg,A){var n=caQs(cfg,A).length;
-  (cfg.qs||[]).forEach(function(q){if(!q.when)return;try{if(q.when(A))return;}catch(e){return;}
-    var could=(cfg.qs||[]).some(function(p){if(p===q)return false;var v=A[p.id];if(p.multi?(v&&v.length):(v!=null&&v!==''))return false;
-      return (p.opts||[]).some(function(o){var B=Object.assign({},A);B[p.id]=p.multi?[String(o.id)]:String(o.id);try{return !!q.when(B);}catch(e){return false;}});});
-    if(could)n++;});
+function caQmax(cfg,A){var n=caQs(cfg,Object.assign({},A)).length;
+  /* the longest path from here: try each answer to each open question once (follow-ups are mutually exclusive,
+     e.g. the vest snag question vs the weather question, so they must not be added together) */
+  (cfg.qs||[]).forEach(function(p){var v=A[p.id];if(p.multi?(v&&v.length):(v!=null&&v!==''))return;
+    (p.opts||[]).forEach(function(o){var B=Object.assign({},A);B[p.id]=p.multi?[String(o.id)]:String(o.id);
+      try{n=Math.max(n,caQs(cfg,B).length);}catch(e){}});});
   return n;}
 function caQword(cfg,A){var n=caQs(cfg,A).length,m=caQmax(cfg,A);return m>n?(nwords(n)+' or '+nwords(m).toLowerCase()):nwords(n);}
 function caReady(cfg,A){return caQs(cfg,A).every(function(q){var v=A[q.id];return q.multi?(v&&v.length):(v!=null&&v!=='');});}
@@ -4218,7 +4219,8 @@ CADV.push({id:'hivis',tile:'The CSA class and piece each crew needs',one:'piece'
       {id:'snag',q:'Near machinery or anything a vest could catch on?',short:'Snag hazards',def:'1',when:function(A){return A.kind==='vest';},opts:[{id:'1',lab:'Yes',sub:'Conveyors, equipment, fencing'},{id:'0',lab:'No',sub:'Open ground, nothing to snag'}]},
       {id:'season',q:'What weather do they work in?',short:'The weather',when:function(A){return A.kind&&A.kind!=='vest';},opts:[{id:'hot',lab:'Hot summer',sub:'Light and breathable'},{id:'mild',lab:'Spring & fall',sub:'Cool mornings'},{id:'cold',lab:'Cold winter',sub:'Insulated'},{id:'wet',lab:'Rain is part of the job',sub:'Waterproof'}]}],
   fact:function(it,A){var c=caClass(it),n={vest:'safety vest',tee:'hi-vis shirt',layer:'hi-vis layer',jacket:'hi-vis jacket'}[A.kind||'vest'],nm=it.name||'';
-    return caArt((c?('CSA Class '+c+' '):'CSA Z96 ')+n)+(/tear-?away|breakaway/i.test(nm)?' that tears away if it snags':(/long[- ]sleeve/i.test(nm)?' with long sleeves':''));},
+    return caArt((c?('CSA Class '+c+' '):'CSA Z96 ')+n)+(/tear-?away|breakaway/i.test(nm)?' that tears away if it snags':(/long[- ]sleeve/i.test(nm)?' with long sleeves':''))+
+      (((A&&A.who||[]).indexOf('night')>=0&&c!==3)?'. For night and low-light work, pair it with hi-vis pants or bibs to reach Class 3':'');},
   pool:function(A){var K=A.kind||'vest';
     if(K==='vest')return caKeys([['hivis','Safety Vests']]);
     if(K==='tee')return caKeys([['hivis','Hi-Vis T-Shirts']]);
@@ -4490,7 +4492,7 @@ CADV.push({id:'fr',tile:'Arc rating, layer and weather — the FR piece each cre
       {id:'kind',q:'What are you buying?',short:'What you need',opts:[{id:'shirt',lab:'FR shirts & tees',sub:'The base layer, worn all day'},{id:'layer',lab:'FR hoodies',sub:'The warm layer'},
         {id:'outer',lab:'Coveralls, vests & rainwear',sub:'Full cover and outer layers'},{id:'pants',lab:'FR pants',sub:'Cargo work pants'}]},
       {id:'hv',q:'Do they also need hi-vis?',short:'Hi-vis',opts:[{id:'1',lab:'Yes — FR hi-vis',sub:'Near traffic or equipment'},{id:'0',lab:'No',sub:'Plant or shop only'}]}],
-  fact:function(it){var r=frRate(it);return r?('FR rated ATPV '+r+' cal/cm²'):'flame-resistant outer layer';},
+  fact:function(it,A){var r=frRate(it);return (r?('FR rated ATPV '+r+' cal/cm²'):'flame-resistant outer layer')+((A&&A.hv==='0'&&it.csa)?' — the closest match: nothing without hi-vis in this range meets your rating, so this one is also hi-vis':'');},
   pool:function(A){var K=A.kind;var subs={shirt:['FR Shirts','FR Tees'],layer:['FR Hoodies'],outer:['FR Coveralls','FR Hi-Vis & Rain','FR Jackets'],pants:['FR Pants']};
     var L=K?subs[K]:['FR Shirts','FR Tees','FR Hoodies','FR Coveralls','FR Hi-Vis & Rain','FR Jackets','FR Pants'];
     return caKeys(L.map(function(s){return ['fr',s];})).filter(function(k){var it=BYKEY[k];return !!(it&&it.fr);});},
@@ -4500,13 +4502,14 @@ CADV.push({id:'fr',tile:'Arc rating, layer and weather — the FR piece each cre
     if(!need&&lim&&role==='elec')return null;   // arc-flash crews: arc-rated pieces only
     s+=r?Math.min(20,r):0; if(need)s-=Math.max(0,r-need-8);   // meet the number without paying for far more than it
     if((it.fr||{}).inherent)s+=8;
-    if(A.hv==='1'){if(!it.csa)return null;s+=6;}else if(A.hv==='0'&&it.csa)return null;
+    if(A.hv==='1'){if(!it.csa)return null;s+=6;}else if(A.hv==='0'&&it.csa)s-=60;   // plain FR always wins; hi-vis FR only when nothing plain is rated high enough, and it says so
     if(role==='hot'&&/cotton|duck/.test(n+' '+caFab(it)))s+=10;
     if(role==='cold'){if(/insulat|deep freeze|fleece|12 oz|hood/.test(n))s+=14;}
     if(role==='oil'&&/coverall/.test(n))s+=6;
     if(hasLadies(it))s+=6;
     return s;},
   why:function(it,A,role){var out=[],f=it.fr||{},r=frRate(it);
+    if(A.hv==='0'&&it.csa)out.push('Also hi-vis: no plain FR piece here meets your rating — ask Steven to source one');
     if(r)out.push('Arc rated ATPV '+r+' cal/cm²'+(f.cat?(' · CAT '+f.cat):'')+(A.atpv&&A.atpv!=='ff'?(' — meets your '+A.atpv+'+ cal/cm²'):''));
     else if(f.limited)out.push('FR outer layer — wear it over arc-rated FR clothing');
     out.push(f.inherent?'Inherent FR — the protection is in the fibre and cannot wash out':'FR-treated — launder to the care label to keep the rating');
