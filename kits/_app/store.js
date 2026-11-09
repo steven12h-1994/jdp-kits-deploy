@@ -407,11 +407,10 @@ function cartQtyOf(k){
   return t;}
 function cartHasAny(k){return !!(CART[k]||CART[k+'#w']);}
 function cartAnyKey(k){return CART[k]?k:(CART[k+'#w']?(k+'#w'):k);}
-/* THE OPENING COLOUR (audit 2026-11-09). The fleet sync stamps each store's default colour as the supplier's
-   FIRST colour, which is alphabetical: 409 of 731 products opened in Acid Green, Campus Purple or Athletic
-   Gold, and a one-tap "+ Quote" booked 12 of them in that colour. An enterprise uniform opens on a neutral --
-   navy when the brand is blue, otherwise black, then charcoal/grey -- and hi-vis opens on its fluorescent colour.
-   A colour a store was given on purpose (anything other than the supplier's first) is kept. */
+/* THE OPENING COLOUR FOR THE FIELD RANGE (audit 2026-11-09). The fleet sync stamps the supplier's FIRST colour,
+   which is alphabetical, so a dozen hi-vis pieces opened in Black (whose class is one lower than the fluorescent
+   colourway). Hi-vis now opens on its fluorescent colour; workwear on navy (blue brands) or black. Other layers
+   are left to assignColourways(). A colour a store was given on purpose is kept. */
 var NEU_RX=[/^black\b/i,/navy/i,/charcoal|graphite|carbon|iron|gunmetal|dark heather|heather charcoal/i,/^(grey|gray)|steel|granite|slate/i];
 function brandIsBlue(){try{var a=hex2rgbArr(CFG.accent||'');return a&&a[2]>a[0]+30&&a[2]>a[1];}catch(e){return false;}}
 function openColour(it){var cols=(it&&it.cols)||[];if(!cols.length)return '';
@@ -424,6 +423,9 @@ function openColour(it){var cols=(it&&it.cols)||[];if(!cols.length)return '';
 var VM_FIX={};
 function vmOf(key){key=bkey(key);var it=BYKEY[key],v=(CFG.items||{})[key];
   if(!it)return v||{colour:'',decos:[]};
+  /* office, premium, bags and promo are re-picked at boot by assignColourways() (brand hues + assortment, Steven
+     2026-08-19); only the field range keeps the supplier's first colour, so only it is corrected here */
+  if(it.layer!=='field')return v||{colour:(it.cols[0]||{}).name,decos:[]};
   if(!v)return {colour:openColour(it),decos:[]};
   if(VM_FIX[key])return VM_FIX[key];
   var first=(it.cols&&it.cols[0]||{}).name;
