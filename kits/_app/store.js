@@ -1872,7 +1872,9 @@ function sortList(list){
    the evidence. Where a maker states nothing, the card says nothing. */
 var WARM_LAB={winter:'Winter weight', insulated:'Insulated', uninsulated:'Uninsulated shell'};
 var WARM_ORDER=['winter','insulated','uninsulated'];
-function warmOf(it){var w=it&&it.warm;return (w&&w.band)?w:null;}
+function warmOf(it){var w=it&&it.warm;if(!w||!w.band)return null;
+  if(w.band==='uninsulated'&&!/jacket|shell|vest|parka|coat|anorak|windbreaker|wind ?shirt|shacket|soft ?shell|rain/i.test(it.name||''))return null;
+  return w;}
 function warmBand(key){var it=BYKEY[key];var w=warmOf(it);return w?w.band:'';}
 /* The strongest fact the maker actually publishes, shortest first so the card stays one line:
    a named insulation with its weight beats a weight alone, which beats a waterproof rating. */
@@ -2976,7 +2978,7 @@ var XPERT={
   'Polos':{a:'One polo for everyone is the easiest program to run — pick a fabric, then a colour.',p:[
     ['st_nevadass','The one we’d put on everybody — office, warehouse and site.'],['c3_88181','Outfitting a large crew on a tight budget.'],['cbc_advantage_polo','Sales, management and anyone in front of clients.']]},
   'Tees':{a:'Cotton for everyday and events; heavier weights hold their shape longer.',p:[
-    ['cs_s05670','A heavier everyday tee that still looks right after many washes.'],['crewtee','Events, giveaways and big crews.'],['nk_tee','A brand your team will actually choose to wear.']]},
+    ['cs_s05670','A heavier everyday tee that still looks right after many washes.'],['crewtee','Events, giveaways and big crews.'],['cbc_coastline_tee','A soft double-peached tee for client-facing staff.']]},
   'Shirts':{a:'Twill reads office; industrial work shirts are built for laundering and the shop floor.',p:[
     ['shirt','A clean button-up for office and front-desk staff.'],['ashton','Short sleeves for warm shops and summer.'],['st_logan','A modern snap-front for supervisors and client visits.']]},
   'Quarter & Half-Zips':{a:'The quarter-zip is the corporate default — it layers over a polo and under a jacket.',p:[
@@ -2999,7 +3001,7 @@ var XPERT={
     ['st_vortex','A 3-in-1 parka that covers the whole year.'],['cs_l01080','Deep-winter warmth at the best price.'],['st_denali','The warmest parka we sell — for outdoor crews and milestone gifts.']]},
   'Quilted & Puffer':{a:'Vests stay on indoors, so your logo is seen all day.',p:[
     ['vest','The vest we’d put on everybody.'],['chill','A whole team on a budget.'],['st_stavangervest','A warmer, packable vest for outdoor staff.']]},
-  'Fleece & Softshell':{a:'',p:[['st_avalantevest','A soft fleece vest for office layering.'],['cs_l00915','Sherpa-lined canvas for the yard.'],['ch_104277','Carhartt’s classic sherpa vest.']]},
+  'Fleece & Softshell':{a:'',p:[['st_avalantevest','A soft fleece vest for office layering.'],['cs_l00915','Sherpa-lined canvas for the yard.'],['st_cascadesvest','A softshell vest for outdoor staff.']]},
   'Hi-Vis Vests':{a:'A tear-away vest is the standard for crews: safer if it snags, and the logo goes on the chest tape.',p:[
     ['tvest','The vest we recommend for most crews.'],['tv3','Visitors, events and occasional use.'],['surveyor','Supervisors and surveyors who need pockets.']]},
   'Hi-Vis T-Shirts':{a:'Polyester wicks sweat in summer; cotton is softer for all-day wear.',p:[
@@ -3016,15 +3018,15 @@ var XPERT={
   'Jackets & Coats':{a:'',p:[['ch_102208','A lightweight insulated Carhartt for most of the year.'],['ch_102199','A Rain Defender softshell.'],['ch_106674','The heavy insulated duck coat for deep winter.']]},
   'Pants & Bibs':{a:'Pants carry no logo.',p:[['ch_102291','Rugged Flex canvas that moves with you.'],['ch_b11','Classic washed-duck work pants.'],['ch_102776','A duck bib overall for full coverage.']]},
   'Caps & Hats':{a:'Structured caps hold a logo best; unstructured ones are softer and more casual.',p:[
-    ['at_joshua','A classic structured cap that holds your logo well.'],['at_startfive','Big teams and events.'],['nk_fb5677','A brand-name cap people keep.']]},
-  'Trucker & Snapback':{a:'',p:[['at_sonic','A mesh-back trucker for summer.'],['cs_h08205','Big teams and events.'],['ch_105298','Carhartt’s canvas mesh-back cap.']]},
-  'Beanies & Toques':{a:'',p:[['cs_h08010','A fleece-lined toque for real cold.'],['cs_h08000','A cuffed toque for big crews.'],['ch_a18','The Carhartt watch hat everyone recognises.']]},
+    ['at_joshua','A classic structured cap that holds your logo well.'],['at_startfive','Big teams and events.'],['cs_h08215','A soft, unstructured cotton dad cap.']]},
+  'Trucker & Snapback':{a:'',p:[['at_sonic','A mesh-back trucker for summer.'],['cs_h08205','Big teams and events.'],['cs_h08360','A pigment-dyed trucker with a worn-in look.']]},
+  'Beanies & Toques':{a:'',p:[['cs_h08010','A fleece-lined toque for real cold.'],['cs_h08000','A cuffed toque for big crews.'],['st_avalantebeanie','A Stormtech knit beanie for office and outdoor staff.']]},
   'Backpacks':{a:'One size fits everyone, so a bag is the easiest order for a whole team.',p:[
-    ['st_deluge','A waterproof laptop backpack for commuters.'],['nk_dh7709','A brand-name backpack at a lower price.'],['ch_bp28','Carhartt’s dual-compartment pack for people who carry everything.']]},
-  'Duffels & Tool Bags':{a:'',p:[['st_nautilus70','A waterproof duffel that also carries as a backpack.'],['nk_dh7710','A brand-name gym duffel at a lower price.'],['st_nautilus110','The big one for a week away on site.']]},
-  'Coolers & Lunch':{a:'',p:[['st_magellan30','A 30-can cooler for team events.'],['ch_lunch','The everyday lunch cooler.'],['st_saturna24','A roll-top cooler backpack.']]},
+    ['st_deluge','A waterproof laptop backpack for commuters.'],['st_roadwarrior','A computer backpack for staff on the road.'],['sp_bg125','A 17-inch laptop backpack for people who carry everything.']]},
+  'Duffels & Tool Bags':{a:'',p:[['st_nautilus70','A waterproof duffel that also carries as a backpack.'],['st_nautilus35','A smaller waterproof duffel for the gym or an overnight.'],['st_nautilus110','The big one for a week away on site.']]},
+  'Coolers & Lunch':{a:'',p:[['st_magellan30','A 30-can cooler for team events.'],['st_aquacooler12','The everyday lunch cooler.'],['st_saturna24','A roll-top cooler backpack.']]},
   'Work Pants':{a:'Pants carry no logo. Pick by fabric: poly-cotton for laundering, canvas for durability.',p:[
-    ['ch_102291','Rugged Flex canvas that moves with you.'],['rk_pt20','An industrial pant built for uniform laundering.'],['dk_874x','The classic Dickies 874.']]},
+    ['ff_rippant','A stretch ripstop work pant that moves with you.'],['rk_pt20','An industrial pant built for uniform laundering.'],['dk_874x','The classic Dickies 874.']]},
   'Joggers & Sweatpants':{a:'',p:[['cs_p00587','A soft everyday sweatpant.'],['cs_p00595','The lowest-cost sweatpant.'],['cs_p00865','A performance French-terry jogger.']]}
 };
 function xpFacts(it){
