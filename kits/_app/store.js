@@ -1337,7 +1337,11 @@ var MEGASUB={
        * 'Shackets & Overshirts' led with trade jargon. A shirt jacket is what it is.
      Ordering matters as much as naming: the tabs now run in the order a buyer narrows -- weather
      first, then warmth -- so the list reads as a scale instead of seven unrelated words. */
-  outerwear:['Shells & Rainwear','Softshell Jackets','Shirt Jackets & Shackets','Insulated & Quilted','Winter Parkas & 3-in-1'],
+  /* JACKETS, ROUND 2 (Steven, 2026-11-09: "organize jackets better it is a mess"). 'Insulated & Quilted' held 47 styles --
+     office puffers beside canvas bombers and freezer jackets -- and 'Winter Parkas & 3-in-1' mixed two different buys.
+     Now seven shelves by job and warmth: the yard jackets get their own shelf, and a system jacket (shell + zip-out
+     liner) is no longer filed with a parka. */
+  outerwear:['Shells & Rainwear','Softshell Jackets','Shirt Jackets & Shackets','Insulated & Quilted','Work Jackets & Bombers','3-in-1 Jackets','Parkas & Winter Coats'],
   // Vests are their own category, not a drawer inside Jackets. A vest is a different purchase --
   // worn indoors, over a hoodie, year round -- and burying eleven of them under Jackets meant a
   // buyer shopping for vests had to know to look there first.
@@ -1438,17 +1442,21 @@ function outerSub(it,n){
   n=n||((it.name||'')+' '+(it.key||'')).toLowerCase();
   if(SHACKET_KEYS[it.key]||/shacket|overshirt/.test(n))return 'Shirt Jackets & Shackets';
   // a parka IS the deep-winter answer, so it belongs with the systems rather than a generic name
-  if(/3-?in-?1|5-?in-?1|system jacket|\bparka\b/.test(n))return 'Winter Parkas & 3-in-1';
+  if(/3-?in-?1|5-?in-?1|system jacket/.test(n))return '3-in-1 Jackets';
+  if(/\bparka\b/.test(n))return 'Parkas & Winter Coats';
   if(/\brain\b(?! ?defender)|dryvent|raincoat/.test(n))return 'Shells & Rainwear';
   if(/softshell|soft shell/.test(n))return 'Softshell Jackets';
-  if(/puffer|quilted|down|thermoball|puffy|thermal|insulated|sherpa|hybrid|freezer/.test(n))return 'Insulated & Quilted';
+  /* the yard jackets: canvas, duck, bombers, freezer jackets and the HD work thermals */
+  if(/canvas|\bduck\b|bomber|freezer|work jacket|chore|\bhd\b/.test(n))return 'Work Jackets & Bombers';
+  if(/puffer|quilted|down|thermoball|puffy|thermal|insulated|sherpa|hybrid/.test(n))return 'Insulated & Quilted';
   if(/shell/.test(n))return 'Shells & Rainwear';
   /* Named only "… Jacket", with no type word -- the Axis and the Pursuit. Placed from the garment's
      OWN published fabric finishes rather than a hard-coded key: both are light water-repellent
      outer layers (the Axis's own blurb calls it "a lightweight waterproof, breathable shell"). */
   if(it.fab&&it.fab.finishes&&/water|wind|breathable/i.test(it.fab.finishes.join(' ')))
     return 'Shells & Rainwear';
-  if(/bomber|\bcoat\b/.test(n))return 'Insulated & Quilted';
+  if(/bomber/.test(n))return 'Work Jackets & Bombers';
+  if(/\bcoat\b/.test(n))return 'Parkas & Winter Coats';
   if(/jacket|parka/.test(n))return 'Shells & Rainwear';
   return '';                       // not outerwear at all -- let classify() keep looking
 }
@@ -1549,17 +1557,17 @@ function headwearSub(n){
    "Stockton Fleece Pullover Hoody" is a hoodie, not a fleece jacket; "Crew Neck" is two words; the Tradesmith
    Hoody and the Flatiron are lined, insulated work jackets. */
 var HOME_BY_KEY={st_stocktonhoody:{mega:'layers',sub:'Hoodies'},st_stocktoncrew:{mega:'layers',sub:'Crewnecks & Sweatshirts'},
-  st_tradesmithhoody:{mega:'outerwear',sub:'Insulated & Quilted'},st_flatiron:{mega:'outerwear',sub:'Insulated & Quilted'},
+  st_tradesmithhoody:{mega:'outerwear',sub:'Work Jackets & Bombers'},st_flatiron:{mega:'outerwear',sub:'Work Jackets & Bombers'},
   st_tradesmith:{mega:'outerwear',sub:'Shirt Jackets & Shackets'},
   /* 2026-10-12 Canada Sportswear adds: Nunavut is 300 gsm winter weight (a coat, not a quilt); Boulder is a sherpa softshell JACKET, not a hoodie */
-  cs_l06025:{mega:'outerwear',sub:'Winter Parkas & 3-in-1'},cs_l01055:{mega:'outerwear',sub:'Softshell Jackets'},
+  cs_l06025:{mega:'outerwear',sub:'Parkas & Winter Coats'},cs_l06050:{mega:'outerwear',sub:'Parkas & Winter Coats'},cs_l01055:{mega:'outerwear',sub:'Softshell Jackets'},
   /* 2026-10-14: an insulated softshell whose name says "Hooded" is a jacket, not a hoodie */
   cq_equinox:{mega:'outerwear',sub:'Softshell Jackets'},cbc_evoke_fleece:{mega:'outerwear',sub:'Softshell Jackets'},
   /* 2026-11-09 workwear and fleece adds, filed where a buyer looks for them: lined work shirts and quilted plaids are
      shirt JACKETS; a hooded canvas work jacket is a jacket, not a hoodie; knit full-zips are fleece, not shells */
   ff_sherpashirt:{mega:'outerwear',sub:'Shirt Jackets & Shackets'},ff_flannelshirt:{mega:'outerwear',sub:'Shirt Jackets & Shackets'},
   ff_buffalo:{mega:'outerwear',sub:'Shirt Jackets & Shackets'},ff_blackwatch:{mega:'outerwear',sub:'Shirt Jackets & Shackets'},
-  ff_canvashood:{mega:'outerwear',sub:'Insulated & Quilted'},st_treelinefz:{mega:'layers',sub:'Full-Zips & Fleece'},cs_l00870:{mega:'layers',sub:'Full-Zips & Fleece'},
+  ff_canvashood:{mega:'outerwear',sub:'Work Jackets & Bombers'},st_treelinefz:{mega:'layers',sub:'Full-Zips & Fleece'},cs_l00870:{mega:'layers',sub:'Full-Zips & Fleece'},
   cs_l00570:{mega:'layers',sub:'Full-Zips & Fleece'},cs_l00850:{mega:'layers',sub:'Full-Zips & Fleece'},cs_l00692:{mega:'layers',sub:'Full-Zips & Fleece'},
   st_dockyard:{mega:'layers',sub:'Hoodies'},cbc_mainsail_fz:{mega:'layers',sub:'Full-Zips & Fleece'}};
 function classify(it){
@@ -1700,11 +1708,23 @@ var KITS=[
 ];
 function kitItems(kit){var out=[];kit.slots.forEach(function(s){var arr=BUCKETS[s[0]]&&BUCKETS[s[0]][s[1]];if(arr)for(var i=0;i<arr.length;i++){if(out.indexOf(arr[i])<0){out.push(arr[i]);break;}}});return out;}
 function shortCat(id){return SHORTCAT[id]||megaName(id);}
+/* NEAR-DUPLICATES (Steven, 2026-11-09: "hide near duplicates"). Pairs a buyer cannot tell apart on a shelf -- the same
+   garment at the same price from two makers, or two colourways sold as separate styles -- made every shelf look longer
+   and every choice harder. The style on the left comes off the shelves when the store also carries the one on the
+   right; it is still found by search and by a 'Similar style' link on its twin's product page. Chosen by hand: keep
+   the style with the maker's fabric facts, more colours, ladies' cuts or model photos. Never a curated pick. */
+var DUP_OF={cs_l01155:'tvest',cs_s05933:'tee',cs_s05990:'tee',cs_s05970:'tt2',cs_s05975:'tt4',cs_s05995:'tt4',cs_l00682:'cs_l01380',
+  cs_l00900:'cs_l00980',st_sierrajkt:'st_nautilusjkt',st_gravity:'st_stavanger',st_basecampjkt:'st_montserrat',ff_freezerblk:'cs_l01025',
+  st_olympia:'st_stratus',ff_blackwatch:'ff_buffalo',st_northbeach:'st_tundrashacket',st_gravityvest:'st_basecampvest',
+  cs_s05745:'cs_s05735',nk_polo3:'nk_polo2',st_novarra:'st_montauk',st_mistral:'st_yosemite'};
+var DUP_HID={};
+function dupTwins(k){var o=[];if(DUP_HID[k]&&BYKEY[DUP_OF[k]])o.push(DUP_OF[k]);for(var h in DUP_HID)if(DUP_OF[h]===k&&BYKEY[h])o.push(h);return o;}
 function buildBuckets(){
   var order=CFG.order||{},all=[];
   ['office','premium','bags','field','promo'].forEach(function(L){(order[L]||[]).forEach(function(k){if(all.indexOf(k)<0)all.push(k);});});
-  BUCKETS={};TOTALS={};ALLKEYS=all;
-  all.forEach(function(k){var it=BYKEY[k];if(!it)return;var c=classify(it);
+  BUCKETS={};TOTALS={};ALLKEYS=all;DUP_HID={};
+  all.forEach(function(k){if(DUP_OF[k]&&BYKEY[DUP_OF[k]]&&all.indexOf(DUP_OF[k])>=0)DUP_HID[k]=1;});
+  all.forEach(function(k){var it=BYKEY[k];if(!it||DUP_HID[k])return;var c=classify(it);
     (BUCKETS[c.mega]=BUCKETS[c.mega]||{});(BUCKETS[c.mega][c.sub]=BUCKETS[c.mega][c.sub]||[]).push(k);
     TOTALS[c.mega]=(TOTALS[c.mega]||0)+1;
     crossAlso(it,c).forEach(function(x){   // item stays in its home category too
@@ -2189,13 +2209,14 @@ var SUBGUIDE={
     'crews and client-facing staff who need to move in it.',
   'Shirt Jackets & Shackets':'A shirt cut as a jacket, worn open over a tee or hoodie. Reads '+
     'casual rather than technical, and works indoors as well as out.',
-  'Insulated & Quilted':'Real warmth without bulk \u2014 quilted and puffer fills for cold '+
-    'mornings and winter travel. Published insulation here runs 120 gsm to 220 gsm; the heavier '+
-    'the fill, the colder the day it answers.',
-  'Winter Parkas & 3-in-1':'Deep winter \u2014 the warmest thing we sell. The 3-in-1 and 5-in-1 '+
-    'systems pair a shell with a zip-out liner that can each be worn on their own, so one order '+
-    'covers three seasons. Published insulation here runs 170 gsm to 300 gsm, and the Defender '+
-    'carries 3M Thinsulate at 200 gsm behind a 3000 mm waterproof shell.'
+  'Insulated & Quilted':'Real warmth without bulk \u2014 quilted, puffer and thermal jackets for cold '+
+    'mornings, winter commutes and travel. Each card shows the maker\u2019s published insulation where they publish it.',
+  'Work Jackets & Bombers':'Built for the yard and the job site \u2014 canvas, duck, bomber, freezer and heavy-duty '+
+    'thermal jackets with tougher shells. Each card shows the maker\u2019s published insulation where they publish it.',
+  '3-in-1 Jackets':'A shell and a zip-out liner that can each be worn on their own, so one order covers three '+
+    'seasons: the shell for rain, the liner for cool days, both together for winter.',
+  'Parkas & Winter Coats':'Deep winter and longer coverage \u2014 the warmest coats we sell. The Defender carries '+
+    '3M Thinsulate at 200 gsm behind a 3000 mm waterproof shell.'
 };
 function catGuideHtml(){
   var out='';
@@ -2400,6 +2421,7 @@ var SX_SUBWORDS={
   'Shells & Rainwear':'jacket coat rain raincoat rainwear shell windbreaker waterproof',
   'Softshell Jackets':'jacket coat softshell','Shirt Jackets & Shackets':'jacket shacket overshirt',
   'Insulated & Quilted':'jacket coat insulated quilted puffer winter warm','Winter Parkas & 3-in-1':'jacket coat parka winter warm 3in1',
+  'Work Jackets & Bombers':'jacket coat work canvas bomber freezer duck winter warm','3-in-1 Jackets':'jacket coat 3in1 3-in-1 system winter warm','Parkas & Winter Coats':'jacket coat parka winter warm',
   'Winter Parkas':'jacket coat parka winter warm','Parkas':'jacket coat parka winter warm',
   'Shells & 3-in-1':'jacket coat shell 3in1 rain','Canvas & Shackets':'jacket coat canvas shacket',
   'Hi-Vis Jackets':'jacket coat','Jackets & Coats':'jacket coat','Rain & Gear':'rain raincoat rainwear','Pants, Bibs & Coveralls':'pants pant bib overall coverall shorts',
@@ -3036,7 +3058,13 @@ var XPERT={
   'Shells & Rainwear':{a:'Shells keep out wind and rain and layer over a hoodie or fleece.',p:[
     ['st_axis','A light waterproof shell for most teams.'],['st_nautilusshell','Rain cover for a whole crew on a budget.'],['st_stratus','A technical shell for staff who work outside all day.']]},
   'Insulated & Quilted':{a:'Start with how cold they’ll be: quilted jackets cover cold mornings and most Canadian winters with a layer underneath.',p:[
-    ['st_nautilusjkt','The everyday quilted jacket — warm without bulk.'],['cs_l01025','A warm work jacket for a crew on a budget.'],['st_stavanger','Real cold, and a jacket that reads as a serious gift.']]},
+    ['st_nautilusjkt','The everyday quilted jacket — warm without bulk.'],['cs_l00980','A hooded puffy jacket for a whole team on a budget.'],['st_stavanger','Real cold, and a jacket that reads as a serious gift.']]},
+  'Work Jackets & Bombers':{a:'For the yard and the site: pick the shell first — canvas for abrasion, a sealed shell for wet work.',p:[
+    ['cs_l01110','A heavy-duty bomber with 3M Thinsulate for long cold shifts.'],['cs_l01025','A warm quilted freezer jacket for a crew on a budget.'],['st_steelhead','A heavy-duty thermal with a 5000 mm waterproof shell for wet, cold work.']]},
+  '3-in-1 Jackets':{a:'One order, three ways to wear it: shell alone, liner alone, or both together in winter.',p:[
+    ['st_vortex','A 3-in-1 parka that covers the whole year.'],['cs_l06000','A seam-sealed 3-in-1 at a lower price.'],['st_matrix','Fully waterproof and seam-sealed — the premium system jacket.']]},
+  'Parkas & Winter Coats':{a:'For deep winter and long hours outside — the longer cut covers the hips.',p:[
+    ['cs_l01100','A heavy-duty parka with 3M Thinsulate for outdoor crews.'],['cs_l01080','Deep-winter warmth at the best price.'],['st_denali','The warmest parka we sell — for outdoor crews and milestone gifts.']]},
   'Shirt Jackets & Shackets':{a:'A shacket wears as a shirt indoors and a light jacket outdoors.',p:[
     ['st_tundrashacket','The quilted shacket most offices are wearing now.'],['st_highlandshacket','The lightest, lowest-cost shacket.'],['st_oxide','Sherpa-lined canvas — workwear people buy for themselves.']]},
   'Winter Parkas & 3-in-1':{a:'For deep winter. A 3-in-1 gives a shell, a liner and both together — three seasons in one order.',p:[
@@ -3649,11 +3677,50 @@ function caCompareHtml(cfg,A,x){var base=caBaseOf(cfg,A,x.role)||x;if(!base||bas
       '<tr class="cmpfoot"><th scope="row"></th>'+cols.map(function(c){return '<td'+(c.k===sel?' class="sel"':'')+'><button type="button" class="jalink" data-xpopen="'+esc(c.k)+'">Full details &amp; colours →</button></td>';}).join('')+'</tr>'+
     '</tbody></table></div></div>';}
 /* the answer controls: a checkbox for "pick every group", a radio for one answer -- the control says which it is */
-function caOptHtml(q,A){var multi=!!q.multi,cur=A[q.id];
-  return '<div class="caopts'+(q.cls?(' '+q.cls):'')+(q.opts.length>4?' many':'')+(q.opts.length<=2?' two':'')+(multi?' multi':' single')+'" role="'+(multi?'group':'radiogroup')+'" aria-label="'+esc(q.q)+'">'+q.opts.map(function(o){var v=String(o.id),on=multi?((cur||[]).indexOf(v)>=0):(cur!=null&&cur!==''&&String(cur)===v);
+/* ADVISOR PHOTOS (Steven, 2026-11-09: "advisor should have more visual pictures and be more aesthetically pleasing for an
+   enterprise professional feel"). Each answer leads with a real photo from this store: people wearing the garment where
+   the maker shot it on a model, otherwise the garment itself with the buyer's own logo on it. A question shows photos
+   only when every one of its answers has one, so a row never mixes photos with icons. */
+var CA_PIC={
+  'jackets.who':{office:'cbc_stealth_jacket',drivers:'st_nostromo',warehouse:'st_steelhead',outdoor:'st_magellan'},
+  'jackets.warm':{1:'st_pacifica',2:'cq_tempest',3:'st_tundrajkt',4:'st_denali'},
+  'jackets.rain':{0:'st_orbiter',1:'st_vertex'},
+  'tops.who':{office:'cbc_advantage_polo',mixed:'cq_spin_polo',outdoor:'st_equinoxtee',events:'cq_charge_tee'},
+  'tops.look':{polo:'cbc_prospect_polo',tee:'st_stockton_ss',woven:'cbc_skyline_shirt'},
+  'hivis.who':{road:'tvest',site:'tee',yard:'cs_l01150',night:'tj3',visit:'rk_vyv6'},
+  'hivis.kind':{vest:'tvest',tee:'tee',layer:'hoodie',jacket:'tj3'},
+  'hivis.snag':{1:'tvest',0:'surveyor'},
+  'hivis.season':{hot:'tt1',mild:'hoodie',cold:'tp1',wet:'rain'},
+  'layers.who':{office:'cbc_coastline_qz',mixed:'st_stocktonhoody',outdoor:'st_dockyard',gift:'cbc_mainsail_fz'},
+  'layers.style':{auto:'cbc_traverse_qz',qz:'cbc_traverse_qz',hood:'st_avalantehoody',fz:'st_treelinefz',crew:'st_monasheecrew'},
+  'layers.warm':{1:'cbc_coastline_qz',2:'st_ashburn',3:'st_monasheefz'},
+  'layers.outer':{0:'st_montereyqz',1:'cbc_roam_hoodie'},
+  'vests.who':{office:'cbc_evoke_vest',mixed:'cq_trail_vest',outdoor:'st_sierrathermalvest',gift:'cbc_charter_vest'},
+  'vests.worn':{'in':'st_avalantevest',over:'st_cascadesvest',cold:'st_stavangervest'},
+  'headwear.use':{sun:'st_summitcap',cold:'st_avalantebeanie',year:'st_steelheadcap'},
+  'headwear.look':{struct:'at_skye',soft:'at_dadhat',trucker:'at_sonic',perf:'at_recyfive'},
+  'pants.who':{light:'cbc_bainbridge_pant',shop:'rk_pt2a',trades:'ff_rippant'},
+  'pants.cargo':{1:'rk_pt88',0:'dk_874x'},
+  'fr.who':{elec:'ff_frshirt',oil:'ff_frcoverall',hot:'ff_frcotcov',cold:'ff_freureka'},
+  'fr.kind':{shirt:'ff_frshirt',layer:'ff_frhoodie',outer:'ff_frcoverall6',pants:'ff_frpant'},
+  'fr.hv':{1:'ff_frvest',0:'ff_frcoverall'},
+  'golf.occ':{host:'cbc_prospect_polo',team:'cbc_peshastin_hz',staff:'cq_spin_polo'},
+  'golf.wx':{warm:'cbc_coastline_polo',cool:'cbc_adapt_heather_qz'}};
+var CA_CUR_ADV='';
+function caPeople(it,women){var g=(it&&it.gallery)||[],m=g.filter(function(f){return /__(w_)?(worn|mdl)\d/.test(f);});
+  var w=m.filter(function(f){return /__w_/.test(f);}),mm=m.filter(function(f){return !/__w_/.test(f);});
+  return (women?(w[0]||mm[0]):(mm[0]||w[0]))||'';}
+function caPicsFor(q){var M=CA_PIC[CA_CUR_ADV+'.'+q.id];if(!M||!q.opts||!q.opts.length)return null;
+  var ks=q.opts.map(function(o){var k=M[String(o.id)];return (k&&BYKEY[k])?k:'';});if(ks.some(function(k){return !k;}))return null;
+  var ppl=ks.every(function(k){return !!caPeople(BYKEY[k]);});
+  return ks.map(function(k,j){var it=BYKEY[k];
+    if(ppl)return '<span class="capic ppl"><img src="'+gurl(caPeople(it,j%2===1))+'" alt="" loading="lazy" decoding="async"></span>';
+    return '<span class="capic prod"><span class="capst">'+caThumb(k)+'</span></span>';});}
+function caOptHtml(q,A){var multi=!!q.multi,cur=A[q.id],_pics=caPicsFor(q),_j=0;
+  return '<div class="caopts'+(_pics?' pics':'')+(q.cls?(' '+q.cls):'')+(q.opts.length>4?' many':'')+(q.opts.length<=2?' two':'')+(multi?' multi':' single')+'" role="'+(multi?'group':'radiogroup')+'" aria-label="'+esc(q.q)+'">'+q.opts.map(function(o){var v=String(o.id),on=multi?((cur||[]).indexOf(v)>=0):(cur!=null&&cur!==''&&String(cur)===v);
     return '<button type="button" class="caopt'+(on?' on':'')+'" data-ca="'+esc(q.id)+'" data-v="'+esc(v)+'" role="'+(multi?'checkbox':'radio')+'" aria-checked="'+on+'">'+
       '<span class="caok" aria-hidden="true"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>'+
-      '<span class="caoi">'+caSvg(caIcoKey(q,o))+'</span>'+
+      (_pics?_pics[_j++]:('<span class="caoi">'+caSvg(caIcoKey(q,o))+'</span>'))+
       '<span class="caot"><b>'+esc(o.lab)+'</b>'+(o.sub?('<i>'+esc(o.sub)+'</i>'):'')+'</span></button>';}).join('')+'</div>';}
 /* the step bar: every question is a tab; answered ones show the answer and can be reopened in one tap */
 function caStepsHtml(cfg,A,qs,i){return '<ol class="castepsb">'+qs.map(function(q,j){var v=A[q.id],ans=q.multi?(v||[]).map(function(z){return caAnsLab(q,z);}).join(', '):caAnsLab(q,v),done=!!ans;
@@ -3776,7 +3843,7 @@ function caChoiceTag(cfg,A,x){var b=caBaseOf(cfg,A,x.role);if(!b||b.none||b.main
 /* the same garment with a hood (or a longer cut) is ONE recommendation -- name it on the row, with its style number */
 function caFamHtml(cfg,A,x){if(typeof JA_FAMILY==='undefined')return '';var f=JA_FAMILY[x.main.k];if(!f||!BYKEY[f[0]]||caPool(cfg,A,x.role).indexOf(f[0])<0)return '';
   var t=BYKEY[f[0]],nm=caShort(t.name).replace(/\s+(Insulated|Heavy-Duty).*$/,'');
-  return '<p class="cpfam"><span>'+esc(/hood/i.test(f[1])?'Hooded option':'Also comes as')+':</span> <b>'+esc(nm)+'</b> — '+esc(f[1].replace(/^[^—]*—\s*/,''))+
+  return '<p class="cpfam"><span>'+esc(/no hood|hoodless/i.test(f[1])?'Without a hood':(/hood/i.test(f[1])?'Hooded option':'Also comes as'))+':</span> <b>'+esc(nm)+'</b> — '+esc(f[1].replace(/^[^—]*—\s*/,''))+
     ' <button type="button" class="cpsw" data-caswap="'+esc(x.role)+'|'+esc(f[0])+'">Switch</button></p>';}
 /* the alternatives, by purpose, right on the row: one tap swaps them in */
 function caAltChips(cfg,x){if(!(x.alts||[]).length)return '';
@@ -3811,7 +3878,7 @@ function caLoadProgram(cfg,A){var P=caLabelled(cfg,A).filter(function(x){return 
   saveCart();refreshCartUI();try{syncBoardIfOpen();}catch(e){}
   return {P:P,tot:caTotals(cfg,A,P)};}
 function renderCatAdvisor(el,cfg){
-  var A=caSt(cfg.id);
+  var A=caSt(cfg.id);CA_CUR_ADV=cfg.id;
   if(cfg.preset)try{cfg.preset(A,VIEW.cat,VIEW.sub);}catch(e){}
   var qs=caQs(cfg,A),ready=caReady(cfg,A),n=qs.length;
   var mode=A._m||(ready?'res':'q');if(mode==='intro')mode='q';if(mode==='res'&&!ready)mode='q';if(!n)mode='res';
@@ -3823,7 +3890,8 @@ function renderCatAdvisor(el,cfg){
     var q=qs[i],answered=q.multi?((A[q.id]||[]).length>0):(A[q.id]!=null&&A[q.id]!=='');
     var dflt=q.def!=null?(q.opts.filter(function(o){return String(o.id)===String(q.def);})[0]||null):null;
     var nmx=caQmax(cfg,A);
-    body=head+'<span class="castep">'+(i+1)+' of '+Math.max(n,nmx)+'</span></div>'+
+    var _any=caAllQs(cfg,A).some(function(qq){var v=A[qq.id];return qq.multi?((v||[]).length>0):(v!=null&&v!=='');});
+    body=head+'<span class="cahdr">'+(_any?'<button type="button" class="carst" data-careset="1" title="Clear every answer and start again"><span aria-hidden="true">\u21ba</span> Start over</button>':'')+'<span class="castep">'+(i+1)+' of '+Math.max(n,nmx)+'</span></span></div>'+
       ((i===0||A._fresh)?('<h3 class="xph">'+esc(cfg.h)+'</h3><p class="xpadv">'+esc(caQword(cfg,A))+' quick question'+(Math.max(n,nmx)>1?'s':'')+', then a recommended program'+(cfg.roles?' for your kit':(cfg.who?' for each group':''))+' — priced for your headcount, with your logo on it.</p>'):'')+
       caStepsHtml(cfg,A,qs,i)+
       '<h3 class="caq">'+esc(q.q)+'</h3>'+(q.hint||q.multi?('<p class="caqh">'+esc(q.multi?(q.preHint||'Select every group that applies — each gets its own pick. Tap again to remove one.'):q.hint)+'</p>'):'')+
@@ -3839,7 +3907,7 @@ function renderCatAdvisor(el,cfg){
     var ok=P.filter(function(x){return !x.none;}),nS=caPool(cfg,A).length;
     /* one group: the comparison IS the decision, so it starts open */
     if(A._open===undefined&&ok.length===1&&(ok[0].alts||[]).length)A._open=ok[0].role;
-    body=head+'<span class="castep done">✓ Recommended program</span></div>'+
+    body=head+'<span class="cahdr"><button type="button" class="caedt" data-caedit="*">Edit answers</button><button type="button" class="carst" data-careset="1" title="Clear every answer and start again"><span aria-hidden="true">\u21ba</span> Start over</button><span class="castep done">✓ Recommended program</span></span></div>'+
       '<h3 class="xph">'+(cfg.roles?('Your golf kit — '+ok.length+' piece'+(ok.length===1?'':'s')):(ok.length>1?('Your '+esc(cfg.noun)+' program — '+ok.length+' groups'):('Our recommendation')))+'</h3>'+
       '<div class="casum"><span class="casuml">Picked for</span>'+caAllQs(cfg,A).map(function(qq){var v=A[qq.id],t=qq.multi?(v||[]).map(function(z){return caAnsLab(qq,z);}).join(', '):caAnsLab(qq,v),as=caHidden(cfg,A,qq);
           return t?('<button type="button" class="casumc'+(as?' as':'')+'" data-caedit="'+esc(qq.id)+'" title="'+(as?'We assumed this — tap to change':'Change: '+esc(qq.q))+'">'+esc(t)+' <span aria-hidden="true">✎</span></button>'):'';}).join('')+
@@ -4803,7 +4871,13 @@ function renderGridCore(){
   var subs=subNames(VIEW.cat),csa=VIEW.cat==='hivis'?(isUS()?' <span class="csa">ANSI 107</span>':' <span class="csa">CSA Z96</span>'):'';
   var _shown=(VIEW.sub==='all'?fitOK(ALLKEYS.filter(function(k){return (BUCKETS[VIEW.cat]||{})&&subs.some(function(s){return BUCKETS[VIEW.cat][s].indexOf(k)>=0;});})).length:fitOK(BUCKETS[VIEW.cat][VIEW.sub]||[]).length);
   SHOWN=_shown;
-  hd.innerHTML='<h2 class="glbl">'+esc(megaName(VIEW.cat))+csa+'</h2><span class="gsub">'+_shown+(_shown===1?' style':' styles')+(VIEW.fit==='womens'?' in ladies’ &amp; unisex fits':'')+'</span>'+catGuideHtml();
+  var _inSub=VIEW.sub!=='all'&&subs.length>1;
+  /* ONE SHELF OPEN (Steven, 2026-11-09: "when I click on a subcategory and it shows all products it is hard to get back
+     to the previous menu"). The shelf view had no way out except the category row, and the browser's Back button left
+     the store, because the address bar was only ever replaced. It now opens with a breadcrumb and every sibling shelf,
+     ends with a way back, and Back in the browser steps back through the shelves. */
+  hd.innerHTML=(_inSub?('<nav class="crumbs" aria-label="You are here"><button type="button" class="crb" data-snall="1"><span aria-hidden="true">\u2190</span> All '+esc(shortCat(VIEW.cat))+'</button><span class="crsep" aria-hidden="true">/</span><b>'+esc(VIEW.sub)+'</b></nav>'):'')+
+    '<h2 class="glbl">'+esc(_inSub?VIEW.sub:megaName(VIEW.cat))+csa+'</h2><span class="gsub">'+_shown+(_shown===1?' style':' styles')+(VIEW.fit==='womens'?' in ladies’ &amp; unisex fits':'')+(_inSub?(' in '+esc(shortCat(VIEW.cat))):'')+'</span>'+(_inSub?'':catGuideHtml());
   /* CATEGORY ROW (audit 2026-11-09): below the hero the home page ran straight into "Polos, Shirts & Tees" with
      nothing saying it was one aisle of twelve, and the only way to another aisle was the header menu. Every aisle
      now opens with the full row of categories, the current one marked. */
@@ -4814,7 +4888,13 @@ function renderGridCore(){
       cr.querySelectorAll('[data-crc]').forEach(function(b){b.addEventListener('click',function(){if(b.dataset.crc!==VIEW.cat){jdpTrack('aisle',{c:b.dataset.crc,src:'catrow'});setCat(b.dataset.crc,true);}});});
       var on=cr.querySelector('.crc.on');if(on&&cr.querySelector('.crs').scrollWidth>cr.clientWidth)try{on.scrollIntoView({block:'nearest',inline:'center'});}catch(e){}}}}catch(e){}
   var inner;
-  if(VIEW.sub!=='all'){inner='<div class="menu">'+fitOK(BUCKETS[VIEW.cat][VIEW.sub]||[]).map(menuCard).join('')+'</div>';}
+  if(VIEW.sub!=='all'){var _sibs=subs.filter(function(s){return (BUCKETS[VIEW.cat][s]||[]).length;}),_ix=_sibs.indexOf(VIEW.sub),_nx=_sibs[_ix+1]||'';
+    if(_sibs.length>1)hd.insertAdjacentHTML('beforeend','<div class="shelfnav" role="navigation" aria-label="Shelves in '+esc(shortCat(VIEW.cat))+'"><button type="button" class="snc snall" data-snall="1">All '+esc(shortCat(VIEW.cat))+' <i>'+TOTALS[VIEW.cat]+'</i></button>'+
+        _sibs.map(function(s){var on=s===VIEW.sub;return '<button type="button" class="snc'+(on?' on':'')+'"'+(on?' aria-current="true"':' data-seesub="'+esc(s)+'"')+'>'+esc(s)+' <i>'+BUCKETS[VIEW.cat][s].length+'</i></button>';}).join('')+'</div>');
+    inner=subGuideHtml(VIEW.sub)+
+      '<div class="menu">'+fitOK(BUCKETS[VIEW.cat][VIEW.sub]||[]).map(menuCard).join('')+'</div>'+
+      (_sibs.length>1?('<div class="shelfend"><button type="button" class="seback" data-snall="1"><span aria-hidden="true">\u2190</span> Back to all '+esc(shortCat(VIEW.cat))+'</button>'+
+        (_nx?('<button type="button" class="senext" data-seesub="'+esc(_nx)+'">Next shelf: '+esc(_nx)+' <span aria-hidden="true">\u2192</span></button>'):'')+'</div>'):'');}
   else if(subs.length>1&&TOTALS[VIEW.cat]>6){
     /* THE "ALL" VIEW IS A PREVIEW, NOT THE WHOLE RANGE. 62 jackets rendered in full made this
        category 11.8 screens deep on desktop and 25.6 on a phone -- the wall Steven kept calling a
@@ -4855,7 +4935,13 @@ function renderGridCore(){
   var _gx=document.getElementById('golfX');if(_gx)_gx.addEventListener('click',function(){jdpTrack('golf_extras');openSourcing('');var nt=document.getElementById('coNote');
     if(nt&&!nt.value)nt.value='Golf extras we need (logo balls, towels, umbrellas, tee packs…):\nQuantity: \nEvent date: ';});
   grid.querySelectorAll('[data-seesub]').forEach(function(b){
-    b.addEventListener('click',function(){setSub(b.dataset.seesub);});});}
+    b.addEventListener('click',function(){setSub(b.dataset.seesub);});});
+  hd.querySelectorAll('[data-seesub]').forEach(function(b){b.addEventListener('click',function(){setSub(b.dataset.seesub);});});
+  [grid,hd].forEach(function(r){r.querySelectorAll('[data-snall]').forEach(function(b){b.addEventListener('click',function(){jdpTrack('shelf_back',{c:VIEW.cat,s:VIEW.sub});backToAisle();});});});}
+/* back from one shelf to the whole aisle, landing on the shelf the buyer came from rather than the top */
+function backToAisle(){var from=VIEW.sub;setSub('all',true);
+  if(from&&from!=='all')setTimeout(function(){var hs=document.querySelectorAll('#grid .subgrp .subhd');for(var i=0;i<hs.length;i++){if(hs[i].firstChild&&String(hs[i].firstChild.textContent).trim()===from){
+    var y=hs[i].getBoundingClientRect().top+window.scrollY-140;window.scrollTo({top:Math.max(0,y),behavior:'auto'});return;}}},30);}
 /* The strip at the foot of a previewed shelf: up to five of the HIDDEN styles as photos, the count,
    the entry price across the shelf (the same at-the-minimum figure the cards print), and a filled
    button. The whole strip is the target. */
@@ -4948,7 +5034,7 @@ function viewUrl(){
      options" -- so it owns the address bar while it is open. */
   if(giftViewOn())return b+'?view=gifts';
   if(VIEW.q)return b+'?q='+encodeURIComponent(VIEW.q).replace(/%20/g,'+');
-  if(VIEW.cat&&VIEW.sub&&VIEW.sub!=='all')return b+'?sub='+bslug(VIEW.sub);
+  if(VIEW.cat&&VIEW.sub&&VIEW.sub!=='all')return b+'?cat='+encodeURIComponent(VIEW.cat)+'&sub='+bslug(VIEW.sub);
   if(VIEW.cat)return b+'?cat='+encodeURIComponent(VIEW.cat);
   return b;
 }
@@ -4967,8 +5053,19 @@ function syncViewUrl(){
   /* A board owns the address bar while it is open -- its link is the thing worth sharing then. */
   if(/[?&](b|board|list)=/.test(location.search))return;
   try{if(typeof boardOpen==='function'&&(boardOpen()||boardsOpen()))return;}catch(e){}
-  try{history.replaceState(null,'',viewUrl());}catch(e){}
+  /* A move to another aisle or shelf is a real step, so it gets a history entry the browser's Back button can undo;
+     typing in search and re-renders of the same view only replace the address. */
+  var u=viewUrl(),vk=(giftViewOn()?'g':'')+'|'+(VIEW.q?'q':(VIEW.cat||''))+'|'+(VIEW.q?'':(VIEW.sub||''));
+  try{if(VKEY!==null&&vk!==VKEY&&!VPOP)history.pushState({jdpv:1},'',u);else history.replaceState(history.state,'',u);}catch(e){}
+  VKEY=vk;
 }
+var VKEY=null,VPOP=0,VHOME=null;
+window.addEventListener('popstate',function(){if(!VURLOK)return;VPOP=1;
+  try{try{closeAll();}catch(e){}
+    if(!applyViewLink()){if(giftViewOn())setGiftView(false);if(VIEW.q){VIEW.q='';var ts=document.getElementById('topSearch');if(ts)ts.value='';}
+      if(VHOME)setCat(VHOME,false);}
+  }catch(e){}finally{VPOP=0;}
+  VKEY=(giftViewOn()?'g':'')+'|'+(VIEW.q?'q':(VIEW.cat||''))+'|'+(VIEW.q?'':(VIEW.sub||''));});
 function shareView(){
   var url=viewUrl(),lab=viewLabel();
   var title=lab+' \u2014 '+(CFG.client||'Team store');
@@ -4995,7 +5092,7 @@ function scrollToResults(){
   var sticky=(tb?tb.offsetHeight:(hdr?hdr.offsetHeight:60))+(nav&&getComputedStyle(nav).position==='sticky'?nav.offsetHeight:0)+10;
   var y=window.pageYOffset+hd.getBoundingClientRect().top-sticky;
   window.scrollTo({top:Math.max(0,y),behavior:'smooth'});}
-function setSub(sub){VIEW.sub=sub;document.querySelectorAll('.schip').forEach(function(b){b.classList.toggle('on',b.dataset.sub===sub);});renderGrid();syncViewUrl();scrollToResults();}
+function setSub(sub,noScroll){VIEW.sub=sub;document.querySelectorAll('.schip').forEach(function(b){b.classList.toggle('on',b.dataset.sub===sub);});renderGrid();syncViewUrl();if(!noScroll)scrollToResults();}
 function setCat(cat,doScroll){
   /* Any move into the catalogue leaves the gift page. Without this a category pick from the
      Categories menu rendered the grid behind a hidden storefront and the buyer saw nothing move. */
@@ -6937,7 +7034,8 @@ function renderSheet(){
     '<button class="shx" id="shx" aria-label="Close">✕</button>'+backChipHtml()+
     '<div class="shscroll"><div class="pdp"><div class="pdpL">'+
       '<div class="shimg" id="shimg"><div class="shstage"><img class="g" src="'+(SH.gimg?gurl(SH.gimg):o.g)+'" alt="">'+(SH.gimg?'':o.lg)+'</div>'+faceTog+'</div>'+
-      galleryStrip(item)+mediaRow+'</div>'+
+      galleryStrip(item)+mediaRow+(function(){var tw=dupTwins(item.key);if(!tw.length)return '';
+        return '<div class="shtwin"><span>Similar style:</span>'+tw.map(function(t){return '<button type="button" class="shtwinb" data-twin="'+esc(t)+'">'+esc(BYKEY[t].name)+' <span aria-hidden="true">\u2192</span></button>';}).join('')+'</div>';})()+'</div>'+
       '<div class="shb pdpR"><h2>'+esc(item.name)+'</h2><div class="shsku">'+esc(item.sku)+(hasLadies(item)?(SH.fit==='womens'?' · Ladies’':' · Men’s'):(item.unisex?' · Unisex':''))+(item.layer==='field'&&item.csa?' · CSA hi-vis':'')+shareBtnHtml(SHEETKEY)+'</div>'+
       '<div class="shfrom"><b>'+money(unit)+'</b> <small>/pc</small> <i>at '+(q||moq())+' pcs</i>'+(hasDecoPlace(item)?'':' · blank')+
         (fromP<unit?('<span class="shvol">'+money(fromP)+'/pc at '+topcol+'+</span>'):'')+'</div>'+
@@ -6982,6 +7080,7 @@ function renderSheet(){
   var vw=document.getElementById('vwatch');if(vw){vw.addEventListener('click',function(){openVideo(item.video,item.name);});
     stampVideoDuration(item.video,'vwatch');}
   var sw=document.getElementById('shworn');if(sw)sw.addEventListener('click',function(){openScenic(gurl(item.scenic),item.name);});
+  document.querySelectorAll('#sheet [data-twin]').forEach(function(b){b.addEventListener('click',function(){jdpTrack('twin',{k:b.dataset.twin});openSheet(b.dataset.twin,null,item.key);});});
   wireAlts(sh);
   var ig=document.getElementById('shIncGo');if(ig)ig.addEventListener('click',function(){
     var t=document.getElementById('shLogo');if(!t)return;
@@ -12001,7 +12100,7 @@ function go(cfg){
       /* A view link only makes sense when a board is not already taking over the screen. */
       if(!/[?&](b|board)=/.test(location.search)){try{applyViewLink();}catch(e){}}
       /* From here on, the address bar tracks the view. Not before -- see syncViewUrl. */
-      VURLOK=true;
+      VURLOK=true;VHOME=VIEW.cat;
       // Deep link: /kits/<slug>/?item=<key> (or #item=<key>) opens straight to that product. This MUST
       // run AFTER buildStore(). It used to fire synchronously, before the async ink probe resolved, so
       // the sheet opened against an unbuilt store and was wiped by the first render -- every ?item=
