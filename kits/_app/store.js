@@ -1358,6 +1358,7 @@ function classifyFR(n){
 function classifyHivis(n){
   if(/rain|poncho|\bpants?\b|overall|bib|coverall|gaiter/.test(n))return {mega:'hivis',sub:'Rain & Gear'};
   if(/parka/.test(n))return {mega:'hivis',sub:'Winter Parkas'};
+  if(/\bshorts?\b/.test(n))return {mega:'hivis',sub:'Rain & Gear'};
   if(/shirt jacket|shacket/.test(n))return {mega:'hivis',sub:'Hi-Vis Jackets'};
   if(/vest/.test(n))return {mega:'hivis',sub:'Safety Vests'};
   if(/hood|sweatshirt|sweater|crewneck|fleece|pullover/.test(n))return {mega:'hivis',sub:'Sweatshirts & Hoodies'};
@@ -1444,6 +1445,8 @@ function crossAlso(it,c){
   if(c.mega==='carhartt'&&c.sub==='Flame-Resistant'){var fr=classifyFR(n);out.push(fr);}
   /* a hi-vis bib or overall is still a pair of work bottoms: it also stands in Pants > Bibs & Coveralls */
   if(c.mega==='hivis'&&/\bbib\b|overall|coverall/.test(n))out.push({mega:'bottoms',sub:'Bibs & Coveralls'});
+  else if(c.mega==='hivis'&&/\bshorts?\b/.test(n))out.push({mega:'bottoms',sub:'Shorts'});
+  else if(c.mega==='hivis'&&/\bpants?\b/.test(n)&&!/rain/.test(n))out.push({mega:'bottoms',sub:'Work Pants'});
   if(c.mega!=='vests'&&c.mega!=='fr'&&/vest/.test(n))out.push({mega:'vests',sub:vestSub(n)});
   /* Carhartt keeps its brand aisle; its bags ALSO stand in the Bags aisle. Dog gear and throws share
      Carhartt's "Bags & Accessories" shelf but are not bags, so the test is the bag itself. */
@@ -1520,7 +1523,12 @@ var HOME_BY_KEY={st_stocktonhoody:{mega:'layers',sub:'Hoodies'},st_stocktoncrew:
   /* 2026-10-12 Canada Sportswear adds: Nunavut is 300 gsm winter weight (a coat, not a quilt); Boulder is a sherpa softshell JACKET, not a hoodie */
   cs_l06025:{mega:'outerwear',sub:'Winter Parkas & 3-in-1'},cs_l01055:{mega:'outerwear',sub:'Softshell Jackets'},
   /* 2026-10-14: an insulated softshell whose name says "Hooded" is a jacket, not a hoodie */
-  cq_equinox:{mega:'outerwear',sub:'Softshell Jackets'},cbc_evoke_fleece:{mega:'outerwear',sub:'Softshell Jackets'}};
+  cq_equinox:{mega:'outerwear',sub:'Softshell Jackets'},cbc_evoke_fleece:{mega:'outerwear',sub:'Softshell Jackets'},
+  /* 2026-11-09 workwear and fleece adds, filed where a buyer looks for them: lined work shirts and quilted plaids are
+     shirt JACKETS; a hooded canvas work jacket is a jacket, not a hoodie; knit full-zips are fleece, not shells */
+  ff_sherpashirt:{mega:'outerwear',sub:'Shirt Jackets & Shackets'},ff_flannelshirt:{mega:'outerwear',sub:'Shirt Jackets & Shackets'},
+  ff_buffalo:{mega:'outerwear',sub:'Shirt Jackets & Shackets'},ff_blackwatch:{mega:'outerwear',sub:'Shirt Jackets & Shackets'},
+  ff_canvashood:{mega:'outerwear',sub:'Insulated & Quilted'},st_treelinefz:{mega:'layers',sub:'Fleece'},cs_l00870:{mega:'layers',sub:'Fleece'}};
 function classify(it){
   if(it&&HOME_BY_KEY[it.key])return HOME_BY_KEY[it.key];
   // A kit that references a product the catalogue no longer carries must degrade to "not shown",
@@ -1572,7 +1580,7 @@ function classify(it){
     return {mega:'fr',sub:'FR Shirts'};
   }
   // Carhartt bottoms & headwear (premium layer, routed by name to their own category tabs):
-  if(/bib overall|coverall|\bbib\b/.test(n))return {mega:'bottoms',sub:'Bibs & Overalls'};
+  if(/bib overall|coverall|\bbib\b|overall/.test(n))return {mega:'bottoms',sub:'Bibs & Coveralls'};   // the declared sub name (was 'Bibs & Overalls', which no tab listed)
   if(/\bpant\b|\bpants\b|cargo|dungaree|trouser/.test(n))return {mega:'bottoms',sub:'Work Pants'};
   if(/hard ?hat|\bhelmet\b/.test(n)||/^hp\d/.test((it.key||''))||/\btype [12]\b/.test(n))return {mega:'hivis',sub:'Hard Hats & Head Protection'};
   if(/jogger|sweatpant|sweat pant/.test(n))return {mega:'bottoms',sub:'Joggers & Sweatpants'};
@@ -3102,7 +3110,7 @@ function jaWarm(it){
 function jaFlags(it){var w=it.warm||{},f=(w.flags||[]).slice(),fin=((it.fab||{}).finishes||[]).join(' ').toLowerCase();
   if(/waterproof/.test(fin)&&f.indexOf('waterproof')<0)f.push('waterproof');return f;}
 function jaHivis(it){return itemCategory(it)==='hivis';}
-function jaRugged(it){var n=(it.name||'').toLowerCase(),b=String(it.brand||it.sku||'')+' '+(it.line||''),f=((it.fab&&it.fab.finishes)||[]).join(' ');return /heavy-duty|canvas|duck|freezer|bomber|utility/.test(n)||/Rugged Wear|Carhartt/.test(b)||/abrasion/i.test(f);}
+function jaRugged(it){var n=(it.name||'').toLowerCase(),b=String(it.brand||it.sku||'')+' '+(it.line||''),f=((it.fab&&it.fab.finishes)||[]).join(' ');return /heavy-duty|canvas|duck|freezer|bomber|utility/.test(n)||/Rugged Wear|Carhartt|Workwear/.test(b)||/abrasion/i.test(f);}
 function jaOffice(it){return !jaHivis(it)&&!jaRugged(it);}
 function jaMaxSize(it){var s=itemSizes(it,'mens');return s[s.length-1]||'';}
 function jaBig(it){return /^[4-6]XL$/.test(jaMaxSize(it));}
@@ -4412,6 +4420,66 @@ CADV.push({id:'pants',tile:'Pants built for the job and the laundry',one:'style'
     return out.slice(0,4);},
   tips:function(A){var t=['Pants carry no logo — your brand lives on the tops and outerwear above them.','Women’s work pants are a different pattern (rise, hip, inseam), not a smaller men’s size.'];
     if(A.wash==='ind')t.unshift('Uniform laundry service: poly-cotton holds its colour and shape; 100% cotton duck shrinks and fades there.');
+    return t;}
+});
+/* ===== THE FR ADVISOR (Steven, 2026-11-09: "Flame-Resistant should have a advisor"). How FR is actually bought: the
+   hazard assessment comes first and sets a NUMBER -- an arc rating in cal/cm² (CSA Z462 / NFPA 70E) for arc flash, or
+   flash-fire protection to NFPA 2112 / CAN/CGSB-155.20 -- and every garment must meet or beat that number; then the
+   layer (base shirt, warm layer, outer layer, pants), then whether the crew also needs hi-vis, then the weather. So the
+   advisor asks exactly that, never assumes the rating, never recommends a piece rated below it, and keeps FR-treated
+   rainwear and vests (outer layers that must go OVER arc-rated clothing) labelled as such. Ratings are read from each
+   garment's own `fr` record, restated from the maker's page. */
+var CA_FR_WHO=[
+  {id:'elec',lab:'Electrical & utility',sub:'Arc flash — electricians, linemen, substations'},
+  {id:'oil',lab:'Oil, gas & chemical',sub:'Flash fire — plants, refineries, wellsites'},
+  {id:'hot',lab:'Welding & hot work',sub:'Sparks and spatter — fabrication, maintenance'},
+  {id:'cold',lab:'FR crews outdoors in winter',sub:'Pipelines, yards, utilities in the cold'}];
+function frRate(it){return +((it.fr||{}).atpv||0);}
+function frLim(it){return !!(it.fr||{}).limited;}
+function frKindOf(it){var n=(it.name||'').toLowerCase();
+  if(/coverall/.test(n))return 'outer';if(/rain|\bvest\b|jacket|parka/.test(n))return 'outer';
+  if(/pant|bib|overall/.test(n))return 'pants';if(/hood|sweatshirt|fleece/.test(n))return 'layer';return 'shirt';}
+CADV.push({id:'fr',tile:'Arc rating, layer and weather — the FR piece each crew needs',one:'piece',label:'FR advisor',noun:'FR clothing',noun2:'FR pieces',
+  h:'Which flame-resistant clothing? Start with the hazard.',
+  sub:'Tell us who is exposed, the rating your hazard assessment calls for and what you’re buying. We recommend an FR piece for each crew — rated to your number, never below it.',
+  overWhy:'this hazard and rating',
+  applies:function(c,s){return c==='fr';},
+  preset:function(A,c,s){if(!A.kind){if(/Shirts|Tees/.test(s))A.kind='shirt';else if(/Hoodies/.test(s))A.kind='layer';else if(/Pants/.test(s))A.kind='pants';else if(/Coveralls|Jackets|Rain/.test(s))A.kind='outer';}},
+  who:true,
+  qs:[{id:'who',q:'Who is exposed?',short:'The hazard',hint:'Pick every crew',multi:true,wide:true,opts:CA_FR_WHO},
+      {id:'atpv',q:'What does your hazard assessment call for?',short:'The rating',opts:[
+        {id:'4',lab:'CAT 1 · 4+ cal/cm²',sub:'Arc-rated, light duty'},{id:'8',lab:'CAT 2 · 8+ cal/cm²',sub:'The most common minimum'},
+        {id:'25',lab:'CAT 3 or higher · 25+ cal/cm²',sub:'Layered systems and arc suits'},{id:'ff',lab:'Flash fire, no arc rating given',sub:'NFPA 2112 / CAN/CGSB-155.20'}]},
+      {id:'kind',q:'What are you buying?',short:'What you need',opts:[{id:'shirt',lab:'FR shirts & tees',sub:'The base layer, worn all day'},{id:'layer',lab:'FR hoodies',sub:'The warm layer'},
+        {id:'outer',lab:'Coveralls, vests & rainwear',sub:'Full cover and outer layers'},{id:'pants',lab:'FR pants',sub:'Cargo work pants'}]},
+      {id:'hv',q:'Do they also need hi-vis?',short:'Hi-vis',opts:[{id:'1',lab:'Yes — FR hi-vis',sub:'Near traffic or equipment'},{id:'0',lab:'No',sub:'Plant or shop only'}]}],
+  fact:function(it){var r=frRate(it);return r?('FR rated ATPV '+r+' cal/cm²'):'flame-resistant outer layer';},
+  pool:function(A){var K=A.kind;var subs={shirt:['FR Shirts','FR Tees'],layer:['FR Hoodies'],outer:['FR Coveralls','FR Hi-Vis & Rain','FR Jackets'],pants:['FR Pants']};
+    var L=K?subs[K]:['FR Shirts','FR Tees','FR Hoodies','FR Coveralls','FR Hi-Vis & Rain','FR Jackets','FR Pants'];
+    return caKeys(L.map(function(s){return ['fr',s];})).filter(function(k){var it=BYKEY[k];return !!(it&&it.fr);});},
+  score:function(it,A,role,p){var r=frRate(it),lim=frLim(it),n=(it.name||'').toLowerCase(),s=0,need=(A.atpv==='ff'||!A.atpv)?0:+A.atpv;
+    if(need&&!r)return null;                    // an arc-rated job never gets an unrated outer layer as its pick
+    if(need&&r<need)return null;                // never below the number
+    if(!need&&lim&&role==='elec')return null;   // arc-flash crews: arc-rated pieces only
+    s+=r?Math.min(20,r):0; if(need)s-=Math.max(0,r-need-8);   // meet the number without paying for far more than it
+    if((it.fr||{}).inherent)s+=8;
+    if(A.hv==='1'){if(!it.csa)return null;s+=6;}else if(A.hv==='0'&&it.csa)s-=4;
+    if(role==='hot'&&/cotton|duck/.test(n+' '+caFab(it)))s+=10;
+    if(role==='cold'){if(/insulat|deep freeze|fleece|12 oz|hood/.test(n))s+=14;}
+    if(role==='oil'&&/coverall/.test(n))s+=6;
+    if(hasLadies(it))s+=6;
+    return s;},
+  why:function(it,A,role){var out=[],f=it.fr||{},r=frRate(it);
+    if(r)out.push('Arc rated ATPV '+r+' cal/cm²'+(f.cat?(' · CAT '+f.cat):'')+(A.atpv&&A.atpv!=='ff'?(' — meets your '+A.atpv+'+ cal/cm²'):''));
+    else if(f.limited)out.push('FR outer layer — wear it over arc-rated FR clothing');
+    out.push(f.inherent?'Inherent FR — the protection is in the fibre and cannot wash out':'FR-treated — launder to the care label to keep the rating');
+    if(it.csa)out.push(it.csa.replace(/\s*\(.*$/,''));
+    out.push(hasLadies(it)?'Men’s and women’s cuts':('Sizes up to '+jaMaxSize(it)));
+    return out.slice(0,4);},
+  tips:function(A){var t=['Every layer counts: what’s worn underneath FR must be FR or non-melting (cotton, wool) — never polyester or nylon.',
+      'Decoration on FR clothing must keep it FR — we specify FR-compliant thread or an FR patch on your proof.'];
+    if(A.atpv==='25')t.unshift('CAT 3 and above usually means a layered system or an arc-flash suit — tell us the rating and Steven will spec it.');
+    if(A.hv==='1')t.push('Hi-vis worn over FR clothing must be FR-rated itself — a standard polyester vest can melt on top of it.');
     return t;}
 });
 /* GOLF (Steven, 2026-10-13: "add a golf section"). Research (corporate-golf outfitting guides from 4imprint, Cutter &
@@ -10592,8 +10660,8 @@ caProgramRaw=function(cfg,A){var P=_caProgramRaw0(cfg,A);if(!caFrOn(cfg,A))retur
    recommend, so this row could only say "ask Steven". With ForceField's arc-rated range in the catalogue it names the
    piece for this aisle -- the arc rating restated from the maker's own page -- one tap from the product with the
    buyer's logo, and still sends anything beyond it (a higher arc rating, FR winter parkas) to Steven. */
-var FR_PICKS={tops:['ff_frtee','ff_frshirt'],layers:['ff_frhoodie','ff_frfleece'],jackets:['ff_frhoodie','ff_frrain'],
-  vests:['ff_frvest','ff_frhoodie'],hivis:['ff_frvest','ff_frtee'],pants:['ff_frpant','ff_frcoverall'],_:['ff_frtee','ff_frhoodie']};
+var FR_PICKS={tops:['ff_frtee','ff_frhrc2tee'],layers:['ff_frhoodie','ff_frfleece'],jackets:['ff_frhoodie','ff_frcotcov'],
+  vests:['ff_frduckvest','ff_frvest'],hivis:['ff_frvest','ff_frduckvest'],pants:['ff_frpant','ff_frcoverall6'],_:['ff_frtee','ff_frhoodie']};
 var FR_PICKNOTE={jackets:'For winter FR work, layer the FR hoodie under an FR-rated parka — we source the parka to your arc rating.',
   hivis:'The FR vest is an outer layer: it goes over arc-rated FR clothing, never over standard polyester.'};
 function frRating(it){var f=it.fr||{};
