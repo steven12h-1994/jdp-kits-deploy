@@ -3843,7 +3843,7 @@ function caChoiceTag(cfg,A,x){var b=caBaseOf(cfg,A,x.role);if(!b||b.none||b.main
 /* the same garment with a hood (or a longer cut) is ONE recommendation -- name it on the row, with its style number */
 function caFamHtml(cfg,A,x){if(typeof JA_FAMILY==='undefined')return '';var f=JA_FAMILY[x.main.k];if(!f||!BYKEY[f[0]]||caPool(cfg,A,x.role).indexOf(f[0])<0)return '';
   var t=BYKEY[f[0]],nm=caShort(t.name).replace(/\s+(Insulated|Heavy-Duty).*$/,'');
-  return '<p class="cpfam"><span>'+esc(/hood/i.test(f[1])?'Hooded option':'Also comes as')+':</span> <b>'+esc(nm)+'</b> — '+esc(f[1].replace(/^[^—]*—\s*/,''))+
+  return '<p class="cpfam"><span>'+esc(/no hood|hoodless/i.test(f[1])?'Without a hood':(/hood/i.test(f[1])?'Hooded option':'Also comes as'))+':</span> <b>'+esc(nm)+'</b> — '+esc(f[1].replace(/^[^—]*—\s*/,''))+
     ' <button type="button" class="cpsw" data-caswap="'+esc(x.role)+'|'+esc(f[0])+'">Switch</button></p>';}
 /* the alternatives, by purpose, right on the row: one tap swaps them in */
 function caAltChips(cfg,x){if(!(x.alts||[]).length)return '';
