@@ -3747,7 +3747,7 @@ function renderCatAdvisor(el,cfg){
       '<h3 class="xph">'+(cfg.roles?('Your golf kit — '+ok.length+' piece'+(ok.length===1?'':'s')):(ok.length>1?('Your '+esc(cfg.noun)+' program — '+ok.length+' groups'):('Our recommendation')))+'</h3>'+
       '<div class="casum"><span class="casuml">Picked for</span>'+caAllQs(cfg,A).map(function(qq){var v=A[qq.id],t=qq.multi?(v||[]).map(function(z){return caAnsLab(qq,z);}).join(', '):caAnsLab(qq,v),as=caHidden(cfg,A,qq);
           return t?('<button type="button" class="casumc'+(as?' as':'')+'" data-caedit="'+esc(qq.id)+'" title="'+(as?'We assumed this — tap to change':'Change: '+esc(qq.q))+'">'+esc(t)+' <span aria-hidden="true">✎</span></button>'):'';}).join('')+
-        '<span class="casumh">Not right? Tap any to change.</span></div>'+
+        '<span class="casumh">Tap any answer to change it.</span></div>'+
       (caTogs(cfg,A).length?('<div class="catog">'+caTogs(cfg,A).map(function(g){var on=A[g.id]==='1';
         return '<button type="button" class="catgl'+(on?' on':'')+'" data-catog="'+esc(g.id)+'" aria-pressed="'+on+'"><span class="catsw" aria-hidden="true"></span><b>'+esc(g.lab)+'</b><i>'+esc(g.sub)+'</i></button>';}).join('')+'</div>'):'')+
       caProgHtml(cfg,A,P)+
@@ -10539,19 +10539,19 @@ function caWhoPreset(cfg){var q=caWhoQ(cfg);if(!q)return {l:[]};var ok={};(q.opt
 function caShared(cfg,A){if(!cfg.who)return;var G=caIcpG();
   if(G.icp)A.icp=G.icp;else if(A.icp&&caIcpValid(A.icp))G.icp=A.icp;
   if(G.fr!=null)A.fr=G.fr;
-  var w=A.who||[],untouched=!A._whoUser&&(!w.length||(A._whoPre!=null&&w.join(',')===A._whoPre));
-  if(untouched){var p=caWhoPreset(cfg);if(p.l.length){A.who=p.l.slice();A._whoPre=p.l.join(',');A._whoSrc=p.src;}}}
+  /* clear anything the previous version filled in for the buyer (answers it assumed, teams it pre-selected) */
+  if(A._auto){for(var ak in A._auto)if(A._auto.hasOwnProperty(ak))delete A[ak];delete A._auto;}
+  if(A._whoPre!=null){if(!A._whoUser&&(A.who||[]).join(',')===A._whoPre)delete A.who;delete A._whoPre;delete A._whoSrc;}}
 function caSharedQs(cfg,A){return [];}   /* nothing about the company is asked: industry is inferred, FR is a toggle */
 var _caQs0=caQs;
 function caAllQs(cfg,A){caShared(cfg,A);return _caQs0(cfg,A);}
-function caHidden(cfg,A,q){if((A._show||{})[q.id])return false;
+function caHidden(cfg,A,q){return false;   /* NOTHING IS ASSUMED (Steven, 2026-11-09: "do not assume data"): every answer is the buyer's own */
+  if((A._show||{})[q.id])return false;
   if(q.id==='who')return !!(A._whoPre!=null&&!A._whoUser&&(A.who||[]).length&&(A.who||[]).join(',')===A._whoPre);
   return !!((A._auto||{})[q.id]&&String(A[q.id])===String(q.def));}
 caQs=function(cfg,A){caShared(cfg,A);var L=_caQs0(cfg,A),G=caIcpG();A._auto=A._auto||{};
   /* FEWEST QUESTIONS (Steven, 2026-11-09): a question with a sensible default is ASSUMED, not asked -- the answer shows as a
      chip on the result, one tap to change -- and a team pre-filled from the industry or an earlier advisor is not asked again */
-  L.forEach(function(q){if(q.def!=null&&!q.ask&&!q.multi&&(A[q.id]==null||A[q.id]==='')){A[q.id]=String(q.def);A._auto[q.id]=1;}});
-  L=L.filter(function(q){return !caHidden(cfg,A,q);});
   return L.map(function(q){if(q.id==='who'&&A._whoPre!=null&&(A.who||[]).join(',')===A._whoPre&&!A._whoUser){var lab=(ICP_OPTS.filter(function(o){return o.id===G.icp;})[0]||{}).lab;
     return Object.assign({},q,{preHint:A._whoSrc==='icp'&&lab?('Pre-selected for '+lab.toLowerCase()+' — tap to add or remove a group.'):'Pre-selected from your earlier answers — tap to add or remove a group.'});}return q;});};
 function caFirstOpen(qs,A){for(var j=0;j<qs.length;j++){var q=qs[j],v=A[q.id];if(q.multi?!(v&&v.length):(v==null||v===''))return j;}return 0;}
@@ -10571,9 +10571,13 @@ function caFrRowHtml(cfg){var fr=(typeof CATS!=='undefined')&&CATS.indexOf('fr')
     '<div class="frbtns">'+(fr?'<button type="button" class="jaall" data-cafr="1">See flame-resistant gear →</button>':'')+
     '<button type="button" class="jalink" data-caask="1">Have Steven spec an FR program</button></div></div></div>';}
 var _caTakeHtml0=caTakeHtml;
-caTakeHtml=function(cfg,A,P,brief){var h=_caTakeHtml0(cfg,A,P,brief),l=ICP_TAKE[caIcpG().icp];if(!h||!l)return h;
+caTakeHtml=function(cfg,A,P,brief){var h=_caTakeHtml0(cfg,A,P,brief),l='';if(!h||!l)return h;
   return h.replace('<span>Just Deals Promotions</span></div>','<span>Just Deals Promotions</span></div><p class="caicp">'+esc(l)+'</p>');};
-function caIcpTips(cfg,A){var G=caIcpG(),i=G.icp,c=cfg.id,t=[],has=function(l){return l.indexOf(c)>=0;};if(!i)return t;
+function caIcpTips(cfg,A){var G=caIcpG(),t=[];
+  /* only a conditional safety note, and only where the FR switch is offered -- no claims about what the company does */
+  if(G.fr!=='1'&&caTogs(cfg,A).some(function(x){return x.id==='fr';}))t.push('If any of your crews work near arc flash, flash fire or hot work, they need FR clothing rated to your hazard assessment, and synthetic polos, tees and softshells must not be worn over or under it. Switch on “Some crews need FR clothing” above and we’ll handle those crews separately.');
+  return t;
+  var i=G.icp,c=cfg.id,has=function(l){return l.indexOf(c)>=0;};if(!i)return t;
   if(ICP_FR[i]&&G.fr!=='1'&&FR_ROLES[c])t.push('Electricians, welders and anyone near arc flash or flash fire need FR clothing rated to your hazard assessment. Synthetic polos, tees and softshells must not be worn on top of it or underneath it — switch on “Some crews need FR” above and we’ll handle those crews separately.');
   if(i==='land'&&has(['jackets','layers','hivis','headwear']))t.push('Snow removal is often night work beside traffic: hi-vis has to be the outer layer, so plan a Class 2 vest or hi-vis jacket over the branded layers.');
   if(i==='wh'&&has(['jackets','vests']))t.push('Cold storage or freezer staff? Choose the freezer option under “The work” and tell us the temperature and time inside — we’ll check the pick against them.');
@@ -10591,8 +10595,8 @@ caCats=function(){var c=_caCats0(),o=ICP_CATS[caIcpG().icp];if(!o)return c;var r
 function caNextHtml(cfg){var G=caIcpG(),o=ICP_CATS[G.icp]||ICP_CAT_DEF,cats=caCats(),here=VIEW.cat;
   var L=o.filter(function(c){if(c===here||cats.indexOf(c)<0)return false;var g=caCfgFor(c);return g&&g.id!==cfg.id;}).slice(0,3);
   if(!L.length)return '';var sh=ICP_SHORT[G.icp];
-  return '<div class="canext"><div class="canexth"><b>'+(sh?('Complete your '+esc(sh)+' program'):'Complete the program')+'</b><span>'+
-      (G.icp?'Your teams carry over — most open with picks ready.':'Your teams carry over to the next advisor.')+'</span></div><div class="canextt">'+
+  return '<div class="canext"><div class="canexth"><b>'+'Complete the program'+'</b><span>'+
+      'Each one takes a few quick questions.'+'</span></div><div class="canextt">'+
     L.map(function(c){var g=caCfgFor(c),done=caReady(g,caSt(g.id));
       return '<button type="button" class="canx" data-advgo="'+esc(c)+'" data-src="next"><span class="canxi">'+caSvg(CA_TILE_ICO[c]||'spark',22)+'</span>'+
         '<span class="canxt"><b>'+esc(shortCat(c))+'</b><i>'+esc(done?'Your picks are ready — see them':(g.tile||''))+'</i></span><span class="canxg">'+(done?'See':'Start')+' →</span></button>';}).join('')+
