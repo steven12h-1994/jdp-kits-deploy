@@ -12100,7 +12100,7 @@ function go(cfg){
       /* A view link only makes sense when a board is not already taking over the screen. */
       if(!/[?&](b|board)=/.test(location.search)){try{applyViewLink();}catch(e){}}
       /* From here on, the address bar tracks the view. Not before -- see syncViewUrl. */
-      VURLOK=true;VHOME=VIEW.cat;
+      VURLOK=true;VHOME=VIEW.cat;VKEY=(giftViewOn()?'g':'')+'|'+(VIEW.q?'q':(VIEW.cat||''))+'|'+(VIEW.q?'':(VIEW.sub||''));
       // Deep link: /kits/<slug>/?item=<key> (or #item=<key>) opens straight to that product. This MUST
       // run AFTER buildStore(). It used to fire synchronously, before the async ink probe resolved, so
       // the sheet opened against an unbuilt store and was wiped by the first render -- every ?item=
