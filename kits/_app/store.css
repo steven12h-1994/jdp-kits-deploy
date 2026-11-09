@@ -4609,3 +4609,8 @@ table.cmp{width:100%;border-collapse:separate;border-spacing:0;table-layout:fixe
 .cadv2 .caband .cahdr{flex-wrap:nowrap}
 @media(max-width:560px){.cadv2 .caband .carst,.cadv2 .caband .caedt{padding:5px 10px;font-size:12px}.cadv2 .caband .cahdr{gap:6px}
   .cadv2 .caband.res .cahd{flex-wrap:wrap}.cadv2 .caband.res .cahdr{flex-wrap:wrap;justify-content:flex-start}}
+/* comparison columns: the same branded stage, logo drawn */
+.cmpimg{max-width:168px!important;border-radius:14px!important;border:1px solid #e5e7eb!important;
+  background:radial-gradient(70% 70% at 50% 42%,#fff 0%,#fff 40%,color-mix(in srgb,var(--a) 7%,#eef1f5) 100%)!important}
+.cmpimg img.g{mix-blend-mode:multiply}
+.cmpimg img.l{position:absolute;transform:translate(-50%,-50%);height:auto;max-width:none;pointer-events:none;filter:drop-shadow(0 .5px .5px rgba(0,0,0,.25))}

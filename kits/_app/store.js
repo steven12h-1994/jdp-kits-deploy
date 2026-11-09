@@ -3183,7 +3183,10 @@ function jaWarm(it){
   return 0;
 }
 function jaFlags(it){var w=it.warm||{},f=(w.flags||[]).slice(),fin=((it.fab||{}).finishes||[]).join(' ').toLowerCase();
-  if((/waterproof/.test(fin)||w.wp)&&f.indexOf('waterproof')<0)f.push('waterproof');   // a published mm rating IS waterproof (audit 2026-11-09)
+  /* a published mm rating counts as waterproof -- but not a softshell's FABRIC rating without sealed seams: waterproof means
+     seam-sealed (Steven's rule), so the Balmy, Cyclone and Hurricane read water-repellent, as their makers sell them */
+  var _ss=/soft ?shell/i.test(it.name||'')&&f.indexOf('sealed seams')<0,_wp=w.wp&&!/fabric/i.test(String(w.wp))&&!_ss;
+  if((/waterproof/.test(fin)||_wp)&&f.indexOf('waterproof')<0)f.push('waterproof');
   return f;}
 function jaHivis(it){return itemCategory(it)==='hivis';}
 function jaRugged(it){var n=(it.name||'').toLowerCase(),b=String(it.brand||it.sku||'')+' '+(it.line||''),f=((it.fab&&it.fab.finishes)||[]).join(' ');return /heavy-duty|canvas|duck|freezer|bomber|utility/.test(n)||/Rugged Wear|Carhartt|Workwear/.test(b)||/abrasion/i.test(f);}
