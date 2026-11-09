@@ -1264,7 +1264,7 @@ function colourDots(item,key){
    shopper browses by what they want (Polos, Fleece, Jackets…), with the brand shown on each card. */
 var MEGA=[
   {id:'tops',name:'Polos, Shirts & Tees'},
-  {id:'layers',name:'Sweaters & Fleece'},
+  {id:'layers',name:'Fleece & Sweaters'},
   {id:'outerwear',name:'Jackets'},
   {id:'vests',name:'Vests'},
   /* RUGGED WEAR IS GONE AS AN AISLE (Steven, 2026-10-13: "remove rugged wear"). It was a supplier’s line name
@@ -1294,7 +1294,7 @@ var MEGA=[
 var SHACKET_KEYS={st_bushwick:1,st_highlandplaid:1,st_oxide:1,ff_hvflannel:1};   // + ForceField's quilted plaid shirt jacket (2026-11-09)
 var MEGASUB={
   tops:['Polos','Shirts','Tees'],
-  layers:['Quarter & Half-Zips','Crewnecks & Sweatshirts','Hoodies','Fleece'],   // bottoms live in the Pants & Joggers tab
+  layers:['Quarter & Half-Zips','Hoodies','Full-Zips & Fleece','Crewnecks & Sweatshirts'],   // bottoms live in the Pants & Joggers tab
   /* JACKETS, ORDERED LIGHT -> WARM. Steven, 2026-09-18: "are jackets section is terrible for
      customers and gives them a headache!"
      Three faults, measured across the 51 jackets:
@@ -1528,7 +1528,9 @@ var HOME_BY_KEY={st_stocktonhoody:{mega:'layers',sub:'Hoodies'},st_stocktoncrew:
      shirt JACKETS; a hooded canvas work jacket is a jacket, not a hoodie; knit full-zips are fleece, not shells */
   ff_sherpashirt:{mega:'outerwear',sub:'Shirt Jackets & Shackets'},ff_flannelshirt:{mega:'outerwear',sub:'Shirt Jackets & Shackets'},
   ff_buffalo:{mega:'outerwear',sub:'Shirt Jackets & Shackets'},ff_blackwatch:{mega:'outerwear',sub:'Shirt Jackets & Shackets'},
-  ff_canvashood:{mega:'outerwear',sub:'Insulated & Quilted'},st_treelinefz:{mega:'layers',sub:'Fleece'},cs_l00870:{mega:'layers',sub:'Fleece'}};
+  ff_canvashood:{mega:'outerwear',sub:'Insulated & Quilted'},st_treelinefz:{mega:'layers',sub:'Full-Zips & Fleece'},cs_l00870:{mega:'layers',sub:'Full-Zips & Fleece'},
+  cs_l00570:{mega:'layers',sub:'Full-Zips & Fleece'},cs_l00850:{mega:'layers',sub:'Full-Zips & Fleece'},cs_l00692:{mega:'layers',sub:'Full-Zips & Fleece'},
+  st_dockyard:{mega:'layers',sub:'Hoodies'},cbc_mainsail_fz:{mega:'layers',sub:'Full-Zips & Fleece'}};
 function classify(it){
   if(it&&HOME_BY_KEY[it.key])return HOME_BY_KEY[it.key];
   // A kit that references a product the catalogue no longer carries must degrade to "not shown",
@@ -1596,7 +1598,7 @@ function classify(it){
   if(/crewneck|sweatshirt/.test(n)&&!/hood/.test(n)&&!/t-shirt|\btee\b/.test(n))return {mega:'layers',sub:'Crewnecks & Sweatshirts'};  // a "Crewneck T-Shirt" is a TEE
   if(/hoodie|hooded/.test(n))return {mega:'layers',sub:'Hoodies'};
   if(n.indexOf('vest')>=0)return {mega:'vests',sub:vestSub(n)};
-  if(/fleece/.test(n))return {mega:'layers',sub:'Fleece'};
+  if(/fleece/.test(n))return {mega:'layers',sub:'Full-Zips & Fleece'};
   if(n.indexOf('polo')>=0)return {mega:'tops',sub:'Polos'};
   /* ANCHORED. Unanchored, /tee/ matches the substring inside "s-TEE-lhead" -- the Steelhead HD
      Thermal Jacket classified as a T-SHIRT and never reached the Jackets tab. Same failure mode
@@ -1900,6 +1902,7 @@ function renderWarmbar(){
   var el=document.getElementById('warmbar');if(!el)return;
   var keys=(VIEW.sub==='all')?[].concat.apply([],subNames(VIEW.cat).map(function(s){return BUCKETS[VIEW.cat][s];}))
                              :((BUCKETS[VIEW.cat]||{})[VIEW.sub]||[]);
+  if(['outerwear','vests','hivis','carhartt','fr'].indexOf(VIEW.cat)<0){el.innerHTML='';el.style.display='none';VIEW.warm=null;return;}
   var cnt={},live=[];
   WARM_ORDER.forEach(function(b){cnt[b]=keys.filter(function(k){return warmBand(k)===b;}).length;
     if(cnt[b])live.push(b);});
@@ -2359,7 +2362,7 @@ var SX_SUBWORDS={
   'Tees':'tshirt shirt','T-Shirts':'tshirt shirt','Hi-Vis T-Shirts':'tshirt shirt',
   'Quarter & Half-Zips':'quarterzip halfzip pullover sweater','Crewnecks & Sweatshirts':'sweatshirt crewneck sweater',
   'Hoodies':'hoodie sweatshirt','Sweatshirts & Hoodies':'hoodie sweatshirt','Hoodies & Thermals':'hoodie sweatshirt thermal',
-  'Fleece':'fleece sweater','Fleece & Softshell':'fleece softshell',
+  'Full-Zips & Fleece':'fleece full zip sweater','Fleece':'fleece sweater','Fleece & Softshell':'fleece softshell',
   'Shells & Rainwear':'jacket coat rain raincoat rainwear shell windbreaker waterproof',
   'Softshell Jackets':'jacket coat softshell','Shirt Jackets & Shackets':'jacket shacket overshirt',
   'Insulated & Quilted':'jacket coat insulated quilted puffer winter warm','Winter Parkas & 3-in-1':'jacket coat parka winter warm 3in1',
@@ -2979,11 +2982,11 @@ var XPERT={
   'Quarter & Half-Zips':{a:'The quarter-zip is the corporate default — it layers over a polo and under a jacket.',p:[
     ['st_treeline','The corporate quarter-zip for a mixed team, in men’s and ladies’ cuts.'],['flux','A crew-wide layer on a budget.'],['cbc_traverse_qz','Client-facing teams, travel and the golf course.']]},
   'Hoodies':{a:'Hoodies get worn off-shift, which is exactly when your logo is seen most.',p:[
-    ['forge','A heavyweight hoodie that feels like a gift, not a giveaway.'],['vault','A whole crew on a budget.'],['nk_pohoodie','A brand-name hoodie people keep for years.']]},
+    ['forge','A heavyweight hoodie that feels like a gift, not a giveaway.'],['vault','A whole crew on a budget.'],['st_omegahoody','A heavyweight cotton hoodie people keep for years.']]},
   'Crewnecks & Sweatshirts':{a:'Crewnecks are the cleaner, more office-friendly sweatshirt.',p:[
     ['foundry','A heavyweight crewneck that holds its shape.'],['crew','Big teams and events.'],['cs_l00440','A soft vintage-wash look.']]},
-  'Fleece':{a:'Full-zip fleece is the mid-layer that suits every build on the team.',p:[
-    ['st_avalante','The everyday fleece for a mixed team.'],['tnf_fleece','A North Face fleece people recognise.'],['cbc_evoke_fleece','A fleece that reads as a jacket — a service-milestone gift.']]},
+  'Full-Zips & Fleece':{a:'A full zip goes on and off over anything — fleece jackets, full-zip sweatshirts and zip hoodies in one place.',p:[
+    ['st_avalante','The everyday fleece for a mixed team.'],['cs_l00570','A full-zip sweatshirt for the whole crew on a budget.'],['cbc_evoke_fleece','A fleece that reads as a jacket — a service-milestone gift.']]},
   'Softshell Jackets':{a:'A softshell is the three-season jacket: stretch, wind-resistant, light warmth.',p:[
     ['st_cascades','The three-season jacket we’d put on everybody.'],['softshell','A crew-wide jacket on a budget.'],['st_cruise','A sharp shell for client-facing staff.']]},
   'Shells & Rainwear':{a:'Shells keep out wind and rain and layer over a hoodie or fleece.',p:[
@@ -4240,7 +4243,7 @@ function caStyle(it){var n=(it.name||'').toLowerCase();
   if(/full-zip|full zip|fleece jacket|zip hood|shacket|jacket/.test(n))return 'fz';
   if(/hood/.test(n))return 'hood';
   if(/crew|sweatshirt|sweater/.test(n))return 'crew';
-  return caInCats(it,[['layers','Fleece']])?'fz':'crew';}
+  return caInCats(it,[['layers','Full-Zips & Fleece']])?'fz':'crew';}
 function caWarmBand(it){var g=caGsm(it);if(!g){var n=(it.name||'').toLowerCase();return /heavyweight/.test(n)?3:(/midweight/.test(n)?2:(/lightweight/.test(n)?1:0));}return g<270?1:(g<380?2:3);}
 var CA_WHO_LAYER=[
   {id:'office',lab:'Office & client-facing',sub:'Sales, managers, front desk'},
@@ -4262,7 +4265,7 @@ CADV.push({id:'layers',tile:'Quarter-zip, hoodie or fleece — by who wears it',
         opts:[{id:'0',lab:'Under a jacket or hi-vis',sub:'A mid-layer'},{id:'1',lab:'Yes, on its own outside',sub:'Water-repellent, heavier fabric'}]}],
   fact:function(it){var g=caGsm(it),st={qz:'quarter-zip',fz:'full-zip',hood:'pullover hoodie',crew:'crewneck'}[caStyle(it)];
     return caArt((g?(g+' gsm '):'')+st)+(hasLadies(it)?' in men’s and women’s cuts':'');},
-  pool:function(){var ks=caKeys([['layers','Quarter & Half-Zips'],['layers','Hoodies'],['layers','Crewnecks & Sweatshirts'],['layers','Fleece'],['carhartt','Sweatshirts & Hoodies']]);
+  pool:function(){var ks=caKeys([['layers','Quarter & Half-Zips'],['layers','Hoodies'],['layers','Crewnecks & Sweatshirts'],['layers','Full-Zips & Fleece'],['carhartt','Sweatshirts & Hoodies']]);
     return ks.filter(function(k){return !jaHivis(BYKEY[k]);});},
   score:function(it,A,role,p){
     var st=caStyle(it),want=A.style||'auto',s=0,b=caWarmBand(it),w=+A.warm||2;
@@ -4727,7 +4730,7 @@ function renderGridCore(){
   // separately — so excluding it hid 10 of the 21 Sweaters & Fleece styles from anyone shopping for
   // the women on their team. Items with neither flag are men's-only and stay hidden.
   var fitOK=function(list){var L=(VIEW.fit==='womens')?list.filter(function(k){var i=BYKEY[k]||{};return hasLadies(i)||i.unisex;}):list;return sortList(warmOK(bandOK(colourOK(L))));};
-  var subs=subNames(VIEW.cat),csa=VIEW.cat==='hivis'?' <span class="csa">CSA Z96 · ANSI 107</span>':'';
+  var subs=subNames(VIEW.cat),csa=VIEW.cat==='hivis'?(isUS()?' <span class="csa">ANSI 107</span>':' <span class="csa">CSA Z96</span>'):'';
   var _shown=(VIEW.sub==='all'?fitOK(ALLKEYS.filter(function(k){return (BUCKETS[VIEW.cat]||{})&&subs.some(function(s){return BUCKETS[VIEW.cat][s].indexOf(k)>=0;});})).length:fitOK(BUCKETS[VIEW.cat][VIEW.sub]||[]).length);
   SHOWN=_shown;
   hd.innerHTML='<h2 class="glbl">'+esc(megaName(VIEW.cat))+csa+'</h2><span class="gsub">'+_shown+' styles'+(VIEW.fit==='womens'?' in ladies’ &amp; unisex fits':'')+'</span>'+catGuideHtml();
@@ -4799,8 +4802,8 @@ function seeMoreHtml(s,ks,nShown){
 // Certified for BOTH Canada (CSA Z96-22) and the U.S. (ANSI/ISEA 107-2020), with a plain-English class guide.
 function hivisIntroHtml(){
   return '<div class="hvintro">'+
-    '<div class="hvhead"><span class="hvbadge">🛡 CSA Z96-22 + ANSI/ISEA 107-2020</span>'+
-      '<p>Every hi-vis piece here is <b>certified for both Canada and the U.S.</b> — spec your crew once and stay compliant on either side of the border. Each style is labelled with its exact class so you can match the garment to the hazard.</p></div>'+
+    '<div class="hvhead"><span class="hvbadge">🛡 CSA Z96'+(isUS()?' · ANSI/ISEA 107':'')+'</span>'+
+      '<p>Every hi-vis garment here is made to <b>CSA Z96</b>, the Canadian hi-vis standard; styles that also carry <b>ANSI/ISEA 107</b> for U.S. sites say so on the product. Each style shows the class the maker publishes, so you can match the garment to the hazard.</p></div>'+
     '<div class="hvclass">'+
       '<div class="hvc"><b>Class 1</b><span>Low-risk / off-road — parking lots, warehouse yards, sites set back from traffic.</span></div>'+
       '<div class="hvc"><b>Class 2</b><span>Roadside &amp; active traffic — the workhorse class for road crews, survey, utility &amp; municipal.</span></div>'+
@@ -4841,6 +4844,7 @@ function applyViewLink(){
   var sm=s.match(/[?&]sub=([^&#]*)/),cm=s.match(/[?&]cat=([^&#]*)/);
   var wantCat=cm?bslug(qdec(cm[1])):null,wantSub=sm?bslug(qdec(sm[1])):null;
   if(wantCat==='ruggedwear'){wantCat='outerwear';wantSub=null;}   // the Rugged Wear aisle is gone (2026-10-13)
+  if(wantSub==='fleece'&&(!wantCat||wantCat==='layers'))wantSub=bslug('Full-Zips & Fleece');   // shelf renamed 2026-11-09
   if(wantSub){
     for(c in BUCKETS){
       if(wantCat&&bslug(c)!==wantCat)continue;
