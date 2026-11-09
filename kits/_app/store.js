@@ -1628,7 +1628,7 @@ var GRP_N_USED=0;
 function grpPreviewN(){
   try{
     var vw=window.innerWidth||document.documentElement.clientWidth||1280;
-    if(vw<=560)return 4;
+    if(vw<=560)return 2;   // phones: one row per shelf, then the 'See all' strip (the hi-vis aisle was ~19 screens long)
     var g=document.getElementById('grid'),W=(g&&g.clientWidth)||Math.min(vw,1240);
     var cols=Math.max(1,Math.floor((W+18)/(230+18)));
     return cols>=3?Math.min(cols,6):4;
@@ -2548,6 +2548,9 @@ function sxRun(q,opts){
   var P=sxParse(q,opts.live),hits=[],k,d,sc;
   if(P.code){return {P:P,keys:[P.code],aisles:[],relaxed:null};}
   var toks=P.toks;
+  /* "FR shirt" / "hi vis shirt": safety buyers call every top a shirt, and the FR and hi-vis tees are named T-Shirts.
+     Without this, "FR shirt" jumped to the FR Shirts shelf and hid the FR tees (audit 2026-11-09). */
+  if(toks.some(function(t){return t.alts.fr||t.alts.hivis;}))toks.forEach(function(t){if(t.alts.shirt&&!t.alts.tshirt)t.alts.tshirt=0.9;});
   if(!toks.length&&!P.fem&&!P.cheap&&P.max==null){return {P:P,keys:[],aisles:[],relaxed:null,empty:!P.unknown.length};}
   /* A word we do not carry at all ("gloves"), next to words that are only modifiers ("blue",
      "ladies", "under $40"): answering with every blue product would pretend. Say we do not carry it. */
@@ -3684,8 +3687,12 @@ function wireAdvGo(root){(root||document).querySelectorAll('[data-advgo]').forEa
 function openAdvPicker(){closeAdvPicker();var d=document.createElement('div');d.className='advpick';d.id='advPick';d.setAttribute('role','dialog');d.setAttribute('aria-label','Advisor');
   d.innerHTML='<div class="apscrim" data-apx="1"></div><div class="appanel"><div class="aphd"><span class="ahey">'+caSvg('spark',16)+' Advisor</span><button type="button" class="apx" data-apx="1" aria-label="Close">&times;</button></div>'+
     '<h3>What are you choosing?</h3><p>A few quick questions about your team. We’ll show the piece we’d pick — with your logo on it and the reasons — plus a lower-cost and a premium option.</p>'+
-    '<div class="ahtiles">'+caHubTiles('sm')+'</div></div>';
-  document.body.appendChild(d);wireAdvGo(d);d.querySelectorAll('[data-apx]').forEach(function(x){x.addEventListener('click',closeAdvPicker);});
+    '<div class="ahtiles">'+caHubTiles('sm')+'</div>'+
+    /* several teams at once: the starter programs already answer that (one kit per role, priced together) */
+    (document.getElementById('recohero')?'<button type="button" class="approg" data-approg="1" style="display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;margin-top:14px;padding:14px 16px;border:1px solid var(--line);border-radius:12px;background:#fff;text-align:left;cursor:pointer;font:inherit"><span><b style="display:block;font-size:15px">Outfitting several teams at once?</b><i style="font-style:normal;color:#6b7280;font-size:13px">Start from a ready-made program (office, crew or hi-vis), then swap any piece.</i></span><span aria-hidden="true" style="font-weight:600;color:var(--a)">See programs →</span></button>':'')+
+    '</div>';
+  document.body.appendChild(d);wireAdvGo(d);
+  var pg=d.querySelector('[data-approg]');if(pg)pg.addEventListener('click',function(){closeAdvPicker();jdpTrack('hero_programs',{src:'advpick'});var r=document.getElementById('recohero');if(r)r.scrollIntoView({behavior:'smooth',block:'start'});});d.querySelectorAll('[data-apx]').forEach(function(x){x.addEventListener('click',closeAdvPicker);});
   document.addEventListener('keydown',caEsc);jdpTrack('adv_pick');setTimeout(function(){d.classList.add('on');},10);}
 function caEsc(e){if(e.key==='Escape')closeAdvPicker();}
 function closeAdvPicker(){var d=document.getElementById('advPick');if(d)d.remove();document.removeEventListener('keydown',caEsc);}
@@ -7949,13 +7956,14 @@ function decoSummary(it,c){
 }
 function refreshCartUI(){
   var n=cartCount(),sub=cartSubtotal();
+  try{sub+=cartSetup();}catch(e){}   // audit 2026-11-09: header said $8,452 while the quote said $8,512 — one total everywhere
   var cn=document.getElementById('cartN');if(cn){cn.textContent=n;cn.classList.toggle('has',n>0);}
   // The single most common confusion was "which list did that just go into?". Name it, always.
   /* Removing the header removed the one place that named the active board, so on Explore there was
      nothing telling you where a heart would land. The bar's Boards button now carries it. */
   var tbl=document.getElementById('tbBoardsLbl');
   var _qid=quoteListId(),_qn=listLen(_qid);
-  if(tbl){tbl.textContent=(_qn&&_qid===ALID)?('Quote \u00b7 '+money0(cartSubtotal())):'Quote';}
+  if(tbl){tbl.textContent=(_qn&&_qid===ALID)?('Quote \u00b7 '+money0(sub)):'Quote';}
   var tqn=document.getElementById('tbQN');if(tqn){tqn.textContent=_qn||'';tqn.style.display=_qn?'':'none';}
   var rn=document.getElementById('railN');
   if(rn){var bn=listIds().length;rn.textContent=bn>1?bn:'';rn.style.display=bn>1?'':'none';}
