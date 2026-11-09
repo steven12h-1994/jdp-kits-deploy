@@ -3101,7 +3101,7 @@ function jaPool(){
    product's NAME says it is (a "Winter Traffic Parka" is a winter jacket). 0 = unknown, never guessed. */
 function jaWarm(it){
   var b=(it.warm||{}).band;if(b)return {uninsulated:1,insulated:2,winter:3}[b]||0;
-  var n=(it.name||'').toLowerCase();
+  var n=(it.name||'').toLowerCase().replace(/button-?down/g,'');   // a button-down shirt is not a down jacket
   if(/parka|winter|3-in-1|5-in-1|6-in-1|insulated|bib/.test(n))return /parka|winter|in-1/.test(n)?3:2;
   if(/quilted|puffer|down|thermo|freezer|sherpa|lined|coat|hybrid/.test(n))return 2;
   if(/soft ?shell|shell|rain|wind/.test(n))return 1;
