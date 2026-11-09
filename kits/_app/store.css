@@ -4404,3 +4404,31 @@ table.cmp{width:100%;border-collapse:separate;border-spacing:0;table-layout:fixe
 /* add to quote, then keep going (2026-10-19) */
 .cpadd.done{background:#166534;border-color:#166534}
 .cpadded{padding:10px 16px;background:#f0fdf4;border-top:1px solid #dcfce7;font-size:13px;color:#166534}
+/* ===== industry-aware advisors (2026-11-09): industry tiles, FR row, Steven's industry line, complete-the-program strip */
+.cadv2 .caopts.icp{grid-template-columns:repeat(auto-fill,minmax(min(100%,200px),1fr));gap:10px}
+.cadv2 .caopts.icp .caopt{min-height:70px}
+@media(max-width:600px){
+  .cadv2 .caopts.icp{grid-template-columns:1fr 1fr;gap:8px}
+  .cadv2 .caopts.icp .caopt{min-height:58px;padding:9px 10px;gap:8px}
+  .cadv2 .caopts.icp .caoi{width:30px;height:30px;border-radius:9px}
+  .cadv2 .caopts.icp .caoi svg{width:18px;height:18px}
+  .cadv2 .caopts.icp .caot b{font-size:13.5px}
+  .cadv2 .caopts.icp .caot i{display:none}
+  .cadv2 .caopts.icp .caok{display:none}
+}
+.cprow.frrow{border-left:4px solid #c2410c;background:#fff7ed}
+.cprow.frrow .cpname{display:block;margin:2px 0 4px}
+.cprow.frrow .cpwhy{color:#5b3a1e}
+.frbtns{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;margin-top:10px}
+.catakb p.caicp{font-weight:650;color:var(--ink)}
+.canext{margin:18px 0 6px;padding:16px;border:1.5px solid var(--line);border-radius:16px;background:#fff}
+.canexth b{display:block;font-size:16px;font-weight:850;color:var(--ink)}
+.canexth span{display:block;font-size:13px;color:#7d7568;margin-top:2px}
+.canextt{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,230px),1fr));gap:10px;margin-top:12px}
+.canx{display:flex;align-items:center;gap:10px;padding:11px 12px;border:1.5px solid #ddd6c9;border-radius:13px;background:#fff;font:inherit;text-align:left;cursor:pointer;transition:border-color .15s,box-shadow .15s}
+.canx:hover{border-color:var(--a);box-shadow:0 10px 22px -16px color-mix(in srgb,var(--a) 80%,#000)}
+.canxi{flex:none;width:38px;height:38px;border-radius:11px;display:flex;align-items:center;justify-content:center;background:color-mix(in srgb,var(--a) 10%,#fff);color:var(--a)}
+.canxt{flex:1;min-width:0}
+.canxt b{display:block;font-size:14.5px;font-weight:800;color:var(--ink)}
+.canxt i{display:block;font-style:normal;font-size:12px;color:#7d7568;line-height:1.3;margin-top:2px}
+.canxg{flex:none;font-size:13px;font-weight:800;color:var(--a);white-space:nowrap}

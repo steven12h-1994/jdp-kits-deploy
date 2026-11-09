@@ -3559,7 +3559,7 @@ function caCompareHtml(cfg,A,x){var base=caBaseOf(cfg,A,x.role)||x;if(!base||bas
     '</tbody></table></div></div>';}
 /* the answer controls: a checkbox for "pick every group", a radio for one answer -- the control says which it is */
 function caOptHtml(q,A){var multi=!!q.multi,cur=A[q.id];
-  return '<div class="caopts'+(q.opts.length>4?' many':'')+(q.opts.length<=2?' two':'')+(multi?' multi':' single')+'" role="'+(multi?'group':'radiogroup')+'" aria-label="'+esc(q.q)+'">'+q.opts.map(function(o){var v=String(o.id),on=multi?((cur||[]).indexOf(v)>=0):(cur!=null&&cur!==''&&String(cur)===v);
+  return '<div class="caopts'+(q.cls?(' '+q.cls):'')+(q.opts.length>4?' many':'')+(q.opts.length<=2?' two':'')+(multi?' multi':' single')+'" role="'+(multi?'group':'radiogroup')+'" aria-label="'+esc(q.q)+'">'+q.opts.map(function(o){var v=String(o.id),on=multi?((cur||[]).indexOf(v)>=0):(cur!=null&&cur!==''&&String(cur)===v);
     return '<button type="button" class="caopt'+(on?' on':'')+'" data-ca="'+esc(q.id)+'" data-v="'+esc(v)+'" role="'+(multi?'checkbox':'radio')+'" aria-checked="'+on+'">'+
       '<span class="caok" aria-hidden="true"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>'+
       '<span class="caoi">'+caSvg(caIcoKey(q,o))+'</span>'+
@@ -3649,7 +3649,7 @@ function golfIntroHtml(){return '<div class="golfx"><div><b>Tournament extras, s
    full-size photos. */
 function caQtyOf(cfg,A,role){var Q=A._qty||{},d=getHC()||moq(),v=cfg.roles?Q._kit:Q[role];return Math.max(moq(),parseInt(v,10)||d);}
 function caUnit(k,q){var p=0;try{p=unitPrice(k,defaultDecos(k),Math.max(q,moq()));}catch(e){p=0;}return p||sxPrice(k)||0;}
-function caLabelled(cfg,A){var P=caProgram(cfg,A),RL={};((cfg.qs[0]&&cfg.qs[0].opts)||[]).forEach(function(r){RL[r.id]=r.lab;});if(cfg.roleLabs)RL=cfg.roleLabs;
+function caLabelled(cfg,A){var P=caProgram(cfg,A),RL={};((cfg.qs[0]&&cfg.qs[0].opts)||[]).forEach(function(r){RL[r.id]=r.lab;});if(cfg.roleLabs)RL=cfg.roleLabs;RL.fr=RL.fr||'Crews who need FR';
   var M=[];P.forEach(function(x){var h=!x.none&&!cfg.roles&&M.filter(function(m){return !m.none&&m.main.k===x.main.k;})[0];
     if(h){h.roles.push(x.role);h.lab+=' + '+(RL[x.role]||'');}else{x.roles=[x.role];x.lab=(cfg.who||cfg.roleLabs)?(RL[x.role]||''):'';M.push(x);}});return M;}
 function caWhyLine(cfg,A,x){var it=BYKEY[x.main.k],w=x.ang||'';if(!w){try{w=cfg.fact?cfg.fact(it,A,x.role):'';}catch(e){w='';}w=w?caCap(w):'';}
@@ -3658,6 +3658,7 @@ function caStepper(attr,v){return '<div class="cpstep"><button type="button" cla
   '<input class="cpsi" type="text" inputmode="numeric" pattern="[0-9]*" data-caqi="'+attr+'" value="'+v+'" aria-label="How many people">'+
   '<button type="button" class="cpsb" data-caq="'+attr+'|1" aria-label="More">+</button></div>';}
 function caRowHtml(cfg,A,x){
+  if(x.fr)return caFrRowHtml(cfg);
   if(x.none)return '<div class="cprow none"><div class="cpmain"><span class="cpfor">'+esc(x.lab||'')+'</span><p class="cpwhy">Nothing in this aisle fits all your answers for this group — <button type="button" class="jalink" data-caask="1">ask Steven</button> and we’ll source it.</p></div></div>';
   var it=BYKEY[x.main.k],q=caQtyOf(cfg,A,x.role),u=caUnit(x.main.k,q),open=(A._open===x.role);
   return '<div class="cprow" data-row="'+esc(x.role)+'">'+
@@ -3720,15 +3721,16 @@ function renderCatAdvisor(el,cfg){
   var qs=caQs(cfg,A),ready=caReady(cfg,A),n=qs.length;
   var mode=A._m||(ready?'res':'q');if(mode==='intro')mode='q';if(mode==='res'&&!ready)mode='q';
   var i=Math.max(0,Math.min(n-1,A._i||0));
+  if(mode==='q'&&A._i==null){var f0=caFirstOpen(qs,A);if(f0>0){i=f0;A._fresh=1;}}
   var head='<div class="cahd"><span class="xpeyb">'+esc(cfg.label)+'</span>';
   var body='',P=null;
   if(mode==='q'){
     var q=qs[i],answered=q.multi?((A[q.id]||[]).length>0):(A[q.id]!=null&&A[q.id]!=='');
     var dflt=q.def!=null?(q.opts.filter(function(o){return String(o.id)===String(q.def);})[0]||null):null;
     body=head+'<span class="castep">'+(i+1)+' of '+n+'</span></div>'+
-      (i===0?('<h3 class="xph">'+esc(cfg.h)+'</h3><p class="xpadv">'+esc(nwords(n))+' quick question'+(n>1?'s':'')+', then a recommended program'+(cfg.roles?' for your kit':(cfg.who?' for each group':''))+' — priced for your headcount, with your logo on it.</p>'):'')+
+      ((i===0||A._fresh)?('<h3 class="xph">'+esc(cfg.h)+'</h3><p class="xpadv">'+esc(nwords(n))+' quick question'+(n>1?'s':'')+', then a recommended program'+(cfg.roles?' for your kit':(cfg.who?' for each group':''))+' — priced for your headcount, with your logo on it.</p>'):'')+
       caStepsHtml(cfg,A,qs,i)+
-      '<h3 class="caq">'+esc(q.q)+'</h3>'+(q.hint||q.multi?('<p class="caqh">'+esc(q.multi?'Select every group that applies — each gets its own pick. Tap again to remove one.':q.hint)+'</p>'):'')+
+      '<h3 class="caq">'+esc(q.q)+'</h3>'+(q.hint||q.multi?('<p class="caqh">'+esc(q.multi?(q.preHint||'Select every group that applies — each gets its own pick. Tap again to remove one.'):q.hint)+'</p>'):'')+
       (q.multi?('<div class="camulti"><span class="cacount" data-cacount="1">'+((A[q.id]||[]).length?((A[q.id]||[]).length+' selected'):'None selected yet')+'</span>'+
         '<button type="button" class="jalink" data-casall="'+esc(q.id)+'">Select all</button><button type="button" class="jalink" data-caclr="'+esc(q.id)+'"'+((A[q.id]||[]).length?'':' hidden')+'>Clear</button></div>'):'')+
       caOptHtml(q,A)+
@@ -3750,12 +3752,14 @@ function renderCatAdvisor(el,cfg){
         return '<button type="button" class="catgl'+(on?' on':'')+'" data-catog="'+esc(g.id)+'" aria-pressed="'+on+'"><span class="catsw" aria-hidden="true"></span><b>'+esc(g.lab)+'</b><i>'+esc(g.sub)+'</i></button>';}).join('')+'</div>'):'')+
       caProgHtml(cfg,A,P)+
       caTakeHtml(cfg,A,P,true)+
+      caNextHtml(cfg)+
       '<p class="cacmp">'+(ok.some(function(x){return x.cur;})?('Hand-picked by our team from the '+nS+' '+esc(cfg.noun)+' in this store for exactly these answers.'):('Chosen from all '+nS+' '+esc(cfg.noun)+' in this store against your answers — fabric, fit, sizes and how they’re built for the job.'))+
         (cfg.note?(function(){try{var t=cfg.note(A);return t?(' '+t):'';}catch(e){return '';}})():'')+'</p>'+
       ((cfg.tips&&cfg.tips(A).length)?('<details class="catips"><summary>What our team would tell you before you order</summary><ul>'+cfg.tips(A).map(function(t){return '<li>'+esc(t)+'</li>';}).join('')+'</ul></details>'):'')+
       '<div class="cabarl cpreset"><button type="button" class="jalink" data-careset="1">Start over</button></div>';
   }
   el.innerHTML='<section class="xpert cadv2 m-'+mode+'" aria-label="'+esc(cfg.label)+'">'+body+'</section>';
+  try{wireAdvGo(el);}catch(e){}
   if(mode==='q'){if(i===n-1)caWarm(cfg,A);}   /* ca_start now means a first ANSWER (2026-10-19) -- it used to fire on every render, so 122 "starts" were page views */
   else if(!A._shown){A._shown=1;jdpTrack('ca_result',{c:cfg.id,n:(P||[]).filter(function(x){return !x.none;}).length});}
   /* ONE delegated listener: rows' details are built on demand, and their buttons must work the moment they exist */
@@ -3777,20 +3781,22 @@ function caInput(e,el,cfg,commit){var t=e.target;if(!t||!t.dataset||t.dataset.ca
   if(!commit){if(!v)return;A._qty=A._qty||{};A._qty[t.dataset.caqi]=Math.max(moq(),parseInt(v,10));caSave();caRefreshTotals(el,cfg,A);return;}
   caSetQty(el,cfg,A,t.dataset.caqi,v);t.value=A._qty[t.dataset.caqi];jdpTrack('ca_qty',{c:cfg.id});}
 function caClick(e,el,cfg){
-  var b=e.target.closest('button,[data-xpopen]');if(!b||!el.contains(b))return;var d=b.dataset,A=caSt(cfg.id);
+  var b=e.target.closest('button,[data-xpopen]');if(!b||!el.contains(b))return;var d=b.dataset,A=caSt(cfg.id);if(A._fresh)delete A._fresh;
+  if(d.advgo!=null)return;
+  if(d.cafr!=null){jdpTrack('ca_fr',{c:cfg.id});setCat('fr',true);return;}
   var re=function(){caSave();renderCatAdvisor(el,cfg);};
   if(d.ca!=null){var nq=d.ca,v=d.v,L=caQs(cfg,A),qd=L.filter(function(x){return x.id===nq;})[0]||{};CA_PICK={};
-    if(qd.multi){var l=A[nq]=(A[nq]||[]).slice(),k=l.indexOf(v);if(k>=0)l.splice(k,1);else l.push(v);caSave();if(!CA_ST1[cfg.id]){CA_ST1[cfg.id]=1;jdpTrack('ca_start',{c:cfg.id});}jdpTrack('ca_q',{c:cfg.id,q:nq,v:v});
+    if(qd.multi){if(nq==='who')A._whoUser=1;var l=A[nq]=(A[nq]||[]).slice(),k=l.indexOf(v);if(k>=0)l.splice(k,1);else l.push(v);caSave();if(!CA_ST1[cfg.id]){CA_ST1[cfg.id]=1;jdpTrack('ca_start',{c:cfg.id});}jdpTrack('ca_q',{c:cfg.id,q:nq,v:v});
       /* in place: tick or untick, no re-render, no flicker */
       var on=l.indexOf(v)>=0;b.classList.toggle('on',on);b.setAttribute('aria-checked',on);caMultiSync(el,l);return;}
-    var was=A[nq];A[nq]=v;caSave();if(!CA_ST1[cfg.id]){CA_ST1[cfg.id]=1;jdpTrack('ca_start',{c:cfg.id});}jdpTrack('ca_q',{c:cfg.id,q:nq,v:v});
+    var was=A[nq];A[nq]=v;if(nq==='icp'||nq==='fr')caIcpSet(nq,v);caSave();if(!CA_ST1[cfg.id]){CA_ST1[cfg.id]=1;jdpTrack('ca_start',{c:cfg.id});}jdpTrack('ca_q',{c:cfg.id,q:nq,v:v});
     el.querySelectorAll('[data-ca="'+nq+'"]').forEach(function(x){x.classList.toggle('on',x===b);x.setAttribute('aria-checked',x===b);});
     /* a new answer moves on by itself after a visible beat; re-tapping the same answer just confirms it */
     var L2=caQs(cfg,A),next=L2.indexOf(L2.filter(function(x){return x.id===nq;})[0])+1;
     setTimeout(function(){if(next>=L2.length){A._m='res';A._shown=0;jdpTrack('ca_done',{c:cfg.id});}else{A._m='q';A._i=next;}re();caScrollIn(el);},String(was)===String(v)?60:220);return;}
-  if(d.casall!=null){var qa=caQs(cfg,A).filter(function(x){return x.id===d.casall;})[0];if(!qa)return;A[qa.id]=qa.opts.map(function(o){return String(o.id);});CA_PICK={};caSave();
+  if(d.casall!=null){var qa=caQs(cfg,A).filter(function(x){return x.id===d.casall;})[0];if(!qa)return;if(qa.id==='who')A._whoUser=1;A[qa.id]=qa.opts.map(function(o){return String(o.id);});CA_PICK={};caSave();
     el.querySelectorAll('[data-ca="'+qa.id+'"]').forEach(function(x){x.classList.add('on');x.setAttribute('aria-checked','true');});caMultiSync(el,A[qa.id]);jdpTrack('ca_all',{c:cfg.id});return;}
-  if(d.caclr!=null){A[d.caclr]=[];CA_PICK={};caSave();el.querySelectorAll('[data-ca="'+d.caclr+'"]').forEach(function(x){x.classList.remove('on');x.setAttribute('aria-checked','false');});caMultiSync(el,[]);return;}
+  if(d.caclr!=null){if(d.caclr==='who')A._whoUser=1;A[d.caclr]=[];CA_PICK={};caSave();el.querySelectorAll('[data-ca="'+d.caclr+'"]').forEach(function(x){x.classList.remove('on');x.setAttribute('aria-checked','false');});caMultiSync(el,[]);return;}
   if(d.cachoose!=null){var pc=d.cachoose.split('|'),rl=pc[0],kk=pc[1],bs=caBaseOf(cfg,A,rl),grp2=(bs&&bs.roles)?bs.roles:[rl];
     grp2.forEach(function(rr){if(bs&&bs.main.k===kk)delete CA_PICK[cfg.id+'.'+rr];else CA_PICK[cfg.id+'.'+rr]=kk;});
     A._open=rl;jdpTrack('ca_choose',{c:cfg.id,k:kk});re();
@@ -10408,6 +10414,171 @@ function heroShotsHtml(){
 }
 /* only promise an advisor where one will actually open: the aisle has to carry enough qualifying styles
    (a US store with three caps has a Headwear aisle but no hat advisor) */
+/* ===== THE BUYER'S INDUSTRY, ASKED ONCE (Steven, 2026-11-09: "using our 12 target ICPs ... optimize every category
+   advisor from first principles"). What the advisors did not know until now is WHO THE COMPANY IS. Every advisor asked
+   "who are you outfitting?" from scratch -- the hardest question, a multi-select -- and none of them knew that an
+   electrical contractor's techs may need flame-resistant clothing, that a snow-removal crew plows at night beside
+   traffic, or that a food plant restricts pockets and buttons. So:
+     1. INDUSTRY ONCE. The first advisor a buyer opens asks one tap: what does the company do (our 12 ICPs). It is
+        stored per store (and can be preset with ?icp= on an outbound link or CFG.icp at build time), shared by every
+        advisor, and shown as an editable chip in "Based on".
+     2. TEAMS CARRY OVER. Each advisor's "who" question opens pre-filled -- first from the groups the buyer already
+        picked in another advisor (drivers in Jackets = "in and out all day" in Shirts), else from the industry's
+        typical teams -- and advGo skips straight past it. Pre-filled is never final: the hint says so, and any tap
+        makes it the buyer's own.
+     3. FR IS A SAFETY GATE, NOT A PREFERENCE. For the four ICPs with arc-flash / flash-fire exposure the advisor asks
+        whether any crew needs FR. If yes, field groups keep their standard pick (labelled "not FR-rated") and the
+        program gains an "FR crews" row that recommends NO synthetic garment -- it explains the rating to buy and
+        routes to the Flame-Resistant aisle or to Steven. Recommending a polyester polo to an electrician is the one
+        mistake an expert never makes.
+     4. EXPERT COMMENTARY BY INDUSTRY. Steven's take opens with one line written for that industry, and "What our team
+        would tell you" carries the industry's real ordering pitfalls (night snow work, GMP rules, uniform laundries).
+     5. A PROGRAM, NOT A PRODUCT. Every result ends with "Complete your <industry> program": the next two or three
+        advisors in the order that industry actually buys, each pre-answered. One advisor becomes a full program --
+        which is both the better buy for the customer and the bigger order. */
+var ICP_OPTS=[
+  {id:'mech',lab:'Mechanical & electrical',sub:'HVAC, electrical, plumbing, fire protection'},
+  {id:'civil',lab:'Heavy civil & aggregates',sub:'Roads, infrastructure, underground'},
+  {id:'mfg',lab:'Manufacturing & processing',sub:'Plants, fabrication, food processing'},
+  {id:'maint',lab:'Industrial maintenance',sub:'Shutdowns, turnarounds, field service'},
+  {id:'wh',lab:'Warehousing & 3PL',sub:'Distribution and fulfillment'},
+  {id:'gc',lab:'General contractor',sub:'Commercial construction & CM'},
+  {id:'energy',lab:'Energy & utilities',sub:'Utilities, environmental field crews'},
+  {id:'land',lab:'Landscaping & snow',sub:'Snow removal, facility maintenance'},
+  {id:'equip',lab:'Equipment dealer & rental',sub:'Sales, rental and service'},
+  {id:'truck',lab:'Trucking & logistics',sub:'Fleets, terminals, drivers'},
+  {id:'auto',lab:'Auto dealership group',sub:'Sales floor and service bays'},
+  {id:'corp',lab:'Corporate & professional',sub:'Offices, sales, client-facing'},
+  {id:'other',lab:'Something else',sub:'We’ll ask about your teams'}];
+var ICP_SHORT={mech:'mechanical & electrical',civil:'heavy civil',mfg:'manufacturing',maint:'maintenance & shutdown',wh:'warehouse',gc:'construction',
+  energy:'utility & energy',land:'landscaping & snow',equip:'equipment dealer',truck:'fleet',auto:'dealership',corp:'corporate'};
+/* the teams each industry typically outfits, per advisor (ids are that advisor's own "who" answers) */
+var ICP_WHO={
+  mech:{jackets:['office','drivers','outdoor'],tops:['office','mixed'],layers:['office','mixed'],vests:['office','mixed'],pants:['trades'],hivis:['site']},
+  civil:{jackets:['office','drivers','outdoor'],tops:['office','outdoor'],layers:['office','outdoor'],vests:['office','outdoor'],pants:['trades'],hivis:['road','site','night']},
+  mfg:{jackets:['office','warehouse'],tops:['office','mixed'],layers:['office','mixed'],vests:['office','mixed'],pants:['shop'],hivis:['yard']},
+  maint:{jackets:['office','drivers','outdoor'],tops:['office','outdoor'],layers:['office','outdoor'],vests:['office','outdoor'],pants:['trades'],hivis:['site','night']},
+  wh:{jackets:['office','warehouse','drivers'],tops:['office','mixed'],layers:['office','mixed'],vests:['office','mixed'],pants:['shop'],hivis:['yard']},
+  gc:{jackets:['office','outdoor'],tops:['office','outdoor'],layers:['office','outdoor'],vests:['office','outdoor'],pants:['trades'],hivis:['site']},
+  energy:{jackets:['office','drivers','outdoor'],tops:['office','outdoor'],layers:['office','outdoor'],vests:['office','outdoor'],pants:['trades'],hivis:['road','site','night']},
+  land:{jackets:['office','outdoor','drivers'],tops:['office','outdoor'],layers:['office','outdoor'],vests:['office','outdoor'],pants:['trades'],hivis:['road','night']},
+  equip:{jackets:['office','drivers','warehouse'],tops:['office','mixed'],layers:['office','mixed'],vests:['office','mixed'],pants:['shop'],hivis:['yard','site']},
+  truck:{jackets:['office','drivers','warehouse'],tops:['office','mixed'],layers:['office','mixed'],vests:['office','mixed'],pants:['shop'],hivis:['yard']},
+  auto:{jackets:['office','warehouse'],tops:['office','mixed'],layers:['office','mixed'],vests:['office','mixed'],pants:['shop'],hivis:[]},
+  corp:{jackets:['office'],tops:['office','events'],layers:['office','gift'],vests:['office','gift'],pants:['light'],hivis:['visit']}};
+/* the order each industry buys in -- drives "Complete your program" and the advisor picker */
+var ICP_CATS={mech:['outerwear','tops','layers','headwear','vests','bottoms','hivis'],civil:['hivis','outerwear','layers','headwear','tops','bottoms','vests'],
+  mfg:['tops','layers','vests','outerwear','bottoms','hivis','headwear'],maint:['hivis','outerwear','layers','tops','bottoms','headwear','vests'],
+  wh:['hivis','layers','vests','outerwear','tops','headwear','bottoms'],gc:['outerwear','hivis','tops','layers','headwear','vests','bottoms'],
+  energy:['hivis','outerwear','layers','tops','bottoms','headwear','vests'],land:['outerwear','hivis','layers','headwear','tops','bottoms','vests'],
+  equip:['tops','outerwear','layers','vests','headwear','bottoms','hivis'],truck:['outerwear','hivis','layers','tops','headwear','vests'],
+  auto:['tops','layers','outerwear','vests','headwear'],corp:['tops','layers','outerwear','vests','headwear','golf']};
+var ICP_CAT_DEF=['outerwear','tops','layers','hivis','headwear','vests','bottoms','golf'];
+/* Steven's opening line, per industry: advice, never a product claim */
+var ICP_TAKE={
+  mech:'For a mechanical or electrical contractor, your techs are the company on every service call — so I put them in the same colours and logo as the office, in pieces built for van days and jobsites.',
+  civil:'Heavy civil crews work outside, near traffic and moving equipment, so I build the program around compliant hi-vis on top and warm, durable layers underneath.',
+  mfg:'In a plant, people wear the same pieces every shift and wash them constantly, so I lean on fabrics that hold their shape and colour — and keep the office in the same look.',
+  maint:'Shutdown and field-service crews move between sites on short notice, so I keep the program simple: a few durable pieces, checked against each site’s PPE rules, in sizes for the whole crew.',
+  wh:'On a warehouse floor people move between the dock, the racking and the office all shift, so I pick layers they can add and drop — with hi-vis wherever forklifts run.',
+  gc:'For a general contractor, the site team and the office are both the brand to owners and trades, so I give them one look — with hi-vis wherever the site requires it.',
+  energy:'Utility and energy crews face the hardest conditions — weather, traffic and sometimes arc flash — so the hazard rules come first and comfort second.',
+  land:'Landscaping and snow crews swing from summer sun to night plowing, so I plan the whole year: light tees and caps for the season, hi-vis and real winter warmth for snow.',
+  equip:'At an equipment dealer, sales and service are both in front of customers — polished for the showroom, tough for the shop and the field.',
+  truck:'For a fleet, drivers are your brand at every dock and customer site: jackets that work behind the wheel, and hi-vis for the yard.',
+  auto:'In a dealership group, the sales floor sells the brand and the service drive keeps it — one look across every store, polished up front and shop-tough in the bays.',
+  corp:'For a corporate team, what matters is pieces people choose to wear — fit and quality first, in men’s and women’s cuts of the same piece.'};
+/* arc flash / flash fire exposure: the industries where we ask about FR, the advisors and groups it touches */
+var ICP_FR={mech:1,mfg:1,maint:1,energy:1};
+var FR_ROLES={jackets:['drivers','warehouse','outdoor'],tops:['mixed','outdoor'],layers:['mixed','outdoor'],vests:['mixed','outdoor'],pants:['shop','trades'],hivis:['road','site','yard','night']};
+var FR_TXT={_:'Standard polyester, nylon and spandex can melt onto skin in an arc flash or flash fire, so we won’t recommend them here. FR clothing has to match your hazard assessment — an arc rating (cal/cm²) under CSA Z462 / NFPA 70E, or NFPA 2112 / CAN/CGSB-155.20 for flash fire — and anything worn underneath must be non-melting.',
+  hivis:'Hi-vis worn over FR clothing has to be FR-rated itself — a standard polyester vest can melt or burn on top of it. FR hi-vis must match your hazard assessment (an arc rating under CSA Z462 / NFPA 70E, or NFPA 2112 / CAN/CGSB-155.20 for flash fire) and still meet CSA Z96.'};
+var FR_NOTE='Not FR-rated — for people in this group with no arc-flash or flash-fire exposure. FR crews: see the FR row.';
+/* the groups a buyer picked in one advisor, in every other advisor's words */
+var CA_GRP_IN={jackets:{office:'office',drivers:'mobile',warehouse:'indoor',outdoor:'outdoor'},tops:{office:'office',mixed:'mobile',outdoor:'outdoor',events:'events'},
+  layers:{office:'office',mixed:'mobile',outdoor:'outdoor',gift:'gift'},vests:{office:'office',mixed:'mobile',outdoor:'outdoor',gift:'gift'},pants:{shop:'indoor',trades:'outdoor'}};
+var CA_GRP_OUT={jackets:{office:'office',mobile:'drivers',indoor:'warehouse',outdoor:'outdoor'},tops:{office:'office',mobile:'mixed',indoor:'mixed',outdoor:'outdoor',events:'events'},
+  layers:{office:'office',mobile:'mixed',indoor:'mixed',outdoor:'outdoor',gift:'gift'},vests:{office:'office',mobile:'mixed',indoor:'mixed',outdoor:'outdoor',gift:'gift'},pants:{indoor:'shop',outdoor:'trades',mobile:'trades'}};
+CA_ICO.bolt='<path d="M13 2L4 14h7l-1 8 9-12h-7z"/>';
+CA_ICO.gear='<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1L7 17M17 7l2.1-2.1"/>';
+CA_ICO.wrench='<path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2.4-.6-.6-2.4z"/>';
+CA_ICO.car='<path d="M3 13l2-5h14l2 5v5H3zM3 13h18"/><circle cx="7" cy="17" r="1.6"/><circle cx="17" cy="17" r="1.6"/>';
+CA_ICO.excav='<path d="M2 18h12v3H2zM4 18v-4h7v4M11 15l4-8 5 2-2 5M18 14l2 3"/>';
+CA_ICO.flame='<path d="M12 22c4 0 7-3 7-7 0-4-3-6-4-10-2 2-3 4-3 6-1-1-2-2-2-4-3 3-5 5-5 8 0 4 3 7 7 7z"/>';
+(function(){var m={mech:'thermo',civil:'cone',mfg:'gear',maint:'wrench',wh:'warehouse',gc:'hardhat',energy:'bolt',land:'snow',equip:'excav',truck:'truck',auto:'car',corp:'office',other:'spark'};
+  for(var k in m)CA_ICO_Q['icp|'+k]=m[k];CA_ICO_Q['fr|yes']='flame';CA_ICO_Q['fr|no']='no';CA_ICO_Q['fr|unsure']='any';})();
+var ICPG=null;
+function caIcpKey(){return 'jdp_icp_'+((typeof CFG!=='undefined'&&CFG&&CFG.slug)||location.pathname);}
+function caIcpValid(v){return ICP_OPTS.some(function(o){return o.id===v;});}
+function caIcpG(){if(ICPG)return ICPG;ICPG={};try{ICPG=JSON.parse(localStorage.getItem(caIcpKey())||'{}')||{};}catch(e){ICPG={};}
+  var u='';try{u=(new URLSearchParams(location.search).get('icp')||'').toLowerCase();}catch(e){}
+  if(caIcpValid(u))ICPG.icp=u;else if(!ICPG.icp&&typeof CFG!=='undefined'&&CFG&&caIcpValid(CFG.icp))ICPG.icp=CFG.icp;
+  caIcpSave();return ICPG;}
+function caIcpSave(){try{localStorage.setItem(caIcpKey(),JSON.stringify(ICPG||{}));}catch(e){}}
+function caIcpSet(id,v){var G=caIcpG();if(G[id]===v)return;G[id]=v;caIcpSave();CA_MEMO={};CA_MEMO_N=0;try{jdpTrack('ca_'+id,{v:v});}catch(e){}}
+function caCo(){var c=(typeof CFG!=='undefined'&&CFG&&CFG.client)||'';return (!c||/your brand/i.test(c)||(CFG&&CFG.demo))?'your company':c;}
+function caWhoQ(cfg){return (cfg.qs||[]).filter(function(q){return q.id==='who';})[0];}
+/* every group the buyer has picked anywhere, in shared words (this advisor excluded) */
+function caGroups(except){var g={};(CADV||[]).forEach(function(c){if(c.id===except)return;var S=CA[c.id]||{},M=CA_GRP_IN[c.id],w=S.who;if(!M||!w||!S._whoUser)return;
+  w.forEach(function(r){if(M[r])g[M[r]]=1;});});return Object.keys(g);}
+function caWhoPreset(cfg){var q=caWhoQ(cfg);if(!q)return {l:[]};var ok={};(q.opts||[]).forEach(function(o){ok[String(o.id)]=1;});
+  var M=CA_GRP_OUT[cfg.id],out=[];if(M)caGroups(cfg.id).forEach(function(g){var r=M[g];if(r&&ok[r]&&out.indexOf(r)<0)out.push(r);});
+  if(out.length){var ord=(q.opts||[]).map(function(o){return String(o.id);});out.sort(function(a,b){return ord.indexOf(a)-ord.indexOf(b);});return {l:out,src:'grp'};}
+  var G=caIcpG(),I=ICP_WHO[G.icp];if(I&&I[cfg.id])return {l:I[cfg.id].filter(function(r){return ok[r];}),src:'icp'};return {l:[]};}
+function caShared(cfg,A){if(!cfg.who)return;var G=caIcpG();
+  if(G.icp)A.icp=G.icp;else if(A.icp&&caIcpValid(A.icp))G.icp=A.icp;
+  if(G.fr)A.fr=G.fr;else if(A.fr)G.fr=A.fr;
+  var w=A.who||[],untouched=!A._whoUser&&(!w.length||(A._whoPre!=null&&w.join(',')===A._whoPre));
+  if(untouched){var p=caWhoPreset(cfg);if(p.l.length){A.who=p.l.slice();A._whoPre=p.l.join(',');A._whoSrc=p.src;}}}
+function caSharedQs(cfg,A){if(!cfg.who)return [];var out=[{id:'icp',q:'What does '+caCo()+' do?',short:'Your industry',cls:'icp',shared:1,
+    hint:'One tap — we’ll pre-fill your teams in every advisor. You can change anything.',opts:ICP_OPTS}];
+  if(FR_ROLES[cfg.id]&&ICP_FR[A.icp])out.push({id:'fr',q:'Does anyone on your crews need flame-resistant (FR) clothing?',short:'FR needs',shared:1,
+    hint:'Arc flash, flash fire, welding or hot work. FR is a safety rating, so we handle those crews separately.',
+    opts:[{id:'yes',lab:'Yes, some crews do',sub:'Arc flash, flash fire or hot work'},{id:'no',lab:'No',sub:'No arc-flash or flash-fire exposure'},{id:'unsure',lab:'Not sure',sub:'We’ll flag what to check'}]});
+  return out;}
+var _caQs0=caQs;
+caQs=function(cfg,A){caShared(cfg,A);var L=_caQs0(cfg,A),S=caSharedQs(cfg,A),G=caIcpG();
+  return S.concat(L).map(function(q){if(q.id==='who'&&A._whoPre!=null&&(A.who||[]).join(',')===A._whoPre&&!A._whoUser){var lab=(ICP_OPTS.filter(function(o){return o.id===G.icp;})[0]||{}).lab;
+    return Object.assign({},q,{preHint:A._whoSrc==='icp'&&lab?('Pre-selected for '+lab.toLowerCase()+' — tap to add or remove a group.'):'Pre-selected from your earlier answers — tap to add or remove a group.'});}return q;});};
+function caFirstOpen(qs,A){for(var j=0;j<qs.length;j++){var q=qs[j],v=A[q.id];if(q.multi?!(v&&v.length):(v==null||v===''))return j;}return 0;}
+function caFrOn(cfg,A){var R=FR_ROLES[cfg.id];return !!(R&&A.fr==='yes'&&ICP_FR[A.icp]&&(A.who||[]).some(function(r){return R.indexOf(r)>=0;}));}
+var _caProgramRaw0=caProgramRaw;
+caProgramRaw=function(cfg,A){var P=_caProgramRaw0(cfg,A);if(!caFrOn(cfg,A))return P;var R=FR_ROLES[cfg.id];
+  P=P.map(function(x){if(x.none||R.indexOf(x.role)<0)return x;return Object.assign({},x,{note:(x.note?(x.note+' '):'')+FR_NOTE});});
+  P.push({role:'fr',none:true,fr:true});return P;};
+function caFrRowHtml(cfg){var fr=(typeof CATS!=='undefined')&&CATS.indexOf('fr')>=0;
+  return '<div class="cprow none frrow" data-row="fr"><div class="cpmain"><span class="cpfor">Crews who need FR</span>'+
+    '<b class="cpname">Flame-resistant, rated to your hazard</b><p class="cpwhy">'+esc(FR_TXT[cfg.id]||FR_TXT._)+'</p>'+
+    '<div class="frbtns">'+(fr?'<button type="button" class="jaall" data-cafr="1">See flame-resistant gear →</button>':'')+
+    '<button type="button" class="jalink" data-caask="1">Have Steven spec an FR program</button></div></div></div>';}
+var _caTakeHtml0=caTakeHtml;
+caTakeHtml=function(cfg,A,P,brief){var h=_caTakeHtml0(cfg,A,P,brief),l=ICP_TAKE[caIcpG().icp];if(!h||!l)return h;
+  return h.replace('<span>Just Deals Promotions</span></div>','<span>Just Deals Promotions</span></div><p class="caicp">'+esc(l)+'</p>');};
+function caIcpTips(cfg,A){var G=caIcpG(),i=G.icp,c=cfg.id,t=[],has=function(l){return l.indexOf(c)>=0;};if(!i)return t;
+  if(ICP_FR[i]&&G.fr!=='no'&&FR_ROLES[c])t.push('Electricians, welders and anyone near arc flash or flash fire need FR clothing rated to your hazard assessment. Synthetic polos, tees and softshells must not be worn on top of it or underneath it.');
+  if(i==='land'&&has(['jackets','layers','hivis','headwear']))t.push('Snow removal is often night work beside traffic: hi-vis has to be the outer layer, so plan a Class 2 vest or hi-vis jacket over the branded layers.');
+  if(i==='wh'&&has(['jackets','vests']))t.push('Cold storage or freezer staff? Choose the freezer option under “The work” and tell us the temperature and time inside — we’ll check the pick against them.');
+  if(i==='mfg'&&has(['tops','layers','jackets','vests','pants']))t.push('Food processing? Many plants restrict pockets above the waist, buttons and loose trim on the production floor — tell us your GMP rules and we’ll check every pick against them.');
+  if({auto:1,mfg:1,equip:1,truck:1}[i]&&has(['tops','pants']))t.push('If a uniform laundry service washes the shop’s shirts and pants, choose that answer — industrial-wash fabrics hold up there; most others don’t.');
+  if({civil:1,energy:1,gc:1,maint:1}[i]&&c==='hivis')t.push('Most sites want hi-vis on everyone who walks the site, visitors included — a few visitor vests on the order save a scramble at the gate.');
+  if(i==='corp'&&has(['tops','layers','jackets','vests']))t.push('Mixed team? Order the women’s cut of the same piece from the start — the look stays consistent and the pieces actually get worn.');
+  if(i==='truck'&&c==='jackets')t.push('Drivers: bomber and jacket lengths sit better behind the wheel than parkas — that’s why the driver pick is never a long coat.');
+  return t;}
+(CADV||[]).forEach(function(cfg){var t0=cfg.tips;cfg.tips=function(A){var b=[];try{b=t0?(t0.call(cfg,A)||[]):[];}catch(e){b=[];}return caIcpTips(cfg,A).concat(b);};});
+/* the picker and the hub follow the order this industry buys in */
+var _caCats0=caCats;
+caCats=function(){var c=_caCats0(),o=ICP_CATS[caIcpG().icp];if(!o)return c;var r=function(x){var k=o.indexOf(x);return k<0?99:k;};
+  return c.slice().sort(function(a,b){return r(a)-r(b);});};
+function caNextHtml(cfg){var G=caIcpG(),o=ICP_CATS[G.icp]||ICP_CAT_DEF,cats=caCats(),here=VIEW.cat;
+  var L=o.filter(function(c){if(c===here||cats.indexOf(c)<0)return false;var g=caCfgFor(c);return g&&g.id!==cfg.id;}).slice(0,3);
+  if(!L.length)return '';var sh=ICP_SHORT[G.icp];
+  return '<div class="canext"><div class="canexth"><b>'+(sh?('Complete your '+esc(sh)+' program'):'Complete the program')+'</b><span>'+
+      (G.icp?'Your industry and teams carry over — most take one or two taps.':'Your teams carry over to the next advisor.')+'</span></div><div class="canextt">'+
+    L.map(function(c){var g=caCfgFor(c),done=caReady(g,caSt(g.id));
+      return '<button type="button" class="canx" data-advgo="'+esc(c)+'" data-src="next"><span class="canxi">'+caSvg(CA_TILE_ICO[c]||'spark',22)+'</span>'+
+        '<span class="canxt"><b>'+esc(shortCat(c))+'</b><i>'+esc(done?'Your picks are ready — see them':(g.tile||''))+'</i></span><span class="canxg">'+(done?'See':'Start')+' →</span></button>';}).join('')+
+  '</div></div>';}
+
 function catHasAdvisor(c){try{if(typeof CADV==='undefined'||c==='carhartt')return false;var keep=VIEW.cat;VIEW.cat=c;
   var ok=CADV.some(function(g){return g.applies(c,'all')&&caPool(g,caSt(g.id)).length>=3;});VIEW.cat=keep;return ok;}catch(e){return false;}}
 /* THE HOME PAGE LEADS WITH THE ADVISOR (2026-10-13). The old grid of category tiles carried a small "Advisor" tag a
