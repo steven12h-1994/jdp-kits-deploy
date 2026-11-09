@@ -4889,9 +4889,9 @@ function renderGridCore(){
       var on=cr.querySelector('.crc.on');if(on&&cr.querySelector('.crs').scrollWidth>cr.clientWidth)try{on.scrollIntoView({block:'nearest',inline:'center'});}catch(e){}}}}catch(e){}
   var inner;
   if(VIEW.sub!=='all'){var _sibs=subs.filter(function(s){return (BUCKETS[VIEW.cat][s]||[]).length;}),_ix=_sibs.indexOf(VIEW.sub),_nx=_sibs[_ix+1]||'';
-    inner=(_sibs.length>1?('<div class="shelfnav" role="navigation" aria-label="Shelves in '+esc(shortCat(VIEW.cat))+'"><button type="button" class="snc snall" data-snall="1">All '+esc(shortCat(VIEW.cat))+' <i>'+TOTALS[VIEW.cat]+'</i></button>'+
-        _sibs.map(function(s){var on=s===VIEW.sub;return '<button type="button" class="snc'+(on?' on':'')+'"'+(on?' aria-current="true"':' data-seesub="'+esc(s)+'"')+'>'+esc(s)+' <i>'+BUCKETS[VIEW.cat][s].length+'</i></button>';}).join('')+'</div>'):'')+
-      subGuideHtml(VIEW.sub)+
+    if(_sibs.length>1)hd.insertAdjacentHTML('beforeend','<div class="shelfnav" role="navigation" aria-label="Shelves in '+esc(shortCat(VIEW.cat))+'"><button type="button" class="snc snall" data-snall="1">All '+esc(shortCat(VIEW.cat))+' <i>'+TOTALS[VIEW.cat]+'</i></button>'+
+        _sibs.map(function(s){var on=s===VIEW.sub;return '<button type="button" class="snc'+(on?' on':'')+'"'+(on?' aria-current="true"':' data-seesub="'+esc(s)+'"')+'>'+esc(s)+' <i>'+BUCKETS[VIEW.cat][s].length+'</i></button>';}).join('')+'</div>');
+    inner=subGuideHtml(VIEW.sub)+
       '<div class="menu">'+fitOK(BUCKETS[VIEW.cat][VIEW.sub]||[]).map(menuCard).join('')+'</div>'+
       (_sibs.length>1?('<div class="shelfend"><button type="button" class="seback" data-snall="1"><span aria-hidden="true">\u2190</span> Back to all '+esc(shortCat(VIEW.cat))+'</button>'+
         (_nx?('<button type="button" class="senext" data-seesub="'+esc(_nx)+'">Next shelf: '+esc(_nx)+' <span aria-hidden="true">\u2192</span></button>'):'')+'</div>'):'');}
@@ -4936,6 +4936,7 @@ function renderGridCore(){
     if(nt&&!nt.value)nt.value='Golf extras we need (logo balls, towels, umbrellas, tee packs…):\nQuantity: \nEvent date: ';});
   grid.querySelectorAll('[data-seesub]').forEach(function(b){
     b.addEventListener('click',function(){setSub(b.dataset.seesub);});});
+  hd.querySelectorAll('[data-seesub]').forEach(function(b){b.addEventListener('click',function(){setSub(b.dataset.seesub);});});
   [grid,hd].forEach(function(r){r.querySelectorAll('[data-snall]').forEach(function(b){b.addEventListener('click',function(){jdpTrack('shelf_back',{c:VIEW.cat,s:VIEW.sub});backToAisle();});});});}
 /* back from one shelf to the whole aisle, landing on the shelf the buyer came from rather than the top */
 function backToAisle(){var from=VIEW.sub;setSub('all',true);
