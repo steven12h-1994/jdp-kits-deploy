@@ -3729,7 +3729,7 @@ function caProofHtml(cfg){var qs=cfg.qs||[],q=qs[0];if(!q)return '';var M=CA_PIC
   return '<div class="caproof" aria-hidden="true"><div class="caprow">'+ks.map(function(k){return '<span class="caprf"><span class="capst">'+caThumb(k)+'</span></span>';}).join('')+'</div>'+
     '<span class="capcap">Every pick shown with your logo</span></div>';}
 function caOptHtml(q,A){var multi=!!q.multi,cur=A[q.id],_pics=caPicsFor(q),_j=0;
-  return '<div class="caopts'+(_pics?' pics':'')+(q.cls?(' '+q.cls):'')+(q.opts.length>4?' many':'')+(q.opts.length<=2?' two':'')+(multi?' multi':' single')+'" role="'+(multi?'group':'radiogroup')+'" aria-label="'+esc(q.q)+'">'+q.opts.map(function(o){var v=String(o.id),on=multi?((cur||[]).indexOf(v)>=0):(cur!=null&&cur!==''&&String(cur)===v);
+  return '<div class="caopts'+(_pics?' pics':'')+' n'+q.opts.length+(q.cls?(' '+q.cls):'')+(q.opts.length>4?' many':'')+(q.opts.length<=2?' two':'')+(multi?' multi':' single')+'" role="'+(multi?'group':'radiogroup')+'" aria-label="'+esc(q.q)+'">'+q.opts.map(function(o){var v=String(o.id),on=multi?((cur||[]).indexOf(v)>=0):(cur!=null&&cur!==''&&String(cur)===v);
     return '<button type="button" class="caopt'+(on?' on':'')+'" data-ca="'+esc(q.id)+'" data-v="'+esc(v)+'" role="'+(multi?'checkbox':'radio')+'" aria-checked="'+on+'">'+
       '<span class="caok" aria-hidden="true"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>'+
       (_pics?_pics[_j]:('<span class="caoi">'+caSvg(caIcoKey(q,o))+'</span>'))+

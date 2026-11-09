@@ -4595,3 +4595,17 @@ table.cmp{width:100%;border-collapse:separate;border-spacing:0;table-layout:fixe
   .cpimg{width:84px!important;height:84px!important}
 }
 .cpimg img.l{position:absolute;transform:translate(-50%,-50%);height:auto;max-width:none;pointer-events:none;filter:drop-shadow(0 .5px .5px rgba(0,0,0,.25))}
+
+/* answer grids sized by answer count, so four answers never wrap 3 + 1 */
+.cadv2 .caopts.pics.n3{grid-template-columns:repeat(3,minmax(0,1fr))!important;max-width:820px}
+.cadv2 .caopts.pics.n4{grid-template-columns:repeat(4,minmax(0,1fr))!important}
+.cadv2 .caopts.pics.n5{grid-template-columns:repeat(5,minmax(0,1fr))!important}
+@media(max-width:900px){.cadv2 .caopts.pics.n5{grid-template-columns:repeat(3,minmax(0,1fr))!important}}
+@media(max-width:760px){.cadv2 .caopts.pics.n4{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+@media(max-width:560px){.cadv2 .caopts.pics.n3,.cadv2 .caopts.pics.n5{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+.cadv2 .caband:not(:has(.caintro)){padding-top:16px;padding-bottom:16px}
+.cadv2 .caband .cahd{flex-direction:row!important;align-items:center!important;justify-content:space-between!important;gap:10px}
+.cadv2 .caband .xpeyb{white-space:nowrap}
+.cadv2 .caband .cahdr{flex-wrap:nowrap}
+@media(max-width:560px){.cadv2 .caband .carst,.cadv2 .caband .caedt{padding:5px 10px;font-size:12px}.cadv2 .caband .cahdr{gap:6px}
+  .cadv2 .caband.res .cahd{flex-wrap:wrap}.cadv2 .caband.res .cahdr{flex-wrap:wrap;justify-content:flex-start}}
