@@ -4778,6 +4778,15 @@ function renderGridCore(){
   var _shown=(VIEW.sub==='all'?fitOK(ALLKEYS.filter(function(k){return (BUCKETS[VIEW.cat]||{})&&subs.some(function(s){return BUCKETS[VIEW.cat][s].indexOf(k)>=0;});})).length:fitOK(BUCKETS[VIEW.cat][VIEW.sub]||[]).length);
   SHOWN=_shown;
   hd.innerHTML='<h2 class="glbl">'+esc(megaName(VIEW.cat))+csa+'</h2><span class="gsub">'+_shown+(_shown===1?' style':' styles')+(VIEW.fit==='womens'?' in ladies’ &amp; unisex fits':'')+'</span>'+catGuideHtml();
+  /* CATEGORY ROW (audit 2026-11-09): below the hero the home page ran straight into "Polos, Shirts & Tees" with
+     nothing saying it was one aisle of twelve, and the only way to another aisle was the header menu. Every aisle
+     now opens with the full row of categories, the current one marked. */
+  try{var cr=document.getElementById('catrow');
+    if(!cr&&hd.parentNode){cr=document.createElement('div');cr.id='catrow';cr.className='catrow';hd.parentNode.insertBefore(cr,hd);}
+    if(cr){if(VIEW.q){cr.style.display='none';}else{cr.style.display='';
+      cr.innerHTML='<span class="crl">Categories</span><div class="crs">'+worldCats().map(function(c){return '<button type="button" class="crc'+(c===VIEW.cat?' on':'')+'" data-crc="'+esc(c)+'"'+(c===VIEW.cat?' aria-current="true"':'')+'>'+esc(shortCat(c))+' <i>'+TOTALS[c]+'</i></button>';}).join('')+'</div>';
+      cr.querySelectorAll('[data-crc]').forEach(function(b){b.addEventListener('click',function(){if(b.dataset.crc!==VIEW.cat){jdpTrack('aisle',{c:b.dataset.crc,src:'catrow'});setCat(b.dataset.crc,true);}});});
+      var on=cr.querySelector('.crc.on');if(on&&cr.querySelector('.crs').scrollWidth>cr.clientWidth)try{on.scrollIntoView({block:'nearest',inline:'center'});}catch(e){}}}}catch(e){}
   var inner;
   if(VIEW.sub!=='all'){inner='<div class="menu">'+fitOK(BUCKETS[VIEW.cat][VIEW.sub]||[]).map(menuCard).join('')+'</div>';}
   else if(subs.length>1&&TOTALS[VIEW.cat]>6){
