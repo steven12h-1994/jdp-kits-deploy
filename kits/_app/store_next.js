@@ -1,0 +1,11790 @@
+/* JDP Storefront — "Uber Eats for branded apparel".
+   A photo-forward menu of the recommended picks from client.json + the shared catalogue, a dead-simple
+   one-screen item customiser (colour → logo finish → quantity), a cart, and a one-tap copy-to-email quote.
+   Choices persist on the device (localStorage). Deployed once at /kits/_app/store.js. */
+(function(){
+document.documentElement.classList.add('js');
+var CATALOG_BASE="https://justdealspromotions.com/kits/_catalog";
+var CFG,CAT,CATVER='',BYKEY={},CART={},SLUG=(location.pathname.split('/').filter(Boolean).pop()||'kit');
+var LSKEY='jdpkit_'+SLUG;
+
+function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+// Possessive of a company name: names ending in s take a bare apostrophe ("Toronto Airways' team
+// store", not "Toronto Airways's"). Common across the fleet — Airways, Solutions, Services, Brothers.
+function poss(s){var n=String(s==null?'':s).replace(/\s+$/,'');if(!n)return n;return n+(/[sS]$/.test(n)?"'":"'s");}
+function hexLum(h){h=(h||'').replace('#','');if(h.length<6)return 128;return 0.299*parseInt(h.slice(0,2),16)+0.587*parseInt(h.slice(2,4),16)+0.114*parseInt(h.slice(4,6),16);}
+function hexSat(h){h=(h||'').replace('#','');if(h.length<6)return 0;var r=parseInt(h.slice(0,2),16),g=parseInt(h.slice(2,4),16),b=parseInt(h.slice(4,6),16);return Math.max(r,g,b)-Math.min(r,g,b);}
+// A single spot print must READ on the garment: crisp WHITE on dark garments AND on saturated hi-vis
+// (orange/lime — bright but vivid, where white pops); a very light garment would swallow white so use
+// a dark ink; otherwise the full-colour brand mark.
+function autoInk(rgb){var l=hexLum(rgb),s=hexSat(rgb);if(l<120||s>=70)return 'white';if(l>210)return 'dark';return 'brand';}
+// EMBROIDERY = full-colour thread -> render the full-colour (brand) logo. Screen/heat-transfer default
+// to a contrast ink (white on dark/hi-vis, dark on very light, full colour otherwise).
+// EXCEPTION, and the reason INK exists: "always brand" fails whenever a NEUTRAL mark sits on a garment
+// of the same value. shott-earthworks ships white-ink source art that the builder normalises to near-black
+// letterforms, so every navy and black garment rendered a logo you could not read; a white wordmark on a
+// white polo is the same bug mirrored. Real embroidery solves this with white thread on navy, so we pick
+// the reverse variant when the brand artwork fails a 3:1 contrast ratio against the garment.
+// A SATURATED brand colour is never touched — red thread on navy reads fine and it is the customer's
+// actual brand; only the neutrals get rescued.
+var INK={},INK_MINRATIO=3.0,INK_MAXSAT=45;
+/* The kit's primary mark, in ink counts. Measured by probeInk() before the store is ever built, so
+   this is settled by the time anything renders or prices. Falls back to 1 if the probe could not
+   read the artwork -- under-quoting a setup is recoverable, a store that fails to load is not. */
+/* IS THE MARK'S LIGHT CONTENT KNOCKED OUT OF A FILLED SHAPE, OR IS IT THE SHAPE ITSELF?
+
+   The test that decides whether flattening a logo destroys it. It replaces three metrics I trialled
+   and threw away; the mistake in all three was asking "does this read" when the real question is
+   "is this better than the alternative". Rendering marks as-is beside the flat reverse settled it:
+   the reverse is NOT a degradation for most artwork -- it is what a screen printer does, and for an
+   outline wordmark it is BETTER than the original (monitrol's hollow outlines become solid legible
+   letters; eddy-solutions goes from invisible to crisp).
+
+   Flattening destroys a mark in one situation only: its light content is INTERIOR to a filled
+   opaque region -- Walco's white banner text inside its navy plate, The Boardroom's letters inside
+   a white ellipse, Zenetec's diamond, Factory Outlet's banner. Flatten those and the enclosed
+   detail merges into a solid slab, which is exactly the bug Steven reported twice.
+
+   Measured across all 665 fleet marks this is cleanly bimodal -- badges land at 20-35%, wordmarks
+   at 0-14% -- with a trough at 14-18% holding only 4 of 226 marks. The threshold sits in that
+   trough, so it is not a knife edge. 23 marks keep their true colours; the rest read better
+   reversed, verified by looking at all 66 of the nearest ones rendered both ways. */
+var INK_KO_MIN=0.18,KO_LIGHT=0.30;
+function brandInks(){
+  var L=(typeof CFG!=='undefined'&&CFG.logos&&CFG.logos[0])||null;
+  var k=L&&INK[L.id];
+  return (k&&k.n)||1;
+}
+/* The ink count a screen print STARTS at: the brand's own colours. The customer can still drop to
+   1 in the picker, and that choice is carried through every re-price. */
+function presetInks(method,preset){
+  if(method!=='screen')return 1;
+  return Math.max(preset||1,brandInks());
+}
+function srgbLin(c){c=c/255;return c<=0.04045?c/12.92:Math.pow((c+0.055)/1.055,2.4);}
+function relLum(r,g,b){return 0.2126*srgbLin(r)+0.7152*srgbLin(g)+0.0722*srgbLin(b);}
+function contrast(a,b){var hi=Math.max(a,b),lo=Math.min(a,b);return (hi+0.05)/(lo+0.05);}
+function hexRelLum(hex){var h=String(hex||'').replace('#','');if(h.length!==6)return 1;
+  return relLum(parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16));}
+function autoInkFor(method,rgb,logo,colours){
+  /* ONE RULE FOR EVERY METHOD. This used to fork on method: embroidery got a measured-contrast
+     decision, and screen/heat-transfer fell through to autoInk(), a crude luminance-and-saturation
+     heuristic. Two problems, both real:
+
+       * autoInk() knows nothing about the `ondark` hybrid, so when tees moved to a screen-printed
+         default on 2026-09-08 a two-colour lockup on black rendered as FLAT WHITE and the brand red
+         vanished. Steven: "Parkour Cotton Tee and Breeze Long-Sleeve Tee in black not showing the
+         correct logo colors."
+       * autoInk() returns white for ANY saturated garment, so a dark brand mark on HI-VIS ORANGE
+         flipped to white ink -- against the catalogue spec, which puts charcoal or black on hi-vis,
+         and against the contrast test, which the brand ink passes on orange comfortably.
+
+     A print is as capable of carrying the brand colour as thread is, so the choice is about the
+     GARMENT and the ARTWORK, not the process. The only thing the method changes is whether a
+     multi-ink hybrid is even purchasable: embroidery is full-colour by nature, a screen run carries
+     the hybrid only when it pays for two or more inks. A single-ink run therefore still renders as
+     a single ink -- the picture must never promise a colour the price has not paid for. */
+  if(!logo||!logo.inks)return 'brand';
+  var gl=hexRelLum(rgb),k=INK[logo.id];
+  var canHybrid=(method==='embroidery')||((colours||1)>=2);
+  if(k&&typeof k.lum==='number'){
+    if(contrast(k.lum,gl)<INK_MINRATIO){
+      if(canHybrid){
+        /* THE SAME COURTESY ON A LIGHT GARMENT. `ondark` had a branch and `onlight` did not, so a
+           mark with a WHITE wordmark flattened to solid near-black on a white polo -- the same
+           "our logo in one colour" complaint, mirrored. A hybrid is strictly better than anything
+           below when one exists: full colour AND full legibility. */
+        if(gl<0.18&&logo.inks.ondark)return 'ondark';
+        if(gl>=0.18&&logo.inks.onlight)return 'onlight';
+      }
+      /* NO HYBRID? Keep the real artwork when flattening it would destroy knocked-out detail --
+         Walco's flat white turned its banner into a white slab with the text invisible. Otherwise
+         a flat reverse is both the better print and the more legible one. */
+      if(k.ko>=INK_KO_MIN)return 'brand';
+      return gl<0.18?'white':'dark';
+    }
+    return 'brand';
+  }
+  /* No measurement (the probe could not read the artwork): decide from the garment alone. */
+  if(gl<0.18){
+    if(canHybrid&&logo.inks.ondark)return 'ondark';
+    if(logo.inks.white)return 'white';
+  }
+  return 'brand';
+}
+
+/* ---- Vibrant, brand-aware colourways -------------------------------------------------------
+   Every store used to open as a wall of black. 169 of 353 items defaulted to Black and 68% of the
+   accessories did, because the build-time picker scored ONLY for logo legibility: it paid a bonus for
+   neutrals and a penalty for any saturated garment, so "safe" always won. That produces defensible
+   mockups and a lifeless shop, and a lifeless shop does not sell a branded-apparel program.
+
+   This pass re-picks the colour each item OPENS on, at boot, from the client's own palette, and then
+   deliberately varies it down the grid. Three rules, in priority order:
+     1. LEGIBILITY is still absolute — a colourway where no ink can read is never offered.
+     2. Prefer the client's brand hues, then rich colour, then neutrals, and treat black as the
+        fallback rather than the default.
+     3. No colour family may repeat inside a short sliding window, so a section reads as an assortment
+        instead of nine identical navy polos.
+
+   Hi-vis field gear is EXEMPT: CSA colour is a compliance requirement, not a style choice.
+
+   PREMIUM was exempt too, on the assumption that its lead colour is always the on-body model shot and
+   a model shot beats a brighter flat lay. That assumption was half right. Classifying all 1,303 apparel
+   photos showed premium splits three ways: 44 styles are flat lays in EVERY colour (nothing to protect),
+   7 are on-model in every colour (Cutter & Buck shoots its whole range on a model, including red,
+   purple, orange and yellow), and only 19 have a single model shot that must not be traded away.
+   So premium is now re-picked under one extra rule: NEVER DOWNGRADE THE PHOTOGRAPHY. If the colour an
+   item currently opens on is an on-model shot, only other on-model colours may replace it; if it opens
+   on a flat lay, anything goes. That protects the 19 while freeing the other 69.
+   Buyers can still reach every colour: this only decides which one greets them. */
+var BRANDPAL=[];                       // brand hues (0-359) learned from the logo art + kit accent
+var CW_LAYERS={office:1,bags:1,promo:1,premium:1};
+var CW_WINDOW=3;                       // how far back the no-repeat rule looks
+/* Assortment is judged on TONE groups, not raw families. Navy and blue are separate families but read
+   as the same colour on a grid, so treating them separately is how the first attempt replaced a wall of
+   black with a wall of blue (129 of 192 items). Same for black and grey. */
+var CW_TONE={black:'dark',grey:'dark',white:'light',navy:'blue',blue:'blue'};
+function toneOf(fam){return fam?(CW_TONE[fam]||fam):null;}
+/* A colour name that carries no letters is a vendor colour CODE that leaked into the data (the Logan
+   Thermal ships one literally called "06000001"). The old picker never chose it, so it never showed. */
+function usableColourName(n){return /[A-Za-z]{3}/.test(n||'');}
+function hex2rgbArr(hex){var h=String(hex||'').replace('#','');if(h.length!==6)return null;
+  var n=parseInt(h,16);return [(n>>16)&255,(n>>8)&255,n&255];}
+function hueOf(r,g,b){var mx=Math.max(r,g,b),mn=Math.min(r,g,b),d=mx-mn;if(!d)return -1;
+  var h;if(mx===r)h=((g-b)/d)%6;else if(mx===g)h=(b-r)/d+2;else h=(r-g)/d+4;
+  h*=60;return h<0?h+360:h;}
+function satOf(r,g,b){var mx=Math.max(r,g,b);return mx?(mx-Math.min(r,g,b))/mx:0;}
+function hueGap(a,b){var d=Math.abs(a-b)%360;return d>180?360-d:d;}
+function addBrandHue(r,g,b){
+  if(satOf(r,g,b)<0.28)return;                       // a neutral mark carries no hue to match
+  // A near-black or near-white brand colour is technically saturated but carries no usable hue:
+  // grimefighters' #080F24 would otherwise register as "this is a blue company" and tint the store.
+  var L=relLum(r,g,b);if(L<0.035||L>0.75)return;
+  var h=hueOf(r,g,b);if(h<0)return;
+  for(var i=0;i<BRANDPAL.length;i++)if(hueGap(BRANDPAL[i],h)<18)return;   // dedupe near-identical
+  BRANDPAL.push(h);
+}
+function buildBrandPal(){
+  var a=hex2rgbArr(CFG.accent);                      // the accent is brand-derived at build time
+  if(a)addBrandHue(a[0],a[1],a[2]);
+}
+/* Score one candidate colourway. Higher is better; -Infinity means "never show this". */
+function colourwayScore(col,recent,load,assigned,needModel){
+  var rgb=hex2rgbArr(col.rgb);
+  if(!rgb||!usableColourName(col.name))return -Infinity;
+  // Never trade an on-body model shot for a flat lay. `mdl` is set on a colour whose photo was
+  // classified as on-model at build time (see onmodel.py).
+  if(needModel&&!col.mdl)return -Infinity;
+  var gl=relLum(rgb[0],rgb[1],rgb[2]);
+  // RULE 1 — legibility. We do not need the BRAND ink to read: autoInkFor() already swaps to white or
+  // dark thread when the brand colour fails. What we require is that SOME ink clears 3:1, which rules
+  // out only the mid-tones where nothing reads.
+  if(Math.max(contrast(gl,relLum(255,255,255)),contrast(gl,relLum(20,20,20)))<INK_MINRATIO)
+    return -Infinity;
+  var sat=satOf(rgb[0],rgb[1],rgb[2]),hue=hueOf(rgb[0],rgb[1],rgb[2]),fam=famOfCol(col);
+  var sc=0;
+  // RULE 2 — brand affinity, then general richness.
+  if(sat>0.22&&hue>=0&&BRANDPAL.length){
+    var gap=360;
+    for(var i=0;i<BRANDPAL.length;i++)gap=Math.min(gap,hueGap(BRANDPAL[i],hue));
+    sc += gap<=22 ? 115 : gap<=45 ? 74 : gap<=72 ? 28 : -30;
+  }
+  sc += Math.round(60*Math.min(1,sat/0.6));
+  if(fam==='black')sc-=46;                            // the fallback, not the default
+  if(fam==='white')sc-=4;
+  if(fam==='grey')sc-=12;
+  // RULE 3 — assortment, as a running SHARE rather than a flat penalty. A tone that already owns half
+  // the section costs ~95 points, which is what stops the brand hue from taking everything; a tone not
+  // used yet is free. On top of that, an immediate neighbour repeat is penalised hard.
+  var grp=toneOf(fam);
+  if(grp){
+    sc-=Math.round(190*((load[grp]||0)/Math.max(1,assigned)));
+    var idx=recent.indexOf(grp);
+    if(idx>=0)sc-=(112-26*idx);
+  }
+  return sc;
+}
+/* Re-pick every eligible item's opening colour. Runs once at boot, after the logo probes have taught
+   us the brand hues and BEFORE the first render, so the grid paints correct the first time. */
+function assignColourways(){
+  buildBrandPal();
+  if(!CFG.items||!CFG.order)return 0;
+  var changed=0;
+  Object.keys(CFG.order).forEach(function(bucket){
+    if(!CW_LAYERS[bucket])return;
+    var recent=[],load={},assigned=0;
+    (CFG.order[bucket]||[]).forEach(function(k){
+      var it=BYKEY[k],vm=CFG.items[k];
+      if(!it||!vm||vm.cfix)return;                    // cfix = a colour the client actually asked for
+      var cols=it.cols||[];
+      if(cols.length<2)return;
+      // Does this item currently greet the buyer with a model shot? If so, only model shots qualify.
+      var cur=null;
+      for(var ci=0;ci<cols.length;ci++)if(cols[ci].name===vm.colour){cur=cols[ci];break;}
+      var needModel=!!(cur&&cur.mdl);
+      var best=null,bs=-Infinity;
+      for(var i=0;i<cols.length;i++){
+        var sc=colourwayScore(cols[i],recent,load,assigned,needModel);
+        if(sc>bs){bs=sc;best=cols[i];}
+      }
+      if(!best)return;
+      if(best.name!==vm.colour){vm.colour=best.name;changed++;}
+      var g=toneOf(famOfCol(best));
+      if(g){load[g]=(load[g]||0)+1;assigned++;recent.unshift(g);if(recent.length>CW_WINDOW)recent.pop();}
+    });
+  });
+  return changed;
+}
+/* Sample each logo's brand artwork once at boot to learn its true ink colour. Sampled at 256px with
+   alpha>200 because SOLID ink is the thread colour — a small canvas blurs black letterforms into mid
+   grey, which quietly defeated the whole test on the first attempt. Same-origin asset, so the canvas
+   stays readable; capped at 1.5s and failure-tolerant, because a logo probe must never stop the store
+   from painting. */
+/* Share of the mark that is interior light content -- see INK_KO_MIN.
+
+   Its own canvas, at the mark's natural aspect with the longest side capped at 400px, because that
+   is what the fleet-wide calibration was measured on. The probe's other statistics use a 256x256
+   STRETCHED canvas, fine for tone counts but it would make a wide logo's horizontal strokes
+   relatively thinner and shift an erosion-based measure. Runs once per logo at boot. */
+function koShare(im){
+  try{
+    var W=im.naturalWidth||im.width,H=im.naturalHeight||im.height;
+    if(!W||!H)return 0;
+    var sc=Math.min(1,400/Math.max(W,H)),w=Math.max(1,Math.round(W*sc)),h=Math.max(1,Math.round(H*sc));
+    var c=document.createElement('canvas');c.width=w;c.height=h;
+    var cx=c.getContext('2d');cx.drawImage(im,0,0,w,h);
+    var d=cx.getImageData(0,0,w,h).data,N=w*h;
+    var op=new Uint8Array(N),lt=new Uint8Array(N),mark=0,i;
+    for(i=0;i<N;i++){
+      if(d[i*4+3]>200){op[i]=1;mark++;
+        if(relLum(d[i*4],d[i*4+1],d[i*4+2])>=KO_LIGHT)lt[i]=1;}
+    }
+    if(!mark)return 0;
+    /* Erosion with a square structuring element separates into a horizontal min then a vertical
+       one -- 2*(2r+1) tests per pixel instead of (2r+1)^2. Off-canvas counts as NOT opaque: the
+       edge of the artwork is an edge, so a mark bled to the border is not treated as enclosed. */
+    var r=3,hmin=new Uint8Array(N),y,x,k,q,m;
+    for(y=0;y<h;y++)for(x=0;x<w;x++){
+      m=1;
+      for(k=-r;k<=r;k++){q=x+k;if(q<0||q>=w||!op[y*w+q]){m=0;break;}}
+      hmin[y*w+x]=m;
+    }
+    var ko=0;
+    for(y=0;y<h;y++)for(x=0;x<w;x++){
+      if(!lt[y*w+x])continue;
+      m=1;
+      for(k=-r;k<=r;k++){q=y+k;if(q<0||q>=h||!hmin[q*w+x]){m=0;break;}}
+      if(m)ko++;
+    }
+    return ko/mark;
+  }catch(e){return 0;}   // a tainted or undecodable canvas must never stop the store booting
+}
+function probeInk(logo){
+  return new Promise(function(res){
+    var u=logo&&logo.inks&&logo.inks.brand;
+    if(!u||typeof document==='undefined')return res();
+    var done=false,fin=function(){if(!done){done=true;res();}};
+    var im=new Image();
+    setTimeout(fin,1500);
+    im.onerror=fin;
+    im.onload=function(){
+      try{
+        var n=256,c=document.createElement('canvas');c.width=c.height=n;
+        var x=c.getContext('2d');x.drawImage(im,0,0,n,n);
+        var d=x.getImageData(0,0,n,n).data,R=[],G=[],B=[],cut=200;
+        for(var pass=0;pass<2&&R.length<40;pass++){
+          R=[];G=[];B=[];
+          for(var i=0;i<d.length;i+=4){if(d[i+3]>cut){R.push(d[i]);G.push(d[i+1]);B.push(d[i+2]);}}
+          cut=120;
+        }
+        if(R.length>=20){
+          var md=function(a){a.sort(function(p,q){return p-q;});return a[a.length>>1];};
+          var r=md(R),g=md(G),b=md(B);
+          /* HOW MANY COLOURS IS THIS MARK, REALLY? Steven, 2026-09-07: "screen print pricing
+             could be multiple colors if they want Original logo Colors which could be 1,2,3 and
+             sometimes 4 colors. sometimes the company will want to do 1 color." So the DEFAULT ink
+             count should be the mark's own colour count, and 1-colour is the deliberate downgrade.
+             Counted by quantising every solid pixel to 4 levels per channel and keeping the buckets
+             that hold at least 4% of them -- coarse enough that anti-aliased edges never register
+             as a colour of their own, fine enough to separate a near-black wordmark from a brand
+             red. ATTA's lockup measures 2; a monochrome mark measures 1 and nothing changes for it. */
+          var bk={},tot=0;
+          for(var q=0;q<d.length;q+=4){
+            if(d[q+3]<=200)continue;
+            tot++;
+            bk[(d[q]>>6)+'|'+(d[q+1]>>6)+'|'+(d[q+2]>>6)]=(bk[(d[q]>>6)+'|'+(d[q+1]>>6)+'|'+(d[q+2]>>6)]||0)+1;
+          }
+          var nk=0;
+          if(tot>0)for(var bkey2 in bk){if(bk[bkey2]/tot>=0.04)nk++;}
+          /* Walco Industries is 58% dark navy, 18% white knockout and 23% colour: the median
+             says "dark", the contrast test fails, and the store substituted a flat white that
+             turned the banner into a white slab with its own text invisible. So also record
+             whether the mark has interior light detail that a flattening would erase. */
+          INK[logo.id]={lum:relLum(r,g,b),sat:Math.max(r,g,b)-Math.min(r,g,b),
+                        n:Math.max(1,Math.min(4,nk||1)),ko:koShare(im)};
+          // Same pass, second job: learn the brand's SATURATED hues. The ink probe above deliberately
+          // medians every solid pixel, which on a two-colour lockup returns a muddy average — useless
+          // for matching a garment. So collect only the genuinely colourful pixels and median THEM.
+          var HR=[],HG=[],HB=[];
+          for(var j=0;j<d.length;j+=4){
+            if(d[j+3]<=200)continue;
+            var mx=Math.max(d[j],d[j+1],d[j+2]),mn=Math.min(d[j],d[j+1],d[j+2]);
+            if(mx>60&&mx-mn>0.28*mx){HR.push(d[j]);HG.push(d[j+1]);HB.push(d[j+2]);}
+          }
+          if(HR.length>=24)addBrandHue(md(HR),md(HG),md(HB));
+        }
+      }catch(e){}
+      fin();
+    };
+    im.src=kurl(u);
+  });
+}
+function money(x){return '$'+Number(x||0).toLocaleString('en-CA',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function money0(x){return '$'+Math.round(Number(x||0)).toLocaleString('en-CA');}
+function logoOf(id){for(var i=0;i<CFG.logos.length;i++)if(CFG.logos[i].id===id)return CFG.logos[i];return CFG.logos[0]||{inks:{}};}
+// KIT-LOCAL asset cache-buster. Kit logos live at stable filenames (img/lg_full_brand.png), so when a
+// kit is rebuilt with a CORRECTED logo the bytes change but the URL does not — and a returning visitor
+// keeps being served the OLD logo from cache. That is why the Facca kit still showed a stale mark to a
+// warm-cache browser on three separate reviews while every server-side check passed (each fetched with
+// its own cache-buster). We key off the ?v= token on our own <script> tag, which jdp_ship.py bumps
+// fleet-wide on EVERY ship, so any deploy reaches returning visitors too.
+/* KIT-LOCAL ASSET URLS (the logo artwork). Versioned by `logo_ver`, a CONTENT HASH of that kit's
+   own artwork.
+
+   Steven, 2026-09-16: "logo is updated on private browser but not on regular browser. this a
+   reoccurring problem."
+
+   Two things combined to make a replaced logo invisible for a YEAR. The host serves everything
+   under a kit with `Cache-Control: max-age=31536000` (only index.html is no-store), so an asset
+   URL that does not change is never re-fetched. And the version this function appended could not
+   change when a logo changed:
+
+     * it first tried a key read from the engine's own <script src> as `?v=(...)`. The
+       self-versioning migration changed that key's format to `?h<bucket>` / `?f<ts>` with no
+       `v=` at all, so the regex stopped matching and the value was silently always ''. Removed
+       rather than repaired: that key is a TWO-MINUTE bucket, so honouring it would re-download a
+       half-megabyte logo every two minutes.
+     * it then fell back to CFG.ver, which is the SHARED CATALOGUE's build number. Replacing one
+       kit's logo does not rebuild the catalogue, so the number -- and therefore the URL -- stayed
+       exactly the same.
+
+   `logo_ver` is derived from the git blob hashes of the artwork a kit actually declares, so the
+   URL changes if and only if the artwork changed. Cached for a year when nothing moves; busted
+   the instant it does. CFG.ver remains the fallback for any kit not yet carrying a logo_ver. */
+function kurl(u){if(!u)return u;if(/^(https?:)?\/\//.test(u)||u.charAt(0)==='/')return u;var v=(CFG&&CFG.logo_ver)||(CFG&&CFG.ver)||'';return v?u+(u.indexOf('?')<0?'?':'&')+'v='+v:u;}
+/* `colours` is threaded through because the right ink on a dark garment DEPENDS on how many inks
+   the run pays for: two or more can carry the brand hybrid, one cannot. */
+function inkUrl(logo,ink,col,method,colours){var t=(ink&&ink!=='auto')?ink:autoInkFor(method,col&&col.rgb,logo,colours);return kurl(logo.inks[t]||logo.inks.brand);}
+// Every image URL carries the catalogue's build version so a changed-content/same-filename asset
+// (e.g. a product re-shot on a model) is re-fetched instead of served stale from cache.
+function gurl(f){return CFG.catalog_base+'/img/'+f+(CATVER?((f.indexOf('?')<0?'?':'&')+'v='+CATVER):'');}
+function colOf(item,name){for(var i=0;i<item.cols.length;i++)if(item.cols[i].name===name)return item.cols[i];return item.cols[0];}
+function colInList(cols,name){for(var i=0;i<cols.length;i++)if(cols[i].name===name)return cols[i];
+  /* 2026-09-25: 48 Spector colourways were renamed "Navyblue" -> "Navy Blue" (and two more). A board
+     saved before that still says "Navyblue"; match ignoring spaces and case before falling back. */
+  var nk=String(name||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+  if(nk)for(var j=0;j<cols.length;j++)if(String(cols[j].name||'').toLowerCase().replace(/[^a-z0-9]/g,'')===nk)return cols[j];
+  return cols[0];}
+// colInList falls back to cols[0] so callers always have something to render. When the question is
+// "does this set actually contain that colour", that fallback is a wrong answer -- hence this.
+function hasCol(cols,name){for(var i=0;i<(cols||[]).length;i++)if(cols[i].name===name)return true;return false;}
+function curColsOf(item,fit){return (fit==='womens'&&item.wcols&&item.wcols.length)?item.wcols:item.cols;}
+function placeOf(item,pid){for(var i=0;i<item.places.length;i++)if(item.places[i].id===pid)return item.places[i];return null;}
+/* ---------- one cart line PER FIT ------------------------------------------------------------
+   CART was keyed by product alone, so adding the ladies' cut of a polo OVERWROTE the mens line --
+   you could have one or the other, never both. For company apparel that is the normal order: the
+   same polo in both cuts. So a cart key is now product + fit, and the ladies' line carries a "#w"
+   suffix. "#" cannot appear in a product key, and the share link still transmits the BASE key plus
+   its own fit field, so link format and old saved carts both keep working.
+   vmOf / unitPrice / recCartDecos are made tolerant of either kind of key, which keeps every
+   existing call site correct instead of relying on catching all of them. */
+function ckey(k,fit){return (fit==='womens')?(k+'#w'):k;}
+function bkey(ck){return String(ck).replace(/#w$/,'');}
+function cartQtyOf(k){
+  var a=CART[k],b=CART[k+'#w'],t=0;
+  if(a)t+=(a.qty||0); if(b)t+=(b.qty||0);
+  return t;}
+function cartHasAny(k){return !!(CART[k]||CART[k+'#w']);}
+function cartAnyKey(k){return CART[k]?k:(CART[k+'#w']?(k+'#w'):k);}
+function vmOf(key){key=bkey(key);return (CFG.items||{})[key]||{colour:(BYKEY[key].cols[0]||{}).name,decos:[]};}
+/* Volume tiers are set by how many of a GARMENT you order, not by how many of one cut. 30 men's
+   plus 30 women's Avalante fleece is a 60-piece run on one blank with one decoration setup, so it
+   prices at 48+. Each fit was being tiered on its own 30 and quoted at 12+ -- overcharging the
+   customer and understating our own competitiveness on exactly the orders that matter most.
+   q is used ONLY for tier selection inside unitPrice (decoration is per piece), so feeding it the
+   combined quantity is both safe and correct. */
+function tierQty(ck){
+  var base=bkey(ck),t=0;
+  var a=CART[base],b=CART[base+'#w'];
+  if(a)t+=(a.qty||0);
+  if(b)t+=(b.qty||0);
+  return t||(((CART[ck]||{}).qty)||0);
+}
+function unitAt(item,q){var cs=CFG.pricing.cols,pr=item.prices,i=0;for(var k=0;k<cs.length;k++){if(q>=cs[k])i=k;}return pr[i];}
+function moq(){return (CFG.pricing.cols&&CFG.pricing.cols[0])||12;}
+/* ---- decoration-aware pricing (mirrors the server rate card) ---- */
+var MLAB={embroidery:'Embroidery',screen:'Screen print',heat_transfer:'Heat transfer',patch:'Faux leather patch'};
+/* DTF, BY NAME (Steven, 2026-10-08: "we need DTF heat transfer option"). Our Canadian heat transfer IS
+   direct-to-film -- full colour, no screens -- so Canadian stores say so wherever the method is named.
+   US stores keep Stormtech's own wording, because their decorator's process is theirs to describe. */
+function mlabOf(m){return (m==='heat_transfer'&&!isUS())?'DTF heat transfer':(MLAB[m]||'Emb');}
+
+/* ---- UNITED STATES MARKET (2026-10-07) ----------------------------------------------------------
+   Steven: "we need to set up United States pricing and shopping experience for enterprise. ... In
+   canada we have our own decorator. In the united states we use the suppliers decorator."
+   A store is a US store when its config says market:'US' (set from the Kit Queue's Country), or for
+   preview with ?market=us. In a US store:
+     * the range is the Stormtech styles that carry a US cost (catalogue `usd`, from Stormtech USA's
+       Fall 2026 price list, wholesale after the 17.5% discount); everything else is hidden, and a
+       ladies' cut only shows where Stormtech USA lists the W style;
+     * decoration is costed from Stormtech's own 2026 decoration price list (their decorator) --
+       embroidery, heat transfer and faux suede/leather patches. Stormtech does not offer screen
+       print, so anything that would be screen printed is heat transfer instead;
+     * every price is in USD.
+   JDP's margin model is unchanged (costMult/volFactor on the garment, the 30% floor); decoration is
+   marked up by DECO_MK_US. Canadian stores are untouched by any of this. */
+/* The ?market= preview switch is read ONCE, when the page loads: the store rewrites the address bar
+   as the buyer browses, and a flag that vanished with it flipped a preview back to Canadian prices
+   halfway through (caught on the live First Solar preview, 2026-10-07). */
+/* ---- WHICH COUNTRY (2026-10-07) ------------------------------------------------------------------
+   Steven: "How do you want to show for canadian only, us only, and canadian and US."
+   Every store has a HOME market -- Canada, or the US for stores flagged market:'US' -- and every
+   store carries a "Ship to" switch, the way Amazon carries "Deliver to". A Canada-only buyer never
+   touches it; a US buyer lands in USD; a company in both countries switches per location. Each
+   country keeps its OWN quote, because the range, the currency and the decorator all differ.
+   Precedence: an explicit ?market= link (or a ?b=us-... shared US quote) > the buyer's own choice,
+   remembered per store > the store's home market. */
+function mktKey(){return 'jdp_mkt_'+SLUG;}
+var MKT_URL=(function(){try{var q=location.search,v=null;
+  if(/[?&]market=us\b/i.test(q)||/[?&]b=us-/i.test(q))v=true;else if(/[?&]market=ca\b/i.test(q))v=false;
+  if(v!==null){try{localStorage.setItem('jdp_mkt_'+(location.pathname.split('/').filter(Boolean).pop()||'kit'),v?'US':'CA');}catch(e){}}
+  return v;}catch(e){}return null;})();
+function homeUS(){return String((typeof CFG!=='undefined'&&CFG&&(CFG.market||CFG.country))||'').toUpperCase()==='US';}
+function isUS(){
+  if(MKT_URL!==null)return MKT_URL;
+  var c=null;try{c=localStorage.getItem(mktKey());}catch(e){}
+  if(c==='US')return true;if(c==='CA')return false;
+  return homeUS();
+}
+/* A link that carries the CURRENT country when it differs from the store's home, so whoever it is
+   sent to sees the same prices. */
+function mktParam(sep){return (isUS()===homeUS())?'':(sep+'market='+(isUS()?'us':'ca'));}
+function setMarket(us,src){
+  try{localStorage.setItem(mktKey(),us?'US':'CA');}catch(e){}
+  try{jdpTrack('market',{v:us?'US':'CA',src:src||''});}catch(e){}
+  var q=location.search.replace(/[?&](market|b)=[^&#]*/gi,'').replace(/^&/,'?');
+  location.href=location.pathname+(q&&q!=='?'?q:'')+location.hash;
+}
+var MKT_INFO={
+  CA:{name:'Canada',cur:'CAD',line:'Full range · decorated in Canada'},
+  US:{name:'United States',cur:'USD',line:'Stormtech and Cutter & Buck · decorated in the US'}
+};
+function mktPillHtml(){
+  var m=isUS()?'US':'CA',I=MKT_INFO[m];
+  var globe='<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z"/></svg>';
+  return '<div class="tbmkt"><button type="button" class="tbmktb" id="tbMkt" aria-haspopup="true" aria-expanded="false" aria-label="Ship to '+I.name+', prices in '+I.cur+'. Change country">'+
+    (m==='CA'?leafSvg(15,'leaf tbleaf'):globe)+'<span class="tbmkts">Ship to</span><b>'+(m==='US'?'US':'Canada')+'</b><i>'+I.cur+'</i><span class="tbmkcv" aria-hidden="true">▾</span></button>'+
+    '<div class="tbmktp" id="tbMktP" hidden role="dialog" aria-label="Choose a country">'+
+      '<div class="tbmkth">Where are you ordering for?</div>'+
+      ['CA','US'].map(function(k){var J=MKT_INFO[k],on=k===m;
+        return '<button type="button" class="tbmko'+(on?' on':'')+'" data-mkt="'+k+'" aria-pressed="'+(on?'true':'false')+'">'+
+          '<span class="tbmkr" aria-hidden="true"></span><span class="tbmkt2"><b>'+J.name+' <i>'+J.cur+'</i></b><span>'+J.line+'</span></span></button>';}).join('')+
+      '<div class="tbmkn">Ordering for both countries? Each country keeps its own quote — build one, switch, build the other. We combine them under one PO.</div>'+
+    '</div></div>';
+}
+function wireMkt(){
+  var b=document.getElementById('tbMkt'),p=document.getElementById('tbMktP');if(!b||!p||b.dataset.w)return;b.dataset.w='1';
+  b.addEventListener('click',function(e){e.stopPropagation();var o=p.hidden;p.hidden=!o;b.setAttribute('aria-expanded',o?'true':'false');if(o)jdpTrack('market_open');});
+  p.querySelectorAll('[data-mkt]').forEach(function(x){x.addEventListener('click',function(){
+    var us=x.dataset.mkt==='US';if(us===isUS()){p.hidden=true;return;}setMarket(us,'pill');});});
+  document.addEventListener('click',function(e){if(!p.hidden&&!p.contains(e.target)&&e.target!==b){p.hidden=true;b.setAttribute('aria-expanded','false');}});
+  document.addEventListener('keydown',function(e){if(e.key==='Escape'&&!p.hidden){p.hidden=true;b.setAttribute('aria-expanded','false');}});
+}
+/* A ONE-TIME NUDGE when the visitor's own clock is in the other country -- never an automatic switch,
+   because a Toronto buyer ordering for a Chicago site is exactly the case we must not override. */
+var US_TZ=/^(America\/(New_York|Chicago|Denver|Los_Angeles|Phoenix|Anchorage|Detroit|Boise|Juneau|Sitka|Nome|Adak|Metlakatla|Yakutat|Menominee|Indiana\/.+|Kentucky\/.+|North_Dakota\/.+)|Pacific\/Honolulu)$/;
+var CA_TZ=/^America\/(Toronto|Vancouver|Edmonton|Winnipeg|Halifax|St_Johns|Regina|Moncton|Whitehorse|Yellowknife|Iqaluit|Glace_Bay|Goose_Bay|Swift_Current|Rankin_Inlet|Resolute|Cambridge_Bay|Inuvik|Dawson|Dawson_Creek|Creston|Fort_Nelson|Atikokan|Blanc-Sablon|Montreal|Nipigon|Thunder_Bay|Rainy_River|Pangnirtung)$/;
+function mktHint(){
+  if(MKT_URL!==null)return;
+  try{if(localStorage.getItem(mktKey())||localStorage.getItem('jdp_mkt_hint_'+SLUG))return;}catch(e){return;}
+  var tz='';try{tz=Intl.DateTimeFormat().resolvedOptions().timeZone||'';}catch(e){}
+  var want=null;if(!isUS()&&US_TZ.test(tz))want='US';else if(isUS()&&CA_TZ.test(tz))want='CA';
+  if(!want)return;
+  var I=MKT_INFO[want],el=document.createElement('div');el.className='mkthint';el.id='mktHint';
+  el.innerHTML='<span>Ordering for '+(want==='US'?'a US location':'a Canadian location')+'? See '+I.cur+' pricing and the '+(want==='US'?'US':'Canadian')+' range.</span>'+
+    '<button type="button" class="mkthgo">Switch to '+I.name+'</button><button type="button" class="mkthx" aria-label="Dismiss">✕</button>';
+  document.body.appendChild(el);jdpTrack('market_hint',{v:want});
+  var done=function(){try{localStorage.setItem('jdp_mkt_hint_'+SLUG,'1');}catch(e){}el.remove();};
+  el.querySelector('.mkthx').addEventListener('click',done);
+  el.querySelector('.mkthgo').addEventListener('click',function(){done();setMarket(want==='US','hint');});
+}
+
+/* Stormtech USA decoration price list, 2026 (V 2026.02, effective Jan 1 2026). Net distributor costs. */
+var STUS_BREAKS=[12,18,96,296,500,1000];          // 12-17 · 18-95 · 96-295 · 296-499 · 500-999 · 1000+
+var STUS={
+  emb:{apparel:[6.50,5.00,4.75,4.50,4.00,3.50],bag:[7.50,6.00,5.75,5.50,5.00,4.50],
+       extra1k:[1.00,1.00,1.00,1.00,0.75,0.75]},     // each additional 1,000 stitches over 8,000
+  ht:{apparel:[[6.50,5.00,4.75,4.50,4.25,4.25],[8.50,6.50,5.50,5.00,4.50,4.50],[10.00,8.50,7.75,7.00,6.50,6.50],[12.00,10.50,9.75,9.00,8.50,8.50]],
+      bag:[[7.50,6.00,5.75,5.50,4.75,4.75],[9.50,7.50,6.50,6.00,5.50,5.50],[11.00,9.50,8.75,8.00,7.25,7.25],[13.00,11.50,10.75,10.00,9.25,9.25]]},
+  patch:{apparel:[6.50,6.00,5.75,5.50,5.00,4.50],bag:[7.00,6.50,6.25,6.00,5.50,5.00]},
+  setup:{embroidery:50,heat_transfer:50,patch:50},   // digitizing / setup, per logo (our COST)
+  seal:5.00                                         // waterproof seal on waterproof jackets, per piece
+};
+/* What we CHARGE in a US store. Setup is charged at the same rates as our Canadian stores. */
+var DECO_MK_US=1.5;
+var SETUP_US={embroidery:60,heat_transfer:75,patch:60};
+/* A standard left-chest / sleeve / name mark is costed at Stormtech's base (up to 8,000 stitches). A
+   full-back embroidery is costed at an assumed 20,000 stitches -- the same "about 2.5x a chest mark"
+   our Canadian rate card uses. Quotes are confirmed in writing, so a dense logo is re-priced then. */
+var US_BACK_STITCH_EXTRA_K=12;
+/* CUTTER & BUCK decorates its own goods in the US (Corporate Decoration & Fulfillment Services, eff. Jan 1
+   2025). Embroidery up to 15,999 stitches and printed heat transfer up to 99 sq in are the same price per
+   logo: $10.50 at 1-11 units, $5.00 at 12-499, $4.00 at 500+. Development: $50 embroidery, $40 heat
+   transfer, per logo (our COST; the store charges SETUP_US). Over 16,000 stitches or 100 sq in is a custom
+   quote -- a full-back mark is costed at twice a chest logo here and confirmed in writing. */
+var CBUS={emb:[10.50,5.00,4.00],ht:[10.50,5.00,4.00],setup:{embroidery:50,heat_transfer:40}};
+function cbTier(q){q=q||12;return q<12?0:(q<500?1:2);}
+function isCBUS(item){return !!(item&&item.usd&&item.usd.dec==='cb');}
+function usTier(q){var i=0;for(var k=0;k<STUS_BREAKS.length;k++){if((q||12)>=STUS_BREAKS[k])i=k;}return i;}
+function usInches(p){var m=String((p&&p.size)||'').match(/([\d.]+)\s*"/);return m?parseFloat(m[1]):4;}
+function usHtBand(p){var w=usInches(p);return w<=4?0:(w<=8?1:(w<=11?2:3));}
+function usKind(item){return itemCategory(item)==='bag'?'bag':'apparel';}
+function usWaterproof(item){var f=((item&&item.warm&&item.warm.flags)||[]).join(' ').toLowerCase();return /waterproof/.test(f);}
+function usDecoCost(d,item,q){
+  var t=usTier(q),k=usKind(item),p=item?placeOf(item,d.pl):null,m=usMethod(d.method);
+  if(isCBUS(item)){var ct=cbTier(q),cc=(m==='heat_transfer')?CBUS.ht[ct]:CBUS.emb[ct];
+    return (p&&p.face==='back')?cc*2:cc;}
+  if(m==='heat_transfer')return STUS.ht[k][usHtBand(p)][t];
+  if(m==='patch')return STUS.patch[k][t];
+  var c=STUS.emb[k][t];
+  if(p&&p.face==='back')c+=US_BACK_STITCH_EXTRA_K*STUS.emb.extra1k[t];
+  if(usWaterproof(item))c+=STUS.seal;
+  return c;
+}
+function usMethod(m){return (m==='screen')?'heat_transfer':(m||'embroidery');}
+/* One mapping for every place a decoration is created, so a US store never shows, prices or books
+   a screen print. Canadian stores: identity. */
+function mth(m){return isUS()?usMethod(m):m;}
+function usBlank(key,womens){var u=(BYKEY[key]||{}).usd;if(!u)return 0;return (womens&&u.w!=null)?u.w:u.m;}
+/* The US range: items with a US cost; ladies' cut only where Stormtech USA lists it. */
+function usFilterCatalogue(items){
+  return (items||[]).filter(function(it){return !!it.usd;}).map(function(it){
+    if(it.usd.w==null&&it.wcols){it.wcols=null;it.womens=false;it.wplaces=null;}
+    return it;});
+}
+function blankOf(key){var r=CFG.rates||{};return (r.blank&&r.blank[key]!=null)?r.blank[key]:((BYKEY[key]||{}).blank||0);}
+/* Screen print cost per piece by INK COUNT.
+   Steven, 2026-09-07: "screen print pricing could be multiple colors if they want Original logo
+   Colors which could be 1,2,3 and sometimes 4 colors. sometimes the company will want to do 1
+   color. this effects cost."
+   THE BUG THIS REPLACES: the old one-liner was
+       return sc[String(colours||1)] || r.screen || 0.75;
+   and the kits' ladders only hold 1/2/3. So a FOUR-colour print fell through to r.screen, the
+   ONE-colour rate — priced per piece as if it were a single ink, while setup correctly charged
+   4 x $45. An unmapped ink count must never fall back DOWNWARD.
+   Now: use the ladder when it has the count; otherwise continue the kit's own arithmetic step
+   (0.75 / 1.00 / 1.25 is +0.25 per extra ink, so 4 inks = 1.50); and if there is no ladder at all,
+   scale the single rate by the ink count rather than ignoring the count. */
+function screenPc(colours){
+  var r=CFG.rates||{},sc=r.screenc||{},n=Math.max(1,parseInt(colours,10)||1);
+  if(sc[String(n)]!=null)return sc[String(n)];
+  var keys=Object.keys(sc).map(function(k){return parseInt(k,10);})
+             .filter(function(k){return k>0;}).sort(function(a,b){return a-b;});
+  if(keys.length>=2){
+    var lo=keys[0],hi=keys[keys.length-1];
+    var step=(sc[String(hi)]-sc[String(lo)])/(hi-lo);
+    if(n>hi)return Math.round((sc[String(hi)]+(n-hi)*step)*100)/100;
+    if(n<lo)return sc[String(lo)];
+  }
+  if(keys.length===1)return sc[String(keys[0])]*(n/keys[0]);
+  return (r.screen||0.75)*n;
+}
+// One screen is burned per ink, per location, so screens are the real cost of a multi-colour print
+// at low quantity: 4 inks is $180 of screens against $45 for one. Charged once, shared across the
+// whole order — which is why the UI shows it as a one-time figure and not a per-piece number.
+/* A kit can carry more than one mark: 134 of the 399 stores ship `full`, `word` and `icon`. The
+   ids are ours, so give them names a buyer recognises -- a kit that supplies its own label wins. */
+var LOGO_LAB={full:'Full logo',word:'Wordmark',icon:'Icon',mono:'One-colour',stacked:'Stacked'};
+function logoLabel(L){
+  if(!L)return 'Logo';
+  return L.label||LOGO_LAB[L.id]||('Logo '+String(L.id||'').toUpperCase());
+}
+function screenSetupFor(colours){var s=(CFG.rates||{}).setup||{};return (s.screen||0)*Math.max(1,parseInt(colours,10)||1);}
+function decoCost(d,item,q){if(isUS())return usDecoCost(d,item,q);var r=CFG.rates||{};
+  if(d.method==='screen')return screenPc(d.colours||1);
+  if(d.method==='heat_transfer')return r.ht||0;
+  var p=item?placeOf(item,d.pl):null,mult=(p&&p.face==='back')?((r.emb_mult&&r.emb_mult.back)||1):1;
+  return (r.emb||0)*mult;}
+/* JDP Pricing Model v3 — margin comes from the whole job, not just the garment.
+   v2.1 sold decoration AT COST, so the second of the three revenue lines (garment, decoration,
+   setup) earned nothing: on a $27 polo that was 15.6% of revenue at 0% margin. Combined with a
+   steep garment discount at volume, 105 of 191 program items fell under 30% gross margin at 144
+   pcs -- the level PPAI calls operationally dangerous -- and the blended figure was 28.9%,
+   below the 34-36% industry average.
+   v3 prices decoration at market and TIERS it by quantity, which is how the trade actually funds
+   a volume break, then eases the garment discount, because a blank does not get cheaper just
+   because the order got bigger. Blended GM: 44.1% @12, 35.9% @144, nothing under 30%. */
+function costMult(c){if(c<=1)return 3.30;if(c<=3)return 2.70;if(c<=7)return 2.15;if(c<=15)return 1.90;if(c<=25)return 1.76;if(c<=40)return 1.64;if(c<=75)return 1.52;if(c<=150)return 1.45;if(c<=350)return 1.40;if(c<=700)return 1.34;return 1.28;}
+function volFactor(q){if(q<24)return 1.06;if(q<48)return 1.03;if(q<100)return 1.00;if(q<250)return 0.92;return 0.89;}
+/* Decoration is a PROFIT LINE, not a pass-through. The markup is applied to the KIT'S OWN cost
+   rate, so this holds whatever a given kit pays, and it steps down with quantity -- our cost per
+   piece genuinely falls at volume, so the customer's break is funded here rather than out of the
+   garment. On a $4.20 cost this yields left-chest embroidery at $8.50 / $6.75 / $5.50, inside the
+   published market range of $5.25-$10.78, and it is what pays for the customer's volume break --
+   so the garment can hold its multiple instead of being discounted into thin air. */
+var DECO_MK={embroidery:[2.02,1.61,1.31],screen:[3.67,3.00,2.33],heat_transfer:[2.17,1.75,1.42]};
+/* SUPPLIER QUANTITY BREAK on the blank. Our cost genuinely falls at volume, so the customer's
+   volume discount is funded by a real cost reduction rather than out of margin -- which is the only
+   honest way to be competitive at 144+.
+   Calibrated so the drop from 12 to 144 matches the market PER CATEGORY, which is what actually
+   matters: commodity tees and caps fall ~26% (market 25-30%) while premium parkas fall ~13%
+   (expensive goods always discount far less). A single blended number is misleading on a
+   premium-weighted catalogue.
+   ASSUMPTION TO KEEP HONEST: 3% at 48+, 6% at 144+. If a supplier gives less, gross margin at 144
+   lands near the 30% floor instead of ~34% -- it does not go below it. If a supplier gives more,
+   raise the figure here and the saving passes to the customer automatically. */
+function blankBreak(q){return (q<48)?1.00:((q<144)?0.97:0.94);}
+function decoMk(method,q){var t=DECO_MK[method]||DECO_MK.embroidery;return (q<48)?t[0]:((q<144)?t[1]:t[2]);}
+/* THE SLEEVE BADGE IS A SMALL MARK (Steven, 2026-10-08: "Logo + sleeve badge price looks expensive
+   relative to market"). It was charged exactly like a full left-chest logo -- $4.20 cost x 2.02 = $8.50 a
+   piece at 12+, plus its own $60 digitizing -- about $13.50 a piece on a 12-piece order. Market, checked:
+   an additional embroidery location runs ~$5.80 (Trimark 12-99), small-stitch embroidery $7.10 at 12-71
+   (Print Co), and small-logo digitizing $15-50. A ~2.5" sleeve badge is a fraction of a chest logo's
+   stitches, so it now carries a small-mark markup on the SAME $4.20 cost basis ($5.88 / $5.46 / $5.04)
+   and a $30 setup. The cost basis is deliberately not lowered: margin reports stay conservative. */
+var SMALL_MK=[1.40,1.30,1.20],SMALL_SETUP=30;
+function isSmallMark(d,item){if(!d||d.method!=='embroidery')return false;var p=item?placeOf(item,d.pl):null;
+  return d.pl==='sleeve'||!!(p&&/sleeve/i.test(p.label||''));}
+function decoCharge(d,item,q){if(isUS())return usDecoCost(d,item,q)*DECO_MK_US;
+  if(isSmallMark(d,item))return decoCost(d,item)*((q<48)?SMALL_MK[0]:((q<144)?SMALL_MK[1]:SMALL_MK[2]));
+  return decoCost(d,item)*decoMk(d.method||'embroidery',q);}
+// Carhartt — transparent premium brand: leaner market-benchmarked markup (competitive with marks.com / carhartt.com).
+function isCarhartt(item){return String((item&&(item.brand||item.sku))||'').toLowerCase().indexOf('carhartt')===0;}
+function costMultCarh(c){if(c<=15)return 1.72;if(c<=30)return 1.60;if(c<=60)return 1.50;if(c<=100)return 1.42;if(c<=180)return 1.36;return 1.31;}
+function volFactorCarh(q){if(q<24)return 1.03;if(q<100)return 1.00;if(q<250)return 0.96;return 0.93;}
+function activeDecos(decos){return (decos||[]).filter(function(d){return d.on;});}
+/* A DECORATION ON A PLACEMENT THE GARMENT DOES NOT HAVE IS NOT A DECORATION.
+   The fleet sync writes a viewmodel per item and, for anything with no logo placement at all, it
+   fell back to a hard-coded {pl:'chest', method:'embroidery', on:true}. unitPrice already ignored
+   it (it checks the item's real placements), so the per-piece price was right and nothing was ever
+   drawn -- but setupBreakdown did not check, and happily billed $60 of embroidery digitizing for a
+   left chest that does not exist. Nine items, all 398 stores: a board with work pants, shorts and
+   a belt on it carried $180 of setup for three decorations nobody would ever produce.
+   Filtered here rather than only at the sync, so every store is right the moment this ships,
+   without waiting on a data migration to reach it. */
+function realDecos(item,decos){
+  var vpl={};((item&&item.places)||[]).forEach(function(p){if(p.logo)vpl[p.id]=1;});
+  return activeDecos(decos).filter(function(d){return !!vpl[d.pl];});
+}
+function hasDecoPlace(item){return !!((item.places||[]).some(function(p){return p.logo;}));}
+function unitPrice(key,decos,q){var _wfit=/#w$/.test(String(key));key=bkey(key);var r=CFG.rates;
+  var _it=BYKEY[key]; if(_it&&_it.layer==='promo')return _it.price_cad||0;   // promo: flat Debco CAD price (customer price)
+  if(!r||r.blank==null){return unitAt(BYKEY[key],q);}
+  var item=BYKEY[key],c0=isUS()?usBlank(key,_wfit):blankOf(key),c=c0*blankBreak(q),dec=0,decc=0;
+  var vpl={};(item.places||[]).forEach(function(p){if(p.logo)vpl[p.id]=1;});   // only decorate on real logo places (pants have none -> no deco charge)
+  var _ly=stdLayers(key);   // 3-in-1 systems carry the mark on shell AND liner: two runs, two charges
+  activeDecos(decos).forEach(function(d){if(!vpl[d.pl])return;
+    dec+=decoCost(d,item,q)*_ly;                  // what it costs us -- drives the margin floor
+    decc+=decoCharge(d,item,q)*_ly;});            // what the customer pays
+  var carh=isCarhartt(item);
+  /* The multiple is keyed to the LIST cost (c0), not the discounted cost -- otherwise a garment
+     could slide into a cheaper band at volume and get marked up harder, which is backwards. */
+  var cm=carh?costMultCarh(c0):costMult(c0),vf=carh?volFactorCarh(q):volFactor(q);
+  /* Floor is measured on TRUE cost. 30% for the program range: PPAI reports 34-36% as the
+     industry average and calls sub-30% operationally dangerous once overhead is applied.
+     Brand-transparent goods run leaner ON PURPOSE -- a buyer can price a Carhartt jacket on
+     carhartt.com, so the mix carries it rather than the single line. */
+  /* THE FLOOR MUST USE THE SAME COST BASIS AS THE PRICE IT IS FLOORING.
+     It used to be measured on the full 12-piece list blank (c0) while the price above uses the
+     volume-discounted blank (c). Mixing a pessimistic cost into an optimistic price gives a number
+     that is neither -- and on expensive garments it ate the entire volume ladder. Steven,
+     2026-09-10: "Matrix 3-in-1 Jacket and Evoke Recycled Honeycomb Fleece Full-Zip Jacket 144+
+     pricing seems off." He was right:
+
+       Matrix 3-in-1   12 -> $262   48 -> $248   144 -> $248   (identical: floor bound both)
+       Evoke Fleece    12 -> $141   48 -> $129   144 -> $129   (identical)
+
+     A customer ordering 144 pieces was quoted exactly what they pay at 48. The cause is arithmetic,
+     not judgement: a dear garment carries a LOWER multiple (1.40 on a $165 jacket vs 1.52 on a $74
+     one), so c*cm*vf at the 144 break lands under c0/0.70 and the floor takes over.
+
+     The old note defended c0 as protection against a supplier break not materialising. That is a
+     real risk, but this is the wrong instrument for it: the honest place to be conservative about
+     what a garment costs is blankBreak(), which is where we state the break. A margin floor should
+     answer one question -- "are we making 30% on THIS order?" -- and at 144 pieces our cost is the
+     144-piece cost. Guaranteeing 30% against a cost we do not pay quietly cancels the discount the
+     customer earned. */
+  var price=c*cm*vf+decc,floor=(c+dec)/(carh?0.78:0.70);
+  if(price<floor)price=floor; if(price<2.50)price=2.50;          // min piece price
+  return Math.ceil(price/0.5)*0.5;}                              // round UP to nearest $0.50
+/* ---- PROMO pricing engine (Debco) — the correct all-in model ----
+   Order total = product (EQP × qty) + decoration run (per-unit, by method + extra locations) + one-time setup.
+   The all-in per-unit therefore DROPS as quantity rises (setup spreads) — the real quantity mechanic. */
+function promoMethods(it){return (it.methods&&it.methods.length)?it.methods:[{n:'1-colour print',r:0}];}
+// Quantity-break unit price (NexGen/St Regis/Spector). Debco items have no tiers -> flat price_cad.
+function tierPrice(it,qty){var t=it.tiers;if(!t||!t.length)return it.price_cad||0;var p=t[0].p;for(var i=0;i<t.length;i++){if(qty>=t[i].q)p=t[i].p;}return p;}
+function promoQuote(it,c){
+  c=c||{}; var min=it.moq||((it.tiers&&it.tiers[0])?it.tiers[0].q:1);
+  /* Spector & Co publish list prices that INCLUDE their default branding, and JDP charges the
+     Spector price exactly as published (Steven, 2026-09-06). So goods-only IS the whole price:
+     run:0 and setup:0 below are CORRECT, not an omission. Do not add a decoration charge here,
+     and do not run these items through unitPrice()'s garment ladder -- the margin is already in
+     the spread between Spector's list price and our net cost. */
+  if(it.decoquote){
+    var q2=Math.max(parseInt(c.qty,10)||min,min);
+    var pp=tierPrice(it,q2), gd=Math.round(pp*q2*100)/100;
+    return {qty:q2,min:min,decoquote:true,unit:it.unit||'pc',tiers:it.tiers||[],unitBase:pp,perPiece:pp,
+            run:0,setup:0,locs:1,methods:[],mi:0,method:{n:''},goods:gd,decoRun:0,total:gd,allIn:pp};
+  }
+  var qty=Math.max(parseInt(c.qty,10)||min,min);
+  var methods=promoMethods(it), mi=Math.min(Math.max(c.mi||0,0),methods.length-1), m=methods[mi]||{n:'',r:0};
+  var locs=Math.max(c.locs||1,1);
+  var unitBase=it.price_cad||0;
+  var run=(m.r||0)+((locs>1)?((it.addl_loc||0.75)*(locs-1)):0);   // per-unit decoration (method + extra locations)
+  var setup=Math.round((it.setup||65)*locs*100)/100;             // one-time, one setup per location
+  var perPiece=Math.round((unitBase+run)*100)/100;                // decorated price per piece (flat at any qty)
+  var goods=unitBase*qty, decoRun=run*qty, total=goods+decoRun+setup;
+  return {qty:qty,min:min,methods:methods,mi:mi,method:m,locs:locs,unitBase:unitBase,run:Math.round(run*100)/100,
+          perPiece:perPiece,setup:setup,goods:Math.round(goods*100)/100,decoRun:Math.round(decoRun*100)/100,
+          total:Math.round(total*100)/100,allIn:total/qty};
+}
+// Quantity presets a B2B buyer actually orders (always starting at the item's minimum).
+function promoTiers(min){var out=[];[min,25,50,100,250,500].forEach(function(q){if(q>=min&&out.indexOf(q)<0)out.push(q);});return out.slice(0,5);}
+// A setup is charged ONCE per unique DESIGN+LOCATION+METHOD across the whole kit (a stitch file / set of
+// screens is reused on every garment & quantity). Screens also depend on ink colour, so screen keys include ink.
+function setupKey(d,it){
+  /* A setup is a STITCH FILE (or a screen), and what identifies one is the logo, the method, the
+     location and the width -- never the catalogue's internal placement id. Two items routinely call
+     the same physical slot by different ids while LABELLING it identically: the freezer jacket and
+     tear-away vest use pl='front', the Vault hoodie and Red Kap shirt use pl='chest', and all four
+     read "Embroidered - left chest - 3.5\" wide". Keying on the id charged one digitizing fee twice
+     and over-quoted the customer $60 on a single board.
+     The width matters and cannot be dropped: "embroidered / left chest" exists in this catalogue at
+     2.25", 3" and 3.5", so keying on the label alone would merge three different files into one and
+     under-charge instead. The item's spec string describes its DEFAULT placement, so its width is
+     only borrowed when the deco actually sits on that placement. */
+  var p=it?placeOf(it,d.pl):null;
+  var lab=String((p&&p.label)||d.pl||'').trim().toLowerCase();
+  var spec=String((it&&it.method)||''),w='';
+  if(lab&&spec.toLowerCase().indexOf(lab)>=0){
+    var m=spec.match(/([\d.]+)"\s*wide/);
+    if(m)w=m[1];
+  }
+  var head=(d.method==='screen')?('scr|'+(d.colours||1)+'|'+(d.ink||'auto')):d.method;
+  return head+'|'+d.lg+'|'+lab+'|'+w;
+}
+/* ONE standardized setup per product, read from the catalogue -- not from each kit's own config.
+   Per-kit decos are why the same product was quoted differently store to store: a sample of 14 live
+   kits had 16 hi-vis items carrying a second centre-back screen in most stores, 5 in one and none in
+   another. The catalogue's `std` block is now the single source of truth, so the mockup, the price
+   and the printed spec cannot disagree with each other or between stores. */
+function stdOf(key){var it=BYKEY[key]||{};return it.std||null;}
+/* A 3-in-1 is two garments -- an outer shell and a zip-out inner jacket -- and the "n" counts ways to
+   wear it, not pieces. Industry practice is to decorate BOTH layers at the left chest, because the
+   liner is worn on its own and an unbranded liner defeats the point of a uniform program. So the
+   standard covers two marks, and the price carries two. */
+function sysOf(key){var it=BYKEY[key]||{};return it.sys||null;}
+function stdLayers(key){var st=stdOf(key);return (st&&st.layers)?st.layers:1;}
+function sysHtml(item){
+  var sy=item&&item.sys;if(!sy)return '';
+  /* Per-product now, not one blanket description. A 3-in-1 and a 6-in-1 are both TWO garments -- the
+     number counts wearing configurations -- but showing three ways on a product sold as six-in-one
+     undersells it, and inventing six ways nobody published would be worse. So: list the maker's own
+     configurations where they publish them, and where they only claim a number without enumerating
+     it (Ground Force's TJ6), state the three that are true of every system and say the rest come
+     from the liner's zip-off sleeves rather than making them up. */
+  var combos=sy.combos||[];
+  var rows='';
+  if(combos.length){
+    rows=combos.map(function(t,i){
+      return '<div class="sysrow"><span class="sysn">'+(i+1)+'</span><span>'+esc(t)+'</span></div>';}).join('');
+  }else{
+    rows=['Outer shell alone','Inner jacket alone','Shell and liner zipped together']
+      .map(function(t,i){
+        return '<div class="sysrow"><span class="sysn">'+(i+1)+'</span><span>'+esc(t)+'</span></div>';}).join('')+
+      '<div class="sysrow"><span class="sysn">+</span><span>Further combinations from the liner\u2019s '+
+        'zip-off sleeves \u2014 '+sy.ways+' in total, per the maker</span></div>';
+  }
+  var liner=sy.liner?('<div class="sysliner"><b>Liner:</b> '+esc(sy.liner)+'</div>'):'';
+  var rev=sy.revside
+    ? ('<div class="sysrev">The liner is reversible. As standard we embroider the <b>'+esc(sy.revside)+
+       '</b> \u2014 the face worn on site. Tell us in the notes to switch it.</div>')
+    : '';
+  return '<div class="sysblk"><div class="syshd">'+sy.ways+' ways to wear \u00b7 '+sy.garments+' garments</div>'+
+    rows+liner+
+    '<div class="sysnote"><b>Your logo goes on both garments</b> \u2014 shell and liner \u2014 so the crew '+
+      'is branded whichever way they wear it. That is two embroidery runs, and the price already includes both.</div>'+
+    rev+'</div>';
+}
+
+function recDecos(key){
+  var st=stdOf(key);
+  if(!st||!st.method||!st.pl)return [];
+  return [{pl:st.pl,on:true,lg:(CFG.logos&&CFG.logos[0]&&CFG.logos[0].id)||null,
+           ink:'auto',method:mth(st.method),colours:presetInks(mth(st.method),1)}];
+}
+
+/* ---------- persistence ---------- */
+/* ---------- LISTS ---------------------------------------------------------------------------
+   Consolidation. The store had grown four overlapping ideas for "things the customer picked": the
+   kit, our curated shortlist, a shared link that merged into the kit, and per-store picks. Steven
+   asked for the Amazon Business pattern instead, which is one idea: you save a product to a List,
+   Lists persist, you can have several, and you add to whichever you like.
+
+   Implemented as a LAYER OVER the existing cart rather than a rewrite. CART stays the live object
+   that every pricing, quote, share and render path already reads -- it is now simply an alias for
+   the active List's items. That keeps ~25 working call sites correct instead of re-touching them.
+   An existing single cart is migrated into the first List on load, so nobody loses a kit. */
+var LISTS=null,ALID='';
+function LKEY(){return LSKEY+'_lists'+(isUS()?'_us':'');}
+/* A US quote's board slug carries a us- prefix, so the two countries never overwrite each other on the server. */
+function mslug(s){var b=bslug(s);return (isUS()&&b&&b.indexOf('us-')!==0)?('us-'+b):b;}
+/* ITEMS MUST BE A PLAIN OBJECT, NEVER AN ARRAY.
+   Steven, 2026-09-18, on dif: "board is not saving again. I created a custom board and when I went
+   back on it deleted!"
+
+   The board was not deleted and the push was not wrong -- the container was the wrong TYPE, and
+   JSON threw the contents away on every save:
+
+     * boards.php stores items as a PHP associative array, and PHP cannot tell an empty object from
+       an empty array, so an empty board comes back over the wire as `"items": []`.
+     * the ingest paths did `sb.items || {}`. An empty ARRAY is truthy, so the board's item
+       container became an Array.
+     * adding a product then set a NAMED property on that array. Object.keys() sees it, so the board
+       looked completely normal on screen.
+     * but JSON.stringify of an array DROPS named properties. persistLists() therefore wrote an
+       empty board to localStorage and pushBoardNow() sent an empty board to the server.
+       dif/my-board reached rev 26 with 13 retained revisions, every one of them n=0: the items
+       never existed anywhere but in the live page.
+
+   Self-perpetuating, too: once the server holds [], every later visit re-seeds an array and loses
+   the contents again. Hence a normaliser at EVERY ingest -- both server-pull paths, the
+   localStorage load, the stale-merge reply and the outbound push -- so a `[]` from anywhere,
+   including boards already stored that way, becomes a real object before anything is added. */
+/* The customer removing their own last item IS a legitimate empty save, so the guard in
+   pushBoardNow() has to be able to tell that apart from an empty push it should refuse. Only the
+   remove handlers call this. */
+function markCleared(){try{if(LISTS&&LISTS[ALID])LISTS[ALID]._cleared=1;}catch(e){}}
+function asItems(v){
+  if(!v||typeof v!=='object')return {};
+  if(!Array.isArray(v))return v;
+  var o={};Object.keys(v).forEach(function(k){o[k]=v[k];});return o;   // keep any named props
+}
+function persistLists(){
+  try{localStorage.setItem(LKEY(),JSON.stringify({lists:LISTS,active:ALID}));}catch(e){}}
+function newListId(){return 'l'+Date.now().toString(36)+Math.floor(Math.random()*1e4).toString(36);}
+function loadLists(){
+  var raw=null;try{raw=JSON.parse(localStorage.getItem(LKEY())||'null');}catch(e){}
+  if(raw&&raw.lists&&Object.keys(raw.lists).length){
+    LISTS=raw.lists;ALID=raw.active||Object.keys(raw.lists)[0];
+    // repair any board already stored with an array container (see asItems)
+    Object.keys(LISTS).forEach(function(k){
+      if(LISTS[k])LISTS[k].items=asItems(LISTS[k].items);});
+  }else{
+    // First run under Lists: adopt whatever single cart already exists so no work is lost.
+    var old={};try{old=JSON.parse(localStorage.getItem(LSKEY)||'{}')||{};}catch(e){old={};}
+    var id=newListId();LISTS={};
+    LISTS[id]={name:'My board',items:old,updated:Date.now()};
+    ALID=id;
+    /* Our recommendations, as a List -- not a section, not a hero button. Seeded once on first
+       visit and left as a SEPARATE list so a first-timer's own list is never silently pre-filled
+       with items they did not choose (which would quietly end up on a quote request). */
+    // Guarded: this reads BYKEY/CFG, and a starter list is a nicety. If anything here throws, the
+    // customer must still get their own list -- never a store that fails to load a saved list.
+    try{
+      var ess=(typeof essKeysAll==='function')?essKeysAll():[];
+      if(ess.length){
+        var sid=newListId(),sitems={};
+        ess.forEach(function(k){
+          if(!BYKEY[k])return;
+          sitems[k]={qty:moq(),colour:vmOf(k).colour,decos:recCartDecos(k)};});
+        if(Object.keys(sitems).length){
+          LISTS[sid]={name:'JDP starter list',items:sitems,updated:Date.now()-1,starter:true,
+                      seedn:Object.keys(sitems).length};}
+      }
+    }catch(e){}
+    persistLists();
+  }
+  if(!LISTS[ALID])ALID=Object.keys(LISTS)[0];
+}
+/* Walking the live flow turned up the real hazard: a save goes to whatever list happened to be
+   active, with nothing on screen naming it. Switch to the JDP starter list to look at it, close the
+   panel, heart one product -- and that product silently joins OUR recommendation set, which then
+   goes out on a quote request titled "JDP starter list". Measured it live: 9 items became 10.
+   So the starter list is a TEMPLATE. It is never a save target; a save redirects into the buyer's
+   own list and the toast says where it went. No mode to learn, nothing to undo. */
+function personalListId(){
+  if(!LISTS)loadLists();
+  var ids=listIds().filter(function(id){return !LISTS[id].starter;});
+  if(ids.length)return ids[0];                       // most recently touched personal list
+  var id=newListId();
+  LISTS[id]={name:'My board',items:{},updated:Date.now()};
+  persistLists();
+  return id;
+}
+function isTemplate(id){return !!((LISTS||{})[id]||{}).starter;}
+/* Returns true when it had to move the buyer off the template. */
+function ensureWritable(){
+  if(!LISTS)loadLists();
+  if(!isTemplate(ALID))return false;
+  var id=personalListId();
+  if(id===ALID)return false;
+  ALID=id;CART=LISTS[id].items;persistLists();
+  return true;
+}
+function copyStarterToMine(){
+  var s=starterId();if(!s)return;
+  var src=LISTS[s].items||{},tid=personalListId(),n=0;
+  Object.keys(src).forEach(function(ck){
+    if(LISTS[tid].items[ck])return;
+    try{LISTS[tid].items[ck]=JSON.parse(JSON.stringify(src[ck]));n++;}catch(e){}});
+  ALID=tid;CART=LISTS[tid].items;LISTS[tid].updated=Date.now();persistLists();
+  renderCart();refreshCartUI();
+  toast(n?('Copied '+n+' piece'+(n===1?'':'s')+' into '+activeName())
+         :('Already in '+activeName()));
+}
+/* The GENERIC nine-item list only. The named programs are templates too, but they are the thing
+   hideStaleStarter() is meant to leave alone -- without this it deleted a program instead. */
+function starterId(){for(var id in (LISTS||{})){if(LISTS[id].starter&&!LISTS[id].prog)return id;}return '';}
+/* One clear concept. A generic 9-item "JDP starter list" sitting beside two boards curated for this
+   specific company is strictly worse than both and makes a third competing thing to click. Retire it
+   once curation exists -- but ONLY while it is untouched, so a customer who has actually put items
+   in it never loses their work. */
+function hideStaleStarter(){
+  var sid=starterId();if(!sid)return false;
+  if(!curatedBoardIds().length)return false;
+  var L=LISTS[sid];
+  if(L.seedn!=null&&Object.keys(L.items||{}).length!==L.seedn)return false;   // customer edited it
+  if(ALID===sid){var alt=curatedBoardIds()[0];if(alt){ALID=alt;CART=LISTS[alt].items;}}
+  delete LISTS[sid];persistLists();return true;
+}
+function listIds(){
+  return Object.keys(LISTS||{}).sort(function(a,b){
+    return (LISTS[b].updated||0)-(LISTS[a].updated||0);});}
+function listName(id){return ((LISTS||{})[id]||{}).name||'My board';}
+function listLen(id){return Object.keys((((LISTS||{})[id])||{}).items||{}).length;}
+function activeName(){return listName(ALID);}
+function newList(name){
+  var id=newListId();
+  LISTS[id]={name:(name||'').trim()||('Board '+(listIds().length+1)),items:{},updated:Date.now()};
+  ALID=id;CART=LISTS[id].items;persistLists();return id;}
+function switchList(id){
+  if(!LISTS[id])return;
+  ALID=id;CART=LISTS[id].items;persistLists();
+  renderCart();refreshCartUI();}
+function renameList(id,name){
+  name=(name||'').trim();if(!LISTS[id]||!name)return;
+  LISTS[id].name=name.slice(0,40);persistLists();}
+function deleteList(id){
+  if(!LISTS[id])return;
+  if(listIds().length<2){LISTS[id].items={};CART=LISTS[id].items;persistLists();return;}
+  delete LISTS[id];
+  if(ALID===id){ALID=listIds()[0];CART=LISTS[ALID].items;}
+  persistLists();}
+/* The list picker. A native <select> on purpose: it is the most familiar, most reliable control on
+   a phone, needs no custom popover, and cannot get stuck open. Counts are shown inline so switching
+   is an informed choice rather than a guess. */
+function listBarHtml(){
+  if(!LISTS)loadLists();
+  var ids=listIds();
+  var opts=ids.map(function(id){
+    return '<option value="'+esc(id)+'"'+(id===ALID?' selected':'')+'>'+
+      esc(listName(id))+' \u00b7 '+listLen(id)+(LISTS[id].starter?' \u00b7 template':'')+
+      '</option>';}).join('');
+  return '<div class="lbar">'+
+    '<select class="lsel" id="lsel" aria-label="Choose a list">'+opts+'</select>'+
+    '<button type="button" class="lbtn" id="lNew">+ New</button>'+
+    '<button type="button" class="lbtn" id="lRen">Rename</button>'+
+    (ids.length>1?'<button type="button" class="lbtn rm" id="lDel">Delete</button>':'')+
+    '</div>';
+}
+function heartSvg(filled){
+  return '<svg class="hrt" viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" fill="'+
+    (filled?'currentColor':'none')+'" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" '+
+    'stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8'+
+    'L12 21.1l8.8-8.7a5.5 5.5 0 0 0 0-7.8z"/></svg>';
+}
+function loadCart(){loadLists();CART=(LISTS[ALID]&&LISTS[ALID].items)||{};}
+function saveCart(){
+  if(!LISTS)loadLists();
+  // CART is normally an alias for the active list's items, but some paths reassign it wholesale --
+  // re-link on every save so a reassignment can never silently orphan the list.
+  if(LISTS[ALID]){LISTS[ALID].items=CART;LISTS[ALID].updated=Date.now();}
+  persistLists();
+  pushBoardSoon();}
+
+/* ---------- overlay (garment photo + logo at a placement) ---------- */
+function placeInList(places,pid){for(var i=0;i<places.length;i++)if(places[i].id===pid)return places[i];return null;}
+function overlayHtml(item,vm,colName,faces,colsOverride,placesOverride){
+  var cols=colsOverride||item.cols;var places=placesOverride||item.places;var col=colInList(cols,colName);var face=faces||'front';var hasBack=!!col.back;
+  if(face==='back'&&!hasBack)face='front';
+  var photo=(face==='back'&&col.back)?col.back:col.front;
+  var lg='';
+  if(item&&item.noov)return {g:gurl(photo),lg:'',hasBack:hasBack};   // decoration priced/selectable, but no logo drawn on photo (Carhartt)
+  (vm.decos||[]).forEach(function(d){if(!d.on)return;var p=placeInList(places,d.pl);if(!p||(p.face||'front')!==face)return;
+    /* norender: the position is real for PRICING, setup keying and the invoice, but we hold no
+       tuned cx/cy/wf for it, so drawing it would paint the logo in the wrong place. Steven,
+       2026-09-07: "I am not concerned with mock ups now" -- the configurations exist to price
+       and invoice fast. Tune a position's geometry, drop its norender flag, and it draws. */
+    if(p.norender)return;
+    if(face==='back'&&!hasBack)return;
+    var L=logoOf(d.lg),src=inkUrl(L,d.ink,col,d.method,d.colours);
+    var wf=p.wf*(CFG.logo_scale||1);
+    lg+='<img class="l" src="'+src+'" style="left:'+p.cx+'%;top:'+p.cy+'%;width:'+wf+'%" alt="">';});
+  return {g:gurl(photo),lg:lg,hasBack:hasBack};
+}
+
+/* ---- WHAT THE PRICE INCLUDES, SHOWN WHERE THE BUYER DECIDES ---------------------------------
+   Steven, 2026-09-24: "decoration is not clear when browsing. for instance we go to the hi-vis
+   program. shows prices at embroidered left chest and 4 color screen print but the customer has
+   no way of knowing this unless they click the item and scroll down to decoration."
+
+   Measured before building, across all 292 apparel items:
+     * 274 prices include a decoration, in seven different setups, and the card said only
+       "decorated" -- never where, never how.
+     * 13 of them (hi-vis tees and tear-away vests) include a CENTRE-BACK print that the card could
+       never show: it draws the front, and every back placement is `norender` (no tuned geometry,
+       and on hi-vis the back is reflective-tape territory, so it is deliberately not guessed).
+       Those were the worst case -- paying for a print that is invisible until step 3 of the sheet.
+     * 18 are supplied blank and said so NOWHERE: an $18.50 blank vest sat beside a $32.50
+       decorated one with the same "/pc", no logo on either photo for the blank, and no word. A
+       buyer comparing them was comparing a garment against a garment-plus-logo without knowing.
+
+   One component, three surfaces -- the grid card, the top of the product sheet, the board -- and
+   each is built from THE SAME decos array its price was computed from (defaultDecos on the card,
+   the live sheet state in the sheet, the saved line on the board). The words and the number
+   therefore cannot disagree, which is the whole point: a label that drifted from the price would
+   be worse than no label.
+
+   The pictogram shows WHERE (a dot on the chest, a band across the back, the front of a cap); the
+   words say HOW. It keys off the placement's human LABEL, not its id -- hi-vis items use id `front`
+   for what is actually a left-chest mark, and the label is what the buyer reads. */
+var INC_HOW={embroidery:'Embroidered',screen:'Printed',heat_transfer:'Heat transfer',patch:'Leather patch'};
+function incParts(it,decos){
+  var logos=(CFG&&CFG.logos)||[],prime=(logos[0]||{}).id;
+  return realDecos(it,decos).map(function(d){
+    var p=placeOf(it,d.pl)||{};
+    var how=(d.method==='heat_transfer'&&!isUS())?'DTF transfer':(INC_HOW[d.method]||'Embroidered');
+    if(d.method==='screen'){var n=d.colours||1;how+=' · '+n+' colour'+(n===1?'':'s');}
+    /* A second logo (a wordmark on the back, say) is named, exactly as the quote names it. */
+    var art=(logos.length>1&&d.lg&&d.lg!==prime)?logoLabel(logoOf(d.lg)):'';
+    return {where:p.label||d.pl,how:how,face:p.face||'front',size:p.size||'',art:art};
+  });
+}
+function incGlyph(it,part){
+  var cat=itemCategory(it),w=String(part.where||'').toLowerCase(),body,mark;
+  if(cat==='cap'){
+    body='<path d="M3 15.5c0-5.2 3.6-9 8-9s8 3.8 8 9z"/><path d="M19 15.5h2.4"/>';
+    mark='<circle cx="11" cy="11.6" r="2.1"/>';
+  }else if(cat==='bag'){
+    body='<rect x="4.5" y="7.5" width="13" height="12" rx="2.2"/><path d="M8 7.5V6a3 3 0 0 1 6 0v1.5"/>';
+    mark='<circle cx="11" cy="13.4" r="2.1"/>';
+  }else{
+    var back=part.face==='back';
+    /* the back view is the same garment with a shallow neckline, which is how a flat-lay reads */
+    body='<path d="M8 3.6 4 5.6 2 9.2l2.6 1.5L6 9.8v9.7h10V9.8l1.4.9L20 9.2l-2-3.6-4-2'+
+         (back?'c-.6.8-1.7 1.2-3 1.2s-2.4-.4-3-1.2z':'c-.5 1.5-1.7 2.4-3 2.4S8.5 5.1 8 3.6z')+'"/>';
+    if(back)                          mark='<rect x="7.4" y="7.6" width="7.2" height="3.4" rx=".8"/>';
+    else if(/hip/.test(w))            mark='<circle cx="13.6" cy="16.6" r="1.8"/>';
+    else if(/left/.test(w))           mark='<circle cx="13.6" cy="9.6" r="1.8"/>';   /* wearer's left = viewer's right, as every photo shows it */
+    else if(/right/.test(w))          mark='<circle cx="8.4" cy="9.6" r="1.8"/>';
+    else if(/sleeve/.test(w))         mark='<circle cx="18" cy="8.2" r="1.5"/>';
+    else                              mark='<circle cx="11" cy="10.2" r="2"/>';
+  }
+  return '<svg class="incg" viewBox="0 0 22 22" aria-hidden="true"><g class="incb">'+body+'</g><g class="incm">'+mark+'</g></svg>';
+}
+/* mode: 'card' | 'sheet' | 'board'. The card stays terse (where + how); the sheet and the board
+   are where a buyer checks detail, so they carry the print size too. */
+function incHtml(it,decos,mode){
+  if(!it||it.layer==='promo')return '';
+  if(!hasDecoPlace(it))
+    return '<div class="inc inc-'+mode+' blank"><span class="incl">No logo</span>'+
+           '<span class="incc"><span><b>Supplied blank</b></span></span></div>';
+  var ps=incParts(it,decos||[]);
+  if(!ps.length)
+    return '<div class="inc inc-'+mode+' blank"><span class="incl">No logo on this line</span></div>';
+  var detail=mode!=='card';
+  var title=ps.map(function(p){return p.where+(p.size?' '+p.size:'')+' — '+p.how+(p.art?' ('+p.art+')':'');}).join('; ');
+  return '<div class="inc inc-'+mode+'" title="'+esc(title)+'">'+
+    '<span class="incl">'+(mode==='board'?'Logo':'Your logo, included')+'</span>'+
+    ps.map(function(p){
+      return '<span class="incc">'+incGlyph(it,p)+'<span><b>'+esc(p.where)+'</b>'+
+        (detail&&p.size?'<i> '+esc(p.size)+'</i>':'')+' '+esc(p.how)+
+        (p.art?'<i> · '+esc(p.art)+'</i>':'')+'</span></span>';
+    }).join('')+'</div>';
+}
+
+
+/* ---- THE TRUST LAYER (2026-09-25) -----------------------------------------------------------------
+   Steven: "4 imprint does 1 billion in revenue and we do not ! We must copy and execute there best
+   customer experience and conversion methods".
+
+   4imprint puts a person, a phone number, a rating and a guarantee on every page, because for a
+   decorated-goods order the buyer's real question is not "is this polo nice" but "will these people
+   get my logo right, on time, and answer the phone if they don't". Our 583 company stores carried
+   NONE of that: no phone, no reviews, no heritage, no response time -- measured, zero occurrences in
+   store.js -- while justdealspromotions.com itself publishes all of it.
+
+   EVERY FACT BELOW IS PUBLISHED BY JDP, verified 2026-09-25:
+     * phone, email, address, "Canadian since 1989", "Family-owned", "12,847+ teams",
+       "Logo Reprint Guarantee", "Free mockups + exact pricing · reply in ~1 business day",
+       "Ships coast to coast"                      -> justdealspromotions.com homepage
+     * 4.8 stars from 38 reviews                    -> Google listing "Just Deals", 4490 Chesswood Dr
+                                                      (the same address the homepage publishes)
+   Nothing is paraphrased into a stronger promise: "Logo Reprint Guarantee" is shown as its name only,
+   because the site does not publish its terms. Update the numbers here, in ONE place, when they move. */
+var JDP_TRUST={
+  phone:'(416) 638-3862', tel:'+14166383862', email:'steven@justdealspromotions.com',
+  rating:4.8, reviews:38, reviewsUrl:'https://maps.google.com/?cid=2410870944395279026',
+  since:1989, teams:'12,847+', reply:'about 1 business day'
+};
+function trustOn(){return !(CFG&&CFG.trust===false);}                 /* a store can opt out */
+function trustStars(r){
+  /* Filled to the exact rating (4.8 -> 96%), not rounded up to five full stars. */
+  var pct=Math.max(0,Math.min(100,Math.round(r/5*1000)/10));
+  return '<span class="tstars" role="img" aria-label="'+r+' out of 5 stars"><span class="tsb" aria-hidden="true">★★★★★</span>'+
+    '<span class="tsf" aria-hidden="true" style="width:'+pct+'%">★★★★★</span></span>';
+}
+function trustRatingHtml(cls){
+  var T=JDP_TRUST;
+  return '<a class="trate '+(cls||'')+'" href="'+T.reviewsUrl+'" target="_blank" rel="noopener noreferrer" '+
+    'title="Read our Google reviews">'+trustStars(T.rating)+'<b>'+T.rating.toFixed(1)+'</b>'+
+    /* NO COUNT (Steven, 2026-10-08: "38 google reviews it makes us look small"). The rating is the
+       signal; the count read as a small shop next to "12,847+ teams outfitted". The link still opens
+       the real listing, so nothing is hidden from anyone who wants to check. */
+    '<span>on Google</span></a>';
+}
+function trustPhoneHtml(cls,label){
+  var T=JDP_TRUST;
+  return '<a class="tphone '+(cls||'')+'" href="tel:'+T.tel+'" aria-label="Call Just Deals Promotions at '+T.phone+'">'+
+    '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+
+    '<path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.5c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"/></svg>'+
+    '<span>'+(label?esc(label)+' ':'')+'<b>'+T.phone+'</b></span></a>';
+}
+/* Top bar: the phone and the rating, always one glance away -- 4imprint's header carries both. */
+function trustBarHtml(){
+  if(!trustOn())return '';
+  return '<div class="tbtrust">'+trustRatingHtml('tb')+trustPhoneHtml('tb')+'</div>';
+}
+/* Next to the add button: why it is safe to say yes. The three promises a decorated order turns on
+   -- you see it first, it is priced exactly, a person answers -- in the words the site already uses. */
+function trustPromiseHtml(where){
+  if(!trustOn())return '';
+  var T=JDP_TRUST;
+  return '<div class="tprom tprom-'+(where||'sheet')+'">'+
+    '<div class="tpl">'+trustRatingHtml('mini')+'<span class="tsep">·</span><span>'+(isUS()?'Since ':'Canadian since ')+T.since+'</span>'+
+      '<span class="tsep">·</span><span>Family-owned</span></div>'+
+    '<ul class="tpg">'+
+      '<li><b>Itemized quote</b> you can download and forward for approval</li>'+
+      '<li><b>Exact pricing</b> confirmed — no payment now, no obligation</li>'+
+      '<li><b>Logo Reprint Guarantee</b> · <b>Price-match</b> on a written quote</li>'+
+    '</ul></div>';
+}
+/* A real person, and when they will answer. The success screen used to end at "your list is on its
+   way" -- no time, no name, no number to call while waiting. */
+function trustReplyHtml(){
+  if(!trustOn())return '';
+  var T=JDP_TRUST;
+  return '<div class="treply"><b>A real person replies in '+T.reply+'</b> to confirm your quote in writing.'+
+    ' Questions before then? '+trustPhoneHtml('inline','Call')+'</div>';
+}
+/* ---------- menu card (photo-forward, one + button) ---------- */
+function menuCard(key){
+  var item=BYKEY[key],vm=vmOf(key);if(!item)return '';
+  var o=overlayHtml(item,vm,browseColour(key,item),'front',browseCols(item),browsePlaces(item));
+  var ncol=item.cols.length;
+  var topcol=CFG.pricing.cols[CFG.pricing.cols.length-1];
+  // Two honest numbers instead of one misleading one. "from $23" was the 144+ tier: real, but not
+  // available to anyone ordering the 12-piece minimum, who was then quoted $27 on the very next
+  // screen. Across the catalogue that gap ran to a median 15% -- and $43/pc on a jacket. So the
+  // headline is now the price at the minimum, with the volume break kept as the upside it is.
+  var _dd=defaultDecos(key);
+  var startP=unitPrice(key,_dd,moq());
+  var bestP=unitPrice(key,_dd,topcol);
+  var rec=(key===CFG.feature||item.rec)?'<span class="mrec">Recommended</span>':'';
+  // Class badge: a specific published class reads bold; styles whose maker publishes only the generic
+  // "meets CSA" claim (no class number) render muted — we never invent a class.
+  var csa=item.csa?'<span class="mcsa'+(/^Meets/.test(item.csa)?' gen':'')+'" title="'+(/^Meets/.test(item.csa)?'Certified high-visibility apparel — ask us to confirm the exact class for your job':'Certified high-visibility rating')+'">🛡 '+esc(item.csa)+'</span>':'';
+  // A typographic spec line, not a badge: fabric is information, not a safety rating, and the
+  // emoji pill it shared with the CSA rating read as clip-art on a B2B storefront.
+  var _fl=fabCardLine(item);
+  var fab=_fl?'<div class="mfab" title="Fabric content as published by the maker">'+esc(_fl)+'</div>':'';
+  var warm=warmCardHtml(item);
+  var q=cartQtyOf(key);
+  var inkit=q?' inkit':'';
+  var addlbl=q?('<span class="mqk">✓</span><b>'+q+'</b>'):'<span class="mqk">+</span><span class="mqt">Quote</span>';
+  return '<article class="mcard'+inkit+'" data-key="'+key+'" data-name="'+esc(searchText(item).replace(/"/g,''))+'" tabindex="0" role="button" aria-label="'+esc(item.name)+'">'+
+    '<div class="mstage">'+curToggleHtml(key)+rec+(item.video?'<button class="mvid" data-vid="'+esc(item.video)+'" data-vname="'+esc(item.name)+'" aria-label="Play product video">▶</button>':'')+'<img class="g" src="'+o.g+'" alt="'+esc(item.name)+'" loading="lazy" decoding="async">'+o.lg+
+      '<button class="madd'+(q?' has':'')+'" data-key="'+key+'" aria-label="'+(q?(esc(item.name)+' is in your quote — view quote'):('Add '+esc(item.name)+' to your quote'))+'">'+addlbl+'</button></div>'+
+    '<div class="mb"><h3>'+esc(item.name)+'</h3>'+
+      '<div class="mmeta">'+esc(item.sku)+(item.layer==='promo'?'':(item.unisex?' · Unisex':''))+'</div>'+
+      (hasLadies(item)?'<div class="mfit">Men’s &amp; Ladies’ cuts</div>':(item.unisex?'<div class="mfit alt">Unisex — one cut</div>':''))+
+      /* THE USE CASE, ON THE CARD. Steven, 2026-09-08: "overall make it clear on use case for each
+         pants it is very unclear and a terrible experience." The pants aisle holds eleven styles
+         whose names differ by one word against near-identical grey photos, and the card said
+         nothing about which is for whom -- so choosing meant opening eleven sheets and comparing
+         fabric weights. `use` is one line naming who the piece is for, and it belongs HERE, where
+         the choice is made, not in the sheet the buyer opens after already guessing.
+         Rendered only when an item has one, so nothing changes for the rest of the catalogue. */
+      (item.use?('<div class="muse">'+esc(item.use)+'</div>'):'')+
+      /* Warmth sits directly under the fabric line and above the colours: it is the fact a
+         winter buyer decides on, so it comes before the cosmetic choice. */
+      csa+fab+warm+
+      colourDots(item,key)+
+      (item.layer==='promo'
+        ? (kitContentsHtml(item)+
+           /* Spector & Co list prices INCLUDE their default branding, and JDP charges the Spector
+              price as published -- so the logo is included, not extra. An earlier version of this
+              line read "· + your logo", which was simply wrong: it invented a surcharge that does
+              not exist and made us look dearer than we are. Included branding is a genuine selling
+              point on a decorated-goods store, so say it on the card where the buyer anchors. */
+           '<div class="mprice"><b>'+money(item.price_cad)+'</b> <small>/'+(item.unit==='dozen'?'dozen':'pc')+' · min '+item.moq+' · logo included</small></div>'+
+           promoVolLine(item))
+        : incHtml(item,_dd,'card')+
+          '<div class="mprice"><b>'+money(startP)+'</b> <small>/pc'+(hasDecoPlace(item)?' · logo included':' · blank')+'</small></div>'+
+           '<div class="mvol">at '+moq()+' pcs'+(bestP<startP?(' · <b>'+money(bestP)+'</b>/pc at '+topcol+'+'):'')+'</div>')+
+      '</div></article>';
+}
+// A row of real colour swatches on each card — shows selection depth at a glance (conversion signal).
+// The swatches used to be inert <span>s — decoration that looked like information. They are now real
+// controls that swap the photo on the card, and the row names the CURRENT colour, because showing a
+// colour NAME is what tells a shopper this is a choice rather than a spec.
+function colourDots(item,key){
+  var cs=browseCols(item),cur=key?browseColour(key,item):(cs[0]||{}).name,max=7,dots='';
+  for(var i=0;i<cs.length&&i<max;i++){
+    dots+='<button type="button" class="cdot'+(cs[i].name===cur?' on':'')+'" data-col="'+esc(cs[i].name||'')+'"'+
+          ' style="background:'+(cs[i].rgb||'#ccc')+'" title="'+esc(cs[i].name||'')+'" aria-label="Show '+esc(cs[i].name||'')+'"></button>';}
+  var extra=cs.length>max?('<span class="cmore">+'+(cs.length-max)+'</span>'):'';
+  return '<div class="cdots">'+dots+extra+'<span class="cdlbl"><b class="cdnow">'+esc(cur||'')+'</b> · '+cs.length+' colour'+(cs.length===1?'':'s')+'</span></div>';
+}
+
+/* ---------- category / subcategory navigation (by GARMENT TYPE, brand-agnostic) ----------
+   No "Premium Brands" bucket — office & premium apparel merge into the same type categories so a
+   shopper browses by what they want (Polos, Fleece, Jackets…), with the brand shown on each card. */
+var MEGA=[
+  {id:'tops',name:'Polos, Shirts & Tees'},
+  {id:'layers',name:'Sweaters & Fleece'},
+  {id:'outerwear',name:'Jackets'},
+  {id:'vests',name:'Vests'},
+  /* RUGGED WEAR IS GONE AS AN AISLE (Steven, 2026-10-13: "remove rugged wear"). It was a supplier’s line name
+     standing in for a garment aisle: its bombers, parkas and 3-in-1s were already cross-listed into Jackets, its
+     vests into Vests -- a buyer had two doors to the same products and one of them was named after a brand most
+     buyers have never heard of. Every piece now lives where it is shopped (Jackets, Vests, Fleece & Sweaters,
+     Tees); ?cat=ruggedwear links land on Jackets. */
+  {id:'hivis',name:'Hi-Vis & Safety'},
+  {id:'carhartt',name:'Carhartt Workwear'},
+  {id:'headwear',name:'Headwear'},
+  /* GOLF (Steven, 2026-10-13: "add a golf section"). Golf is an OCCASION, not a garment: the client golf day, the
+     company tournament, the charity event the firm sponsors, the sales team that plays with clients. Corporate golf
+     is one of the most reliable branded-apparel buys of the year, and the buyer arrives asking "what do we get for
+     the golf day?" -- not "show me polos". So the aisle gathers the golf-appropriate pieces from their home aisles
+     (performance and golf-brand polos, light quarter-zips, windshirts and vests, performance caps) and opens with a
+     golf advisor that builds the kit for the occasion. */
+  {id:'golf',name:'Golf'},
+  /* BAGS ARE THEIR OWN AISLE (Steven, 2026-10-07: "We need to do much better for our bags section.
+     bags should be its own category"). Bags were split three ways -- Stormtech and promo under
+     Accessories > Bags, Carhartt inside its brand aisle -- so nobody shopping for a backpack saw the
+     whole range in one place. Now one category, shelved by what the bag IS. */
+  {id:'bags',name:'Bags'},
+  {id:'bottoms',name:'Pants & Joggers'},
+  {id:'fr',name:'Flame-Resistant'},
+  {id:'accessories',name:'Accessories'}
+];
+var SHACKET_KEYS={st_bushwick:1,st_highlandplaid:1,st_oxide:1};
+var MEGASUB={
+  tops:['Polos','Shirts','Tees'],
+  layers:['Quarter & Half-Zips','Crewnecks & Sweatshirts','Hoodies','Fleece'],   // bottoms live in the Pants & Joggers tab
+  /* JACKETS, ORDERED LIGHT -> WARM. Steven, 2026-09-18: "are jackets section is terrible for
+     customers and gives them a headache!"
+     Three faults, measured across the 51 jackets:
+       * 'Insulated & Thermal' (7) and 'Puffer & Quilted' (12) both just mean WARM. A buyer could
+         not know that the Orbiter *Insulated* sat in one and the Tundra *Quilted* in the other, so
+         the only way to see the warm jackets was to open both and merge them by hand. Now one tab.
+       * a catch-all tab literally called 'Jackets' held 4 items -- including BOTH $165 parkas, the
+         most premium outerwear we sell, filed under a name that says nothing. Gone; the parkas now
+         head the winter tab where someone shopping for a parka will actually look.
+       * 'Shackets & Overshirts' led with trade jargon. A shirt jacket is what it is.
+     Ordering matters as much as naming: the tabs now run in the order a buyer narrows -- weather
+     first, then warmth -- so the list reads as a scale instead of seven unrelated words. */
+  outerwear:['Shells & Rainwear','Softshell Jackets','Shirt Jackets & Shackets','Insulated & Quilted','Winter Parkas & 3-in-1'],
+  // Vests are their own category, not a drawer inside Jackets. A vest is a different purchase --
+  // worn indoors, over a hoodie, year round -- and burying eleven of them under Jackets meant a
+  // buyer shopping for vests had to know to look there first.
+  vests:['Quilted & Puffer','Fleece & Softshell','Canvas & Lined','Hi-Vis Vests'],
+  golf:['Golf Polos','Quarter-Zips & Pullovers','Windshirts & Vests','Golf Caps','Course Accessories'],
+  hivis:['Safety Vests','Hi-Vis T-Shirts','Sweatshirts & Hoodies','Hi-Vis Jackets','Winter Parkas','Rain & Gear','Hard Hats & Head Protection'],
+  // Carhartt is its OWN brand category (declutters the shared tabs). By garment; best-sellers keep the ★ Top pick badge and sort first.
+  carhartt:['Sweatshirts & Hoodies','T-Shirts','Shirts','Jackets & Coats','Vests','Pants & Bibs','Flame-Resistant','Headwear','Bags & Accessories'],
+  // ONE consolidated Accessories category — bags, drinkware, desk, gifts & golf — so the apparel categories
+  // keep their value. Curated to premium items that fit Field & Crews + Office/Sales/Client-Facing teams.
+  // Headwear is its own tab: 24 new caps/toques on top of the existing 8 would swamp a single
+  // Accessories sub, and embroidered caps are a core JDP line that buyers shop for by name.
+  headwear:['Caps & Hats','Trucker & Snapback','Performance & Golf','Beanies & Toques'],
+  // All bottoms in one place. classify() already returned mega 'workwear' for these but it was
+  // never declared, so work pants and bibs were unreachable in the nav.
+  /* Steven, 2026-09-08: "for pants ... you did a terrible job with the navigation experience."
+     He was right. The aisle had THREE overlapping buckets: "Work Pants & Bibs" (5 Carhartt items,
+     pants and bibs mixed together), a separate "Work Pants" (6 Red Kap/Dickies), and a third
+     "Bibs & Overalls" holding one coverall. A buyer shopping for work pants had to know to look in
+     two places and would still miss the bibs. Two buckets by GARMENT, brand-agnostic, plus the
+     joggers and the shorts. Work pants lead because that is what the aisle is for. */
+  bottoms:['Work Pants','Bibs & Coveralls','Joggers & Sweatpants','Shorts'],
+  fr:['FR Hoodies','FR Shirts','FR Tees','FR Pants','FR Jackets','FR Accessories'],
+  /* Drinkware split by what it IS. 32 items in one flat "Drinkware" grid, half of them named
+     "Easy Breezy" or "Shot Caller", is unnavigable -- a buyer looking for a water bottle had to open
+     products one by one to find out which ones were bottles. Buyers shop drinkware by type first,
+     then material and size. */
+  /* Bags by type, in the order a buyer narrows: what they carry it on (back or hand), then the
+     cooler, which is a different purchase entirely. The one tool bag shelves with the duffels -- a
+     shelf holding a single bag is not an aisle. */
+  bags:['Backpacks','Duffels & Tool Bags','Coolers & Lunch'],
+  accessories:['Kits & Gift Sets','Water Bottles','Tumblers','Mugs','Drinkware','Notebooks & Pens','Tech','Lifestyle','Headwear'],
+};
+// Hi-vis by NAME (any layer). Organized how safety buyers actually shop — vests lead (the #1 entry
+// hi-vis item), then shirts, warm mid-layers, insulated jackets, winter parkas, and rain/gear last.
+function classifyHivis(n){
+  if(/rain|poncho|\bpants?\b|overall|bib|coverall|gaiter/.test(n))return {mega:'hivis',sub:'Rain & Gear'};
+  if(/parka/.test(n))return {mega:'hivis',sub:'Winter Parkas'};
+  if(/vest/.test(n))return {mega:'hivis',sub:'Safety Vests'};
+  if(/hood|sweatshirt|sweater|crewneck|fleece|pullover/.test(n))return {mega:'hivis',sub:'Sweatshirts & Hoodies'};
+  if(/tee|t-shirt|shirt|polo/.test(n))return {mega:'hivis',sub:'Hi-Vis T-Shirts'};
+  if(/jacket|bomber|soft ?shell|coat|shell|3-?in-?1|6-?in-?1/.test(n))return {mega:'hivis',sub:'Hi-Vis Jackets'};
+  return {mega:'hivis',sub:'Hi-Vis Jackets'};
+}
+/* GOLF MEMBERSHIP. A garment joins the Golf aisle from its home aisle when it is something a buyer would put on a
+   golf day: a golf-brand or performance polo, a light knit quarter-zip (not a fleece or a hoodie), a golf-brand
+   windshirt/vest/hybrid, or a performance cap. Read from the name, brand and the maker's own fabric facts. */
+var GOLF_BRAND=/cutter|clique|nike|adidas|callaway|titleist|taylormade|puma golf|footjoy/i;
+var GOLF_KEYS={st_pacificawind:'Windshirts & Vests',cb_adapt:'Windshirts & Vests',
+  /* golf caps from the program brands (2026-10-14: no Nike in the advice): structured poly and recycled-nylon caps */
+  at_whippy:'Golf Caps',at_recyfive:'Golf Caps',st_summitcap:'Golf Caps'};
+function golfOf(it,c,n){
+  if(GOLF_KEYS[it.key])return GOLF_KEYS[it.key];
+  var b=((it.brand||'')+' '+(it.sku||'')),gb=GOLF_BRAND.test(b),fin=((it.fab&&it.fab.finishes)||[]).join(' ').toLowerCase();
+  /* performance by name or by the maker's fabric facts; a cotton piqué is an office polo, not a golf polo, unless a golf brand makes it */
+  var perf=(/performance|dri-?fit|h2x-?dry|wicking|moisture|stretch|textured|sport\b/.test(n)||/wick|moisture|upf|stretch/.test(fin))&&!/cotton/.test(n);
+  if(/hi-?vis|safety|\bfr\b|flame|traffic|carhartt|red kap|dickies/.test(n+' '+b.toLowerCase()))return '';
+  if(c.mega==='tops'&&c.sub==='Polos'&&(gb||perf)&&!/long[- ]sleeve|\bls\b/.test(n))return 'Golf Polos';
+  if(c.mega==='layers'&&c.sub==='Quarter & Half-Zips'&&!/fleece|sherpa|thermal|hood|cowl|sweatshirt/.test(n)&&(gb||/performance|knit|stretch|pullover|1\/4|quarter/.test(n)))return 'Quarter-Zips & Pullovers';
+  if(gb&&(c.mega==='outerwear'||c.mega==='vests')&&/windbreaker|windshirt|wind\b|hybrid|stealth|adapt|softshell vest|packable/.test(n)&&!/puffer|down|parka|insulated/.test(n))return 'Windshirts & Vests';
+  if(isHeadwear(n)&&/dri-?fit|performance|golf|visor|perforated/.test(n))return 'Golf Caps';
+  return '';
+}
+// CROSS-LISTING: one HOME category, plus any second place a buyer would reasonably look. The item is
+// never duplicated within a category. Headwear was scattered three ways — 24 promo caps here, 4 Carhartt
+// caps inside the Carhartt brand tab, 4 golf caps inside Accessories — so nobody shopping "Headwear" ever
+// saw all of it. Brand tabs keep their complete story; the buyer gets one aisle.
+function vestSub(n){
+  // Hi-vis first: a tear-away traffic vest is PPE before it is a garment style, and testing
+  // "quilted" ahead of it filed the 5-Point Tear-Away under Quilted & Puffer.
+  if(/hi-?vis|traffic|surveyor|safety|tearaway|tear-away/.test(n))return 'Hi-Vis Vests';
+  if(/quilt|puff|down|thermoball|insulat/.test(n))return 'Quilted & Puffer';
+  if(/canvas|duck/.test(n))return 'Canvas & Lined';      // a sherpa-lined CANVAS vest is a canvas vest
+  if(/fleece|softshell|soft shell|sherpa/.test(n))return 'Fleece & Softshell';
+  if(/lined|flannel/.test(n))return 'Canvas & Lined';
+  return 'Quilted & Puffer';
+}
+/* WHICH JACKETS SHELF. One function, because the Jackets tab is reached two ways: a garment
+   classified as outerwear, and a Rugged Wear or brand-aisle jacket cross-listed into it. When these
+   rules lived inline in classify(), the cross-list had no way to pick a shelf -- which is why nine
+   heavy winter jackets were reachable only through the Rugged Wear tab. */
+function outerSub(it,n){
+  n=n||((it.name||'')+' '+(it.key||'')).toLowerCase();
+  if(SHACKET_KEYS[it.key]||/shacket|overshirt/.test(n))return 'Shirt Jackets & Shackets';
+  // a parka IS the deep-winter answer, so it belongs with the systems rather than a generic name
+  if(/3-?in-?1|5-?in-?1|system jacket|\bparka\b/.test(n))return 'Winter Parkas & 3-in-1';
+  if(/\brain\b(?! ?defender)|dryvent|raincoat/.test(n))return 'Shells & Rainwear';
+  if(/softshell|soft shell/.test(n))return 'Softshell Jackets';
+  if(/puffer|quilted|down|thermoball|puffy|thermal|insulated|sherpa|hybrid|freezer/.test(n))return 'Insulated & Quilted';
+  if(/shell/.test(n))return 'Shells & Rainwear';
+  /* Named only "… Jacket", with no type word -- the Axis and the Pursuit. Placed from the garment's
+     OWN published fabric finishes rather than a hard-coded key: both are light water-repellent
+     outer layers (the Axis's own blurb calls it "a lightweight waterproof, breathable shell"). */
+  if(it.fab&&it.fab.finishes&&/water|wind|breathable/i.test(it.fab.finishes.join(' ')))
+    return 'Shells & Rainwear';
+  if(/bomber|\bcoat\b/.test(n))return 'Insulated & Quilted';
+  if(/jacket|parka/.test(n))return 'Shells & Rainwear';
+  return '';                       // not outerwear at all -- let classify() keep looking
+}
+function crossAlso(it,c){
+  var out=[],n=((it.name||'')+' '+(it.key||'')).toLowerCase();
+  var gs=c.mega!=='golf'?golfOf(it,c,n):'';if(gs)out.push({mega:'golf',sub:gs});
+  /* …AND THE REVERSE. Steven, 2026-09-18, with buyers about to review the jacket section: the
+     Rugged Wear aisle held NINE jackets, parkas and bombers -- the heavy winter end of the range,
+     $27 to $106 -- that a shopper browsing Jackets could not see at all, because a brand aisle was
+     also acting as their only home. Four of them are products Steven asked to have "added"; they
+     were already in the catalogue, just unreachable from the tab where jackets are shopped.
+     Rugged Wear keeps its brand aisle AND the garments appear under Jackets, the same bargain the
+     vests and the uniform shirts already strike above.
+     Scoped to ruggedwear on purpose: hi-vis outerwear is PPE and stays in Hi-Vis & Safety, and
+     Carhartt keeps its own aisle by an earlier deliberate decision. */
+  if(c.mega!=='headwear'&&isHeadwear(n)&&!/\bfr\b|flame[- ]resistant/.test(n))out.push({mega:'headwear',sub:headwearSub(n)});
+  /* Carhartt keeps its brand aisle AND appears in the pants aisle -- but split by garment, so a
+     bib overall does not turn up under "Work Pants". */
+  if(c.mega!=='bottoms'&&c.sub==='Pants & Bibs')
+    out.push({mega:'bottoms',sub:/coverall|bib|overall/.test(n)?'Bibs & Coveralls':'Work Pants'});
+  // A vest keeps its brand home (Carhartt, Rugged Wear) or its PPE home (Hi-Vis) AND appears in the
+  // Vests category, so neither shopper loses it: one browses by brand, the other by garment.
+  if(c.mega!=='vests'&&/vest/.test(n))out.push({mega:'vests',sub:vestSub(n)});
+  /* Carhartt keeps its brand aisle; its bags ALSO stand in the Bags aisle. Dog gear and throws share
+     Carhartt's "Bags & Accessories" shelf but are not bags, so the test is the bag itself. */
+  if(c.mega!=='bags'&&isBag(it,n)&&!/\bdog\b|leash|collar|throw|blanket/.test(n))out.push({mega:'bags',sub:bagSub(n)});
+  return out;
+}
+// Best-sellers (rec flag) are NOT a separate section — they live in their garment sub with the ★ Top pick badge, sorted first.
+/* Which bag shelf. Cooler first: "Backpack Cooler (20-can)" is a cooler a buyer carries on their back,
+   and the person shopping for it is shopping coolers. Promo bags whose names say nothing ("Classic
+   Revival", "Vanguard") are backpacks by their photos; the two duffles say so in the name. */
+function isBag(it,n){return it.layer==='bags'||(it.layer==='promo'&&it.psub==='Bags')||/backpack|duffel|duffle|cooler|lunch bag|tool bag|\btote\b/.test(n);}
+function bagSub(n){
+  if(/cooler|lunch/.test(n))return 'Coolers & Lunch';
+  if(/duffel|duffle|tool bag|tote/.test(n))return 'Duffels & Tool Bags';
+  return 'Backpacks';
+}
+/* Steven's own list of popular bags, in his order: each shelf leads with these. */
+var BAG_LEAD=['st_nautilus110','st_nautilus70','st_deluge','st_saturna24','st_magellan30','nk_fn4106','nk_dh7710','nk_dh7709',
+  'ch_duffel40','ch_duffel120','ch_bp28','ch_ripstop25','ch_bp23','ch_lunch','ch_canvasbp','ch_toolbag','ch_bpcooler'];
+function classifyCarhartt(it,n,layer){
+  if(/\bfr\b|flame[- ]resistant/.test(n))return {mega:'carhartt',sub:'Flame-Resistant'};
+  if(layer==='bags'||/duffel|backpack|cooler|lunch|dog|leash|collar|throw|blanket|\bbag\b|tote/.test(n))return {mega:'carhartt',sub:'Bags & Accessories'};
+  if(/balaclava|beanie|toque|watch hat|\bcap\b|mesh back|knit .*hat|cuffed/.test(n))return {mega:'carhartt',sub:'Headwear'};
+  if(/bib overall|coverall|\bbib\b|\bpant\b|\bpants\b|cargo|dungaree|trouser/.test(n))return {mega:'carhartt',sub:'Pants & Bibs'};
+  if(/vest/.test(n))return {mega:'carhartt',sub:'Vests'};
+  if(/jacket|coat|parka|softshell|active jac/.test(n))return {mega:'carhartt',sub:'Jackets & Coats'};
+  if(/hood|sweatshirt|quarter|1\/4|mock/.test(n))return {mega:'carhartt',sub:'Sweatshirts & Hoodies'};
+  if(/tee|t-shirt|henley/.test(n))return {mega:'carhartt',sub:'T-Shirts'};
+  if(/shirt|button|plaid|twill/.test(n))return {mega:'carhartt',sub:'Shirts'};
+  return {mega:'carhartt',sub:'Sweatshirts & Hoodies'};
+}
+function megaName(id){for(var i=0;i<MEGA.length;i++)if(MEGA[i].id===id)return MEGA[i].name;return id;}
+// classify an item into {mega, sub} purely by garment type (names carry raw "&"; escaped at render).
+// Work shirts are just SHIRTS. A separate "Work & Uniform Shirts" sub forced the buyer to guess which
+// bucket a twill button-down fell into — the Camden and Ashton twills are the same garment class as the
+// Dickies twill, so the split drew a line no shopper would draw. One Shirts sub; the work-duty ones
+// cross-list into Rugged Wear (see RUGGED_CROSS) for the trades buyer.
+/* RED KAP AND DICKIES ARE UNIFORM RANGES, NOT SHIRT RANGES.
+   classify() routes anything branded Red Kap or Dickies here, and this returned tops/Shirts
+   unconditionally -- which was fine while the range was five work shirts. The 13 workwear styles
+   added 2026-09-08 then filed EIGHT PAIRS OF WORK PANTS, TWO PAIRS OF SHORTS, A COVERALL, A HI-VIS
+   VEST AND A LEATHER BELT under "Polos, Shirts & Tees -> Shirts", while the Pants & Joggers tile
+   still read 9 and contained not one of them. A warehouse supervisor who asked us specifically what
+   we carry in pants would have browsed the pants aisle and found nothing new.
+   Route by garment; shirts remain the default because that is what most of the range is. */
+function classifyWorkShirt(n){
+  if(/hi-?vis|high.visibility|safety vest|\btraffic\b|reflective/.test(n))return classifyHivis(n);
+  if(/coverall|bib overall|boilersuit/.test(n))return {mega:'bottoms',sub:'Bibs & Coveralls'};
+  if(/\bshorts\b/.test(n))return {mega:'bottoms',sub:'Shorts'};
+  if(/\bpants?\b|\btrousers?\b|\bjeans?\b|dungaree/.test(n))return {mega:'bottoms',sub:'Work Pants'};
+  if(/\bbelt\b/.test(n))return {mega:'accessories',sub:'Lifestyle'};
+  return {mega:'tops',sub:'Shirts'};
+}
+// Headwear, by what a buyer actually picks between: a crown style. The old split had four sub-buckets
+// that were all baseball caps (Caps / Fitted & Performance / Trucker & Snapback / Bucket & Visors) —
+// subdividing a subcategory — and it filed the Sport Sandwich Cotton VISOR CAP under "Visors" because the
+// word appeared in its name. Panel counts and fitted-vs-adjustable are spec detail, not aisles.
+function isHeadwear(n){return /\bcap\b|\bhat\b|beanie|toque|balaclava|visor|snap ?back|trucker|bucket/.test(n)&&!/hard hat/.test(n);}
+function headwearSub(n){
+  if(/beanie|toque|watch hat|balaclava|knit cuff/.test(n))return 'Beanies & Toques';
+  // A premium performance lane. Golf-brand and Dri-FIT caps are a different purchase from a $20 cotton
+  // six-panel — a buyer speccing client-gift or tournament headwear is not cross-shopping them, and
+  // burying a $35 Callaway among promo caps sells neither well.
+  if(/dri-?fit|performance|golf|taylormade|callaway|titleist|srixon/.test(n))return 'Performance & Golf';
+  if(/trucker|snap ?back|mesh back/.test(n))return 'Trucker & Snapback';
+  return 'Caps & Hats';
+}
+/* A HOME BY KEY, judged from the photos, where the official name sends a garment to the wrong shelf:
+   "Stockton Fleece Pullover Hoody" is a hoodie, not a fleece jacket; "Crew Neck" is two words; the Tradesmith
+   Hoody and the Flatiron are lined, insulated work jackets. */
+var HOME_BY_KEY={st_stocktonhoody:{mega:'layers',sub:'Hoodies'},st_stocktoncrew:{mega:'layers',sub:'Crewnecks & Sweatshirts'},
+  st_tradesmithhoody:{mega:'outerwear',sub:'Insulated & Quilted'},st_flatiron:{mega:'outerwear',sub:'Insulated & Quilted'},
+  st_tradesmith:{mega:'outerwear',sub:'Shirt Jackets & Shackets'},
+  /* 2026-10-12 Canada Sportswear adds: Nunavut is 300 gsm winter weight (a coat, not a quilt); Boulder is a sherpa softshell JACKET, not a hoodie */
+  cs_l06025:{mega:'outerwear',sub:'Winter Parkas & 3-in-1'},cs_l01055:{mega:'outerwear',sub:'Softshell Jackets'},
+  /* 2026-10-14: an insulated softshell whose name says "Hooded" is a jacket, not a hoodie */
+  cq_equinox:{mega:'outerwear',sub:'Softshell Jackets'},cbc_evoke_fleece:{mega:'outerwear',sub:'Softshell Jackets'}};
+function classify(it){
+  if(it&&HOME_BY_KEY[it.key])return HOME_BY_KEY[it.key];
+  // A kit that references a product the catalogue no longer carries must degrade to "not shown",
+  // never throw: this runs inside the filter that builds every grid, so one stale key would take
+  // the whole storefront down rather than hide one card.
+  if(!it)return {mega:'accessories',sub:'Other'};
+  var layer=it.layer,n=((it.name||'')+' '+(it.key||'')).toLowerCase();
+  // PPE on the promo/quote-mode pricing path must NOT land in Accessories. Hard hats are CSA/ANSI
+  // rated head protection bought by a safety manager, so they belong beside hi-vis. Keys off pmega
+  // so any future quote-mode item can pick its own home category.
+  if(layer==='promo'&&it.pmega&&it.pmega!=='accessories')return {mega:it.pmega,sub:it.psub||'Bags'};
+  if(layer==='promo'){
+    /* Route drinkware to a type sub when we know the type; anything not yet classified falls back to
+       the generic Drinkware shelf rather than disappearing. */
+    if(it.psub==='Drinkware'&&it.dwtype){
+      var _t=String(it.dwtype).toLowerCase();
+      if(_t==='bottle')return {mega:'accessories',sub:'Water Bottles'};
+      if(_t==='tumbler')return {mega:'accessories',sub:'Tumblers'};
+      if(_t==='mug'||_t==='cup')return {mega:'accessories',sub:'Mugs'};
+    }
+    if(it.psub==='Bags')return {mega:'bags',sub:bagSub(n)};
+    if(it.psub==='Golf')return {mega:'golf',sub:'Course Accessories'};
+    return {mega:'accessories',sub:it.psub||'Lifestyle'};   // all other promo items
+  }
+  // Carhartt is a dedicated brand category — route ALL Carhartt items there (keeps the shared tabs uncluttered).
+  var _brand=((it.sku||'')+' '+(it.brand||'')).toLowerCase();
+  if(_brand.indexOf('carhartt')>=0)return classifyCarhartt(it,n,layer);
+  // Must come BEFORE the layer==='field' branch, which would otherwise file a work shirt under
+  // Hi-Vis T-Shirts, and it deliberately does NOT use 'tops': worlds filter by mega and 'tops' is
+  // office-only, so a uniform shirt routed there would never reach the crews who actually wear it.
+  if(_brand.indexOf('red kap')>=0||_brand.indexOf('dickies')>=0||/work shirt|uniform shirt/.test(n))return classifyWorkShirt(n);
+  if(/hi-?vis|safety/.test(n))return classifyHivis(n);           // hi-vis items (any brand/layer) -> Hi-Vis & Safety
+  if(layer==='bags')return {mega:'bags',sub:bagSub(n)};      // every Stormtech / Nike bag -> Bags
+  if(layer==='field')return classifyHivis(n);   // all Ground Force traffic gear routes by garment type
+  // apparel (office + premium + Stormtech). Order matters: shackets/vests before shirt/fleece;
+  // layers (zip/sweatshirt/hood) before "shirt" so "…Sweatshirt" doesn't read as a shirt.
+  // Flame-Resistant gets its own tab — route FR items here first (before bottoms/headwear/garment rules).
+  if(/\bfr\b|flame[- ]resistant/.test(n)){
+    if(/hood/.test(n))return {mega:'fr',sub:'FR Hoodies'};
+    if(/\bpant\b|cargo|dungaree/.test(n))return {mega:'fr',sub:'FR Pants'};
+    if(/balaclava|beanie|hood scarf|gaiter/.test(n))return {mega:'fr',sub:'FR Accessories'};
+    if(/jacket|coat|parka|vest/.test(n))return {mega:'fr',sub:'FR Jackets'};
+    if(/tee|t-shirt|henley/.test(n))return {mega:'fr',sub:'FR Tees'};
+    return {mega:'fr',sub:'FR Shirts'};
+  }
+  // Carhartt bottoms & headwear (premium layer, routed by name to their own category tabs):
+  if(/bib overall|coverall|\bbib\b/.test(n))return {mega:'bottoms',sub:'Bibs & Overalls'};
+  if(/\bpant\b|\bpants\b|cargo|dungaree|trouser/.test(n))return {mega:'bottoms',sub:'Work Pants'};
+  if(/hard ?hat|\bhelmet\b/.test(n)||/^hp\d/.test((it.key||''))||/\btype [12]\b/.test(n))return {mega:'hivis',sub:'Hard Hats & Head Protection'};
+  if(/jogger|sweatpant|sweat pant/.test(n))return {mega:'bottoms',sub:'Joggers & Sweatpants'};
+  if(isHeadwear(n))return {mega:'headwear',sub:headwearSub(n)};
+  // SHACKET SILHOUETTE by KEY, judged from the product photos rather than the name. These three
+  // are shirt-jackets (point collar, full button placket, patch chest pockets) but their names say
+  // "Quilted"/"Sherpa-Lined", so the name regexes below file them under Puffer & Quilted and
+  // Insulated & Thermal. Keyed explicitly because widening the regex would wrongly catch genuine
+  // zip-front puffers (Gravity, Tundra, Nautilus, Stavanger, Sierra) and sherpa hoodies.
+  if(SHACKET_KEYS[it.key])return {mega:'outerwear',sub:'Shirt Jackets & Shackets'};
+  if(/shacket|overshirt/.test(n))return {mega:'outerwear',sub:'Shirt Jackets & Shackets'};
+  if(/quarter-?zip|half-?zip|1\/4/.test(n))return {mega:'layers',sub:'Quarter & Half-Zips'};
+  if(/crewneck|sweatshirt/.test(n)&&!/hood/.test(n)&&!/t-shirt|\btee\b/.test(n))return {mega:'layers',sub:'Crewnecks & Sweatshirts'};  // a "Crewneck T-Shirt" is a TEE
+  if(/hoodie|hooded/.test(n))return {mega:'layers',sub:'Hoodies'};
+  if(n.indexOf('vest')>=0)return {mega:'vests',sub:vestSub(n)};
+  if(/fleece/.test(n))return {mega:'layers',sub:'Fleece'};
+  if(n.indexOf('polo')>=0)return {mega:'tops',sub:'Polos'};
+  /* ANCHORED. Unanchored, /tee/ matches the substring inside "s-TEE-lhead" -- the Steelhead HD
+     Thermal Jacket classified as a T-SHIRT and never reached the Jackets tab. Same failure mode
+     as the "swea|tshirt" bug already fixed in itemCategory(), which is anchored for it. */
+  if(/\btee\b|\bt-shirts?\b|\bhenley\b/.test(n))return {mega:'tops',sub:'Tees'};
+  if(n.indexOf('shirt')>=0)return {mega:'tops',sub:'Shirts'};
+  /* Gate on outerSub's own answer rather than a second, narrower regex. A hand-written gate
+     here dropped the Nautilus Quilted Hoody -- its name carries no "jacket", so it matched
+     /quilted/ inside outerSub but never reached it. One source of truth for both. */
+  var _os=outerSub(it,n);if(_os)return {mega:'outerwear',sub:_os};
+  return {mega:'tops',sub:'Shirts'};
+}
+/* ---------- FILTERED BROWSE MODEL (one category at a time; no endless scroll) ---------- */
+/* How many of each group the All view previews before offering that group's own tab. */
+var GRP_PREVIEW=4;
+/* THE PREVIEW FILLS WHOLE ROWS. Four cards on a three-column screen left one garment alone on a
+   second row -- it read as a broken layout and pushed the "see more" further down. The count now
+   follows the columns the grid will actually draw: one full row on desktop and tablet (3 to 6), two
+   rows on a phone (2 columns -> 4). Mirrors the .menu rules: 2 columns at <=560px, otherwise
+   auto-fill minmax(230px,1fr) with an 18px gap. */
+var GRP_N_USED=0;
+function grpPreviewN(){
+  try{
+    var vw=window.innerWidth||document.documentElement.clientWidth||1280;
+    if(vw<=560)return 4;
+    var g=document.getElementById('grid'),W=(g&&g.clientWidth)||Math.min(vw,1240);
+    var cols=Math.max(1,Math.floor((W+18)/(230+18)));
+    return cols>=3?Math.min(cols,6):4;
+  }catch(e){return GRP_PREVIEW;}
+}
+(function(){var t=null;try{window.addEventListener('resize',function(){clearTimeout(t);t=setTimeout(function(){
+  try{if(GRP_N_USED&&grpPreviewN()!==GRP_N_USED&&VIEW&&VIEW.cat&&VIEW.sub==='all'&&!VIEW.q)renderGrid();}catch(e){}},220);});}catch(e){}})();
+/* Has the buyer narrowed the range themselves? Sort is excluded: re-ordering is not narrowing. */
+function narrowed(){return !!(VIEW.warm||VIEW.band||VIEW.col||(VIEW.fit&&VIEW.fit!=='all'));}
+var VIEW={cat:null,sub:'all',q:'',world:'all',fit:'all',col:null,band:null,warm:null,sort:null};
+// Colour chosen while BROWSING, per item+fit. A shopper who picks navy on the grid should still be on
+// navy when the product opens — otherwise the swatch feels fake.
+var BCOL={};
+// A ladies' cut only EXISTS as far as the store is concerned if we have its photos. Nine styles carried
+// womens:true with an empty wcols, so curColsOf() fell back to the men's photos — the card promised
+// "Men's & Ladies' cuts" and then showed a man. Never advertise a fit we cannot show.
+function hasLadies(item){return !!(item&&item.womens&&item.wcols&&item.wcols.length);}
+function fitOf(item){return (VIEW.fit==='womens'&&hasLadies(item))?'womens':'mens';}
+function browseCols(item){return curColsOf(item,fitOf(item));}
+function browsePlaces(item){var f=fitOf(item);return (f==='womens'&&item.wplaces&&item.wplaces.length)?item.wplaces:item.places;}
+function browseColour(key,item){
+  var cols=browseCols(item),k=key+'|'+fitOf(item),want=BCOL[k]||vmOf(key).colour,hit=colInList(cols,want);
+  return (hit&&hit.name===want)?want:(cols[0]||{}).name;
+}
+var BUCKETS={},TOTALS={},CATS=[],QURLT=null,VURLOK=false;
+var SHORTCAT={tops:'Polos & Shirts',layers:'Fleece & Sweaters',outerwear:'Jackets',vests:'Vests',hivis:'Hi-Vis & Safety',golf:'Golf',carhartt:'Carhartt',headwear:'Headwear',bags:'Bags',bottoms:'Pants & Joggers',fr:'Flame-Resistant',accessories:'Accessories'};
+// Two brand worlds — how JDP sells: the jobsite crew and the front office / client-facing team.
+var AUD=[{id:'field',name:'Field & Crews',short:'Field & Crews',blurb:'CSA hi-vis, rugged workwear & hard-hat-ready layers built for the jobsite.',cats:['hivis','outerwear','vests','carhartt','fr','headwear','bags','bottoms']},
+         {id:'office',name:'Office, Sales & Client-Facing',short:'Office & Sales',blurb:'Sharp branded polos, softshells, premium brands & client gifts for the front office and sales floor.',cats:['tops','layers','outerwear','vests','golf','headwear','bags','bottoms','accessories']}];
+function audOf(w){for(var i=0;i<AUD.length;i++)if(AUD[i].id===w)return AUD[i];return null;}
+function worldOfCat(c){for(var i=0;i<AUD.length;i++)if(AUD[i].cats.indexOf(c)>=0)return AUD[i].id;return null;}
+function worldCats(){if(VIEW.world==='all')return CATS;var a=audOf(VIEW.world);return a?a.cats.filter(function(c){return CATS.indexOf(c)>=0;}):CATS;}
+// shared /kits/_app asset base (lifestyle imagery lives beside store.js/css)
+function appBase(){return String(CFG.catalog_base||CATALOG_BASE).replace('_catalog','_app');}
+function worldImg(w){return appBase()+'/hero-'+w+'.jpg';}
+// Ready-made kits — curated by ROLE. Each slot resolves to the top item in a [mega,sub] at render time,
+// so it works in any store regardless of exact SKUs. Speaks directly to each buyer; one-tap to add all.
+var KITS=[
+  {id:'crew',name:'The Crew Kit',world:'field',tag:'Field & Crews',blurb:'Jobsite-ready — hi-vis tee, hi-vis hoodie & a warm beanie.',slots:[['hivis','Hi-Vis T-Shirts'],['hivis','Sweatshirts & Hoodies'],['carhartt','Headwear']]},
+  {id:'super',name:'The Field Supervisor Kit',world:'field',tag:'Field & Crews',blurb:'Lead the site — softshell jacket, branded polo & a cap.',slots:[['outerwear','Softshell Jackets'],['tops','Polos'],['carhartt','Headwear']]},
+  {id:'client',name:'The Client-Facing Kit',world:'office',tag:'Office & Sales',blurb:'Sharp & polished — quarter-zip, premium polo & a notebook.',slots:[['layers','Quarter & Half-Zips'],['tops','Polos'],['accessories','Notebooks & Pens']]},
+  {id:'newhire',name:'The New-Hire Welcome Kit',world:'office',tag:'Onboarding',blurb:'Day-one welcome — polo, backpack, bottle & a notebook.',slots:[['tops','Polos'],['bags','Backpacks'],['accessories','Drinkware'],['accessories','Notebooks & Pens']]}
+];
+function kitItems(kit){var out=[];kit.slots.forEach(function(s){var arr=BUCKETS[s[0]]&&BUCKETS[s[0]][s[1]];if(arr)for(var i=0;i<arr.length;i++){if(out.indexOf(arr[i])<0){out.push(arr[i]);break;}}});return out;}
+function shortCat(id){return SHORTCAT[id]||megaName(id);}
+function buildBuckets(){
+  var order=CFG.order||{},all=[];
+  ['office','premium','bags','field','promo'].forEach(function(L){(order[L]||[]).forEach(function(k){if(all.indexOf(k)<0)all.push(k);});});
+  BUCKETS={};TOTALS={};ALLKEYS=all;
+  all.forEach(function(k){var it=BYKEY[k];if(!it)return;var c=classify(it);
+    (BUCKETS[c.mega]=BUCKETS[c.mega]||{});(BUCKETS[c.mega][c.sub]=BUCKETS[c.mega][c.sub]||[]).push(k);
+    TOTALS[c.mega]=(TOTALS[c.mega]||0)+1;
+    crossAlso(it,c).forEach(function(x){   // item stays in its home category too
+      (BUCKETS[x.mega]=BUCKETS[x.mega]||{});(BUCKETS[x.mega][x.sub]=BUCKETS[x.mega][x.sub]||[]).push(k);
+      TOTALS[x.mega]=(TOTALS[x.mega]||0)+1;});});
+  // Order within each subcategory for optimal browsing: top picks first, then price low → high.
+  var pc=(CFG.pricing&&CFG.pricing.cols)?CFG.pricing.cols:[12,48,144],top=pc[pc.length-1];
+  // Sort: top-picks first, then by best-seller rank (srt, e.g. Carhartt collection order) when present, else price low→high.
+  function pkey(k,useSrt){var it=BYKEY[k],rec=(it.rec||k===CFG.feature)?0:1,p;
+    if(useSrt&&it.srt!=null)return [rec,it.srt];
+    try{p=unitPrice(k,vmOf(k).decos,top);}catch(e){p=it.blank||0;}return [rec,p];}
+  Object.keys(BUCKETS).forEach(function(m){Object.keys(BUCKETS[m]).forEach(function(s){
+    var arr=BUCKETS[m][s];
+    // srt is a BRAND's own collection order (Carhartt), only meaningful when every item in the sub has
+    // one. Mixed in with priced goods it ranked every promo item (srt:0) above real prices, so vendor
+    // goods surfaced at the top of a category as if we had chosen them.
+    var useSrt=arr.every(function(k){return (BYKEY[k]||{}).srt!=null;});
+    arr.sort(function(a,b){var pa=pkey(a,useSrt),pb=pkey(b,useSrt);return (pa[0]-pb[0])||(pa[1]-pb[1]);});
+    /* The Bags aisle leads with the bags Steven named as the popular ones, in his order; everything
+       else follows by the normal rule. Stable: only the named bags move. */
+    if(m==='bags'){var lead=arr.filter(function(k){return BAG_LEAD.indexOf(k)>=0;})
+        .sort(function(a,b){return BAG_LEAD.indexOf(a)-BAG_LEAD.indexOf(b);});
+      BUCKETS[m][s]=lead.concat(arr.filter(function(k){return BAG_LEAD.indexOf(k)<0;}));}});});
+  CATS=MEGA.filter(function(m){return BUCKETS[m.id];}).map(function(m){return m.id;});
+}
+var ALLKEYS=[];
+function subNames(cat){var subs=BUCKETS[cat]||{},ord=MEGASUB[cat]||[];
+  return Object.keys(subs).sort(function(a,b){var ia=ord.indexOf(a),ib=ord.indexOf(b);return (ia<0?99:ia)-(ib<0?99:ib);});}
+function renderCtabs(){var el=document.getElementById('ctabs');if(!el)return;
+  el.innerHTML=worldCats().map(function(c){return '<button class="ctab'+(c===VIEW.cat?' on':'')+'" data-cat="'+c+'">'+esc(shortCat(c))+'<span class="ctn">'+TOTALS[c]+'</span></button>';}).join('');
+  el.querySelectorAll('.ctab').forEach(function(b){b.addEventListener('click',function(){setCat(b.dataset.cat,true);});});}
+// FIELD ↔ OFFICE world toggle — filters the whole store to one audience (or All).
+function renderWorldToggle(){var el=document.getElementById('worldbar');if(!el)return;
+  var opts=[{id:'all',short:'All'}].concat(AUD);
+  el.innerHTML=opts.map(function(o){return '<button class="wtog'+(VIEW.world===o.id?' on':'')+' wtog-'+o.id+'" data-world="'+o.id+'">'+esc(o.short)+'</button>';}).join('');
+  el.querySelectorAll('.wtog').forEach(function(b){b.addEventListener('click',function(){worldSelect(b.dataset.world,true);});});}
+function worldSelect(w,scroll){
+  VIEW.world=w;renderWorldToggle();renderCtabs();
+  var cats=worldCats();if(cats.indexOf(VIEW.cat)<0)VIEW.cat=cats[0];
+  renderSubchips();renderGrid();
+  document.querySelectorAll('.ctab').forEach(function(t){t.classList.toggle('on',t.dataset.cat===VIEW.cat);});
+  if(scroll)scrollToResults();}
+// Men's / Ladies' was buried inside the product sheet, so nobody browsing knew the ladies' cuts existed.
+// It belongs where the shopper is deciding. Only rendered when this view actually HAS ladies' styles —
+// a filter that returns the same grid teaches the shopper to ignore filters.
+// Colour families. A buyer outfitting a team thinks "everything in navy", not in 40 vendor colour
+// names, so we bucket the names into families and filter on those.
+var COLFAM=[['black',/black|onyx|jet/i,'#1c1c1c'],['white',/white|ivory|bone|cream|natural/i,'#f0efec'],
+  ['grey',/grey|gray|charcoal|graphite|silver|ash|steel|heather|taupe|greystone/i,'#8b8f94'],
+  ['navy',/navy|midnight/i,'#1b2a44'],['blue',/blue|royal|cobalt|sky|azure|powder|retro/i,'#2f6fb5'],
+  ['green',/green|sage|olive|forest|evergreen|lime|keylime/i,'#2f6b41'],
+  ['red',/\bred\b|burgundy|maroon|crimson|wine/i,'#b3232c'],
+  ['orange',/orange|melon|rust|copper/i,'#e2701e'],['yellow',/yellow|gold|mustard|khaki|sand|latte|wheat/i,'#d9b23c'],
+  ['brown',/brown|wood|acacia|chocolate|coffee|espresso/i,'#8a5a34'],
+  ['pink',/pink|flamingo|rose|plum|purple|violet/i,'#c8567f']];
+function famOf(name){for(var i=0;i<COLFAM.length;i++)if(COLFAM[i][1].test(name||''))return COLFAM[i][0];return null;}
+/* Name regexes miss a long tail of real colour names — Coral, Sapphire, Heliconia, Caramel, Pearl.
+   Roughly 40 colours per kit matched nothing, which left them invisible to the colour filter AND
+   exempt from the assortment rule, so two "Caramel" pieces could land side by side. Every colour
+   carries an rgb hex, so fall back to classifying the actual pixel value. */
+function famFromRgb(hex){
+  var rgb=hex2rgbArr(hex);if(!rgb)return null;
+  var L=relLum(rgb[0],rgb[1],rgb[2]),s=satOf(rgb[0],rgb[1],rgb[2]),h=hueOf(rgb[0],rgb[1],rgb[2]);
+  if(L<0.045)return 'black';
+  if(s<0.18)return L>0.62?'white':'grey';
+  if(h<0)return 'grey';
+  if(h<14||h>=344)return 'red';
+  if(h<44)return L<0.16?'brown':'orange';
+  if(h<70)return 'yellow';
+  if(h<165)return 'green';
+  if(h<200)return 'blue';
+  if(h<255)return L<0.13?'navy':'blue';
+  return 'pink';
+}
+function famOfCol(col){return col?(famOf(col.name)||famFromRgb(col.rgb)):null;}
+function famSwatch(f){for(var i=0;i<COLFAM.length;i++)if(COLFAM[i][0]===f)return COLFAM[i][2];return '#ccc';}
+function itemFam(it){var o={};(curColsOf(it,fitOf(it))||[]).forEach(function(c){var f=famOfCol(c);if(f)o[f]=c.name;});return o;}
+function colourOK(list){
+  if(!VIEW.col)return list;
+  return list.filter(function(k){var it=BYKEY[k];return it&&itemFam(it)[VIEW.col];});}
+// Corporate gifting starts from a per-head budget, so let the buyer shop the band directly.
+/* What is actually IN the box, on the card itself. Scanning a hundred gift sets by hero photo alone
+   means opening every one to find out whether it has a bottle or a blanket in it.
+   Two accuracy notes, both from reading the real data:
+     * the piece COUNT used to include the gift box, so a "4 pieces" set handed the recipient three
+       things. `pieces` counts only what comes out of the box; the box is credited separately.
+     * component names are pre-shortened in the catalogue (`contents`), because deriving them in the
+       browser produced "Set · Set · Set" on the bar and tea sets. */
+function kitContentsHtml(item){
+  var c=item.contents||[];
+  if(!c.length&&!(item.includes||[]).length)return '';
+  var n=(item.pieces!=null)?item.pieces:(item.includes||[]).length;
+  var pill='<div class="mpcs">'+n+(n===1?' piece':' pieces')+(item.boxed?' + gift box':'')+'</div>';
+  return pill+(c.length?'<div class="minc">'+esc(c.join(' · '))+'</div>':'');
+}
+var BANDS=[['u50','Under $50',0,50],['50_75','$50-$75',50,75],['75_100','$75-$100',75,100],['o100','$100+',100,1e9]];
+// The price a buyer can ACTUALLY get, which is the one at the order minimum -- not the deepest
+// volume tier. This is what the card headlines, so the budget chips and the price sort must band and
+// order on the same number; filtering "Under $50" and getting a $60 polo is the same broken promise
+// as the old "from" headline, just wearing a different hat.
+function unitOf(it){return (it.layer==='promo')?(it.price_cad||0):(it.prices?it.prices[0]:0);}
+// The exact number the card headlines: price at the order minimum, decoration included, for THIS
+// kit's configured decoration. unitOf reads the raw list price and so drifts from the printed figure
+// by the cost of the embroidery -- fine for a rough band, wrong when the whole point of this change
+// is that every number on screen agrees with every other one.
+function shelfPrice(k){
+  var it=BYKEY[k]||{};
+  if(it.layer==='promo')return it.price_cad||0;
+  try{return unitPrice(k,vmOf(k).decos,moq());}catch(e){return unitOf(it);}
+}
+// SORT is not a filter -- it never removes a product, it only re-orders. With 18 polos in one
+// section, "cheapest first" is the question a buyer actually asks, and until now the only order on
+// offer was ours. Price basis is unitOf, the same figure the card prints and the budget chips band,
+// so the ordering always agrees with the numbers on screen.
+var SORTS=[['','Recommended'],['pl','Price: low to high'],['ph','Price: high to low']];
+/* ---- "RECOMMENDED" MEANS RECOMMENDED *NOW* -------------------------------------------------
+   Steven, 2026-09-08: "recommendations / short list should consider the season. right now it is
+   September." A store that opens on short-sleeve tees in October is recommending gear the buyer
+   has already stopped issuing, and it makes the whole shelf look untended.
+
+   The season runs AHEAD of the weather on purpose. Decorated apparel is a four-to-six week lead
+   time, so the crew wearing hoodies in November is being ordered for in September -- which is
+   why September opens the fall list rather than closing the summer one.
+
+   Deliberately a REORDER, never a filter. Everything the store carries stays on the shelf and
+   stays findable; the seasonal pieces simply come first. Selling a buyer a hi-vis tee in January
+   is fine -- hiding it from them is not.
+
+   And deliberately STABLE: within one sub-category every item scores the same, so a shelf of
+   hoodies keeps the exact order it has today. Only mixed lists move. */
+function seasonNow(d){
+  var m=(d||new Date()).getMonth()+1;
+  if(m>=3&&m<=5)return 'spring';
+  if(m>=6&&m<=8)return 'summer';
+  if(m>=9&&m<=11)return 'fall';
+  return 'winter';
+}
+var SEASON_ORDER={
+  fall:  ['fleece','outer','workshirt','vest','coverall','hivis','pant','cap','polo','tee','bag','shorts'],
+  winter:['outer','fleece','vest','coverall','workshirt','hivis','cap','pant','polo','tee','bag','shorts'],
+  spring:['polo','workshirt','fleece','outer','hivis','tee','pant','cap','vest','bag','shorts','coverall'],
+  summer:['tee','polo','cap','hivis','shorts','workshirt','pant','bag','vest','fleece','outer','coverall']
+};
+function seasonRank(key){
+  var ord=SEASON_ORDER[seasonNow()]||[];
+  var i=ord.indexOf(itemCategory(BYKEY[bkey(key)]));
+  return i<0?ord.length:i;
+}
+/* A WOMEN'S-ONLY STYLE SHOULD NOT LEAD AN AISLE. The work-pants shelf opened on "Women's Dura-Kap
+   Industrial Pants" -- a real product, and the wrong first impression for a shelf a warehouse
+   supervisor was sent to. Most styles carry both cuts behind a fit toggle; the handful that exist
+   only in a women's cut belong beside their unisex equivalents, not in front of them. A rank, not a
+   filter: nothing is hidden and the fit toggle is untouched. */
+/* A TOP PICK LEADS ITS SHELF. The badge existed and did nothing to the ordering, so the work-pants
+   aisle opened on a $99.50 premium Carhartt while the $50.50 pant Steven calls the best seller sat
+   eighth. "Recommended" has to actually recommend something, or the sort label is a lie. */
+function recRank(key){
+  var it=BYKEY[bkey(key)]||{};
+  return (it.rec||key===CFG.feature)?0:1;
+}
+function recPrice(key){return recRank(key)===0?shelfPrice(key):0;}
+function womensOnlyRank(key){
+  var it=BYKEY[bkey(key)]||{};
+  return /\bwomen|\bladies|\bwmn\b/i.test(it.name||'')?1:0;
+}
+function sortList(list){
+  if(!VIEW.sort){
+    /* Array.prototype.sort is stable in every engine this runs on, so equal ranks keep the
+       catalogue order we curated. */
+    /* Steven's popular bags (BAG_LEAD) lead any shelf they are on, ahead of the older top-pick flags
+       on two promo bags -- his 2026-10-07 list is the newer, explicit call. Everything else: 0. */
+    var bl=function(k){var i=BAG_LEAD.indexOf(bkey(k));return i<0?0:i-100;};
+    return list.slice().sort(function(a,b){
+      return (bl(a)-bl(b))||(recRank(a)-recRank(b))||
+             /* Among the top picks, the keener price leads -- the work-pants shelf had the $92
+                Dickies ahead of the $50.50 pant Steven names as the best seller. Non-picks all
+                score 0 here, so the curated catalogue order is untouched for everything else. */
+             (recPrice(a)-recPrice(b))||
+             (seasonRank(a)-seasonRank(b))||
+             (womensOnlyRank(a)-womensOnlyRank(b));});
+  }
+  var dir=(VIEW.sort==='ph')?-1:1;
+  return list.slice().sort(function(a,b){return (shelfPrice(a)-shelfPrice(b))*dir;});
+}
+/* WARMTH FACTS. Steven, 2026-09-18: "we need to know warmth facts for jackets. we have buyers for
+   winter jackets and they need help deciding."
+
+   Every figure shown here is harvested from the garment's OWN maker page (warmth_harvest.py) and
+   stored on the item as `warm`, with the source URL kept in `warm.src` so any claim can be checked.
+
+   THERE IS NO WARMTH SCORE, and that is deliberate. Nobody in this range publishes fill power or a
+   comfort temperature, and the one number that looked scrapeable -- fill weight -- turned out to be
+   stated on 3 of 42 jackets, all three of them misreads (a breathability figure and a liner
+   taffeta weight). So the band restates the maker's own construction, and the FACT sits next to the
+   label on the card: "Winter weight · 3M Thinsulate 200 gsm". The label is a signpost; the fact is
+   the evidence. Where a maker states nothing, the card says nothing. */
+var WARM_LAB={winter:'Winter weight', insulated:'Insulated', uninsulated:'Uninsulated shell'};
+var WARM_ORDER=['winter','insulated','uninsulated'];
+function warmOf(it){var w=it&&it.warm;return (w&&w.band)?w:null;}
+function warmBand(key){var it=BYKEY[key];var w=warmOf(it);return w?w.band:'';}
+/* The strongest fact the maker actually publishes, shortest first so the card stays one line:
+   a named insulation with its weight beats a weight alone, which beats a waterproof rating. */
+function warmFacts(it){
+  var w=it&&it.warm;if(!w)return '';
+  var out=[];
+  if(w.ins&&w.gsm)out.push(w.ins+' '+w.gsm);
+  else if(w.ins)out.push(w.ins);
+  else if(w.gsm)out.push(w.gsm+' insulation');
+  if(w.wp)out.push((w.wp.indexOf('/')>0?w.wp+' waterproof / breathable':w.wp+' waterproof'));
+  if(!out.length&&w.flags&&w.flags.length)out.push(w.flags.slice(0,2).join(' · '));
+  return out.join(' · ');
+}
+function warmCardHtml(it){
+  var w=warmOf(it);if(!w)return '';
+  var f=warmFacts(it);
+  return '<div class="mwarm '+esc(w.band)+'" title="Warmth and weather specs as published by the '+
+    'maker">'+esc(WARM_LAB[w.band]||'')+(f?'<i>'+esc(f)+'</i>':'')+'</div>';
+}
+function warmOK(list){
+  if(!VIEW.warm)return list;
+  return list.filter(function(k){return warmBand(k)===VIEW.warm;});
+}
+/* The filter a winter buyer actually wants. Only rendered where the answer is real: it needs at
+   least two populated bands in view, otherwise it is a control that cannot change anything. */
+function renderWarmbar(){
+  var el=document.getElementById('warmbar');if(!el)return;
+  var keys=(VIEW.sub==='all')?[].concat.apply([],subNames(VIEW.cat).map(function(s){return BUCKETS[VIEW.cat][s];}))
+                             :((BUCKETS[VIEW.cat]||{})[VIEW.sub]||[]);
+  var cnt={},live=[];
+  WARM_ORDER.forEach(function(b){cnt[b]=keys.filter(function(k){return warmBand(k)===b;}).length;
+    if(cnt[b])live.push(b);});
+  if(live.length<2){el.innerHTML='';el.style.display='none';VIEW.warm=null;return;}
+  el.style.display='';
+  el.innerHTML='<span class="fitlbl">Warmth</span><button type="button" class="cfchip'+
+    (VIEW.warm?'':' on')+'" data-warm="">Any</button>'+
+    live.map(function(b){return '<button type="button" class="cfchip'+(VIEW.warm===b?' on':'')+
+      '" data-warm="'+b+'">'+esc(WARM_LAB[b])+' <i>'+cnt[b]+'</i></button>';}).join('');
+  el.querySelectorAll('.cfchip').forEach(function(x){x.addEventListener('click',function(){
+    VIEW.warm=x.dataset.warm||null;renderWarmbar();renderGrid();});});
+}
+function bandOK(list){
+  if(!VIEW.band)return list;
+  var b=BANDS.filter(function(x){return x[0]===VIEW.band;})[0];if(!b)return list;
+  return list.filter(function(k){var u=shelfPrice(k);return u>=b[2]&&u<b[3];});}
+function renderSortbar(){
+  var el=document.getElementById('sortbar');if(!el)return;
+  var keys=(VIEW.sub==='all')?[].concat.apply([],subNames(VIEW.cat).map(function(s){return BUCKETS[VIEW.cat][s];})):((BUCKETS[VIEW.cat]||{})[VIEW.sub]||[]);
+  if(keys.length<6){el.innerHTML='';el.style.display='none';VIEW.sort=null;return;}
+  el.style.display='';
+  el.innerHTML='<label class="fsort"><span class="fitlbl">Sort</span><select id="fsortsel" aria-label="Sort products">'+SORTS.map(function(o){
+    return '<option value="'+o[0]+'"'+(((VIEW.sort||'')===o[0])?' selected':'')+'>'+esc(o[1])+'</option>';}).join('')+'</select></label>';
+  var sel=el.querySelector('select');
+  if(sel)sel.addEventListener('change',function(){
+    VIEW.sort=sel.value||null;jdpTrack('filter',{f:'sort',v:sel.value||'rec'});renderSortbar();renderGrid();renderFilterUI();});
+}
+function renderBandbar(){
+  var el=document.getElementById('bandbar');if(!el)return;
+  var keys=(VIEW.sub==='all')?[].concat.apply([],subNames(VIEW.cat).map(function(s){return BUCKETS[VIEW.cat][s];})):((BUCKETS[VIEW.cat]||{})[VIEW.sub]||[]);
+  var cnt={};BANDS.forEach(function(b){cnt[b[0]]=keys.filter(function(k){var u=shelfPrice(k);return u>=b[2]&&u<b[3];}).length;});
+  var live=BANDS.filter(function(b){return cnt[b[0]]>0;});
+  if(live.length<2||keys.length<6){el.innerHTML='';el.style.display='none';VIEW.band=null;return;}
+  el.style.display='';
+  el.innerHTML='<span class="fitlbl">Budget</span><button type="button" class="cfchip'+(VIEW.band?'':' on')+'" data-band="">Any</button>'+
+    live.map(function(b){return '<button type="button" class="cfchip'+(VIEW.band===b[0]?' on':'')+'" data-band="'+b[0]+'">'+b[1]+' <i>'+cnt[b[0]]+'</i></button>';}).join('');
+  el.querySelectorAll('.cfchip').forEach(function(x){x.addEventListener('click',function(){VIEW.band=x.dataset.band||null;renderBandbar();renderGrid();});});
+}
+function renderColbar(){
+  var el=document.getElementById('colbar');if(!el)return;
+  var keys=(VIEW.sub==='all')?[].concat.apply([],subNames(VIEW.cat).map(function(s){return BUCKETS[VIEW.cat][s];})):((BUCKETS[VIEW.cat]||{})[VIEW.sub]||[]);
+  var count={};keys.forEach(function(k){var it=BYKEY[k];if(!it)return;Object.keys(itemFam(it)).forEach(function(f){count[f]=(count[f]||0)+1;});});
+  var fams=COLFAM.map(function(c){return c[0];}).filter(function(f){return count[f]>1;});
+  /* Bags are bought by type and budget, not by colour family: ten colour chips there were noise
+     in front of the products (Steven, 2026-10-07, "too confusing and complicated"). */
+  if(fams.length<3||keys.length<6||VIEW.cat==='bags'){el.innerHTML='';el.style.display='none';VIEW.col=null;return;}
+  el.style.display='';
+  el.innerHTML='<span class="fitlbl">Colour</span>'+
+    '<button type="button" class="cfchip'+(VIEW.col?'':' on')+'" data-fam="">Any</button>'+
+    fams.map(function(f){return '<button type="button" class="cfchip sw'+(VIEW.col===f?' on':'')+'" data-fam="'+f+'" title="'+f+'">'+
+      '<span style="background:'+famSwatch(f)+'"></span>'+f+' <i>'+count[f]+'</i></button>';}).join('');
+  el.querySelectorAll('.cfchip').forEach(function(b){b.addEventListener('click',function(){
+    VIEW.col=b.dataset.fam||null;jdpTrack('filter',{f:'colour',v:VIEW.col||'any'});
+    // jump every matching card to that colour so the grid reads as one coherent palette
+    if(VIEW.col)Object.keys(BYKEY).forEach(function(k){var it=BYKEY[k],m=it&&itemFam(it)[VIEW.col];if(m)BCOL[k+'|'+fitOf(it)]=m;});
+    renderColbar();renderGrid();renderFilterUI();});});
+}
+/* ---- Filters live behind one control ---------------------------------------------------------
+   Fit, Colour and Budget used to sit permanently stacked under the category tabs. Measured on the
+   live store that cost 200px of a 1080px desktop viewport and about 325px of an 844px phone --
+   roughly 39% of a phone screen spent on filters the buyer had not asked for, leaving barely one
+   row of product visible. The colour row alone wrapped to three lines on a phone.
+
+   Navigation stays where it was (category tabs, then subcategory chips) because that is how people
+   browse. The three FACETS collapse into a single "Filters" button carrying a count, with whatever
+   is currently applied shown next to it as dismissable pills -- so the state is never hidden, only
+   the controls are. The panel is a dropdown on desktop and a bottom sheet on the phone, which is
+   where a thumb can actually reach it. */
+var FOPEN=false,SHEETKEY='';
+function activeFilters(){
+  var a=[];
+  if(VIEW.fit&&VIEW.fit!=='all')a.push({k:'fit',label:VIEW.fit==='womens'?'Ladies’':'Men’s'});
+  if(VIEW.col)a.push({k:'col',label:VIEW.col.charAt(0).toUpperCase()+VIEW.col.slice(1),sw:famSwatch(VIEW.col)});
+  if(VIEW.band){var b=BANDS.filter(function(x){return x[0]===VIEW.band;})[0];if(b)a.push({k:'band',label:b[1]});}
+  if(VIEW.sort){var o=SORTS.filter(function(x){return x[0]===VIEW.sort;})[0];if(o)a.push({k:'sort',label:o[1]});}
+  return a;
+}
+function clearFilter(k){
+  if(k==='fit')VIEW.fit='all'; else if(k==='col')VIEW.col=null; else if(k==='band')VIEW.band=null;
+  else if(k==='sort')VIEW.sort=null;
+  renderFitbar();renderColbar();renderBandbar();renderSortbar();renderGrid();renderFilterUI();
+}
+function positionPanel(){
+  var p=document.getElementById('fpanel'),b=document.getElementById('fbtn');
+  if(!p||!b)return;
+  if(window.innerWidth<=640){p.style.top='';p.style.right='';p.style.left='';return;}
+  var r=b.getBoundingClientRect();
+  p.style.top=Math.round(r.bottom+8)+'px';
+  p.style.right=Math.max(12,Math.round(window.innerWidth-r.right))+'px';
+  p.style.left='auto';
+}
+function setFilters(open){
+  FOPEN=!!open;
+  var p=document.getElementById('fpanel'),b=document.getElementById('fbtn'),sc=document.getElementById('fscrim');
+  if(p){p.classList.toggle('on',FOPEN);if(FOPEN)positionPanel();}
+  if(sc)sc.classList.toggle('on',FOPEN);
+  if(b)b.setAttribute('aria-expanded',FOPEN?'true':'false');
+  document.documentElement.classList.toggle('fopen',FOPEN);
+}
+function renderFilterUI(){
+  var btn=document.getElementById('fbtn');if(!btn)return;
+  // Hide the whole control where there is nothing to filter, rather than offering an empty panel.
+  var any=['fitbar','colbar','bandbar','warmbar','sortbar'].some(function(id){
+    var el=document.getElementById(id);return el&&el.style.display!=='none'&&el.innerHTML;});
+  btn.style.display=any?'':'none';
+  if(!any&&FOPEN)setFilters(false);
+  var act=activeFilters(),c=document.getElementById('fcount');
+  if(c){c.textContent=act.length?String(act.length):'';c.style.display=act.length?'':'none';}
+  btn.classList.toggle('on',act.length>0);
+  var pil=document.getElementById('fpills');
+  if(pil){
+    pil.innerHTML=act.map(function(a){
+      return '<button type="button" class="fpill" data-clear="'+a.k+'">'+
+        (a.sw?'<span style="background:'+a.sw+'"></span>':'')+esc(a.label)+'<em>&times;</em></button>';}).join('')+
+      (act.length>1?'<button type="button" class="fpill alt" data-clear="all">Clear all</button>':'');
+    pil.style.display=act.length?'':'none';
+    pil.querySelectorAll('.fpill').forEach(function(x){x.addEventListener('click',function(){
+      var k=x.dataset.clear;
+      if(k==='all'){VIEW.fit='all';VIEW.col=null;VIEW.band=null;
+        renderFitbar();renderColbar();renderBandbar();renderSortbar();renderGrid();renderFilterUI();}
+      else clearFilter(k);});});
+  }
+  var done=document.getElementById('fdone');
+  if(done)done.textContent=(SHOWN!=null?('Show '+SHOWN+' style'+(SHOWN===1?'':'s')):'Show results');
+  var clr=document.getElementById('fclear');
+  if(clr)clr.disabled=!act.length;
+}
+function wireFilters(){
+  var btn=document.getElementById('fbtn');if(!btn||btn._w)return;btn._w=1;
+  // Re-home the sheet and its backdrop on BODY. Anywhere inside .navwrap they are trapped: that
+  // element carries backdrop-filter, which makes it the containing block for position:fixed, so a
+  // "full screen" scrim covered only the header strip and the bottom sheet anchored to it.
+  ['fpanel','fscrim'].forEach(function(id){
+    var el=document.getElementById(id);
+    if(el&&el.parentNode!==document.body)document.body.appendChild(el);});
+  btn.addEventListener('click',function(e){e.stopPropagation();goToFilters('header');});
+  ['fpx','fdone'].forEach(function(id){var el=document.getElementById(id);
+    if(el)el.addEventListener('click',function(){setFilters(false);});});
+  var sc=document.getElementById('fscrim');
+  if(sc)sc.addEventListener('click',function(){setFilters(false);});
+  var clr=document.getElementById('fclear');
+  if(clr)clr.addEventListener('click',function(){VIEW.fit='all';VIEW.col=null;VIEW.band=null;
+    renderFitbar();renderColbar();renderBandbar();renderSortbar();renderGrid();renderFilterUI();});
+  document.addEventListener('keydown',function(e){if(e.key==='Escape'&&FOPEN)setFilters(false);});
+  // The button is sticky, so keep the dropdown attached to it as the page moves.
+  window.addEventListener('resize',function(){if(FOPEN)positionPanel();});
+  window.addEventListener('scroll',function(){if(FOPEN)positionPanel();},{passive:true});
+  document.addEventListener('click',function(e){
+    if(!FOPEN)return;
+    var p=document.getElementById('fpanel');
+    if(p&&!p.contains(e.target)&&e.target!==btn)setFilters(false);});
+}
+/* The filters live in one card above the grid. Both Filters buttons bring her there and flash it. */
+function goToFilters(src){
+  var ib=document.getElementById('inbar');if(!ib)return;
+  jdpTrack('filter_open',{src:src||''});
+  var tb=document.getElementById('tbar'),off=(tb?tb.offsetHeight:64)+12;
+  window.scrollTo({top:Math.max(0,window.pageYOffset+ib.getBoundingClientRect().top-off),behavior:'smooth'});
+  ib.classList.remove('flash');void ib.offsetWidth;ib.classList.add('flash');
+}
+/* Show the refine card only when it has something in it, keep the pills/count current, and decide
+   whether the floating button should be on screen. Runs after every grid render. */
+function syncInbar(){
+  var ib=document.getElementById('inbar');if(!ib)return;
+  var any=['fitbar','sortbar','colbar','warmbar','bandbar'].some(function(id){
+    var e=document.getElementById(id);return e&&e.style.display!=='none'&&e.innerHTML;});
+  ib.style.display=any?'':'none';
+  try{renderFilterUI();}catch(e){}
+  syncFilterFloat();
+}
+function filterFloatEl(){
+  var f=document.getElementById('ffloat');
+  if(!f){
+    f=document.createElement('button');f.type='button';f.id='ffloat';f.className='ffloat';
+    f.setAttribute('aria-label','Filters');document.body.appendChild(f);
+    f.addEventListener('click',function(){goToFilters('float');});
+  }
+  return f;
+}
+function syncFilterFloat(){
+  var ib=document.getElementById('inbar'),grid=document.getElementById('grid');
+  var f=filterFloatEl();
+  var blocked=document.body.classList.contains('giftview')||document.documentElement.classList.contains('fopen')||
+    ['board','boards','progv','sheet','cart','qdoc'].some(function(id){var e=document.getElementById(id);return e&&e.classList.contains('on');});
+  var show=false;
+  if(ib&&grid&&ib.style.display!=='none'&&!blocked){
+    var r=ib.getBoundingClientRect(),g=grid.getBoundingClientRect();
+    show=r.bottom<0&&g.bottom>window.innerHeight*0.6;     // filters scrolled away, products still on screen
+  }
+  if(show){
+    var n=activeFilters().length;
+    f.innerHTML='<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">'+
+      '<path d="M4 6h16M7 12h10M10 18h4"/></svg><span>Filters'+(VIEW.fit==='womens'?' · Ladies’':'')+'</span>'+
+      (n?'<i>'+n+'</i>':'');
+  }
+  f.classList.toggle('on',show);
+}
+(function(){var t=0;try{window.addEventListener('scroll',function(){if(t)return;t=requestAnimationFrame(function(){t=0;try{syncFilterFloat();}catch(e){}});},{passive:true});}catch(e){}})();
+var SHOWN=null;
+function renderFitbar(){
+  var el=document.getElementById('fitbar');if(!el)return;
+  var keys=(VIEW.sub==='all'?ALLKEYS.filter(function(k){var c=classify(BYKEY[k]);return c.mega===VIEW.cat;}):(BUCKETS[VIEW.cat]||{})[VIEW.sub]||[]);
+  var nCut=keys.filter(function(k){return hasLadies(BYKEY[k]);}).length;                       // distinct ladies' cut
+  var nHer=keys.filter(function(k){var i=BYKEY[k]||{};return hasLadies(i)||i.unisex;}).length;        // everything she can wear
+  // Only offer the filter where there is a real choice to make: if nothing has its own ladies' cut,
+  // Men's and Ladies' would return the same cards AND the same photos, which just trains people to
+  // ignore filters.
+  if(!nCut){el.innerHTML='';el.style.display='none';return;}
+  el.style.display='';
+  var opts=[{id:'all',lbl:'Everyone'},{id:'mens',lbl:'Men’s'},{id:'womens',lbl:'Ladies’',n:nHer}];
+  var cur=(VIEW.fit&&VIEW.fit!=='all')?VIEW.fit:'all';
+  el.innerHTML='<span class="fitlbl">Fit</span><div class="fseg" role="radiogroup" aria-label="Fit">'+opts.map(function(o){
+    var on=cur===o.id;
+    return '<button type="button" role="radio" aria-checked="'+(on?'true':'false')+'" class="fchip'+(on?' on':'')+'" data-fit="'+o.id+'">'+
+      o.lbl+(o.n!=null?' <i>'+o.n+'</i>':'')+'</button>';}).join('')+'</div>'+
+    (cur==='womens'?'<span class="fithint">Showing ladies’ cuts and unisex styles, on women’s photos where we have them</span>':'');
+  el.querySelectorAll('.fchip').forEach(function(b){b.addEventListener('click',function(){
+    VIEW.fit=b.dataset.fit;jdpTrack('filter',{f:'fit',v:VIEW.fit});renderFitbar();renderGrid();});});
+}
+/* BUYER GUIDANCE. Steven, 2026-09-18, on the jackets section: "help customers decide and be
+   interested and convert better!"
+
+   Renaming the tabs stops the confusion; it does not answer the question. Measured across the 51
+   jackets, 44 carry NO fabric data and NO blurb, so the cards can only show a name, a brand, some
+   colours and a price -- nothing that says how cold a jacket is for. The buyer's real question is
+   "how cold and how wet will they be", and the one place we can answer it honestly for all 51 is at
+   the GROUP level: a jacket sits under "Insulated & Quilted" because its own name says quilted or
+   insulated, so describing what that group is for invents nothing about any individual product.
+
+   Deliberately NOT a curated shortlist -- Steven, 2026-09-10: "'We've already picked your
+   shortlist' is a bad idea." This orients the buyer and leaves the choosing to them.
+
+   No superlatives, no "most popular", no warmth ratings: we do not hold that data, and a number we
+   made up would be a false claim on 576 live stores. */
+var CATGUIDE={
+  /* Warmth first, because that is the decision. The second sentence says where the numbers come
+     from and, just as importantly, what they are not: there is no temperature rating in this
+     range, so the store cites insulation and waterproof figures and lets the buyer judge. */
+  /* Shorter than it was: the warmth and budget chips now sit directly beneath this line, so the
+     paragraph no longer has to describe a control the reader cannot see. */
+  outerwear:'Start with how cold they will be, not the price. Every jacket shows how warm it is '+
+            'built \u2014 uninsulated shell, insulated, or winter weight \u2014 with the maker\u2019s '+
+            'own published insulation and waterproof figures. Narrow by warmth or budget below; '+
+            'every price is per person with your logo already in it.'
+};
+var SUBGUIDE={
+  'Shells & Rainwear':'The lightest layer \u2014 cuts wind, sheds rain and packs down small. No '+
+    'insulation, so it goes over a hoodie or fleece rather than replacing one.',
+  'Softshell Jackets':'Stretch woven with a little warmth built in. The three-season jacket for '+
+    'crews and client-facing staff who need to move in it.',
+  'Shirt Jackets & Shackets':'A shirt cut as a jacket, worn open over a tee or hoodie. Reads '+
+    'casual rather than technical, and works indoors as well as out.',
+  'Insulated & Quilted':'Real warmth without bulk \u2014 quilted and puffer fills for cold '+
+    'mornings and winter travel. Published insulation here runs 120 gsm to 220 gsm; the heavier '+
+    'the fill, the colder the day it answers.',
+  'Winter Parkas & 3-in-1':'Deep winter \u2014 the warmest thing we sell. The 3-in-1 and 5-in-1 '+
+    'systems pair a shell with a zip-out liner that can each be worn on their own, so one order '+
+    'covers three seasons. Published insulation here runs 170 gsm to 300 gsm, and the Defender '+
+    'carries 3M Thinsulate at 200 gsm behind a 3000 mm waterproof shell.'
+};
+function catGuideHtml(){
+  var out='';
+  /* The inner span carries the reading measure. `.gridhd` is a wrapping flex row, and a
+     max-width on the flex ITEM clamps its 100% basis small enough to fit beside the heading --
+     which is exactly how this first shipped, reading as a subtitle rather than an intro. Cap the
+     span, let the paragraph own the whole line. */
+  var c=CATGUIDE[VIEW.cat];
+  if(c)out+='<p class="gguide"><span>'+esc(c)+'</span></p>';
+  if(VIEW.cat==='bags')out+='<p class="gguide gbgift"><span>One size fits everyone, so a bag is the easiest gift to order for a whole team. '+
+    '<button type="button" class="gbgo" data-gogifts="bag">See our gift bags →</button></span></p>';
+  /* When one tab is open its own line replaces the scale, because the buyer has already chosen
+     where on that scale they are. */
+  if(VIEW.sub&&VIEW.sub!=='all'&&SUBGUIDE[VIEW.sub])
+    out='<p class="gguide"><span>'+esc(SUBGUIDE[VIEW.sub])+'</span></p>';
+  return out;
+}
+function subGuideHtml(sub){
+  return SUBGUIDE[sub]?('<p class="subguide">'+esc(SUBGUIDE[sub])+'</p>'):'';
+}
+function renderSubchips(){var el=document.getElementById('subchips');if(!el)return;
+  var subs=subNames(VIEW.cat);
+  var h='<button class="schip'+(VIEW.sub==='all'?' on':'')+'" data-sub="all">All<span class="scn">'+TOTALS[VIEW.cat]+'</span></button>';
+  h+=subs.map(function(s){return '<button class="schip'+(VIEW.sub===s?' on':'')+'" data-sub="'+esc(s)+'">'+esc(s)+'<span class="scn">'+BUCKETS[VIEW.cat][s].length+'</span></button>';}).join('');
+  el.innerHTML=h;
+  renderFitbar();renderColbar();renderBandbar();renderWarmbar();renderSortbar();renderFilterUI();
+  el.querySelectorAll('.schip').forEach(function(b){b.addEventListener('click',function(){setSub(b.dataset.sub);
+    var tr=b.closest('.subchips');if(tr)tr.scrollTo({left:b.offsetLeft-tr.clientWidth/2+b.clientWidth/2,behavior:'smooth'});});});}
+function wireCards(rootId){
+  var g=document.getElementById(rootId||'grid');if(!g)return;
+  g.querySelectorAll('.mcard').forEach(function(card){
+    // The curator toggle sits INSIDE the card, and this handler is bound closer to the target than
+    // the document-level delegate -- so it fires first and stopPropagation() there is too late.
+    // Result: one tap both shortlisted the item and opened its sheet. Ignore those clicks here.
+    card.addEventListener('click',function(e){
+      if(e.target&&e.target.closest&&e.target.closest('[data-curk]'))return;
+      openSheet(card.dataset.key);});
+    card.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();openSheet(card.dataset.key);}});});
+  g.querySelectorAll('.madd').forEach(function(b){b.addEventListener('click',function(e){e.stopPropagation();var k=b.dataset.key;toQuoteList();if(cartHasAny(k)){openQuote('card');}else{addToQuoteQuick(k);}});});
+  // Swatch on the CARD: swap the photo in place. No re-render of the whole grid, so the shopper keeps
+  // their scroll position while flicking through colours.
+  g.querySelectorAll('.cdot').forEach(function(d){d.addEventListener('click',function(e){
+    e.stopPropagation();
+    var card=d.closest('.mcard');if(!card)return;
+    var key=card.dataset.key,item=BYKEY[key];if(!item)return;
+    BCOL[key+'|'+fitOf(item)]=d.dataset.col;
+    var o=overlayHtml(item,vmOf(key),d.dataset.col,'front',browseCols(item),browsePlaces(item));
+    var st=card.querySelector('.mstage');
+    if(st){var im=st.querySelector('img.g');if(im){im.src=o.g;im.classList.add('ld');}
+      var old=st.querySelectorAll('img.l');for(var i=0;i<old.length;i++)old[i].remove();
+      if(o.lg)st.insertAdjacentHTML('beforeend',o.lg);}
+    card.querySelectorAll('.cdot').forEach(function(x){x.classList.toggle('on',x===d);});
+    var lbl=card.querySelector('.cdnow');if(lbl)lbl.textContent=d.dataset.col;
+  });});
+  g.querySelectorAll('.mvid').forEach(function(b){b.addEventListener('click',function(e){e.stopPropagation();openVideo(b.dataset.vid,b.dataset.vname);});});
+  g.querySelectorAll('.mstage .g').forEach(function(im){if(im.complete)im.classList.add('ld');else im.addEventListener('load',function(){im.classList.add('ld');});});
+  g.querySelectorAll('.mccard,.nextup').forEach(function(b){b.addEventListener('click',function(){setCat(b.dataset.cat,true);});
+    b.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();setCat(b.dataset.cat,true);}});});
+  refreshCartUI();}
+// Everything a buyer might reasonably type. Steven searched "sanmar" for the Red Kap / Dickies shirts and
+// got zero results, because only name+sku were indexed and their sku reads "Red Kap" — the distributor we
+// buy from was nowhere in the haystack. Now it also covers brand, supplier, the vendor style numbers
+// (men's AND ladies', so "SP24" or "SP23" finds the shirt) and fabric, so "cotton" finds the cotton styles.
+function searchText(it){
+  return ((it.name||'')+' '+(it.sku||'')+' '+(it.brand||'')+' '+
+          (it.msku||'')+' '+(it.wsku||'')+' '+(it.fabric||'')+' '+
+          (it.tags||'')+' '+(it.psub||'')+' '+
+          (it.dwtype||'')+' '+(it.dwmat||'')+' '+(it.dwoz?it.dwoz+'oz '+it.dwoz+' oz':'')+' '+
+          (it.dwins?'insulated vacuum double-wall thermos':'')+' '+
+          (hasLadies(it)?' womens ladies women':'')+(it.unisex?' unisex':'')+' '+
+          colourWords(it)).toLowerCase();
+          // tags carry material / type / capacity; fit words make "ladies polo" work
+}
+/* Colour names are searchable. "black water bottle" and "navy polo" are how buyers type, and the
+   colour was the one obvious attribute the haystack did not contain. Cached per item -- this runs
+   for every item on every keystroke. */
+function colourWords(it){
+  if(it._cw!=null)return it._cw;
+  var out=[],seen={},i,n;
+  var add=function(cs){for(i=0;i<(cs||[]).length;i++){n=cs[i]&&cs[i].name;
+    if(n&&!seen[n]){seen[n]=1;out.push(n);}}};
+  add(it.cols);add(it.wcols);
+  try{Object.defineProperty(it,'_cw',{value:out.join(' '),enumerable:false});}catch(e){it._cw=out.join(' ');}
+  return it._cw;
+}
+/* ==== SEARCH, REBUILT (2026-09-25) ==============================================================
+   Steven: "Are search engine is terrible and causing drop offs! Study 4imprint the leader in the
+   space and copy there search engine / navigation strategy!"
+
+   Measured against 80 real buyer queries before a line was written. The old matcher was
+   `haystack.indexOf(token)` over one long string, and every failure traced back to that:
+     * "polos" -> 0. The plural rule skipped every word ending -os (to protect "thermos"), so the
+       single most common apparel search in the category found nothing.
+     * "polo shirt" -> 0, AND the no-results panel then said "We don't stock polo -- but we do have
+       52 for 'shirt'" in a store holding 21 polos. That sentence is what a buyer read.
+     * "tshirt" -> 18 SWEATSHIRTS and not one T-shirt: "tshirt" is a substring of "sweatshirt".
+     * "fr" matched "front"/"free", "cap" matched "Seascape", "shorts" matched "Short-Sleeve",
+       "1/4 zip" returned full-zip hoodies ("1" was dropped, "zip" matched everything zipped).
+     * "high vis", "high visibility", "reflective" -> 0 in a store with 40 hi-vis styles.
+     * any typo -> 0: "jaket", "polp", "sweatshrt"; "hoody" found 1 of 19 hoodies.
+     * "embroidered", "screen print" -> 0, although every piece in the store is decorated.
+     * "carhartt" ranked duffel bags above Carhartt's own jackets.
+   And none of it was visible: typing in the top bar re-rendered a grid a full screen below the
+   fold, so the buyer saw nothing happen at all.
+
+   What 4imprint does, and what this copies:
+     1. WORD matching over a normalised vocabulary, with plurals, spelling variants and trade
+        phrasing folded to one form on BOTH sides ("T-Shirt" = "tshirt" = "t shirt" = "tee shirt").
+     2. The store's own CATEGORY STRUCTURE is part of every product's searchable text, so "polo
+        shirt", "golf shirt", "winter coat" and "hi vis hoodie" land on the aisle a buyer means.
+     3. Typo tolerance with an explicit "Showing results for ..." rather than a silent guess.
+     4. Instant suggestions under the box -- matching aisles first, then products with a photo and a
+        price -- so typing always produces something visible.
+     5. Results refinable by aisle, with counts, instead of one undifferentiated wall.
+     6. A zero-result page that never claims we lack what we stock, and always offers a person.
+   ============================================================================================ */
+
+/* ---- 1. normalisation: one canonical form for every way a buyer writes a thing ---------------- */
+var SX_PHRASE=[
+  [/[‘’ʼ]/g,"'"],
+  [/\bt[\s\-]*shirts?\b|\btee[\s\-]+shirts?\b/g,' tshirt '],
+  [/\bpolo[\s\-]+shirts?\b|\bgolf[\s\-]+shirts?\b|\bgolf[\s\-]+polos?\b/g,' polo '],
+  [/\bh(?:i|igh)[\s\-]*vi[sz](?:ibility)?\b|\bhigh[\s\-]+visibility\b|\bhivis\b|\bhiviz\b/g,' hivis '],
+  [/\b(?:quarter|qtr|1\s*\/\s*4)[\s\-]*zips?\b/g,' quarterzip '],
+  [/\b(?:half|1\s*\/\s*2)[\s\-]*zips?\b/g,' halfzip '],
+  [/\bfull[\s\-]*zips?\b/g,' fullzip '],
+  [/\blong[\s\-]*sleeved?s?\b|\bl\s*\/\s*s\b/g,' longsleeve '],
+  [/\bshort[\s\-]*sleeved?s?\b|\bs\s*\/\s*s\b/g,' shortsleeve '],
+  [/\b(\d)[\s\-]*in[\s\-]*(\d)\b/g,' $1in$2 '],
+  [/\bsoft[\s\-]*shells?\b/g,' softshell '],
+  [/\bhard[\s\-]*hats?\b/g,' hardhat '],
+  [/\brain[\s\-]*coats?\b/g,' raincoat '],
+  [/\brain[\s\-]*wear\b/g,' rainwear '],
+  [/\bwind[\s\-]*breakers?\b/g,' windbreaker '],
+  [/\bbutton[\s\-]*(?:up|down)s?\b|\bdress[\s\-]+shirts?\b|\boxford[\s\-]+shirts?\b/g,' buttonup '],
+  [/\bsweat[\s\-]*shirts?\b/g,' sweatshirt '],
+  [/\bsweat[\s\-]*pants?\b|\bjog(?:ging)?[\s\-]*pants?\b/g,' sweatpant '],
+  [/\bcrew[\s\-]*necks?\b/g,' crewneck '],
+  [/\bsnap[\s\-]*backs?\b/g,' snapback '],
+  [/\bball[\s\-]*caps?\b|\bbase[\s\-]*ball[\s\-]*caps?\b/g,' baseball cap '],
+  [/\bwork[\s\-]*wear\b/g,' workwear '],
+  [/\bgift[\s\-]*sets?\b|\bgift[\s\-]*boxe?s?\b/g,' giftset '],
+  [/\bflame[\s\-]*(?:resistant|retardant)\b|\bfire[\s\-]*(?:resistant|retardant|proof)\b|\barc[\s\-]*(?:rated|flash)\b/g,' fr '],
+  [/\bnorth[\s\-]*face\b/g,' northface '],
+  [/\bunder[\s\-]*armou?r\b/g,' underarmour '],
+  [/\bcutter[\s&\-]*(?:and[\s\-]*)?buck\b/g,' cutterbuck '],
+  [/\bcore[\s\-]*365\b/g,' core365 '],
+  [/\bwater[\s\-]*proof\b/g,' waterproof '],
+  [/\bwater[\s\-]*(?:resistant|repellent)\b/g,' waterrepellent '],
+  [/\bdri[\s\-]*fit\b/g,' drifit '],
+  [/\b(\d+(?:\.\d+)?)[\s\-]*(?:oz|ounces?)\b/g,' $1oz '],
+  [/\b(\d+)[\s\-]*(?:l|litres?|liters?)\b/g,' $1l '],
+  [/\b3m\b/g,' threem ']
+];
+/* Words one letter apart in the catalogue's own spelling, folded after stemming. */
+var SX_ALIAS={hoody:'hoodie',hoodi:'hoodie',beany:'beanie',tuque:'toque',tuques:'toque',gray:'grey',
+  tee:'tshirt',tees:'tshirt',tshirts:'tshirt',hooded:'hoodie',jumper:'sweater',gilet:'vest',
+  bodywarmer:'vest',trouser:'pant',slack:'pant',knitcap:'toque',carhart:'carhartt',
+  cutter:'cutterbuck',tnf:'northface',ua:'underarmour',colour:'color',
+  woman:'_fem',women:'_fem',womens:'_fem',lady:'_fem',ladies:'_fem',ladie:'_fem',female:'_fem',
+  girl:'_fem',her:'_fem',man:'_masc',men:'_masc',mens:'_masc',male:'_masc',guy:'_masc',
+  kid:'youth',child:'youth',children:'youth',toddler:'youth',boy:'youth',junior:'youth'};
+/* Words that are not plurals although they end in s. */
+var SX_KEEP={thermos:1,canvas:1,dress:1,glass:1,chess:1,class:1,gas:1,bus:1,plus:1,lens:1,
+  jeans:1,overalls:1,coveralls:1,bibs:1,pants:1,shorts:1,sweatpants:1,leggings:1,chaps:1,
+  alps:1,swiss:1,series:1,cross:1,boss:1,moss:1,loss:1,press:1,express:1};
+function sxStem(w){
+  if(SX_ALIAS[w])return SX_ALIAS[w];
+  if(w.length>3&&!SX_KEEP[w]&&!/\d/.test(w)){
+    if(/ies$/.test(w))w=w.slice(0,-3)+'y';
+    else if(/(?:ches|shes|xes|zes|sses)$/.test(w))w=w.slice(0,-2);
+    else if(/s$/.test(w)&&!/(?:ss|us|is)$/.test(w))w=w.slice(0,-1);
+  }else if(SX_KEEP[w]&&/(?:pants|shorts|overalls|coveralls|bibs|jeans|sweatpants|leggings)$/.test(w)){
+    w=w.slice(0,-1);                       /* "pants" and "pant" are one word; "shorts" is not "short" */
+    if(w==='short')w='shorts';
+  }
+  return SX_ALIAS[w]||w;
+}
+function sxNorm(s){
+  s=' '+String(s||'').toLowerCase();
+  try{s=s.normalize('NFD').replace(/[̀-ͯ]/g,'');}catch(e){}
+  for(var i=0;i<SX_PHRASE.length;i++)s=s.replace(SX_PHRASE[i][0],SX_PHRASE[i][1]);
+  return s.replace(/&/g,' and ').replace(/[^a-z0-9._]+/g,' ');
+}
+function sxWords(s){
+  var raw=sxNorm(s).split(' '),out=[];
+  for(var i=0;i<raw.length;i++){var w=raw[i].replace(/^[._]+|[._]+$/g,'');
+    if(!w||(w.length<2&&!/\d/.test(w)))continue;
+    out.push(sxStem(w));}
+  return out;
+}
+
+/* ---- 2. what a buyer means by an aisle ------------------------------------------------------- */
+/* Extra words a buyer uses for each aisle, beyond the aisle's own name. Every word here is folded
+   through sxWords, so plurals and spellings need no second entry. */
+var SX_SUBWORDS={
+  'Polos':'polo golf collared shirt','Shirts':'buttonup woven shirt oxford twill dress',
+  'Tees':'tshirt shirt','T-Shirts':'tshirt shirt','Hi-Vis T-Shirts':'tshirt shirt',
+  'Quarter & Half-Zips':'quarterzip halfzip pullover sweater','Crewnecks & Sweatshirts':'sweatshirt crewneck sweater',
+  'Hoodies':'hoodie sweatshirt','Sweatshirts & Hoodies':'hoodie sweatshirt','Hoodies & Thermals':'hoodie sweatshirt thermal',
+  'Fleece':'fleece sweater','Fleece & Softshell':'fleece softshell',
+  'Shells & Rainwear':'jacket coat rain raincoat rainwear shell windbreaker waterproof',
+  'Softshell Jackets':'jacket coat softshell','Shirt Jackets & Shackets':'jacket shacket overshirt',
+  'Insulated & Quilted':'jacket coat insulated quilted puffer winter warm','Winter Parkas & 3-in-1':'jacket coat parka winter warm 3in1',
+  'Winter Parkas':'jacket coat parka winter warm','Parkas':'jacket coat parka winter warm',
+  'Shells & 3-in-1':'jacket coat shell 3in1 rain','Canvas & Shackets':'jacket coat canvas shacket',
+  'Hi-Vis Jackets':'jacket coat','Jackets & Coats':'jacket coat','Rain & Gear':'rain raincoat rainwear',
+  'Safety Vests':'vest','Hi-Vis Vests':'vest','Quilted & Puffer':'vest puffer quilted','Vests':'vest',
+  'Hard Hats & Head Protection':'hardhat helmet','Work Shirts':'shirt work',
+  'Caps & Hats':'cap hat','Trucker & Snapback':'cap hat trucker snapback mesh','Performance & Golf':'cap hat golf visor',
+  'Beanies & Toques':'beanie toque knit winter hat','Headwear':'hat cap',
+  'Work Pants':'pant work cargo','Pants & Bibs':'pant bib overall','Bibs & Coveralls':'bib overall coverall',
+  'Joggers & Sweatpants':'jogger sweatpant pant','Shorts':'shorts',
+  'Flame-Resistant':'fr','Bags & Accessories':'bag backpack',
+  'Kits & Gift Sets':'gift giftset kit bundle','Water Bottles':'bottle water drinkware','Tumblers':'tumbler drinkware cup',
+  'Mugs':'mug coffee cup drinkware','Drinkware':'drinkware bottle mug tumbler','Notebooks & Pens':'notebook journal pen stationery',
+  'Tech':'tech charger speaker earbud usb wireless','Lifestyle':'lifestyle','Bags':'bag backpack tote duffel cooler',
+  'Backpacks':'bag backpack laptop pack','Duffels & Tool Bags':'bag duffel duffle gym travel tool','Coolers & Lunch':'bag cooler lunch insulated'
+};
+var SX_MEGAWORDS={outerwear:'jacket coat outerwear',vests:'vest',hivis:'hivis safety reflective csa ansi visibility',
+  carhartt:'carhartt workwear',headwear:'hat headwear',bottoms:'pant bottom',golf:'golf course tournament',
+  layers:'layer',accessories:'accessory',bags:'bag bags backpack duffel cooler',fr:'fr'};
+/* Query words that ADD a meaning rather than a spelling: typing "coat" should also find jackets. */
+var SX_SYN={coat:['jacket','parka'],winter:['insulated','parka','toque','warm'],warm:['insulated','fleece','parka'],
+  puffer:['quilted','insulated'],sweater:['fleece','sweatshirt','quarterzip','crewneck'],
+  safety:['hivis','csa'],reflective:['hivis'],visibility:['hivis'],
+  hat:['cap','toque','beanie'],beanie:['toque'],toque:['beanie'],
+  bag:['backpack','duffel','tote','cooler'],backpack:['bag'],
+  bottle:['bottle'],water:['bottle'],flask:['bottle'],canteen:['bottle'],hydration:['bottle'],
+  vacuum:['insulated'],steel:['stainless'],metal:['stainless','aluminum'],
+  coffee:['mug','tumbler'],tea:['mug'],cup:['tumbler','mug'],travel:['tumbler'],
+  drinkware:['bottle','tumbler','mug'],eco:['recycled','rpet'],sustainable:['recycled','rpet'],
+  pullover:['quarterzip','halfzip','hoodie','sweatshirt'],windbreaker:['shell','rain'],
+  raincoat:['rain','shell'],shell:['softshell'],golf:['polo'],collared:['polo'],
+  large:['26oz','27oz','32oz','34oz'],big:['26oz','27oz','32oz','34oz'],small:['12oz'],mini:['12oz'],
+  helmet:['hardhat'],overall:['coverall','bib'],coverall:['overall','bib'],cargo:['pant'],
+  jogger:['sweatpant'],sweatpant:['jogger']};
+/* Words that describe the store, not a product: every piece here is decorated with the buyer's
+   logo, so "embroidered polo" means "polo". Remembered, so the results can say so. */
+var SX_NEUTRAL={embroidered:1,embroidery:1,embroider:1,stitched:1,printed:1,print:1,printing:1,
+  screen:1,screenprint:1,silkscreen:1,dtf:1,logo:1,custom:1,customized:1,customised:1,personalized:1,
+  personalised:1,branded:1,branding:1,promo:1,promotional:1,decorated:1,imprinted:1,company:1,
+  corporate:1,staff:1,employee:1,a:1,an:1,the:1,for:1,with:1,and:1,or:1,of:1,in:1,on:1,to:1,is:1,are:1,
+  me:1,my:1,we:1,our:1,some:1,any:1,need:1,want:1,looking:1,look:1,have:1,has:1,do:1,you:1,got:1,
+  get:1,please:1,something:1,anything:1,option:1,style:1,product:1,item:1,nice:1,good:1,best:1,
+  great:1,quality:1,buy:1,order:1,shop:1,find:1,show:1,all:1,new:1,_masc:1,piece:1,pc:1,your:1};
+var SX_CHEAP={cheap:1,cheapest:1,budget:1,affordable:1,inexpensive:1,value:1,economical:1,lowcost:1};
+
+/* ---- 3. the index: built once per catalogue, rebuilt only if the catalogue changes ------------ */
+var SX={n:-1,docs:{},vocab:{},aisles:[],codes:{}};
+function sxAddWords(set,text,w){var ws=sxWords(text);for(var i=0;i<ws.length;i++){if(!(set[ws[i]]>=w))set[ws[i]]=w;}}
+function sxBuild(){
+  if(SX.n===ALLKEYS.length&&SX.b===BUCKETS)return SX;
+  var docs={},vocab={},aisles=[],codes={},member={};
+  /* aisle vocabulary, and which aisles each product lives in (a product can live in two) */
+  Object.keys(BUCKETS).forEach(function(m){Object.keys(BUCKETS[m]).forEach(function(s){
+    var set={};
+    sxAddWords(set,s,1);sxAddWords(set,SX_SUBWORDS[s]||'',1);sxAddWords(set,SX_MEGAWORDS[m]||'',1);
+    /* The parent department contributes only its CURATED words (hi-vis, carhartt, jacket...), never
+       its display name: "Polos, Shirts & Tees" folded into every sub-aisle gave each tee the word
+       "polo", and "polo" returned 43 products instead of 21. */
+    aisles.push({mega:m,sub:s,words:set,keys:BUCKETS[m][s]});
+    (BUCKETS[m][s]||[]).forEach(function(k){(member[k]=member[k]||[]).push(aisles.length-1);});
+  });});
+  ALLKEYS.forEach(function(k){
+    var it=BYKEY[k];if(!it)return;
+    var f={};
+    sxAddWords(f,it.name,10);
+    sxAddWords(f,(it.brand||'')+' '+(it.sku||''),7);
+    (member[k]||[]).forEach(function(ai){var ws=aisles[ai].words;for(var w in ws){if(!(f[w]>=6))f[w]=6;}});
+    sxAddWords(f,(it.tags||'')+' '+(it.fabric||'')+' '+(it.psub||'')+' '+(it.dwtype||'')+' '+(it.dwmat||'')+
+      ' '+(it.dwoz?it.dwoz+'oz':'')+(it.dwins?' insulated vacuum thermos':'')+' '+(it.use||'')+
+      ' '+(it.csa?'hivis csa safety':'')+' '+((it.warm&&it.warm.band)||''),3);
+    if(it.fab&&typeof it.fab==='object'){
+      sxAddWords(f,((it.fab.mix||[]).map(function(r){return r[0];}).join(' '))+' '+(it.fab.knit||'')+' '+
+        (it.fab.finishes||[]).join(' '),3);
+    }else if(typeof it.fab==='string')sxAddWords(f,it.fab,3);
+    sxAddWords(f,colourWords(it),2);
+    if(hasLadies(it)||it.unisex)f._fem=1;
+    var code=String(it.msku||'').toLowerCase().replace(/[^a-z0-9]/g,'');if(code)codes[code]=k;
+    var wc=String(it.wsku||'').toLowerCase().replace(/[^a-z0-9]/g,'');if(wc)codes[wc]=k;
+    docs[k]={f:f,a:member[k]||[]};
+    for(var w in f){if(w.charAt(0)!=='_')vocab[w]=(vocab[w]||0)+1;}
+  });
+  for(var ai=0;ai<aisles.length;ai++){for(var w2 in aisles[ai].words)vocab[w2]=vocab[w2]||1;}
+  /* Spelling correction may only land on a word a buyer would plausibly have MEANT: an aisle word,
+     a brand, or a word in several product names. A bare edit-distance over the whole vocabulary
+     turned "sock" into "lock" and answered a socks search with hard hats. */
+  var fz={};
+  for(var ai2=0;ai2<aisles.length;ai2++){for(var w3 in aisles[ai2].words)fz[w3]=1;}
+  ALLKEYS.forEach(function(k){var it=BYKEY[k];if(!it)return;sxWords((it.brand||'')+' '+(it.sku||'')).forEach(function(w){fz[w]=1;});});
+  var nameDf={};ALLKEYS.forEach(function(k){var d=docs[k];if(!d)return;for(var w in d.f){if(d.f[w]>=10)nameDf[w]=(nameDf[w]||0)+1;}});
+  for(var w4 in nameDf){if(nameDf[w4]>=4&&w4.length>=4)fz[w4]=1;}
+  SX={n:ALLKEYS.length,b:BUCKETS,docs:docs,vocab:vocab,aisles:aisles,codes:codes,vlist:Object.keys(vocab),
+      fz:Object.keys(fz).filter(function(w){return w.charAt(0)!=='_'&&!/^\d/.test(w);})};
+  return SX;
+}
+
+/* ---- 4. understanding the query -------------------------------------------------------------- */
+function sxEdit(a,b,max){                                   /* Damerau-Levenshtein, bounded */
+  var la=a.length,lb=b.length;if(Math.abs(la-lb)>max)return max+1;
+  var d=[],i,j;for(i=0;i<=la;i++){d[i]=[i];}for(j=0;j<=lb;j++)d[0][j]=j;
+  for(i=1;i<=la;i++){var rowMin=1e9;
+    for(j=1;j<=lb;j++){var c=a.charAt(i-1)===b.charAt(j-1)?0:1;
+      var v=Math.min(d[i-1][j]+1,d[i][j-1]+1,d[i-1][j-1]+c);
+      if(i>1&&j>1&&a.charAt(i-1)===b.charAt(j-2)&&a.charAt(i-2)===b.charAt(j-1))v=Math.min(v,d[i-2][j-2]+1);
+      d[i][j]=v;if(v<rowMin)rowMin=v;}
+    if(rowMin>max)return max+1;}
+  return d[la][lb];
+}
+/* Resolve one word to the catalogue words that satisfy it, each with a confidence. `last` marks the
+   word still being typed, which alone may complete as a prefix ("jack" -> jacket). */
+function sxResolve(t,last){
+  var V=SX.vocab,alts={},how='exact';
+  if(V[t])alts[t]=1;
+  (SX_SYN[t]||[]).forEach(function(s){s=sxStem(s);if(V[s]&&!alts[s])alts[s]=0.8;});
+  if(!Object.keys(alts).length||(last&&t.length>=2)){
+    var pre=0;
+    for(var i=0;i<SX.vlist.length;i++){var w=SX.vlist[i];
+      if(w.length>t.length&&w.indexOf(t)===0&&(last||t.length>=4)){if(!alts[w]){alts[w]=0.7;pre++;}}}
+    if(pre&&!V[t])how='prefix';
+  }
+  if(!Object.keys(alts).length&&t.length>=4&&!/\d/.test(t)){
+    var max=t.length<=5?1:2,best=null;
+    for(var j=0;j<SX.fz.length;j++){var w2=SX.fz[j];if(Math.abs(w2.length-t.length)>max)continue;
+      if(w2.charAt(0)!==t.charAt(0))continue;
+      var e=sxEdit(t,w2,max);
+      if(e<=max&&(!best||e<best.e||(e===best.e&&V[w2]>V[best.w])))best={w:w2,e:e};}
+    if(best){alts[best.w]=0.6;how='fuzzy';
+      (SX_SYN[best.w]||[]).forEach(function(s){s=sxStem(s);if(V[s]&&!alts[s])alts[s]=0.5;});
+      return {t:t,alts:alts,how:how,fix:best.w};}
+  }
+  return {t:t,alts:alts,how:Object.keys(alts).length?how:'none'};
+}
+function sxParse(q,live){
+  sxBuild();
+  var raw=String(q||''),P={q:raw,toks:[],neutral:[],fem:false,cheap:false,max:null,code:null,unknown:[]};
+  var m=raw.toLowerCase().match(/(?:under|below|less than|<|max(?:imum)?|up to)\s*\$?\s*(\d+(?:\.\d+)?)|\$\s*(\d+(?:\.\d+)?)\s*(?:or less|and under|max)/);
+  if(m){P.max=parseFloat(m[1]||m[2]);raw=raw.replace(m[0],' ');}
+  var compact=raw.toLowerCase().replace(/[^a-z0-9]/g,'');
+  if(compact.length>=3&&SX.codes[compact]){P.code=SX.codes[compact];return P;}
+  var ws=sxWords(raw),trail=/\s$/.test(String(q||''));
+  /* the buyer's own spelling, for messages: "We don't carry gloves", not the stem "glove" */
+  var rawWs=sxNorm(raw).split(' ').map(function(w){return w.replace(/^[._]+|[._]+$/g,'');})
+    .filter(function(w){return w&&!(w.length<2&&!/\d/.test(w));});
+  ws.forEach(function(w,i){
+    if(w==='_fem'){P.fem=true;return;}
+    if(SX_CHEAP[w]){P.cheap=true;return;}
+    if(SX_NEUTRAL[w]){P.neutral.push(w);return;}
+    if(/^\d+$/.test(w)&&!P.max&&ws.length>1)return;          /* a bare number is quantity talk, not a product */
+    var r=sxResolve(w,live&&!trail&&i===ws.length-1);
+    if(r.how==='none')P.unknown.push(rawWs[i]||w);else P.toks.push(r);
+  });
+  return P;
+}
+
+/* ---- 5. scoring ------------------------------------------------------------------------------ */
+function sxScoreDoc(d,toks){
+  var s=0,allName=true;
+  for(var i=0;i<toks.length;i++){var best=0,nm=false,a=toks[i].alts;
+    for(var w in a){var fw=d.f[w];if(fw){var v=fw*a[w];if(v>best){best=v;nm=(fw>=10);}}}
+    if(!best)return 0;
+    s+=best;if(!nm)allName=false;}
+  if(toks.length&&allName)s+=6;
+  return s;
+}
+function sxPrice(k){try{return unitPrice(k,defaultDecos(k),moq());}catch(e){return (BYKEY[k]||{}).blank||0;}}
+/* The whole search, as one pure function of the query: products, the aisles that match, and what
+   was understood. The suggestion box, the results page and the no-results page all read this, so
+   they can never disagree about what a query means. */
+function sxRun(q,opts){
+  opts=opts||{};
+  var P=sxParse(q,opts.live),hits=[],k,d,sc;
+  if(P.code){return {P:P,keys:[P.code],aisles:[],relaxed:null};}
+  var toks=P.toks;
+  if(!toks.length&&!P.fem&&!P.cheap&&P.max==null){return {P:P,keys:[],aisles:[],relaxed:null,empty:!P.unknown.length};}
+  /* A word we do not carry at all ("gloves"), next to words that are only modifiers ("blue",
+     "ladies", "under $40"): answering with every blue product would pretend. Say we do not carry it. */
+  if(P.unknown.length){
+    var content0=toks.filter(function(t){for(var w in t.alts){if(!isColourWord(w))return true;}return false;});
+    if(!content0.length)return {P:P,keys:[],aisles:[],relaxed:null};
+  }
+  var run=function(tk){
+    var out=[];
+    for(var i=0;i<ALLKEYS.length;i++){k=ALLKEYS[i];d=SX.docs[k];if(!d)continue;
+      if(P.fem&&!d.f._fem)continue;
+      sc=tk.length?sxScoreDoc(d,tk):1;if(!sc)continue;
+      var pr=null;
+      if(P.max!=null){pr=sxPrice(k);if(pr>P.max)continue;}
+      var it=BYKEY[k];
+      if(it.rec||k===CFG.feature)sc+=1.5;
+      out.push({k:k,s:sc,p:pr});}
+    return out;};
+  hits=run(toks);
+  /* One word that the catalogue does not use, or a combination nothing satisfies: drop the word that
+     costs the fewest matches and SAY which word was dropped. Never the other way round -- the old
+     fallback kept "shirt" and dropped "polo". */
+  var relaxed=P.unknown.length?{dropped:P.unknown.join(' '),toks:toks,unknown:true}:null;
+  if(!hits.length&&toks.length>1){
+    var best=null;
+    for(var i=0;i<toks.length;i++){var sub=toks.slice(0,i).concat(toks.slice(i+1)),h=run(sub);
+      if(h.length&&(!best||h.length<best.h.length||(h.length===best.h.length&&toks[i].t.length<best.t.t.length)))best={h:h,t:toks[i],toks:sub};}
+    if(best){hits=best.h;relaxed={dropped:best.t.t,toks:best.toks};}
+  }
+  var sortCheap=P.cheap||(opts.sort==='price');
+  /* Equal relevance falls back to the order the aisles themselves use -- top picks, then price low to
+     high -- so a search reads like the shelf it came from rather than an arbitrary list. */
+  hits.forEach(function(h){if(h.p==null)h.p=sxPrice(h.k);});
+  hits.sort(function(a,b){
+    if(sortCheap)return (a.p-b.p)||(b.s-a.s);
+    if(b.s!==a.s)return b.s-a.s;
+    return a.p-b.p;});
+  var keys=hits.map(function(h){return h.k;});
+  return {P:P,keys:keys,aisles:sxAisles(P,keys,relaxed?relaxed.toks:toks),relaxed:relaxed};
+}
+/* Aisles that answer the query as a CATEGORY: every product word is an aisle word. "jackets" is the
+   Jackets aisle; "hi vis hoodie" is Hi-Vis > Sweatshirts & Hoodies; "navy polo" is still Polos,
+   because colour is a filter on an aisle, not an aisle. Ranked by how much of the result they hold. */
+function sxAisles(P,keys,toks){
+  var inRes={},out=[],i,j;keys.forEach(function(k){inRes[k]=1;});
+  var content=toks.filter(function(t){var a=t.alts;for(var w in a){if(SX.vocab[w]&&!isColourWord(w))return true;}return false;});
+  if(!content.length)return [];
+  for(i=0;i<SX.aisles.length;i++){var A=SX.aisles[i],ok=true;
+    for(j=0;j<content.length;j++){var a=content[j].alts,hit=false;
+      for(var w in a){if(A.words[w]&&a[w]>=0.6){hit=true;break;}}
+      if(!hit){ok=false;break;}}
+    if(!ok)continue;
+    var n=0;(A.keys||[]).forEach(function(k){if(inRes[k])n++;});
+    if(n)out.push({mega:A.mega,sub:A.sub,n:n,total:(A.keys||[]).length});}
+  /* The whole department, when the query names it: "jackets" is the Jackets department (every
+     jacket, across its five sub-aisles), not whichever sub-aisle happens to be biggest. */
+  CATS.forEach(function(m){
+    var set={};sxAddWords(set,megaName(m),1);sxAddWords(set,shortCat(m),1);sxAddWords(set,SX_MEGAWORDS[m]||'',1);
+    for(var j2=0;j2<content.length;j2++){var a2=content[j2].alts,hit2=false;
+      for(var w5 in a2){if(set[w5]&&a2[w5]>=0.6){hit2=true;break;}}
+      if(!hit2)return;}
+    var n2=0,seen={};Object.keys(BUCKETS[m]||{}).forEach(function(s){(BUCKETS[m][s]||[]).forEach(function(k){if(inRes[k]&&!seen[k]){seen[k]=1;n2++;}});});
+    if(n2)out.push({mega:m,sub:null,n:n2,total:TOTALS[m]||n2});
+  });
+  /* biggest first; on a tie the more specific aisle wins ("polo" is Polos, not Polos, Shirts & Tees) */
+  /* a department that adds nothing beyond one of its own aisles is noise ("Polos" 21 and "Polos,
+     Shirts & Tees" 21 side by side) -- keep the specific one */
+  out=out.filter(function(a){return a.sub||!out.some(function(b){return b.sub&&b.mega===a.mega&&b.n===a.n;});});
+  out.sort(function(a,b){return (b.n-a.n)||((a.sub?0:1)-(b.sub?0:1));});
+  return out;
+}
+var SX_COLOURS=null;
+function isColourWord(w){
+  if(!SX_COLOURS){SX_COLOURS={};ALLKEYS.forEach(function(k){sxWords(colourWords(BYKEY[k]||{})).forEach(function(c){SX_COLOURS[c]=(SX_COLOURS[c]||0)+1;});});
+    /* a colour word that is also a product word ("heather", "cardinal") stays a product word */
+    Object.keys(SX_COLOURS).forEach(function(c){var nm=0;ALLKEYS.forEach(function(k){var d=SX.docs[k];if(d&&d.f[c]>=6)nm++;});if(nm>2)delete SX_COLOURS[c];});}
+  return !!SX_COLOURS[w];
+}
+/* "Showing results for ..." -- the query as we understood it, only when that differs. */
+function sxUnderstood(P){
+  var fixed=P.toks.filter(function(t){return t.how==='fuzzy';});
+  if(!fixed.length)return '';
+  return P.toks.map(function(t){return t.fix||t.t;}).join(' ');
+}
+
+/* ---- 6. the suggestion box: something visible on the first keystroke ------------------------- */
+var SXD={i:-1,open:false,q:'',t:null};
+var SX_POPULAR=['polo','hoodie','jacket','hi vis','t shirt','carhartt','cap','quarter zip','winter parka',
+  'safety vest','softshell','water bottle'];
+function sxRecent(){try{return JSON.parse(localStorage.getItem('jdp_sx_recent')||'[]').slice(0,5);}catch(e){return [];}}
+function sxRemember(q){
+  q=String(q||'').trim();if(q.length<2)return;
+  try{var r=sxRecent().filter(function(x){return x.toLowerCase()!==q.toLowerCase();});
+    r.unshift(q);localStorage.setItem('jdp_sx_recent',JSON.stringify(r.slice(0,5)));}catch(e){}
+}
+function sxAisleLabel(a){
+  if(!a.sub)return {b:megaName(a.mega),i:'all '+(shortCat(a.mega)||'').toLowerCase()};
+  /* The same sub-aisle name lives in two departments ("Insulated & Quilted" in Jackets and in
+     Rugged Wear), so the department always rides along. */
+  return {b:a.sub,i:'in '+shortCat(a.mega)};
+}
+function sxThumb(k){
+  var it=BYKEY[k]||{},c=(it.cols||[])[0]||{};
+  return c.front?gurl(c.front):'';
+}
+/* Bold the part of a product name the buyer typed -- the cue 4imprint uses to show WHY a row is here. */
+function sxMark(name,q){
+  var t=esc(name),ws=sxNorm(q).split(' ').filter(function(w){return w.length>=2;});
+  ws.forEach(function(w){
+    var re=new RegExp('(^|[\\s\\-/(])('+w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')','ig');
+    t=t.replace(re,'$1<b>$2</b>');});
+  return t;
+}
+function sxDropHtml(q){
+  var h='',i=0;
+  if(!String(q||'').trim()){
+    var rec=sxRecent();
+    if(rec.length){
+      h+='<div class="sxh">Recent</div><div class="sxchips">'+rec.map(function(r){
+        return '<button type="button" class="sxchip rec" data-sxq="'+esc(r)+'" data-sxi="'+(i++)+'">'+esc(r)+'</button>';}).join('')+'</div>';}
+    var pop=SX_POPULAR.map(function(p){return {q:p,n:sxRun(p).keys.length};}).filter(function(p){return p.n>0;}).slice(0,10);
+    h+='<div class="sxh">Popular in this store</div><div class="sxchips">'+pop.map(function(p){
+      return '<button type="button" class="sxchip" data-sxq="'+esc(p.q)+'" data-sxi="'+(i++)+'">'+esc(p.q)+'<i>'+p.n+'</i></button>';}).join('')+'</div>';
+    /* Browse is the other half of "help me find": the store's own categories, one tap each. */
+    var cats=(typeof CATS!=='undefined'?CATS:[]).slice(0,14);
+    if(cats.length)h+='<div class="sxh">Shop by category</div><div class="sxcats">'+cats.map(function(c){
+      return '<button type="button" class="sxcat" data-sxa="'+esc(c+'\u0001')+'" data-sxi="'+(i++)+'">'+esc(shortCat(c))+'<i>'+(TOTALS[c]||0)+'</i></button>';}).join('')+'</div>';
+    h+='<div class="sxout"><span>Looking for something specific, or have a spec?</span>'+
+      '<button type="button" class="sxoutb" data-sxrfq="1">Upload an RFQ</button><button type="button" class="sxoutb" data-sxask="1">Tell us what you need</button></div>';
+    return h;
+  }
+  var R=sxRun(q,{live:true});
+  if(!R.keys.length){
+    var P=R.P;
+    h+='<div class="sxnone"><b>'+(P.unknown.length?('We don’t carry “'+esc(P.unknown.join(' '))+'” in this store'):
+      ('No products match “'+esc(q)+'”'))+'</b>'+
+      '<span>'+(P.neutral.length&&!P.toks.length?'Every piece here is decorated with your logo — what would you like it on?':
+        'We source well beyond this store — press Enter and tell us what you need.')+'</span></div>';
+    var pop2=SX_POPULAR.slice(0,6).map(function(p){return {q:p,n:sxRun(p).keys.length};}).filter(function(p){return p.n>0;});
+    h+='<div class="sxh">Try</div><div class="sxchips">'+pop2.map(function(p){
+      return '<button type="button" class="sxchip" data-sxq="'+esc(p.q)+'" data-sxi="'+(i++)+'">'+esc(p.q)+'<i>'+p.n+'</i></button>';}).join('')+'</div>';
+    return h;
+  }
+  var fix=sxUnderstood(R.P);
+  if(fix)h+='<div class="sxfix">Showing results for <b>'+esc(fix)+'</b></div>';
+  else if(R.relaxed&&R.relaxed.unknown)h+='<div class="sxfix">We don’t carry <b>'+esc(R.relaxed.dropped)+'</b> — showing the rest</div>';
+  var ais=R.aisles.slice(0,4);
+  if(ais.length){
+    h+='<div class="sxh">Shop the aisle</div>';
+    ais.forEach(function(a){var L=sxAisleLabel(a);
+      h+='<button type="button" class="sxrow sxa" data-sxa="'+esc(a.mega+'\u0001'+(a.sub||''))+'" data-sxi="'+(i++)+'">'+
+        '<span class="sxai" aria-hidden="true"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18M3 12h18M3 17h12"/></svg></span>'+
+        '<span class="sxt"><b>'+esc(L.b)+'</b><i>'+esc(L.i)+'</i></span><span class="sxn">'+a.n+'</span></button>';});
+  }
+  h+='<div class="sxh">Products</div>';
+  R.keys.slice(0,6).forEach(function(k){var it=BYKEY[k];if(!it)return;
+    var pr=(it.layer==='promo')?(it.price_cad||0):sxPrice(k),img=sxThumb(k);
+    h+='<button type="button" class="sxrow sxp" data-sxk="'+esc(k)+'" data-sxi="'+(i++)+'">'+
+      '<span class="sxim">'+(img?'<img src="'+img+'" alt="" loading="lazy">':'')+'</span>'+
+      '<span class="sxt"><b class="sxnm">'+sxMark(it.name,q)+'</b><i>'+esc(it.brand||it.sku||'')+
+        (it.csa?' · CSA hi-vis':'')+'</i></span>'+
+      '<span class="sxpr">'+money(pr)+'<i>/pc'+(it.layer==='promo'?'':' at '+moq())+'</i></span></button>';});
+  h+='<button type="button" class="sxall" data-sxall="1" data-sxi="'+(i++)+'">'+
+    (R.keys.length>6?('<span class="sxmore">+'+(R.keys.length-6)+' more</span>'):'')+
+    'See all '+R.keys.length+' result'+(R.keys.length===1?'':'s')+' for “'+esc(q)+'”<span aria-hidden="true"> →</span></button>';
+  return h;
+}
+function sxDropEl(){return document.getElementById('sxdd');}
+function sxDropShow(q){
+  var dd=sxDropEl();if(!dd)return;
+  SXD.q=q;SXD.i=-1;dd.innerHTML=sxDropHtml(q);dd.hidden=false;SXD.open=true;
+  var ts=document.getElementById('topSearch');if(ts)ts.setAttribute('aria-expanded','true');
+}
+function sxDropHide(){
+  var dd=sxDropEl();if(dd){dd.hidden=true;dd.innerHTML='';}SXD.open=false;SXD.i=-1;
+  var ts=document.getElementById('topSearch');if(ts)ts.setAttribute('aria-expanded','false');
+}
+function sxSetQuery(q){
+  var ts=document.getElementById('topSearch');
+  if(ts){ts.value=q;try{ts.dispatchEvent(new Event('input',{bubbles:true}));}catch(e){}}
+  else{VIEW.q=q;renderGrid();}
+}
+/* Enter, "See all", a popular search: show the full results AND take the buyer to them. The old box
+   updated a grid a full screen below the fold, so a buyer typing at the top of the page saw nothing. */
+function sxSubmit(q){
+  if(q!=null)sxSetQuery(q);
+  var ts=document.getElementById('topSearch'),cur=ts?ts.value:VIEW.q;
+  sxRemember(cur);sxDropHide();if(ts)ts.blur();jdpTrackSearch(cur);
+  var ex=cur?sxExactAisle(sxResultsFor(cur)):null;
+  if(ex){sxGoAisle(ex.mega,ex.sub);return;}
+  scrollToResults();
+}
+function sxGoAisle(mega,sub){
+  sxDropHide();jdpTrack('aisle',{k:bslug(sub||mega)});
+  var ts=document.getElementById('topSearch');
+  if(ts&&ts.value)sxRemember(ts.value);
+  sxSetQuery('');
+  setCat(mega,!sub);
+  if(sub)setSub(sub);
+}
+function sxActivate(el){
+  if(!el)return;
+  if(el.dataset.sxq!=null){sxSubmit(el.dataset.sxq);return;}
+  if(el.dataset.sxa!=null){var p=el.dataset.sxa.split('\u0001');sxGoAisle(p[0],p[1]||null);return;}
+  if(el.dataset.sxk){var ts=document.getElementById('topSearch');if(ts)sxRemember(ts.value);sxDropHide();openSheet(el.dataset.sxk);return;}
+  if(el.dataset.sxall){sxSubmit();return;}
+}
+function sxMove(d){
+  var dd=sxDropEl();if(!dd||!SXD.open)return;
+  var rows=dd.querySelectorAll('[data-sxi]');if(!rows.length)return;
+  SXD.i=(SXD.i+d+rows.length)%rows.length;
+  rows.forEach(function(r,j){r.classList.toggle('on',j===SXD.i);});
+  var r=rows[SXD.i];if(r&&r.scrollIntoView)r.scrollIntoView({block:'nearest'});
+}
+function wireSuggest(){
+  var ts=document.getElementById('topSearch'),dd=sxDropEl();
+  if(!ts||!dd||ts.dataset.sxw)return;ts.dataset.sxw='1';
+  ts.setAttribute('role','combobox');ts.setAttribute('aria-controls','sxdd');ts.setAttribute('aria-expanded','false');
+  ts.setAttribute('enterkeyhint','search');
+  ts.addEventListener('focus',function(){sxDropShow(ts.value);});
+  var go=document.getElementById('topSearchGo');
+  if(go)go.addEventListener('click',function(){if(ts.value.trim()){jdpTrack('search_go');sxSubmit();}else{ts.focus();}});
+  dd.addEventListener('click',function(e){var b=e.target.closest&&e.target.closest('[data-sxrfq],[data-sxask]');if(!b)return;
+    e.preventDefault();sxDropHide();
+    if(b.dataset.sxrfq){jdpTrack('rfq_open',{src:'search'});openRfq();}
+    else{jdpTrack('hero_ask',{src:'search'});openSourcing('');var nt=document.getElementById('coNote');if(nt&&!nt.value)nt.value='I\u2019m looking for: ';}});
+  /* "/" focuses search from anywhere that is not already a text field */
+  if(!window.__jdpSlash){window.__jdpSlash=1;document.addEventListener('keydown',function(e){
+    if(e.key!=='/'||e.metaKey||e.ctrlKey||e.altKey)return;
+    var t=e.target,tag=(t&&t.tagName)||'';if(/INPUT|TEXTAREA|SELECT/.test(tag)||(t&&t.isContentEditable))return;
+    var f=document.getElementById('topSearch');if(!f||f.offsetParent===null)return;
+    e.preventDefault();f.focus();f.select();jdpTrack('search_slash');});}
+  ts.addEventListener('input',function(){
+    clearTimeout(SXD.t);var v=ts.value;
+    SXD.t=setTimeout(function(){if(document.activeElement===ts)sxDropShow(v);},60);
+    clearTimeout(SXD.tt);SXD.tt=setTimeout(function(){jdpTrackSearch(v);},1800);});
+  ts.addEventListener('keydown',function(e){
+    if(e.key==='ArrowDown'){e.preventDefault();if(!SXD.open)sxDropShow(ts.value);sxMove(1);}
+    else if(e.key==='ArrowUp'){e.preventDefault();sxMove(-1);}
+    else if(e.key==='Enter'){e.preventDefault();
+      var rows=dd.querySelectorAll('[data-sxi]');
+      if(SXD.open&&SXD.i>=0&&rows[SXD.i])sxActivate(rows[SXD.i]);else sxSubmit();}
+    else if(e.key==='Escape'){if(SXD.open){e.stopPropagation();sxDropHide();}}
+  });
+  /* mousedown, not click: a click lands after the input's blur, which has already closed the box */
+  dd.addEventListener('mousedown',function(e){var el=e.target.closest('[data-sxi]');if(!el)return;e.preventDefault();sxActivate(el);});
+  document.addEventListener('mousedown',function(e){
+    if(!SXD.open)return;if(e.target===ts||dd.contains(e.target))return;sxDropHide();});
+  ts.addEventListener('blur',function(){setTimeout(function(){if(document.activeElement!==ts)sxDropHide();},150);});
+}
+
+/* ---- 7. the results page --------------------------------------------------------------------- */
+function sxResultsFor(q){
+  var R=sxRun(q);
+  if(!R.keys.length){var L=sxRun(q,{live:true});if(L.keys.length)R=L;}   /* a half-typed last word */
+  return R;
+}
+/* Refine by aisle: where this query's products live, with counts -- 4imprint's category facet. */
+function sxFacets(keys){
+  sxBuild();
+  var tally={},order=[];
+  keys.forEach(function(k){var d=SX.docs[k];if(!d)return;
+    d.a.forEach(function(ai){if(tally[ai]==null){tally[ai]=0;order.push(ai);}tally[ai]++;});});
+  order.sort(function(a,b){return tally[b]-tally[a];});
+  return order.map(function(ai){var A=SX.aisles[ai];return {ai:ai,mega:A.mega,sub:A.sub,n:tally[ai]};});
+}
+function sxResultsHead(q,R,keys,total){
+  var h='<h2 class="glbl">Search results</h2><span class="gsub">'+total+' match'+(total===1?'':'es')+
+    ' for “'+esc(q)+'”</span>';
+  /* The query IS an aisle: offer the aisle itself, with its guide, filters and warmth bands. */
+  var top=R.aisles[0];
+  if(top&&top.n>=Math.max(3,Math.round(R.keys.length*0.6))){
+    var L=sxAisleLabel(top);
+    h+='<button type="button" class="sxgo" data-sxgo="'+esc(top.mega+'\u0001'+(top.sub||''))+'">Browse the '+
+      esc(L.b)+' aisle <span aria-hidden="true">→</span></button>';
+  }
+  var notes=[],fix=sxUnderstood(R.P);
+  if(fix)notes.push('Showing results for <b>'+esc(fix)+'</b>.');
+  if(R.relaxed)notes.push('We don’t carry <b>'+esc(R.relaxed.dropped)+'</b>'+
+    (R.relaxed.unknown?'':' in that combination')+' — these match the rest of your search.'+
+    (R.relaxed.unknown?' <button type="button" class="sxask" data-sxask="'+esc(R.relaxed.dropped)+'">Ask us to source '+esc(R.relaxed.dropped)+' →</button>':''));
+  if(R.P.neutral.some(function(w){return /embroid|print|screen|stitch|logo|decorat|brand|custom|imprint|personal/.test(w);}))
+    notes.push('Every piece is decorated with your logo — the method and placement are shown on each card.');
+  if(R.P.max!=null)notes.push('Under <b>'+money(R.P.max)+'</b>/pc at '+moq()+' pieces, logo included.');
+  if(R.P.cheap)notes.push('Lowest price first.');
+  if(notes.length)h+='<div class="sxnote">'+notes.join(' ')+'</div>';
+  var fac=sxFacets(R.keys);
+  if(fac.length>1){
+    var dup={};fac.forEach(function(f){dup[f.sub]=(dup[f.sub]||0)+1;});
+    h+='<div class="sxfacets" role="group" aria-label="Refine by aisle">'+
+      '<button type="button" class="sxfc'+(VIEW.qa==null?' on':'')+'" data-sxf="">All <i>'+R.keys.length+'</i></button>'+
+      fac.slice(0,9).map(function(f){
+        return '<button type="button" class="sxfc'+(VIEW.qa===f.ai?' on':'')+'" data-sxf="'+f.ai+'">'+esc(f.sub)+
+          (dup[f.sub]>1||/^(Insulated|Shells|Shirts|Vests|Fleece)/.test(f.sub)?'<em> · '+esc(shortCat(f.mega))+'</em>':'')+
+          ' <i>'+f.n+'</i></button>';}).join('')+'</div>';
+  }
+  return h;
+}
+function wireResultsHead(hd){
+  var ak=hd.querySelector('[data-sxask]');if(ak)ak.addEventListener('click',function(){openSourcing(ak.dataset.sxask);});
+  hd.querySelectorAll('[data-sxf]').forEach(function(b){b.addEventListener('click',function(){
+    VIEW.qa=b.dataset.sxf===''?null:parseInt(b.dataset.sxf,10);renderGrid();});});
+  var g=hd.querySelector('[data-sxgo]');
+  if(g)g.addEventListener('click',function(){var p=g.dataset.sxgo.split('\u0001');sxGoAisle(p[0],p[1]||null);});
+}
+
+/* ---- 9. refine like 4imprint: sort, brand, colour, fit -- with counts, applied instantly ------- */
+var SX_FAM=[['Black',/black|charcoal black|jet/],['Grey',/grey|gray|charcoal|graphite|granite|heather|steel|carbon|smoke|dolphin|gunmetal|silver/],
+  ['White',/white|ivory|natural|cream|oat/],['Navy',/navy|midnight|indigo|ink/],['Blue',/blue|royal|azure|sky|cobalt|teal|aqua|turquoise|denim|ocean/],
+  ['Red',/red|cardinal|burgundy|maroon|wine|crimson|scarlet|brick|bordeaux/],['Green',/green|olive|forest|sage|moss|hunter|kelly|lime|army/],
+  ['Orange',/orange|rust|burnt|copper|amber/],['Yellow',/yellow|gold|mustard|safety yellow|lemon/],
+  ['Brown',/brown|tan|khaki|sand|carhartt brown|coffee|chocolate|mocha|desert|timber|bark|camel|wheat/],
+  ['Purple',/purple|violet|plum|lavender/],['Pink',/pink|rose|coral|fuchsia|berry|magenta/]];
+function sxFamilies(it){
+  if(it._fam)return it._fam;
+  var out=[],cw=colourWords(it).toLowerCase();
+  SX_FAM.forEach(function(f){if(f[1].test(cw))out.push(f[0]);});
+  try{Object.defineProperty(it,'_fam',{value:out,enumerable:false});}catch(e){it._fam=out;}
+  return out;
+}
+function sxBrand(it){return String(it.brand||it.sku||'').trim();}
+function sxRefine(keys){
+  var b=VIEW.qb,c=VIEW.qc,f=VIEW.qfit;
+  var out=keys.filter(function(k){var it=BYKEY[k]||{};
+    if(b&&sxBrand(it)!==b)return false;
+    if(c&&sxFamilies(it).indexOf(c)<0)return false;
+    if(f==='womens'&&!(hasLadies(it)||it.unisex))return false;
+    return true;});
+  if(VIEW.qs==='plh'||VIEW.qs==='phl'){
+    var pr={};out.forEach(function(k){pr[k]=sxPrice(k);});
+    out.sort(function(a,z){return VIEW.qs==='plh'?(pr[a]-pr[z]):(pr[z]-pr[a]);});}
+  return out;
+}
+function sxSelect(id,label,opts,cur){
+  return '<label class="sxsel"><span>'+esc(label)+'</span><select data-sxs="'+id+'">'+
+    opts.map(function(o){return '<option value="'+esc(o.v)+'"'+(String(cur||'')===String(o.v)?' selected':'')+'>'+
+      esc(o.t)+(o.n!=null?' ('+o.n+')':'')+'</option>';}).join('')+'</select></label>';
+}
+function sxToolsHtml(keys){
+  var br={},fam={},fem=0;
+  keys.forEach(function(k){var it=BYKEY[k]||{},bn=sxBrand(it);if(bn)br[bn]=(br[bn]||0)+1;
+    sxFamilies(it).forEach(function(f){fam[f]=(fam[f]||0)+1;});if(hasLadies(it)||it.unisex)fem++;});
+  var brs=Object.keys(br).sort(function(a,b){return br[b]-br[a];});
+  var h='<div class="sxtools">'+
+    sxSelect('qs','Sort',[{v:'',t:'Best match'},{v:'plh',t:'Price: low to high'},{v:'phl',t:'Price: high to low'}],VIEW.qs);
+  if(brs.length>1)h+=sxSelect('qb','Brand',[{v:'',t:'All brands'}].concat(brs.map(function(b){return {v:b,t:b,n:br[b]};})),VIEW.qb);
+  var fs=SX_FAM.map(function(f){return f[0];}).filter(function(f){return fam[f];});
+  if(fs.length>1)h+=sxSelect('qc','Colour',[{v:'',t:'Any colour'}].concat(fs.map(function(f){return {v:f,t:f,n:fam[f]};})),VIEW.qc);
+  if(fem&&fem<keys.length)h+=sxSelect('qfit','Fit',[{v:'',t:'All fits'},{v:'womens',t:'Ladies’ & unisex',n:fem}],VIEW.qfit);
+  var any=VIEW.qb||VIEW.qc||VIEW.qfit;
+  if(any)h+='<button type="button" class="sxclr" data-sxclr="1">Clear filters</button>';
+  return h+'</div>';
+}
+function wireSxTools(hd){
+  hd.querySelectorAll('[data-sxs]').forEach(function(s){s.addEventListener('change',function(){
+    VIEW[s.dataset.sxs]=s.value||null;renderGrid();});});
+  var c=hd.querySelector('[data-sxclr]');if(c)c.addEventListener('click',function(){VIEW.qb=VIEW.qc=VIEW.qfit=null;renderGrid();});
+}
+/* 4imprint sends "safety vest" and "mug" straight to the category page. Same here, but ONLY when
+   the aisle holds exactly the products the search found -- the aisle page then shows the same set
+   with its buying guide and warmth / budget bars, which a results page cannot. "jacket" (five
+   aisles) and "navy polo" (a colour inside an aisle) stay as results. */
+function sxExactAisle(R){
+  var P=R.P,a=R.aisles[0];
+  if(!a||!a.sub||R.relaxed||P.fem||P.cheap||P.max!=null)return null;
+  if(P.toks.some(function(t){for(var w in t.alts){if(isColourWord(w))return true;}return false;}))return null;
+  if(a.n!==R.keys.length||a.total!==a.n)return null;
+  return a;
+}
+/* Zero results: 4imprint offers a person ("Need help?"). The store's own quote request already
+   reaches the team with a note, so it opens as a sourcing request with the search written in. */
+function openSourcing(q){
+  sxDropHide();jdpTrack('source',{q:q});
+  openCart();openCheckout('form');
+  var empty=!cartCount();
+  var h=document.querySelector('#cart .carth h2');if(h&&empty)h.textContent='Ask us to source it';
+  if(empty){var s=document.querySelector('#cart .cosum');if(s)s.style.display='none';
+    var w=document.querySelector('#cart .cohow');if(w)w.style.display='none';
+    var sb=document.getElementById('emailKit');
+    if(sb)sb.innerHTML=sb.innerHTML.replace(/Send my list[^<]*/,'Send my request ');}
+  var n=document.getElementById('coNote');
+  if(n&&q){n.value='Please source: '+q+'\nHow many / colours / when needed: ';
+    var d=n.closest('details');if(d)d.open=true;}
+  var e=document.getElementById('coEmail');if(e&&!e.value)e.focus();else if(n)n.focus();
+}
+
+/* ---- 8. no results: never claim we lack what we stock, always offer a person ------------------
+   The old page kept the WRONG word -- "polo shirt" became "We don't stock polo -- but we have 52
+   for 'shirt'" in a store with 21 polos. The new engine understands "polo shirt"; this page is now
+   only reached for things genuinely not carried, and it says exactly which word that was. */
+function noResultsHtml(q,R){
+  var P=(R&&R.P)||{unknown:[],neutral:[],toks:[]},h='<div class="nrin">';
+  if(P.unknown.length)
+    h+='<h3>We don\u2019t carry \u201c'+esc(P.unknown.join(' '))+'\u201d in this store</h3>';
+  else if(P.neutral.length&&!P.toks.length)
+    h+='<h3>Every piece here carries your logo</h3>'+
+       '<p class="nrdrop">Embroidered or printed, placement shown on every card. What would you like it on?</p>';
+  else h+='<h3>Nothing here matches \u201c'+esc(q)+'\u201d</h3>';
+  var pop=SX_POPULAR.map(function(p){return {q:p,n:sxRun(p).keys.length};}).filter(function(p){return p.n>0;}).slice(0,8);
+  h+='<p class="nrbl">Popular in this store:</p><div class="nrchips">'+pop.map(function(p){
+    return '<button type="button" class="nrchip" data-nrq="'+esc(p.q)+'">'+esc(p.q)+' <i>'+p.n+'</i></button>';}).join('')+'</div>';
+  h+='<div class="nrask"><div><b>Can\u2019t find it?</b><span>We source well beyond what is shown here. '+
+     'Tell us what you need and a real person will quote it \u2014 no obligation.'+
+     (trustOn()?(' Or call '+trustPhoneHtml('inline')):'')+'</span></div>'+
+     '<button type="button" class="nraskb" data-nrask="'+esc(q)+'">Ask us to source it \u2192</button></div></div>';
+  return h;
+}
+function wireNoResults(el){
+  if(!el)return;
+  var ab=el.querySelector('[data-nrask]');if(ab)ab.addEventListener('click',function(){openSourcing(ab.dataset.nrask);});
+  el.querySelectorAll('[data-nrq]').forEach(function(b){b.addEventListener('click',function(){
+    var ts=document.getElementById('topSearch');
+    if(ts){ts.value=b.dataset.nrq;try{ts.dispatchEvent(new Event('input',{bubbles:true}));}catch(e){}}
+    scrollToResults();});});
+  el.querySelectorAll('[data-nrsub]').forEach(function(b){b.addEventListener('click',function(){
+    var ts=document.getElementById('topSearch');
+    if(ts){ts.value='';try{ts.dispatchEvent(new Event('input',{bubbles:true}));}catch(e){}}
+    setCat(b.dataset.nrcat,false);setSub(b.dataset.nrsub);});});
+}
+/* Every render ends by syncing the refine card and the floating Filters button. */
+/* ===== EXPERT PICKS: ADVICE IN EVERY AISLE (Steven, 2026-10-09) =====================================
+   "The constraint is indecision and confusion of product selection. enterprise buyers have no idea what
+   product to choose. they need expert advice and actual smart curation help them make a decision."
+   What a good rep does in person, on the page: narrows a shelf of 10-26 styles to THREE, each for a
+   different situation -- the one we'd put on everybody, the value pick for a whole crew, and the step up
+   for people in front of clients -- says in one line who each is for, and shows the facts that matter
+   side by side. Every fact on a pick card is read from the catalogue (fabric weight, finish, warmth,
+   cuts, colours, the live price); the advice line is ours and claims nothing about the product. A rep is
+   one tap away for anyone who still wants a human to choose.
+   Picks are curated per aisle; a store that does not carry a pick (US range, trimmed kits) falls back to
+   the aisle's own value / middle / premium styles, so every aisle in every store gets advice. */
+var XP={tops:'Polos',layers:'Quarter & Half-Zips',outerwear:'Insulated & Quilted',vests:'Quilted & Puffer',golf:'Golf Polos',
+  hivis:'Safety Vests',carhartt:'Sweatshirts & Hoodies',headwear:'Caps & Hats',bags:'Backpacks',bottoms:'Work Pants'};
+var XP_ROLE={def:'Our pick',val:'Best value',up:'Step up',alt:'Also consider'};
+/* [default, value, step-up], each with the situation it is for. */
+var XPERT={
+  'Polos':{a:'One polo for everyone is the easiest program to run — pick a fabric, then a colour.',p:[
+    ['st_nevadass','The one we’d put on everybody — office, warehouse and site.'],['c3_88181','Outfitting a large crew on a tight budget.'],['cbc_advantage_polo','Sales, management and anyone in front of clients.']]},
+  'Tees':{a:'Cotton for everyday and events; heavier weights hold their shape longer.',p:[
+    ['cs_s05670','A heavier everyday tee that still looks right after many washes.'],['crewtee','Events, giveaways and big crews.'],['nk_tee','A brand your team will actually choose to wear.']]},
+  'Shirts':{a:'Twill reads office; industrial work shirts are built for laundering and the shop floor.',p:[
+    ['shirt','A clean button-up for office and front-desk staff.'],['ashton','Short sleeves for warm shops and summer.'],['st_logan','A modern snap-front for supervisors and client visits.']]},
+  'Quarter & Half-Zips':{a:'The quarter-zip is the corporate default — it layers over a polo and under a jacket.',p:[
+    ['st_treeline','The corporate quarter-zip for a mixed team, in men’s and ladies’ cuts.'],['flux','A crew-wide layer on a budget.'],['cbc_traverse_qz','Client-facing teams, travel and the golf course.']]},
+  'Hoodies':{a:'Hoodies get worn off-shift, which is exactly when your logo is seen most.',p:[
+    ['forge','A heavyweight hoodie that feels like a gift, not a giveaway.'],['vault','A whole crew on a budget.'],['nk_pohoodie','A brand-name hoodie people keep for years.']]},
+  'Crewnecks & Sweatshirts':{a:'Crewnecks are the cleaner, more office-friendly sweatshirt.',p:[
+    ['foundry','A heavyweight crewneck that holds its shape.'],['crew','Big teams and events.'],['cs_l00440','A soft vintage-wash look.']]},
+  'Fleece':{a:'Full-zip fleece is the mid-layer that suits every build on the team.',p:[
+    ['st_avalante','The everyday fleece for a mixed team.'],['tnf_fleece','A North Face fleece people recognise.'],['cbc_evoke_fleece','A fleece that reads as a jacket — a service-milestone gift.']]},
+  'Softshell Jackets':{a:'A softshell is the three-season jacket: stretch, wind-resistant, light warmth.',p:[
+    ['st_cascades','The three-season jacket we’d put on everybody.'],['softshell','A crew-wide jacket on a budget.'],['st_cruise','A sharp shell for client-facing staff.']]},
+  'Shells & Rainwear':{a:'Shells keep out wind and rain and layer over a hoodie or fleece.',p:[
+    ['st_axis','A light waterproof shell for most teams.'],['st_nautilusshell','Rain cover for a whole crew on a budget.'],['st_stratus','A technical shell for staff who work outside all day.']]},
+  'Insulated & Quilted':{a:'Start with how cold they’ll be: quilted jackets cover cold mornings and most Canadian winters with a layer underneath.',p:[
+    ['st_nautilusjkt','The everyday quilted jacket — warm without bulk.'],['cs_l01025','A warm work jacket for a crew on a budget.'],['st_stavanger','Real cold, and a jacket that reads as a serious gift.']]},
+  'Shirt Jackets & Shackets':{a:'A shacket wears as a shirt indoors and a light jacket outdoors.',p:[
+    ['st_tundrashacket','The quilted shacket most offices are wearing now.'],['st_highlandshacket','The lightest, lowest-cost shacket.'],['st_oxide','Sherpa-lined canvas — workwear people buy for themselves.']]},
+  'Winter Parkas & 3-in-1':{a:'For deep winter. A 3-in-1 gives a shell, a liner and both together — three seasons in one order.',p:[
+    ['st_vortex','A 3-in-1 parka that covers the whole year.'],['cs_l01080','Deep-winter warmth at the best price.'],['st_denali','The warmest parka we sell — for outdoor crews and milestone gifts.']]},
+  'Quilted & Puffer':{a:'Vests stay on indoors, so your logo is seen all day.',p:[
+    ['vest','The vest we’d put on everybody.'],['chill','A whole team on a budget.'],['st_stavangervest','A warmer, packable vest for outdoor staff.']]},
+  'Fleece & Softshell':{a:'',p:[['st_avalantevest','A soft fleece vest for office layering.'],['cs_l00915','Sherpa-lined canvas for the yard.'],['ch_104277','Carhartt’s classic sherpa vest.']]},
+  'Hi-Vis Vests':{a:'A tear-away vest is the standard for crews: safer if it snags, and the logo goes on the chest tape.',p:[
+    ['tvest','The vest we recommend for most crews.'],['tv3','Visitors, events and occasional use.'],['surveyor','Supervisors and surveyors who need pockets.']]},
+  'Hi-Vis T-Shirts':{a:'Polyester wicks sweat in summer; cotton is softer for all-day wear.',p:[
+    ['tee','A cotton traffic tee for all-day wear.'],['tt1','A light polyester tee for hot days.'],['tt4','Long sleeves for sun and cooler mornings.']]},
+  'Sweatshirts & Hoodies':{a:'',p:[['hoodie','A hi-vis hoodie for cool mornings on site.'],['cs_s05985','A light hooded hi-vis layer.'],['cs_l01310','An insulated hi-vis softshell for real cold.']]},
+  'Hi-Vis Jackets':{a:'Match the jacket to the season: quilted for cold, softshell for spring and fall, 3-in-1 for all year.',p:[
+    ['tj2','A hi-vis softshell for spring and fall.'],['freezer','Quilted warmth for a crew on a budget.'],['tj3','A 3-in-1 that covers the whole year.']]},
+  'Winter Parkas':{a:'',p:[['cs_l01250','An insulated hi-vis parka for deep winter.'],['tp1','Winter warmth at the best price.'],['tp6','A 6-in-1 for crews out in every season.']]},
+  'Work Shirts':{a:'',p:[['rk_sp24','An industrial work shirt built for laundering.'],['shirt','A clean twill button-up on a budget.'],['rk_sc30','Wrinkle-resistant cotton for supervisors.']]},
+  'Canvas & Shackets':{a:'',p:[['cs_l00910','A canvas bomber for the yard.'],['st_highlandshacket','The lightest, lowest-cost shacket.'],['st_oxide','Sherpa-lined canvas — the one people ask for.']]},
+  'Parkas':{a:'',p:[['cs_l01100','A heavy-duty parka for outdoor crews.'],['cs_l01080','Deep-winter warmth at the best price.'],['cs_l01100','—']]},
+  'Vests':{a:'',p:[['st_basecampvest','A warm quilted vest for outdoor crews.'],['cs_l01040','A warm vest at the best price.'],['cs_l00915','Sherpa-lined canvas for the yard.']]},
+  'T-Shirts':{a:'',p:[['ch_k87','Carhartt’s classic heavyweight pocket tee.'],['ch_106020','The lowest-cost Carhartt tee.'],['ch_106652','A moisture-managing FORCE tee for hot work.']]},
+  'Jackets & Coats':{a:'',p:[['ch_102208','A lightweight insulated Carhartt for most of the year.'],['ch_102199','A Rain Defender softshell.'],['ch_106674','The heavy insulated duck coat for deep winter.']]},
+  'Pants & Bibs':{a:'Pants carry no logo.',p:[['ch_102291','Rugged Flex canvas that moves with you.'],['ch_b11','Classic washed-duck work pants.'],['ch_102776','A duck bib overall for full coverage.']]},
+  'Caps & Hats':{a:'Structured caps hold a logo best; unstructured ones are softer and more casual.',p:[
+    ['at_joshua','A classic structured cap that holds your logo well.'],['at_startfive','Big teams and events.'],['nk_fb5677','A brand-name cap people keep.']]},
+  'Trucker & Snapback':{a:'',p:[['at_sonic','A mesh-back trucker for summer.'],['cs_h08205','Big teams and events.'],['ch_105298','Carhartt’s canvas mesh-back cap.']]},
+  'Beanies & Toques':{a:'',p:[['cs_h08010','A fleece-lined toque for real cold.'],['cs_h08000','A cuffed toque for big crews.'],['ch_a18','The Carhartt watch hat everyone recognises.']]},
+  'Backpacks':{a:'One size fits everyone, so a bag is the easiest order for a whole team.',p:[
+    ['st_deluge','A waterproof laptop backpack for commuters.'],['nk_dh7709','A brand-name backpack at a lower price.'],['ch_bp28','Carhartt’s dual-compartment pack for people who carry everything.']]},
+  'Duffels & Tool Bags':{a:'',p:[['st_nautilus70','A waterproof duffel that also carries as a backpack.'],['nk_dh7710','A brand-name gym duffel at a lower price.'],['st_nautilus110','The big one for a week away on site.']]},
+  'Coolers & Lunch':{a:'',p:[['st_magellan30','A 30-can cooler for team events.'],['ch_lunch','The everyday lunch cooler.'],['st_saturna24','A roll-top cooler backpack.']]},
+  'Work Pants':{a:'Pants carry no logo. Pick by fabric: poly-cotton for laundering, canvas for durability.',p:[
+    ['ch_102291','Rugged Flex canvas that moves with you.'],['rk_pt20','An industrial pant built for uniform laundering.'],['dk_874x','The classic Dickies 874.']]},
+  'Joggers & Sweatpants':{a:'',p:[['cs_p00587','A soft everyday sweatpant.'],['cs_p00595','The lowest-cost sweatpant.'],['cs_p00865','A performance French-terry jogger.']]}
+};
+function xpFacts(it){
+  var f=[],fb=it.fab||{},w=warmOf(it);
+  if(w&&WARM_LAB[w.band])f.push(WARM_LAB[w.band]);
+  if(fb.weight)f.push(String(fb.weight).split('·')[0].trim());
+  if(fb.finishes&&fb.finishes.length)f.push(String(fb.finishes[0]).split('/')[0]);
+  if(hasLadies(it))f.push('Men’s & ladies’');else if(it.unisex)f.push('Unisex');
+  var n=(it.cols||[]).length;if(n>1)f.push(n+' colours');
+  return f.slice(0,4);
+}
+function xpPicks(cat,sub){
+  var shelf=((BUCKETS[cat]||{})[sub]||[]).filter(function(k){var it=BYKEY[k];return it&&it.layer!=='promo'&&!/\bdog\b|leash|collar|throw|blanket/i.test(it.name||'');});
+  if(shelf.length<3)return [];
+  /* Safety Vests (Hi-Vis & Safety) is the same shelf as Hi-Vis Vests (Vests) */
+  var cfg=XPERT[sub]||(sub==='Safety Vests'?XPERT['Hi-Vis Vests']:null),used={},out=[],roles=['def','val','up'];
+  var byP=shelf.map(function(k){return {k:k,p:sxPrice(k)};}).sort(function(a,b){return a.p-b.p;}).map(function(x){return x.k;});
+  roles.forEach(function(r,i){
+    var c=cfg&&cfg.p[i],k=(c&&c[1]!=='\u2014'&&shelf.indexOf(c[0])>=0&&!used[c[0]])?c[0]:null,why=k?c[1]:'';
+    if(!k){var rest=byP.filter(function(x){return !used[x];});if(!rest.length)return;
+      k=r==='val'?rest[0]:(r==='up'?rest[rest.length-1]:rest[Math.floor(rest.length/2)]);
+      why=r==='val'?'The lowest price on this shelf.':(r==='up'?'A step up in finish and fabric.':'The middle of this shelf on price.');}
+    used[k]=1;out.push({k:k,role:r,why:why,p:sxPrice(k)});
+  });
+  /* LABELS FOLLOW PRICE. "Best value" must be cheaper than our pick and "Step up" dearer -- otherwise it
+     is "Also consider". Shown cheapest to dearest, so price reads as a scale. */
+  var d=out.filter(function(x){return x.role==='def';})[0];
+  if(d)out.forEach(function(x){if(x.role==='val'&&!(x.p<d.p))x.role='alt';if(x.role==='up'&&!(x.p>d.p))x.role='alt';});
+  out.sort(function(a,b){return a.p-b.p;});
+  return out.length===3?out:[];
+}
+function xpSubs(cat){return subNames(cat).filter(function(s){return xpPicks(cat,s).length===3;});}
+function xpCardHtml(x){
+  var it=BYKEY[x.k],o=null;
+  try{o=overlayHtml(it,vmOf(x.k),browseColour(x.k,it),'front',browseCols(it),browsePlaces(it));}catch(e){}
+  var facts=xpFacts(it);
+  return '<div class="xpc xpc-'+x.role+'">'+
+    '<div class="xprole">'+esc(XP_ROLE[x.role])+'</div>'+
+    '<button type="button" class="xpimg" data-xpopen="'+esc(x.k)+'" aria-label="See '+esc(it.name)+'">'+(o?('<img class="g" src="'+o.g+'" alt="" loading="lazy">'+o.lg):'')+'</button>'+
+    '<div class="xpb"><b class="xpn">'+esc(it.name)+'</b><span class="xpbr">'+esc(it.brand||it.sku||'')+'</span>'+
+      '<div class="xpp"><b>'+money(x.p)+'</b><i>/pc at '+moq()+', logo included</i></div>'+
+      '<div class="xpfor"><span>Choose it for</span>'+esc(x.why)+'</div>'+
+      (facts.length?('<ul class="xpf">'+facts.map(function(f){return '<li>'+esc(f)+'</li>';}).join('')+'</ul>'):'')+
+      '<div class="xpbtns"><button type="button" class="xpadd" data-xpadd="'+esc(x.k)+'">+ Add to quote</button>'+
+        '<button type="button" class="xpsee" data-xpopen="'+esc(x.k)+'">Colours & details</button></div>'+
+    '</div></div>';
+}
+/* ===== THE JACKET ADVISOR (Steven, 2026-10-09: "dive deeper ... dive deep into jackets. enterprise buyers
+   have no idea what product to choose.") ================================================================
+   How companies actually buy jackets, from the buyer guides we read (Brandsauce, Quality Imprint, Arklavo,
+   2026): they start from the JOB -- who wears it, where, how cold, how wet -- not from a product; they run
+   one core jacket for the biggest group plus one per other role ("two or three approved choices with
+   different jobs"); and the deciding facts are warmth, water-repellent vs waterproof, men's AND women's
+   cuts, extended sizes, and price per person. So the Jackets aisle asks exactly those questions -- who,
+   how cold, how wet, budget -- and answers with a PROGRAM: one recommended jacket per role, each with the
+   reasons it fits that role (all read from the catalogue: warmth, insulation, waterproofing, cuts, size
+   run, 3-in-1 combinations, live price), two alternatives, and one tap to put the whole program on a quote. */
+var JA_ROLES=[
+  {id:'office',lab:'Office & client-facing',sub:'Sales, managers, front desk'},
+  {id:'mixed',lab:'In and out all day',sub:'Warehouse, drivers, techs'},
+  {id:'outdoor',lab:'Outdoor crews',sub:'Yard, construction, grounds'},
+  {id:'site',lab:'Site with hi-vis rules',sub:'Traffic, utilities, road crews'}];
+var JA_COLD=[{id:1,lab:'Spring & fall',sub:'Cool, not freezing'},{id:2,lab:'Canadian winter',sub:'Commutes, cold mornings'},{id:3,lab:'Outdoors in deep winter',sub:'Hours below freezing'}];
+var JA_RAIN=[{id:0,lab:'Mostly dry'},{id:1,lab:'Rain is part of the job'}];
+var JA_BUD=[{id:'a',lab:'Under $90',lo:0,hi:90},{id:'b',lab:'$90 – $140',lo:90,hi:140},{id:'c',lab:'$140+',lo:140,hi:1e9},{id:'x',lab:'Best fit, any price',lo:0,hi:1e9}];
+var JA={roles:[],cold:0,rain:-1,bud:''};
+try{var _ja=JSON.parse(sessionStorage.getItem('jdp_ja')||'null');if(_ja)JA=_ja;}catch(e){}
+function jaSave(){try{sessionStorage.setItem('jdp_ja',JSON.stringify(JA));}catch(e){}}
+function jaPool(){
+  var out={},add=function(k){var it=BYKEY[k];if(it&&it.layer!=='promo'&&!/\bvest\b/i.test(it.name))out[k]=1;};
+  Object.keys(BUCKETS.outerwear||{}).forEach(function(s){(BUCKETS.outerwear[s]||[]).forEach(add);});
+  ['Hi-Vis Jackets','Winter Parkas'].forEach(function(s){((BUCKETS.hivis||{})[s]||[]).forEach(add);});
+  (((BUCKETS.carhartt||{})['Jackets & Coats'])||[]).forEach(add);
+  return Object.keys(out);
+}
+/* warmth 1 shell, 2 insulated, 3 winter -- from the catalogue's own warmth data, else from what the
+   product's NAME says it is (a "Winter Traffic Parka" is a winter jacket). 0 = unknown, never guessed. */
+function jaWarm(it){
+  var b=(it.warm||{}).band;if(b)return {uninsulated:1,insulated:2,winter:3}[b]||0;
+  var n=(it.name||'').toLowerCase();
+  if(/parka|winter|3-in-1|5-in-1|6-in-1|insulated|bib/.test(n))return /parka|winter|in-1/.test(n)?3:2;
+  if(/quilted|puffer|down|thermo|freezer|sherpa|lined|coat|hybrid/.test(n))return 2;
+  if(/soft ?shell|shell|rain|wind/.test(n))return 1;
+  return 0;
+}
+function jaFlags(it){var w=it.warm||{},f=(w.flags||[]).slice(),fin=((it.fab||{}).finishes||[]).join(' ').toLowerCase();
+  if(/waterproof/.test(fin)&&f.indexOf('waterproof')<0)f.push('waterproof');return f;}
+function jaHivis(it){return itemCategory(it)==='hivis';}
+function jaRugged(it){var n=(it.name||'').toLowerCase(),b=String(it.brand||it.sku||'')+' '+(it.line||''),f=((it.fab&&it.fab.finishes)||[]).join(' ');return /heavy-duty|canvas|duck|freezer|bomber|utility/.test(n)||/Rugged Wear|Carhartt/.test(b)||/abrasion/i.test(f);}
+function jaOffice(it){return !jaHivis(it)&&!jaRugged(it);}
+function jaMaxSize(it){var s=itemSizes(it,'mens');return s[s.length-1]||'';}
+function jaBig(it){return /^[4-6]XL$/.test(jaMaxSize(it));}
+function jaScore(it,role,cold,rain,bud,p){
+  var w=jaWarm(it),f=jaFlags(it),s=0,sys=!!(it.sys||/in-1/i.test(it.name));
+  if(role==='site'){if(!jaHivis(it))return null;}else if(jaHivis(it))return null;
+  if(role==='office'&&!jaOffice(it))return null;
+  if(!w)return null;
+  if(w<cold&&!(sys&&cold<=3&&w>=2))return null;            // never under-warm
+  s+=(w===cold)?40:(w===cold+1?12:-10);
+  if(sys&&cold>=2)s+=10;                                     // a 3-in-1 also covers the shoulder seasons
+  if(rain===1){if(f.indexOf('waterproof')>=0)s+=28;else if(f.indexOf('water-repellent')>=0)s+=6;else return null;}
+  else if(f.indexOf('water-repellent')>=0||f.indexOf('waterproof')>=0)s+=4;
+  if(f.indexOf('windproof')>=0)s+=4;
+  if(role!=='site'&&hasLadies(it))s+=(role==='outdoor'?8:16);   // a matched women's cut
+  if(jaBig(it))s+=8;
+  if(role==='outdoor'&&jaRugged(it))s+=26;   // crews wear it hard: durability outweighs a matched women's cut
+  if(role==='outdoor'&&/Cutter & Buck|North Face/.test(String(it.brand||it.sku||'')))s-=18;   // lifestyle brands suit the office, not the yard
+  if(role==='mixed'&&jaOffice(it))s+=6;
+  var B=JA_BUD.filter(function(b){return b.id===bud;})[0]||JA_BUD[3];
+  if(p>=B.lo&&p<B.hi)s+=30;else if(p>=B.hi)s-=Math.min(60,(p-B.hi)/3);else s+=8;
+  return s;
+}
+function jaRank(role,o){
+  var pool=jaPool(),rows=[];o=o||{cold:JA.cold||2,rain:JA.rain<0?0:JA.rain,bud:JA.bud||'x'};
+  pool.forEach(function(k){var it=BYKEY[k],p=sxPrice(k),sc=jaScore(it,role,o.cold,o.rain,o.bud,p);
+    if(sc!=null)rows.push({k:k,s:sc,p:p});});
+  rows.sort(function(a,b){return (b.s-a.s)||(a.p-b.p);});
+  return rows;
+}
+function jaWhy(it,role){
+  var w=jaWarm(it),f=jaFlags(it),out=[],ws=it.warm||{};
+  var wl={1:'Uninsulated shell — layers over a hoodie or fleece',2:'Insulated'+(ws.ins?(' ('+ws.ins+(ws.gsm?(', '+ws.gsm):'')+')'):''),3:'Winter weight'+(ws.ins?(' ('+ws.ins+(ws.gsm?(', '+ws.gsm):'')+')'):'')}[w];
+  if(it.sys&&it.sys.ways)out.push(it.sys.ways+' ways to wear: '+(it.sys.combos||[]).slice(0,3).join(' · ').toLowerCase());else if(wl)out.push(wl);
+  if(f.indexOf('waterproof')>=0)out.push('Waterproof'+(ws.wp?(' ('+ws.wp+')'):'')+(f.indexOf('sealed seams')>=0?', sealed seams':''));
+  else if(f.indexOf('water-repellent')>=0)out.push('Water-repellent — sheds light rain');
+  if(f.indexOf('windproof')>=0)out.push('Windproof');
+  if(role!=='site')out.push(hasLadies(it)?('Men’s and women’s cuts · up to '+jaMaxSize(it)):('Men’s / unisex cut only · up to '+jaMaxSize(it)));
+  else out.push('CSA hi-vis · up to '+jaMaxSize(it));
+  return out.slice(0,4);
+}
+var JA_PICK={};
+function jaProgram(){
+  return JA.roles.map(function(role){
+    var rows=jaRank(role);if(!rows.length)return {role:role,none:true};
+    var main=(JA_PICK[role]&&rows.filter(function(r){return r.k===JA_PICK[role];})[0])||rows[0];
+    var rest=rows.filter(function(r){return r.k!==main.k;});
+    var cheaper=rest.filter(function(r){return r.p<main.p-0.5;})[0],dearer=rest.filter(function(r){return r.p>main.p+0.5&&r!==cheaper;})[0];
+    var alts=[];if(cheaper)alts.push({r:cheaper,lab:'Lower cost'});if(dearer)alts.push({r:dearer,lab:'Step up'});
+    if(alts.length<2&&rest[0]&&alts.every(function(a){return a.r!==rest[0];}))alts.push({r:rest[0],lab:'Also consider'});
+    /* honest budget note: never let a buyer think we ignored the number they gave us */
+    var B=JA_BUD.filter(function(b){return b.id===JA.bud;})[0],over='';
+    if(B&&B.id!=='x'&&main.p>=B.hi){
+      var fit=rows.filter(function(r){return r.p>=B.lo&&r.p<B.hi;})[0];
+      over=fit?('Above your '+B.lab.toLowerCase()+' budget — '+(alts.some(function(a){return a.r===fit;})?'the lower-cost option fits it.':esc(BYKEY[fit.k].name)+' fits it, with fewer of the features above.'))
+              :('Above your '+B.lab.toLowerCase()+' budget — nothing in the store below it is warm and '+(JA.rain>0?'dry':'protective')+' enough for these conditions.');
+    }
+    return {role:role,main:main,alts:alts.slice(0,2),over:over};
+  });
+}
+function jaChips(name,opts,cur,multi){
+  return opts.map(function(o){var on=multi?(cur.indexOf(o.id)>=0):(cur===o.id);
+    return '<button type="button" class="jach'+(on?' on':'')+'" data-ja="'+name+'" data-v="'+esc(String(o.id))+'" aria-pressed="'+on+'">'+
+      '<b>'+esc(o.lab)+'</b>'+(o.sub?('<i>'+esc(o.sub)+'</i>'):'')+'</button>';}).join('');
+}
+/* ===== AN ADVISOR IN EVERY CATEGORY (Steven, 2026-10-09 11:47: "I would put an advisor inside each major
+   apparel category, rather than making one company-wide questionnaire the primary experience ... dive deeper
+   into each category ... like you did with jackets.") ========================================================
+   One engine, one look, every aisle. Each major apparel category carries its own short questionnaire built
+   from how buyers actually choose THAT product (the research is cited on each config below), and answers the
+   way the jacket advisor does: one recommended piece for each group being outfitted, the reasons it fits
+   (read from the catalogue, never invented), a lower-cost and a step-up alternative labelled by real price,
+   an honest note when the pick is over the budget given, and one tap to put the lot on the quote.
+   The budget question is the same everywhere but its numbers are not: the three bands are cut from the live
+   prices of the pieces that qualify in THAT aisle and THIS store's currency, so "under $X" is always a real
+   price point here, never a guess. */
+var CA={};try{CA=JSON.parse(sessionStorage.getItem('jdp_ca')||'{}')||{};}catch(e){CA={};}
+function caSave(){try{sessionStorage.setItem('jdp_ca',JSON.stringify(CA));}catch(e){}}
+var CA_PICK={};
+function caSt(id){return CA[id]||(CA[id]={});}
+function caNice(x){return x<40?Math.max(5,Math.round(x/5)*5):(x<200?Math.round(x/10)*10:Math.round(x/25)*25);}
+function caBands(keys){
+  var p=keys.map(function(k){return sxPrice(k);}).filter(function(x){return x>0;}).sort(function(a,b){return a-b;});
+  if(p.length<4)return null;
+  var a=caNice(p[Math.floor(p.length/3)]),b=caNice(p[Math.floor(p.length*2/3)]);
+  if(b<=a)b=caNice(a*1.4);
+  return [{id:'a',lab:'Under $'+a,lo:0,hi:a},{id:'b',lab:'$'+a+' – $'+b,lo:a,hi:b},{id:'c',lab:'$'+b+'+',lo:b,hi:1e9},{id:'x',lab:'Best fit, any price',lo:0,hi:1e9}];
+}
+function caBud(cfg,A){var bs=caBands(caPool(cfg,A));return bs?(bs.filter(function(b){return b.id===A.bud;})[0]||null):null;}
+function caBudScore(p,B){if(!B||B.id==='x')return 0;if(p>=B.lo&&p<B.hi)return 30;if(p>=B.hi)return -Math.min(60,(p-B.hi)/B.hi*120);return 8;}
+/* shared catalogue readers -- every reason a card gives comes from one of these */
+function caFab(it){var f=it.fab;if(!f)return '';if(typeof f==='string')return f.toLowerCase();
+  return ((f.mix||[]).map(function(x){return x[0];}).join(' ')+' '+(f.finishes||[]).join(' ')+' '+(f.knit||'')).toLowerCase();}
+/* the fibre mix, from the structured field or parsed out of a written one ("52% cotton · 45% recycled
+   polyester") -- a guess from the bare word "polyester" claimed a cotton-led polo wicks sweat */
+function caMix(it){var f=it.fab;if(f&&f.mix&&f.mix.length)return f.mix;
+  if(typeof f==='string'){var m,re=/(\d{1,3})\s*%\s*([a-z][a-z \-]*?)(?=\s*(?:·|\/|,|$|\d))/gi,out=[];while((m=re.exec(f)))out.push([m[2].trim(),+m[1]]);return out.length?out:null;}
+  return null;}
+function caPoly(it){var m=caMix(it);if(!m)return /polyester|performance/.test(caFab(it))?80:-1;var t=0;m.forEach(function(x){if(/polyester|nylon|spandex|elastane/i.test(x[0]))t+=x[1];});return t;}
+function caCotton(it){var m=caMix(it);if(!m)return /cotton/.test(caFab(it))?70:-1;var t=0;m.forEach(function(x){if(/cotton/i.test(x[0]))t+=x[1];});return t;}
+function caPerf(it){var n=(it.name||'').toLowerCase(),f=caFab(it);if(/performance|wick|dri-fit|force|tricot/.test(n+' '+f))return true;return caPoly(it)>=60;}
+function caGsm(it){var f=it.fab,w=(f&&f.weight)?String(f.weight):(typeof f==='string'?f:'');var m=/(\d{2,3})\s*gsm/i.exec(w);return m?+m[1]:0;}
+function caWeightTxt(it){var f=it.fab;return (f&&f.weight)?String(f.weight).split('·')[0].trim():'';}
+function caMixTxt(it){var m=(it.fab&&it.fab.mix&&it.fab.mix.length)?it.fab.mix:null;if(m)return m.slice(0,2).map(function(x){return x[1]+'% '+x[0].toLowerCase();}).join(' / ');var f=it.fab;return (typeof f==='string')?(f.charAt(0).toUpperCase()+f.slice(1)):'';}
+function caFin(it,re){var f=it.fab;return !!(f&&f.finishes&&f.finishes.some(function(x){return re.test(x);}))||re.test(caFab(it));}
+function caBrand(it){return String(it.brand||'');}
+function caLuxe(it){return /Cutter & Buck|Nike|adidas|North Face|Carhartt/i.test(caBrand(it));}
+function caClass(it){var m=/Z96 Class (\d)/.exec(it.csa||'');return m?+m[1]:0;}
+function caCutsTxt(it){var mx=jaMaxSize(it);return hasLadies(it)?('Men’s and women’s cuts'+(mx?(' · up to '+mx):'')):((it.unisex?'Unisex cut':'Men’s / unisex cut')+(mx?(' · up to '+mx):''));}
+function caInCats(it,list){var hit=false;list.forEach(function(p){if(((BUCKETS[p[0]]||{})[p[1]]||[]).indexOf(it.key)>=0)hit=true;});return hit;}
+function caKeys(list){var out=[],seen={};list.forEach(function(p){((BUCKETS[p[0]]||{})[p[1]]||[]).forEach(function(k){var it=BYKEY[k];if(!it||seen[k]||it.layer==='promo')return;if(/\bdog\b|leash|collar|throw|blanket/i.test(it.name||''))return;seen[k]=1;out.push(k);});});return out;}
+/* ---- the engine ---- */
+/* in the Carhartt aisle the advice stays Carhartt -- that is the shelf the buyer chose */
+/* NOT IN THE ADVICE (Steven, 2026-10-14: "Carhartt, Nike, Adidas, North Face should not be in the advisor
+   recommendations"). Those brands stay in the store to browse; the advisor recommends from the program brands. With
+   no Carhartt left to recommend, the Carhartt aisle no longer opens with an advisor. */
+var CA_NOREC=/carhartt|nike|adidas|north face/i;
+function caRecOk(k){var it=BYKEY[k]||{};return !CA_NOREC.test((it.brand||'')+' '+(it.sku||''));}
+function caPool(cfg,A,role){return (cfg.pool(A,role)||[]).filter(caRecOk);}
+function caCfg(){
+  if(VIEW.cat==='carhartt')return null;   /* no advisor on the Carhartt shelf: Carhartt is not recommended (2026-10-14) */
+  var c=VIEW.cat,s=VIEW.sub||'all';
+  for(var i=0;i<CADV.length;i++){var g=CADV[i];if(g.applies(c,s)&&caPool(g,caSt(g.id)).length>=3)return g;}
+  return null;
+}
+function caQs(cfg,A){
+  var qs=(cfg.qs||[]).filter(function(q){return !q.when||q.when(A);}).map(function(q){
+    if(!q.optsFor)return q;var o=q.optsFor(A)||[],v=A[q.id];
+    /* an answer the new option list no longer offers (e.g. freezer after warehouse was un-ticked) falls back to the default */
+    if(v!=null&&v!==''&&!o.some(function(x){return String(x.id)===String(v);}))A[q.id]=q.def!=null?String(q.def):'';
+    return Object.assign({},q,{opts:o});});
+  /* NO BUDGET QUESTION (Steven, 2026-10-09 14:19: "we do not want Your budget -- you can show lower and more
+     premium options after you know what they need"). The advisor recommends the best fit for the job, then
+     shows a lower-cost and a premium alternative with what each gains or gives up. */
+  return qs;
+}
+function caReady(cfg,A){return caQs(cfg,A).every(function(q){var v=A[q.id];return q.multi?(v&&v.length):(v!=null&&v!=='');});}
+/* roles are usually the groups the buyer picked; a KIT advisor (golf) returns the pieces of the kit instead */
+function caRoles(cfg,A){if(cfg.roles){try{return cfg.roles(A)||['all'];}catch(e){return ['all'];}}return cfg.who?((A.who||[]).slice()):['all'];}
+function caRank(cfg,role,A){
+  var B=caBud(cfg,A),rows=[],pool=caPool(cfg,A,role);
+  /* with no budget question, "best fit" must also mean a sensible price: a gentle pull toward the middle of
+     the shelf, so the premium piece is offered as the step up rather than defaulted to. Gifts are exempt. */
+  var ps=pool.map(function(k){return sxPrice(k);}).filter(function(x){return x>0;}).sort(function(a,b){return a-b;}),med=ps[Math.floor(ps.length/2)]||0;
+  pool.forEach(function(k){var it=BYKEY[k];if(!it)return;var p=sxPrice(k),s=null;
+    try{s=cfg.score(it,A,role,p);}catch(e){s=null;}
+    if(s==null)return;
+    var val=(role!=='gift'&&med>0&&p>med)?Math.min(24,(p-med)/med*20):0;
+    rows.push({k:k,s:s+caBudScore(p,B)-val,p:p});});
+  rows.sort(function(a,b){return (b.s-a.s)||(a.p-b.p);});
+  return rows;
+}
+/* SPEED (Steven, 2026-10-13 19:45: "selecting the advisor answers and our recommendation is laggy"). A recommendation is
+   a pure function of the answers, the buyer's own swaps, the aisle and the market -- so it is computed once per answer set
+   and remembered. While the buyer reads the LAST question, every possible final answer is worked out in idle time, so the
+   result appears the instant they tap. */
+var CA_MEMO={},CA_MEMO_N=0;
+function caMemoKey(cfg,A){var a={};for(var k in A)if(A.hasOwnProperty(k)&&k.charAt(0)!=='_')a[k]=A[k];
+  var ck={};for(var p in CA_PICK)if(p.indexOf(cfg.id+'.')===0)ck[p]=CA_PICK[p];
+  return cfg.id+'|'+(VIEW.cat||'')+'|'+((typeof isUS==='function'&&isUS())?'us':'ca')+'|'+JSON.stringify(a)+'|'+JSON.stringify(ck);}
+function caProgram(cfg,A){var key=caMemoKey(cfg,A),hit=CA_MEMO[key];
+  if(!hit){if(CA_MEMO_N>80){CA_MEMO={};CA_MEMO_N=0;}hit=CA_MEMO[key]=caProgramRaw(cfg,A);CA_MEMO_N++;}
+  return hit.map(function(x){return Object.assign({},x);});}   // callers label their copies; the memo stays clean
+function caWarm(cfg,A){var L=caQs(cfg,A),last=L[L.length-1];if(!last||last.multi)return;
+  var run=function(){(last.opts||[]).forEach(function(o){var B=Object.assign({},A);B[last.id]=String(o.id);
+    if(caReady(cfg,B)){try{caProgram(cfg,B);}catch(e){}}});};
+  if(window.requestIdleCallback)requestIdleCallback(run,{timeout:600});else setTimeout(run,60);}
+function caProgramRaw(cfg,A){
+  return caRoles(cfg,A).map(function(role){
+    var rows=caRank(cfg,role,A);if(!rows.length&&!(cfg.curate&&VIEW.cat!=='carhartt'&&(function(){try{var c=cfg.curate(A,role);return c&&c.pick&&BYKEY[c.pick]&&caPool(cfg,A,role).indexOf(c.pick)>=0&&(!cfg.curOk||cfg.curOk(BYKEY[c.pick],A));}catch(e){return false;}})()))return {role:role,none:true};
+    /* CARHARTT IS THE PREMIUM OPTION (Steven, 2026-10-09 16:38: "note carhartt is a more premium option"). Outside
+       the Carhartt aisle it is never the default pick; when a Carhartt piece fits the job it is offered as the
+       Premium step up. In the Carhartt aisle the buyer chose the brand, so it leads there. */
+    var inCh=VIEW.cat==='carhartt',isCh=function(r){return isCarhartt(BYKEY[r.k]);};
+    var mine=CA_PICK[cfg.id+'.'+role],core=inCh?rows:rows.filter(function(r){return !isCh(r);});
+    /* CURATED PICKS (jackets, 2026-10-12): a hand-picked trio per answer wins over the score whenever this store can
+       show it and it suits the buyer; anything missing falls back to the ranking below, slot by slot. */
+    var cur=null;if(cfg.curate&&!inCh){try{cur=cfg.curate(A,role);}catch(e){cur=null;}}
+    if(cur){var inPool={};caPool(cfg,A,role).forEach(function(k){inPool[k]=1;});
+      var okK=function(k){return !!(k&&inPool[k]&&BYKEY[k]&&(!cfg.curOk||cfg.curOk(BYKEY[k],A)));},
+          rowOf=function(k){return rows.filter(function(r){return r.k===k;})[0]||{k:k,s:0,p:sxPrice(k)};};
+      var ck=okK(cur.pick)?cur.pick:null;
+      if(!ck&&cur.pick&&typeof JA_FAMILY!=='undefined'&&JA_FAMILY[cur.pick]&&okK(JA_FAMILY[cur.pick][0]))ck=JA_FAMILY[cur.pick][0];   // the twin with the cut they need
+      /* still nothing? the first NAMED option that fits steps up -- it was chosen for the same job (e.g. a freezer
+         jacket with a women's cut), which a scored stranger from the ranking would not be */
+      /* a job-specific row (the freezer range) never gives way to an unrelated jacket: if nothing in it has the cut the
+         buyer asked for, keep the right garment and say so */
+      if(!ck&&cur.only&&inPool[cur.pick]&&BYKEY[cur.pick]&&!(cur.alts||[]).some(function(a){return okK(a.k);})){ck=cur.pick;
+        cur=Object.assign({},cur,{alts:[],note:((cur.note?cur.note+' ':'')+'This range comes in a men’s / unisex cut only — no matching women’s cut.')});}
+      var stepUp='';if(!ck&&cur.alts){var nx=cur.alts.filter(function(a){return okK(a.k);})[0];if(nx){ck=nx.k;stepUp=nx.why||'';cur=Object.assign({},cur,{alts:cur.alts.filter(function(a){return a.k!==nx.k;})});}}
+      var cm=(mine&&rows.filter(function(r){return r.k===mine;})[0])||(mine&&okK(mine)?rowOf(mine):null);
+      /* the buyer swapped in one of the named options: it leads, and our pick stays one tap away as "Our pick" */
+      if(ck&&cm&&cm.k!==ck&&cur.alts&&cur.alts.some(function(a){return a.k===cm.k;})){var was=cur.alts.filter(function(a){return a.k===cm.k;})[0];
+        cur={pick:cm.k,ang:was.why||'',note:cur.note,only:cur.only,alts:[{k:ck,lab:'Our pick',why:cur.ang}].concat(cur.alts.filter(function(a){return a.k!==cm.k;}))};ck=cm.k;}
+      if(ck&&(!cm||cm.k===ck)){var m0=rowOf(ck);
+        var g0=Math.max(3,m0.p*0.05),slot=function(k,lo){if(k===null)return null;var r=okK(k)?rowOf(k):undefined;if(r&&r.p>0&&(lo?r.p<=m0.p-g0:r.p>=m0.p+g0))return r;return undefined;};   /* a real price step: hand-picked options may sit closer (5%, $3) than scored ones (10%) */
+        var lo0=slot(cur.lo,true),hi0=slot(cur.hi,false),rest0=rows.filter(function(r){return r.k!==m0.k;}),gap0=Math.max(3,m0.p*0.1),
+            restC0=rest0.filter(function(r){return !isCh(r);});
+        if(lo0===undefined)lo0=restC0.filter(function(r){return r.p<=m0.p-gap0;})[0]||null;
+        if(hi0===undefined)hi0=rest0.filter(function(r){return isCh(r)&&r.p>m0.p+0.5;})[0]||rest0.filter(function(r){return r.p>=m0.p+gap0&&r!==lo0;})[0]||null;
+        var alts0=[];
+        /* LABELLED ALTERNATIVES (Steven, 2026-10-14): an enterprise buyer chooses between purposes -- "Polished",
+           "Weather-ready", "Value", "Heavy-duty" -- not just a cheaper and a dearer neighbour. A row that names its
+           alternatives keeps them in its order, whatever their price; anything it can't show is topped up from the
+           ranking as Value / Premium. */
+        if(cur.alts){cur.alts.forEach(function(a){if(alts0.length>=2||!a||!okK(a.k)||a.k===m0.k)return;var r=rowOf(a.k);if(!(r.p>0))return;
+            alts0.push({r:r,lab:a.lab,t:r.p<m0.p?'lo':'hi',ang:a.why||(cfg.angOf?cfg.angOf(a.k):''),named:true});});
+          var used=function(r){return r.k===m0.k||alts0.some(function(a){return a.r.k===r.k;});};
+          if(alts0.length<2&&!cur.only){var v=restC0.filter(function(r){return !used(r)&&r.p<=m0.p-gap0;})[0];if(v&&!alts0.some(function(a){return a.t==='lo';}))alts0.push({r:v,lab:'Value',t:'lo',ang:cfg.angOf?cfg.angOf(v.k):''});}
+          if(alts0.length<2&&!cur.only){var pr=restC0.filter(function(r){return !used(r)&&r.p>=m0.p+gap0;})[0];if(pr)alts0.push({r:pr,lab:'Premium',t:'hi',ang:cfg.angOf?cfg.angOf(pr.k):''});}}
+        else{if(lo0)alts0.push({r:lo0,lab:'Value',t:'lo',ang:cfg.angOf?cfg.angOf(lo0.k):''});if(hi0)alts0.push({r:hi0,lab:'Premium',t:'hi',ang:cfg.angOf?cfg.angOf(hi0.k):''});}
+        return {role:role,main:m0,alts:alts0,n:Math.max(rows.length,1),cur:true,ang:(ck===cur.pick?cur.ang:stepUp),note:cur.note||''};}
+    }
+    var main=(mine&&rows.filter(function(r){return r.k===mine;})[0])||core[0]||rows[0];
+    var rest=rows.filter(function(r){return r.k!==main.k;});
+    /* a real choice, not a neighbour: at least ~10% (and $3) either side of our pick, best-fitting first */
+    var gap=Math.max(3,main.p*0.1),restCore=inCh?rest:rest.filter(function(r){return !isCh(r);});
+    var lower=restCore.filter(function(r){return r.p<=main.p-gap;})[0]||restCore.filter(function(r){return r.p<main.p-0.5;})[0];
+    var chPrem=inCh?null:rest.filter(function(r){return isCh(r)&&r.p>main.p+0.5;})[0];
+    var prem=chPrem||rest.filter(function(r){return r.p>=main.p+gap&&r!==lower;})[0]||rest.filter(function(r){return r.p>main.p+0.5&&r!==lower;})[0];
+    var alts=[];if(lower)alts.push({r:lower,lab:'Value',t:'lo',ang:cfg.angOf?cfg.angOf(lower.k):''});if(prem)alts.push({r:prem,lab:'Premium',t:'hi',ang:cfg.angOf?cfg.angOf(prem.k):''});
+    return {role:role,main:main,alts:alts,n:rows.length};
+  });
+}
+/* What a buyer gains or gives up by moving off our pick -- read from catalogue facts, never invented. */
+function caFeat(it){var f={},fl=jaFlags(it),g=caGsm(it),mx=jaMaxSize(it),c=caClass(it);
+  if(hasLadies(it))f.ladies='women’s cuts';
+  if(/^[4-6]XL/.test(mx))f.big='sizes to '+mx.split('/')[0];
+  if(caPerf(it)&&/^(polo|tee|woven|fleece)$/.test(itemCategory(it)))f.wick='wicking fabric';   // a property of knits worn next to the skin, not of a jacket shell
+  if(fl.indexOf('sealed seams')>=0)f.ss='sealed seams';
+  if(fl.indexOf('waterproof')>=0)f.wp='waterproofing';else if(fl.indexOf('water-repellent')>=0||caFin(it,/water-repellent/i))f.wr='water repellency';
+  if(fl.indexOf('windproof')>=0)f.wind='wind protection';
+  if(caFin(it,/snag/i))f.snag='snag resistance';
+  if(caFin(it,/UPF|UV/i))f.upf='sun protection';
+  if(c>=2)f.cls='CSA Class '+c;
+  if(/tear-?away|breakaway/i.test(it.name||''))f.tear='tear-away safety';
+  if(caLuxe(it))f.brand=(/^the /i.test(caBrand(it))?'':'the ')+caBrand(it)+' name';
+  if(g)f.gsm=g;
+  return f;}
+function caTrade(main,alt,lo){var a=caFeat(BYKEY[main]),b=caFeat(BYKEY[alt]),out=[],k;
+  var from=lo?a:b,to=lo?b:a;      // lower: what our pick has that it lacks; premium: what it adds
+  for(k in from){if(k==='gsm')continue;if(!to[k])out.push(from[k]);}
+  if(a.gsm&&b.gsm&&Math.abs(a.gsm-b.gsm)>=30){if(lo&&b.gsm<a.gsm)out.push('weight ('+b.gsm+' vs '+a.gsm+' gsm)');if(!lo&&b.gsm>a.gsm)out.push('heavier fabric ('+b.gsm+' gsm)');}
+  out=out.slice(0,2);
+  if(lo)return out.length?('Gives up '+out.join(' and ')):'The same essentials for less';
+  return out.length?('Adds '+out.join(' and ')):'A more premium finish and feel';}
+/* ---- THE ADVISOR, AS A GUIDED CONVERSATION (Steven, 2026-10-09 13:15: "advisor functionality is unclear how it
+   works and is not fully responsive. must be delightful experience for enterprise and give top tier
+   recommendations that will get them to convert!") ----------------------------------------------------------
+   The first version laid every question out at once as a grid of chips, with the answer appearing somewhere
+   below only once all of them were set -- so nothing told the buyer what would happen, and on a phone it was
+   a wall of buttons above cramped cards. Now it behaves like a good rep:
+     1. it says what it does before asking anything (questions -> our pick, with your logo on it);
+     2. it asks ONE question at a time, with large tap targets and a progress bar, and moves on by itself;
+     3. it answers with a clear verdict per group -- "Our pick for crews outside all day: ..." -- the product
+        shown with the buyer's own logo, the reasons, the price with the logo included, and an Add-to-quote
+        button on every card, plus a lower-cost and a step-up swap and a way to change any answer.
+   Recommendations come from the same engine as before (caProgram), so nothing about the advice changed --
+   only how clearly it is delivered. */
+var CA_FOR={office:'for people in front of clients',mixed:'for people in and out all day',drivers:'for drivers in and out of vehicles',warehouse:'for warehouse and shop staff',outdoor:'for crews outside all day',
+  events:'for a crowd at an event',gift:'as a gift people keep',road:'for road and traffic crews',site:'for site crews',
+  yard:'for warehouse and yard crews',night:'for night and low-light work',visit:'for visitors and occasional use',
+  gpolo:'',glayer:'for cooler rounds',gcap:'',
+  light:'for light-duty and service staff',shop:'for the shop floor',trades:'for trades and outdoor crews',all:''};
+function caArt(x){return (/^[aeiou]/i.test(x)?'an ':'a ')+x;}
+function caVerdict(cfg,it,A,role){var f='';try{f=cfg.fact?cfg.fact(it,A,role):'';}catch(e){f='';}
+  if(!f)return '';var w=CA_FOR[role]||'';return 'Our pick'+(w?(' '+w):'')+': '+f+'.';}
+function caAnsLab(q,v){var o=(q.opts||[]).filter(function(x){return String(x.id)===String(v);})[0];return o?o.lab:'';}
+function caSummary(cfg,A){return caQs(cfg,A).map(function(q){var v=A[q.id];
+  return q.multi?(v||[]).map(function(x){return caAnsLab(q,x);}).join(', '):caAnsLab(q,v);}).filter(Boolean);}
+var CA_COL={};
+/* a uniform opens on a neutral (black, navy, charcoal...), the way the programs do -- never on whatever
+   colourway the supplier happened to photograph first; hi-vis keeps its fluorescent colour */
+function caColOf(k){var it=BYKEY[k];if(CA_COL[k])return CA_COL[k];var c='';try{c=progColour(k);}catch(e){}
+  return (c&&colInList(browseCols(it),c)&&colInList(browseCols(it),c).name===c)?c:browseColour(k,it);}
+function caThumb(k,col){var it=BYKEY[k],o=null;try{o=overlayHtml(it,vmOf(k),col||caColOf(k),'front',browseCols(it),browsePlaces(it));}catch(e){}
+  return o?('<img class="g" src="'+o.g+'" alt="" loading="lazy">'+o.lg):'';}
+function caMainHtml(cfg,A,x){
+  var r=x.main,it=BYKEY[r.k],why=[];try{why=cfg.why(it,A,x.role)||[];}catch(e){}
+  var inQ=cartHasAny(r.k),v=caVerdict(cfg,it,A,x.role);
+  return '<article class="cam">'+
+    '<button type="button" class="camimg" data-xpopen="'+esc(r.k)+'" aria-label="See '+esc(it.name)+' with your logo">'+caThumb(r.k)+
+      '<span class="camlogo">Shown with your logo</span></button>'+
+    '<div class="cambody">'+
+      '<span class="cambadge">Recommended</span>'+
+      '<h5>'+esc(it.name)+'</h5><span class="cambr">'+esc(it.brand||it.sku||'')+'</span>'+
+      (v?('<p class="camv">'+esc(v)+'</p>'):'')+
+      (x.ang?('<p class="caang"><b>Why this one</b>'+esc(x.ang)+'</p>'):'')+
+      '<ul class="jaw">'+why.slice(0,4).map(function(w){return '<li>'+esc(w)+'</li>';}).join('')+'</ul>'+
+      caSwatchHtml(r.k)+
+      (cfg.extra?(function(){try{return cfg.extra.call(cfg,it,A,x.role)||'';}catch(e){return '';}})():'')+
+      '<div class="camfoot"><div class="camp"><b>'+money(r.p)+'</b><i>per piece at '+moq()+'+, your logo included</i>'+caTierHtml(r.k)+'</div>'+
+        '<div class="cambtns"><button type="button" class="caadd'+(inQ?' done':'')+'" data-caadd="'+esc(r.k)+'">'+(inQ?'✓ In your quote':'Add to quote')+'</button>'+
+        '<button type="button" class="xpsee" data-xpopen="'+esc(r.k)+'">Colours &amp; sizes</button></div></div>'+
+    '</div></article>';
+}
+/* PRICE TIERS (Steven, 2026-10-09 16:38: "you should showing pricing tiers in the advisor UI"). Enterprise buyers
+   budget by volume, so every recommendation shows the store's own quantity breaks -- the same unitPrice() the quote
+   uses, so the advisor and the quote can never disagree. */
+function caTiers(k){var cols=(CFG.pricing&&CFG.pricing.cols)||[12,48,144],it=BYKEY[k],d=null;try{d=defaultDecos(k);}catch(e){}
+  return cols.map(function(q){var p=0;try{p=unitPrice(k,d,Math.max(q,moq()));}catch(e){p=0;}return {q:Math.max(q,moq()),p:p};}).filter(function(t){return t.p>0;});}
+function caTierHtml(k,compact){var T=caTiers(k);if(T.length<2)return '';
+  var lo=T[T.length-1],hi=T[0],pct=hi.p>0?Math.round((1-lo.p/hi.p)*100):0;
+  if(compact)return '<span class="catiers s">'+T.map(function(t){return t.q+'+ <b>'+money(t.p)+'</b>';}).join(' · ')+'</span>';
+  return '<div class="catiers" role="table" aria-label="Price per piece by quantity">'+T.map(function(t,i){
+    return '<div class="catier'+(i===0?' first':'')+'" role="row"><span role="cell">'+t.q+'+ pcs</span><b role="cell">'+money(t.p)+'</b></div>';}).join('')+
+    (pct>0?('<span class="catsave">Save '+pct+'% at '+lo.q+'+</span>'):'')+'</div>';}
+/* see it in your colour: the mockup re-renders with the buyer's logo on the colour they tap */
+function caSwatchHtml(k){var it=BYKEY[k],cs=browseCols(it)||[],cur=caColOf(k);if(cs.length<2)return '';
+  var max=8;return '<div class="caswt"><span class="caswl">Colour: <b data-cacur="'+esc(k)+'">'+esc(cur||'')+'</b></span><div class="caswd">'+
+    cs.slice(0,max).map(function(c){return '<button type="button" class="cdot'+(c.name===cur?' on':'')+'" data-cacol="'+esc(k)+'|'+esc(c.name||'')+'" style="background:'+(c.rgb||'#ccc')+'" title="'+esc(c.name||'')+'" aria-label="See it in '+esc(c.name||'')+'"></button>';}).join('')+
+    (cs.length>max?('<span class="cmore">+'+(cs.length-max)+'</span>'):'')+'</div></div>';}
+function caAltHtml(cfg,x){
+  if(!x.alts.length)return '';
+  return '<div class="caalts"><span class="caaltsh">Other options for this group</span>'+x.alts.map(function(a){var it=BYKEY[a.r.k],d=a.r.p-x.main.p,lo=d<0;
+    return '<div class="caalt t-'+a.t+'"><button type="button" class="caaimg" data-xpopen="'+esc(a.r.k)+'" aria-label="See '+esc(it.name)+'">'+caThumb(a.r.k)+'</button>'+
+      '<div class="caab"><span class="caal"><em>'+esc(a.lab)+'</em> <b>'+money(a.r.p)+'</b> <span class="cadiff">'+(Math.abs(d)<0.5?'same price':((lo?'save ':'+')+money(Math.abs(d))+'/pc'))+'</span></span>'+
+        '<b class="caan">'+esc(it.name)+'</b><span class="cambr">'+esc(it.brand||'')+'</span>'+
+        (a.ang?('<span class="caang2">'+esc(a.ang)+'</span>'):'')+'<span class="catrade">'+esc(caTrade(x.main.k,a.r.k,lo))+'</span>'+caTierHtml(a.r.k,true)+'</div>'+
+      '<button type="button" class="jasw" data-caswap="'+esc(x.role)+'|'+esc(a.r.k)+'">Use this</button></div>';}).join('')+'</div>';
+}
+/* ===== THE ADVISOR, v4 (Steven, 2026-10-13: "we need the number-one enterprise advisor experience that is high converting and
+   easy to use that gives the smart recommendations with expert commentary. minimize friction make questions easy to
+   answer ... want the Advisor to be used more often so it should be more prominent / noticeable").
+   What changed, and why:
+     * NO START SCREEN. The first question IS the advisor: a buyer who lands on Jackets sees "Who are you outfitting?"
+       with big one-tap answers, not a page explaining that there will be questions. One click saved at the step where
+       most people leave.
+     * EVERY ANSWER IS A PICTURE + A WORD + A HINT. Icons make four options scannable at a glance on a phone; the hint
+       says what the answer means ("Needs sealed seams"), so nobody has to know the jargon to answer.
+     * "NOT SURE?" IS AN ANSWER. Where a sensible default exists, the buyer can skip and we say what we assumed.
+     * EXPERT COMMENTARY. The result opens with Steven's take -- in plain words, who gets what and why, what the
+       cheaper option gives up and what the premium one adds -- written from the same catalogue facts and curated
+       reasons as the cards, never invented.
+     * THE ADVISOR IS EVERYWHERE A BUYER HESITATES: the home page leads with it, the rail has an Advisor button on every
+       page (and on the phone bar), and the product grid carries a "Not sure which?" card after the first row. */
+var CA_ICO={
+  office:'<path d="M4 21V5l8-2v18M12 21V9l8 2v10M7 8h2M7 12h2M7 16h2M15 13h2M15 17h2"/>',
+  truck:'<path d="M2 6h11v10H2zM13 9h4l4 4v3h-8z"/><circle cx="6" cy="17.5" r="2"/><circle cx="17" cy="17.5" r="2"/>',
+  warehouse:'<path d="M3 21V9l9-5 9 5v12M7 21v-7h10v7M7 17h10"/>',
+  hardhat:'<path d="M3 17h18M5 17v-2a7 7 0 0 1 14 0v2M10 9V6h4v3M12 6v4"/>',
+  tent:'<path d="M3 20L12 4l9 16zM12 4v16M9 20l3-6 3 6"/>',
+  gift:'<rect x="3" y="8" width="18" height="13" rx="1.6"/><path d="M3 12h18M12 8v13M12 8S10.5 4 8 4a2.2 2.2 0 0 0 0 4.4zM12 8s1.5-4 4-4a2.2 2.2 0 0 1 0 4.4z"/>',
+  sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+  wind:'<path d="M3 8h11a3 3 0 1 0-3-3M3 12h16a3 3 0 1 1-3 3M3 16h8"/>',
+  leaf:'<path d="M5 19C5 10 11 5 20 4c-1 9-6 15-15 15zM5 19l7-7"/>',
+  snow:'<path d="M12 2v20M4 6.5l16 11M20 6.5l-16 11M9 3.5l3 2.5 3-2.5M9 20.5l3-2.5 3 2.5"/>',
+  thermo:'<path d="M10 14V5a2 2 0 0 1 4 0v9a4 4 0 1 1-4 0zM12 9v7"/><path d="M18 4l2 1M18 8h2"/>',
+  dry:'<circle cx="8" cy="9" r="3"/><path d="M8 3v1.5M2 9h1.5M3.8 4.8l1 1M12 12.5a4 4 0 0 1 7.6 1.5H20a3 3 0 0 1 0 6H9a3 3 0 0 1-.4-6"/>',
+  rain:'<path d="M7 15a4.5 4.5 0 0 1 .6-9A6 6 0 0 1 19 8a3.5 3.5 0 0 1 0 7H7zM8 18l-1 3M12 18l-1 3M16 18l-1 3"/>',
+  cone:'<path d="M9 4h6l4 15H5zM7.5 10h9M6.3 15h11.4M3 20h18"/>',
+  moon:'<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>',
+  badge:'<rect x="5" y="3" width="14" height="18" rx="2"/><circle cx="12" cy="10" r="2.5"/><path d="M8.5 17a3.5 3.5 0 0 1 7 0M10 3v2h4V3"/>',
+  polo:'<path d="M8 3l4 3 4-3 5 3-2 4-2-1v12H7V9L5 10 3 6zM12 6v4"/>',
+  tee:'<path d="M8 3h8l5 3-2 4-2-1v12H7V9L5 10 3 6z"/>',
+  shirt:'<path d="M8 3l4 4 4-4 5 3-2 4-2-1v12H7V9L5 10 3 6zM12 7v14M11 11h.01M11 15h.01"/>',
+  vest:'<path d="M8 3l4 3 4-3 3 2v16h-5v-6h-4v6H5V5zM12 6v9"/>',
+  jacket:'<path d="M8 3l4 2 4-2 4 3v15h-4v-8M8 21H4V6l4-3M8 13v8M12 5v16"/>',
+  hoodie:'<path d="M8 4a4 4 0 0 1 8 0l5 3-2 4-2-1v11H7V10l-2 1-2-4zM9 4c0 3 1.5 4 3 4s3-1 3-4"/>',
+  zip:'<path d="M8 3l4 3 4-3 5 3-2 4-2-1v12H7V9L5 10 3 6zM12 6v7M11 8h2M11 10.5h2"/>',
+  cap:'<path d="M4 15a8 8 0 0 1 16 0zM2 15h13c2 0 5 .5 7 2M12 7V5"/>',
+  beanie:'<path d="M5 16a7 7 0 0 1 14 0zM4 16h16v3H4zM12 7V5M12 3.5v.01"/>',
+  flag:'<path d="M6 21V3M6 4l11 3.5L6 11M3 21h8"/><circle cx="16" cy="19" r="1.4"/>',
+  team:'<circle cx="9" cy="8" r="3"/><path d="M3 20a6 6 0 0 1 12 0M16 4a3 3 0 0 1 0 6M18 20a6 6 0 0 0-3-5.2"/>',
+  wash:'<rect x="4" y="3" width="16" height="18" rx="2"/><circle cx="12" cy="13" r="4.5"/><path d="M7 6h.01M10 6h.01"/>',
+  home:'<path d="M3 11l9-7 9 7M5 9.5V21h14V9.5"/>',
+  layer1:'<path d="M3 12l9 4 9-4"/>',layer2:'<path d="M3 9l9 4 9-4M3 13l9 4 9-4"/>',layer3:'<path d="M3 7l9 4 9-4M3 11l9 4 9-4M3 15l9 4 9-4"/>',
+  yes:'<path d="M4 12l5 5L20 6"/>',no:'<path d="M6 6l12 12M18 6L6 18"/>',
+  spark:'<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/>',
+  any:'<circle cx="12" cy="12" r="9"/><path d="M8 12h8M12 8v8"/>'};
+/* the icon for an answer: explicit per question first, then by what the label says */
+var CA_ICO_Q={'who|office':'office','who|mixed':'truck','who|drivers':'truck','who|warehouse':'warehouse','who|outdoor':'hardhat','who|events':'tent','who|gift':'gift',
+  'who|road':'cone','who|site':'hardhat','who|yard':'warehouse','who|night':'moon','who|visit':'badge','who|light':'office','who|shop':'warehouse','who|trades':'hardhat',
+  'warm|1':'wind','warm|2':'leaf','warm|3':'snow','warm|4':'thermo','rain|0':'dry','rain|1':'rain','look|polo':'polo','look|tee':'tee','look|woven':'shirt',
+  'kind|vest':'vest','kind|tee':'tee','kind|layer':'hoodie','kind|jacket':'jacket','snag|1':'yes','snag|0':'no','season|hot':'sun','season|mild':'leaf','season|cold':'snow','season|wet':'rain',
+  'style|qz':'zip','style|hood':'hoodie','style|fz':'jacket','style|crew':'tee','style|auto':'spark','warm|in':'office',
+  'work|gen':'hardhat','work|abr':'layer3','work|canvas':'jacket','work|frz':'snow','occ|host':'flag','occ|team':'team','occ|staff':'badge','wx|warm':'sun','wx|cool':'wind','wash|home':'home','wash|ind':'wash'};
+function caIcoKey(q,o){var k=CA_ICO_Q[q.id+'|'+o.id];if(k)return k;var t=(o.lab+' '+(o.sub||'')).toLowerCase();
+  var R=[[/gift/,'gift'],[/office|client|front/,'office'],[/driver|vehicle/,'truck'],[/warehouse|shop|dock/,'warehouse'],[/crew|outdoor|construction|trade|site/,'hardhat'],
+    [/event|volunteer|show/,'tent'],[/rain|wet/,'rain'],[/deep|hours/,'thermo'],[/cold|winter|toque/,'snow'],[/summer|sun|hot/,'sun'],[/spring|fall|cool|mild/,'leaf'],
+    [/dry/,'dry'],[/light layer|under a jacket/,'layer1'],[/midweight/,'layer2'],[/heavyweight/,'layer3'],[/indoor/,'office'],[/over a hoodie/,'wind'],[/structured|unstructured|trucker|performance|cap/,'cap'],
+    [/laundry|industrial/,'wash'],[/home/,'home'],[/lower|budget|premium|any/,'any'],[/^yes/,'yes'],[/^no\b/,'no']];
+  for(var i=0;i<R.length;i++)if(R[i][0].test(t))return R[i][1];return 'spark';}
+function caSvg(k,sz){return '<svg viewBox="0 0 24 24" width="'+(sz||26)+'" height="'+(sz||26)+'" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+(CA_ICO[k]||CA_ICO.spark)+'</svg>';}
+/* ===== COMPARE (Steven, 2026-10-14 12:38: "they want to compare each product and have clarity on what item they should
+   choose"). The old "details" view stacked one big product card above two cramped alternative cards, each saying different
+   things in a different order -- nothing lined up, so nothing could be compared. Now every group opens a side-by-side
+   table: our pick and its options as columns, the SAME facts on every row (what it's best for, price at this headcount,
+   volume tiers, warmth, weather protection, fabric, cuts, sizes, colours), cells that differ from our pick marked, and
+   one "Choose this" per column. The columns never move when the buyer switches: the chosen one is simply marked
+   Selected, so choosing, comparing again and choosing back is calm and reversible. */
+function caBaseOf(cfg,A,role){var keep={},pre=cfg.id+'.';for(var p in CA_PICK)if(p.indexOf(pre)===0){keep[p]=CA_PICK[p];delete CA_PICK[p];}
+  var P;try{P=caLabelled(cfg,A);}finally{for(var q in keep)CA_PICK[q]=keep[q];}
+  return P.filter(function(x){return x.roles&&x.roles.indexOf(role)>=0;})[0]||P.filter(function(x){return x.role===role;})[0];}
+function caSpec(it){var f=jaFlags(it),w=jaWarm(it),ws=it.warm||{},isJ=/jacket|parka|coat|shell|softshell|bomber|vest/i.test(it.name||'');
+  var warmth=isJ?({1:'Uninsulated shell',2:'Insulated',3:'Winter weight'}[w]||'—')+(ws.ins&&w>1?(' · '+ws.ins+(ws.gsm?(' '+ws.gsm):'')):''):(caWeightTxt(it)||'—');
+  var wx=[];if(f.indexOf('waterproof')>=0)wx.push('Waterproof'+(ws.wp?(' '+ws.wp):''));if(f.indexOf('sealed seams')>=0)wx.push('sealed seams');
+  if(!wx.length&&(f.indexOf('water-repellent')>=0||caFin(it,/water-repellent|DWR/i)))wx.push('Water-repellent');
+  if(f.indexOf('windproof')>=0)wx.push('windproof');else if(f.indexOf('wind-resistant')>=0||caFin(it,/wind/i))wx.push('wind-resistant');
+  var sz=itemSizes(it,'mens')||[],szs=sz.length?(sz[0]+'–'+sz[sz.length-1]):'—';
+  return {warmth:warmth,weather:wx.length?caCap(wx.join(', ')):'—',fabric:[caMixTxt(it),caWeightTxt(it)].filter(Boolean).join(' · ')||'—',
+    cuts:hasLadies(it)?'Men’s & women’s':(it.unisex?'Unisex':'Men’s / unisex only'),sizes:szs,cols:(it.cols||[]).length,freezer:!!it.freezer};}
+/* WARMTH, MADE COMPARABLE (Steven, 2026-10-15: "improve warmth comparisons. it is not clear the difference"). The row
+   used to read "Insulated · Polyester 170 gsm / 130 gsm" against "Insulated · Recycled polyester 100 gsm / 80 gsm" --
+   the same word twice and two unexplained number pairs. Now every option gets ONE level on one scale, a plain label,
+   the fill spelled out (body / sleeves, the way the makers publish it), and a sentence saying how it compares with our
+   pick and why. The level comes only from catalogue facts: the warmth band, the published body-fill weight, and the
+   winter rating; a shell that is bonded to fleece or sherpa is named, because it adds warmth the fill number misses. */
+var CA_WLAB=['','Shell only — no insulation','Light insulation','Mid-weight insulation','Warm','Very warm'],
+    CA_KLAB=['','Light layer','Midweight','Heavyweight'];
+function caFillG(it){var g=String((it.warm||{}).gsm||''),m=g.match(/(\d{2,3})\s*g/g)||[];
+  var n=m.map(function(x){return parseInt(x,10);});return n.length?{b:n[0],s:n[1]||null}:null;}
+function caWarmInfo(it){var c=itemCategory(it),f=caFillG(it),ws=it.warm||{},fab=it.fab&&typeof it.fab==='object'?it.fab:{};
+  var shellTxt=String((fab.knit||'')+' '+(typeof it.fab==='string'?it.fab:'')+' '+(it.name||'')).toLowerCase();
+  var nm=String(it.name||'').toLowerCase();
+  /* a fleece vest has no fill: say so plainly, on the jacket/vest scale it is compared on */
+  if(!ws.band&&c==='vest'&&/fleece/.test(nm)){var gv=caGsm(it);return {lvl:2,max:5,lab:'Light — fleece, no fill',detail:gv?(gv+' gsm fleece'):'Fleece body, no insulation layer',extra:'',fill:0,est:true};}
+  /* knits are rated by fabric weight; anything with a warmth band (a "Detachable Hood" bomber is not a hoodie) is a jacket */
+  if(!ws.band&&(c==='fleece'||c==='tee'||c==='polo'||c==='woven')){var b=caWarmBand(it),g=caGsm(it);
+    return {lvl:b,max:3,lab:CA_KLAB[b]||'—',detail:g?(g+' gsm fabric'):'',knit:true,g:g||0};}
+  var w=jaWarm(it),lvl=0;
+  if(w===1)lvl=1;
+  else if(w>=2){var fb=f?f.b:0;
+    lvl=fb?(fb<130?2:(fb<180?3:(fb<220?4:5))):3;
+    if(w===3)lvl=Math.max(lvl,fb>=200?5:4);}
+  var detail='';
+  if(lvl===1)detail='No insulation layer';
+  else if(f)detail='Fill: '+f.b+' g body'+(f.s?(' · '+f.s+' g sleeves'):'')+(ws.ins&&!/thermal shell/i.test(ws.ins)?(' ('+String(ws.ins).toLowerCase()+')'):'');
+  else if(ws.ins)detail=caCap(String(ws.ins))+' — fill weight not published';
+  else if(lvl)detail='Fill weight not published';
+  var extra=/bonded|micro ?fleece|sherpa|fleece[- ]lined/.test(shellTxt)?(/sherpa/.test(shellTxt)?'Sherpa-fleece lining adds warmth':'Fleece-bonded shell adds warmth'):'';
+  return {lvl:lvl,max:5,lab:CA_WLAB[lvl]||'—',detail:detail,extra:extra,fill:f?f.b:0,est:lvl>=2&&!f,freezer:!!it.freezer};}
+function caWarmVs(a,b){   /* how option b compares with our pick a, in words a buyer can act on */
+  if(!a.lvl||!b.lvl)return '';
+  var why=(a.fill&&b.fill)?(' — '+b.fill+' g vs '+a.fill+' g body fill'):((a.g&&b.g&&a.knit)?(' — '+b.g+' vs '+a.g+' gsm'):'');
+  /* a level that rests on an unpublished fill weight is an estimate, and is worded as one */
+  var est=(a.est||b.est)&&!(a.fill&&b.fill),np=est?' (fill weight not published)':'';
+  if(b.lvl>a.lvl)return {t:(est?'Likely warmer':'Warmer')+' than our pick'+why+np,c:'up'};
+  if(b.lvl<a.lvl)return {t:(b.lvl===1?'No insulation — ':'')+(est&&b.lvl>1?'Likely less warm':'Less warm')+' than our pick'+why+(b.extra&&!a.extra?(' (but '+b.extra.toLowerCase()+')'):'')+(b.lvl>1?np:''),c:'dn'};
+  if(a.fill&&b.fill&&Math.abs(a.fill-b.fill)>=20)return {t:(b.fill>a.fill?'A little warmer':'A little lighter')+why,c:b.fill>a.fill?'up':'dn'};
+  return {t:(a.lvl===1?'Same — neither is insulated':'About the same warmth as our pick'+((a.fill&&b.fill)?why:np)),c:'eq'};}
+function caWarmCell(W,vs){if(!W.lvl)return '—';
+  var bars='';for(var i=1;i<=W.max;i++)bars+='<i'+(i<=W.lvl?' class="on"':'')+'></i>';
+  return '<span class="cwm"><span class="cwbar l'+W.lvl+(W.max===3?' k':'')+'" role="img" aria-label="Warmth '+W.lvl+' of '+W.max+'">'+bars+'</span><b>'+esc(W.lab)+'</b></span>'+
+    (W.detail?('<span class="cwd">'+esc(W.detail)+'</span>'):'')+(W.extra?('<span class="cwd">'+esc(W.extra)+'</span>'):'')+
+    (W.freezer?'<span class="cwd">Freezer range — confirm against your temperatures</span>':'')+
+    (vs&&vs.t?('<span class="cwvs '+vs.c+'">'+esc(vs.t)+'</span>'):'');}
+function caCompareHtml(cfg,A,x){var base=caBaseOf(cfg,A,x.role)||x;if(!base||base.none)return '';
+  var q=caQtyOf(cfg,A,x.role),cols=[{k:base.main.k,lab:'Our pick',why:String(base.ang||caWhyLine(cfg,A,base)).replace(/\s*Hooded option: [^.]*\.?$/,'')}].concat((base.alts||[]).map(function(a){return {k:a.r.k,lab:a.lab,why:a.ang||''};}));
+  var seen={};cols=cols.filter(function(c){if(seen[c.k])return false;seen[c.k]=1;return !!BYKEY[c.k];});
+  if(cols.length<2)return '';
+  var sel=x.main.k,S=cols.map(function(c){return caSpec(BYKEY[c.k]);}),U=cols.map(function(c){return caUnit(c.k,q);});
+  var cell=function(i,v,ref){return '<td class="'+(i>0&&v!==ref&&v!=='—'?'diff':'')+(cols[i].k===sel?' sel':'')+'">'+v+'</td>';};
+  /* only the SPEC rows mark differences -- a reason or a price always differs, so marking them would be noise */
+  var row=function(lab,f,mark){var ref=f(0);return '<tr><th scope="row">'+esc(lab)+'</th>'+cols.map(function(c,i){return cell(i,f(i),mark?ref:f(i));}).join('')+'</tr>';};
+  var T=cols.map(function(c){return caTiers(c.k);});
+  return '<div class="cmpwrap"><div class="cmphd"><b>Compare the options for '+esc(x.lab||'this group')+'</b><span>Prices at '+q+' pieces, your logo included · differences from our pick are highlighted</span></div>'+
+    (cols.length>2?'<p class="cmpswipe">Swipe to see all '+cols.length+' options →</p>':'')+'<div class="cmpscroll"><table class="cmp"><thead><tr><th class="cmpcorner" scope="col"><span class="vh">Option</span></th>'+cols.map(function(c,i){var it=BYKEY[c.k],on=c.k===sel;
+      return '<th scope="col" class="cmpcol'+(on?' sel':'')+'"><span class="cmptag'+(i===0?' pick':'')+'">'+esc(c.lab)+'</span>'+
+        '<button type="button" class="cmpimg" data-xpopen="'+esc(c.k)+'" aria-label="See '+esc(it.name)+' with your logo">'+caThumb(c.k)+'</button>'+
+        '<b class="cmpname">'+esc(caShort(it.name))+'</b><span class="cmpbr">'+esc(it.brand||it.sku||'')+(it.msku?(' · '+esc(it.msku)):'')+'</span>'+
+        '<span class="cmpprice"><b>'+money(U[i])+'</b>/pc'+(i>0?('<em class="cmpd'+(U[i]<U[0]?' lo':' hi')+'">'+(Math.abs(U[i]-U[0])<0.5?'same price':((U[i]<U[0]?'−':'+')+money(Math.abs(U[i]-U[0]))))+'</em>'):'')+'</span>'+
+        (on?'<span class="cmpsel" aria-label="Selected">✓ Selected</span>':('<button type="button" class="cmpchoose" data-cachoose="'+esc(x.role)+'|'+esc(c.k)+'">Choose this</button>'))+'</th>';}).join('')+'</tr></thead><tbody>'+
+      row('Best for',function(i){return esc(cols[i].why||'—');})+
+      (function(){var W=cols.map(function(c){return caWarmInfo(BYKEY[c.k]);});if(!W.some(function(w){return w.lvl;}))return '';
+        var fills=W.some(function(w){return w.fill;});
+        return '<tr class="cmpwarm"><th scope="row">Warmth'+(fills?'<small>Fill = grams of insulation per m². More grams, warmer.</small>':'')+'</th>'+cols.map(function(c,i){
+          var vs=i>0?caWarmVs(W[0],W[i]):null;return '<td class="'+(i>0&&W[i].lvl!==W[0].lvl?'wdiff':'')+(c.k===sel?' sel':'')+'">'+caWarmCell(W[i],vs)+'</td>';}).join('')+'</tr>';})()+
+      row('Price at '+q,function(i){return '<b>'+money(U[i])+'</b> /pc · '+money(U[i]*q);})+
+      row('Volume pricing',function(i){return T[i].map(function(t){return t.q+'+ '+money(t.p);}).join(' · ')||'—';})+
+      row('Weather',function(i){return esc(S[i].weather);},1)+
+      row('Fabric',function(i){return esc(S[i].fabric);},1)+
+      row('Cuts',function(i){return esc(S[i].cuts);},1)+
+      row('Sizes',function(i){return esc(S[i].sizes);},1)+
+      row('Colours',function(i){return S[i].cols+' colour'+(S[i].cols===1?'':'s');},1)+
+      '<tr class="cmpfoot"><th scope="row"></th>'+cols.map(function(c){return '<td'+(c.k===sel?' class="sel"':'')+'><button type="button" class="jalink" data-xpopen="'+esc(c.k)+'">Full details &amp; colours →</button></td>';}).join('')+'</tr>'+
+    '</tbody></table></div></div>';}
+/* the answer controls: a checkbox for "pick every group", a radio for one answer -- the control says which it is */
+function caOptHtml(q,A){var multi=!!q.multi,cur=A[q.id];
+  return '<div class="caopts'+(q.cls?(' '+q.cls):'')+(q.opts.length>4?' many':'')+(q.opts.length<=2?' two':'')+(multi?' multi':' single')+'" role="'+(multi?'group':'radiogroup')+'" aria-label="'+esc(q.q)+'">'+q.opts.map(function(o){var v=String(o.id),on=multi?((cur||[]).indexOf(v)>=0):(cur!=null&&cur!==''&&String(cur)===v);
+    return '<button type="button" class="caopt'+(on?' on':'')+'" data-ca="'+esc(q.id)+'" data-v="'+esc(v)+'" role="'+(multi?'checkbox':'radio')+'" aria-checked="'+on+'">'+
+      '<span class="caok" aria-hidden="true"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>'+
+      '<span class="caoi">'+caSvg(caIcoKey(q,o))+'</span>'+
+      '<span class="caot"><b>'+esc(o.lab)+'</b>'+(o.sub?('<i>'+esc(o.sub)+'</i>'):'')+'</span></button>';}).join('')+'</div>';}
+/* the step bar: every question is a tab; answered ones show the answer and can be reopened in one tap */
+function caStepsHtml(cfg,A,qs,i){return '<ol class="castepsb">'+qs.map(function(q,j){var v=A[q.id],ans=q.multi?(v||[]).map(function(z){return caAnsLab(q,z);}).join(', '):caAnsLab(q,v),done=!!ans;
+  return '<li class="'+(j===i?'now':(done?'done':''))+'"><button type="button" data-cago="'+j+'"'+(j>i&&!done&&!(j===i+1&&false)?' disabled':'')+'><span class="csn">'+(done&&j!==i?'✓':(j+1))+'</span><span class="cst"><b>'+esc(q.short||q.q)+'</b>'+(ans?('<i>'+esc(ans)+'</i>'):'')+'</span></button></li>';}).join('')+'</ol>';}
+
+/* short product name for prose: "Champion Heavy-Duty Insulated Bomber Jacket with Detachable Hood" -> "Champion Heavy-Duty Insulated Bomber Jacket" */
+function caShort(n){n=String(n||'').replace(/\s+(with|w\/)\s+.*$/i,'');if(n.length>34)n=n.replace(/\b(Epic (Confidence|Comfort|Versatility)|Recycled|Solution-dyed)\s+/gi,'');return n.replace(/\s{2,}/g,' ').trim();}
+function caCap(t){t=String(t||'').trim();return t?(t.charAt(0).toUpperCase()+t.slice(1)):t;}
+/* STEVEN'S TAKE: the recommendation in plain words, per group -- the pick, then the reason as its own sentence, then
+   what the cheaper option gives up and the premium one adds. Composed only from the curated reason, the verdict and
+   caTrade() facts. */
+function caTakeLine(cfg,A,x,many,brief){
+  var it=BYKEY[x.main.k],nm='<b>'+esc(caShort(it.name))+'</b>',lab=x.lab||'',why=x.ang||'';
+  if(!why){var f='';try{f=cfg.fact?cfg.fact(it,A,x.role):'';}catch(e){}why=f?('It’s '+f):'';}
+  why=caCap(why);if(why&&!/[.!?]$/.test(why))why+='.';
+  var out=(cfg.roleLabs?('<span class="catakp">'+esc(String(lab).replace(/^The /,''))+'</span> I’d go with the '):(lab?('For '+esc(lab.toLowerCase())+', I’d go with the '):'I’d go with the '))+nm+'.'+((why&&!brief)?(' '+esc(why)):'');
+  if((x.alts||[]).some(function(a){return a.named;})){
+    x.alts.forEach(function(a){var it2=BYKEY[a.r.k],d=a.r.p-x.main.p;
+      out+=' '+esc(a.lab)+': the '+esc(caShort(it2.name))+(Math.abs(d)<0.5?'':(' ('+(d<0?'saves ':'')+money(Math.abs(d))+(d<0?'':' more')+' a piece)'))+'.';});
+    return out;}
+  var lo=(x.alts||[]).filter(function(a){return a.t==='lo';})[0],hi=(x.alts||[]).filter(function(a){return a.t==='hi';})[0];
+  if(lo){var tl=caTrade(x.main.k,lo.r.k,true),d=money(Math.abs(x.main.p-lo.r.p));
+    out+=' Tighter budget? The '+esc(caShort(BYKEY[lo.r.k].name))+(/^Gives up /.test(tl)?(' saves '+d+' a piece but gives up '+esc(tl.replace(/^Gives up /,''))):(' does the same job for '+d+' less a piece'))+'.';}
+  if(hi&&!many){var th=caTrade(x.main.k,hi.r.k,false),dh=money(Math.abs(hi.r.p-x.main.p));
+    out+=' Want to step up? The '+esc(caShort(BYKEY[hi.r.k].name))+(/^Adds /.test(th)?(' adds '+esc(th.replace(/^Adds /,''))):' is the premium step')+' for '+dh+' more.';}
+  return out;}
+function caTakeHtml(cfg,A,P,brief){var ok=P.filter(function(x){return !x.none;});if(!ok.length)return '';
+  /* brief: the program rows already carry each reason, so the take speaks to the trade-offs */
+  var many=ok.length>2&&!brief,ps=ok.slice(0,4).map(function(x){return '<p>'+caTakeLine(cfg,A,x,many,brief)+'</p>';}).join('');
+  return '<div class="catake"><span class="catakav" aria-hidden="true">S</span><div class="catakb"><div class="catakh"><b>Steven’s take</b><span>Just Deals Promotions</span></div>'+ps+
+    '<p class="catakf">Put '+(ok.length>1?'them':'it')+' on one quote and we’ll send free digital proofs with your logo before anything is made.</p></div></div>';}
+/* per person: a KIT (golf) adds up; separate groups show the range */
+function caKitSum(cfg,P){var ok=P.filter(function(x){return !x.none;});if(!ok.length)return '';
+  if(cfg.roles&&ok.length>1){var t=ok.reduce(function(a,x){return a+x.main.p;},0);
+    return '<span class="cakit">The full kit: <b>'+money(t)+'</b> per person at '+moq()+'+ · '+ok.map(function(x){return esc((x.lab||'').replace(/^The /,''));}).join(' + ')+'</span>';}
+  if(ok.length>1){var ps=ok.map(function(x){return x.main.p;}),lo=Math.min.apply(null,ps),hi=Math.max.apply(null,ps);
+    return '<span class="cakit">'+ok.length+' picks · '+money(lo)+(hi>lo?(' – '+money(hi)):'')+' per piece at '+moq()+'+, logo included</span>';}
+  return '';}
+/* where every advisor lives, for the hub, the rail button and the grid nudge */
+function caCats(){var cats=(typeof CATS!=='undefined'&&CATS.length)?CATS:[];return cats.filter(function(c){return catHasAdvisor(c);});}
+function caCfgFor(c){if(c==='carhartt')return null;for(var i=0;i<CADV.length;i++){var g=CADV[i];if(g.applies(c,'all')&&caPool(g,caSt(g.id)).length>=3)return g;}return null;}
+/* jump straight to the first unanswered question of a category's advisor */
+function advGo(c,src){var g=caCfgFor(c);if(!g){setCat(c,true);return;}var A=caSt(g.id);
+  if(!caReady(g,A)){A._m='q';var L=caQs(g,A),k=0;while(k<L.length-1&&(L[k].multi?(A[L[k].id]||[]).length:(A[L[k].id]!=null&&A[L[k].id]!=='')))k++;A._i=k;}else A._m='res';
+  caSave();jdpTrack('adv_go',{c:c,src:src||''});try{closeAdvPicker();}catch(e){}
+  setCat(c,false);setTimeout(function(){var x=document.getElementById('xpert');if(x){var hdr=document.querySelector('.tbar')||document.querySelector('.hdr');
+    window.scrollTo({top:Math.max(0,window.scrollY+x.getBoundingClientRect().top-((hdr&&hdr.offsetHeight)||64)-12),behavior:'smooth'});}},60);}
+var CA_TILE_ICO={outerwear:'jacket',tops:'polo',layers:'zip',vests:'vest',hivis:'cone',headwear:'cap',golf:'flag',bottoms:'hardhat'};
+function caHubTiles(cls){return caCats().map(function(c){var g=caCfgFor(c),img=catTileImg(c),A=g?caSt(g.id):{},nq=g?caQs(g,A).length:0,q0=g?((g.tile||(g.qs&&g.qs[0]&&g.qs[0].q)||'')):'',done=g&&caReady(g,A);
+    return '<button type="button" class="ahtile '+(cls||'')+'" data-advgo="'+esc(c)+'">'+
+      '<span class="ahimg">'+(img?('<img src="'+img+'" alt="" loading="lazy">'):caSvg(CA_TILE_ICO[c]||'spark',34))+'</span>'+
+      '<span class="ahtx"><b>'+esc(shortCat(c))+'</b><i>'+esc(done?'Your picks are ready — tap to see them':q0)+'</i>'+(done?'':('<em class="ahq">'+nwords(nq)+' question'+(nq>1?'s':'')+' · 20 sec</em>'))+'</span>'+
+      '<span class="ahgo">'+(done?'See picks':'Start')+' <span aria-hidden="true">→</span></span></button>';}).join('');}
+function wireAdvGo(root){(root||document).querySelectorAll('[data-advgo]').forEach(function(b){if(b.dataset.w)return;b.dataset.w='1';
+  b.addEventListener('click',function(){advGo(b.dataset.advgo,b.dataset.src||(b.closest('.advhub')?'hub':(b.closest('.advpick')?'rail':'grid')));});});}
+/* the rail's Advisor button opens this: every advisor, one tap from anywhere */
+function openAdvPicker(){closeAdvPicker();var d=document.createElement('div');d.className='advpick';d.id='advPick';d.setAttribute('role','dialog');d.setAttribute('aria-label','Advisor');
+  d.innerHTML='<div class="apscrim" data-apx="1"></div><div class="appanel"><div class="aphd"><span class="ahey">'+caSvg('spark',16)+' Advisor</span><button type="button" class="apx" data-apx="1" aria-label="Close">&times;</button></div>'+
+    '<h3>What are you choosing?</h3><p>Answer two or three one-tap questions about your team. We’ll show the piece we’d pick — with your logo on it and the reasons — plus a lower-cost and a premium option.</p>'+
+    '<div class="ahtiles">'+caHubTiles('sm')+'</div></div>';
+  document.body.appendChild(d);wireAdvGo(d);d.querySelectorAll('[data-apx]').forEach(function(x){x.addEventListener('click',closeAdvPicker);});
+  document.addEventListener('keydown',caEsc);jdpTrack('adv_pick');setTimeout(function(){d.classList.add('on');},10);}
+function caEsc(e){if(e.key==='Escape')closeAdvPicker();}
+function closeAdvPicker(){var d=document.getElementById('advPick');if(d)d.remove();document.removeEventListener('keydown',caEsc);}
+/* the card a browsing buyer meets after the first row of products */
+function caNudgeHtml(){var c=VIEW.cat;if(!c||VIEW.q)return '';var g=caCfgFor(c);if(!g)return '';var A=caSt(g.id);if(caReady(g,A)&&A._m==='res')return '';
+  var n=caQs(g,A).length;
+  return '<button type="button" class="canudge" data-advgo="'+esc(c)+'" data-src="grid"><span class="cani">'+caSvg('spark',22)+'</span>'+
+    '<b>Not sure which one?</b><i>'+nwords(n)+' quick question'+(n>1?'s':'')+' and we’ll pick the right '+esc(g.one||'piece')+' for your team — shown with your logo.</i>'+
+    '<span class="cango">Get my pick <span aria-hidden="true">→</span></span></button>';}
+/* golf: the extras we source rather than stock */
+function golfIntroHtml(){return '<div class="golfx"><div><b>Tournament extras, sourced for you</b><span>Logo golf balls · towels · umbrellas · tee packs · divot tools · scorecard holders. Not in the store — tell us what you need and we’ll source and price it with your apparel.</span></div>'+
+  '<button type="button" class="jaall" id="golfX">Ask about extras →</button></div>';}
+/* ===== ADVISOR v5 (Steven, 2026-10-13 19:45: "selecting the advisor answers and our recommendation is laggy and low
+   converting. It gives enterprise buyers a headache!").
+   What a procurement buyer needs from the answer is a PROGRAM they can take to an approver: who gets what, how many,
+   what it costs. v4 answered with a 2,000px wall of product cards -- twelve full-size photos, the add-to-quote button
+   at the very bottom, quantities left for later. v5 answers with one compact table: a row per group (or per piece of
+   a golf kit) with the pick, the reason, a people stepper and the price at that quantity, a live program estimate, and
+   ONE "Add all to quote" that lands every line on the quote already quantified and size-split. The full product card,
+   the alternatives and the swatches are one tap away per row ("Compare options") and are only built when opened.
+   Speed: taps update in place (no re-render, no page jump), single answers advance in 90 ms, results come from the
+   memo warmed while the buyer read the last question, and the result paints three small thumbnails, not twelve
+   full-size photos. */
+function caQtyOf(cfg,A,role){var Q=A._qty||{},d=getHC()||moq(),v=cfg.roles?Q._kit:Q[role];return Math.max(moq(),parseInt(v,10)||d);}
+function caUnit(k,q){var p=0;try{p=unitPrice(k,defaultDecos(k),Math.max(q,moq()));}catch(e){p=0;}return p||sxPrice(k)||0;}
+function caLabelled(cfg,A){var P=caProgram(cfg,A),RL={};((cfg.qs[0]&&cfg.qs[0].opts)||[]).forEach(function(r){RL[r.id]=r.lab;});if(cfg.roleLabs)RL=cfg.roleLabs;RL.fr=RL.fr||'Crews who need FR';
+  var M=[];P.forEach(function(x){var h=!x.none&&!cfg.roles&&M.filter(function(m){return !m.none&&m.main.k===x.main.k;})[0];
+    if(h){h.roles.push(x.role);h.lab+=' + '+(RL[x.role]||'');}else{x.roles=[x.role];x.lab=(cfg.who||cfg.roleLabs)?(RL[x.role]||''):'';M.push(x);}});return M;}
+function caWhyLine(cfg,A,x){var it=BYKEY[x.main.k],w=x.ang||'';if(!w){try{w=cfg.fact?cfg.fact(it,A,x.role):'';}catch(e){w='';}w=w?caCap(w):'';}
+  if(w&&!/[.!?]$/.test(w))w+='.';return w;}
+function caStepper(attr,v){return '<div class="cpstep"><button type="button" class="cpsb" data-caq="'+attr+'|-1" aria-label="Fewer">−</button>'+
+  '<input class="cpsi" type="text" inputmode="numeric" pattern="[0-9]*" data-caqi="'+attr+'" value="'+v+'" aria-label="How many people">'+
+  '<button type="button" class="cpsb" data-caq="'+attr+'|1" aria-label="More">+</button></div>';}
+function caRowHtml(cfg,A,x){
+  if(x.fr)return caFrRowHtml(cfg);
+  if(x.none)return '<div class="cprow none"><div class="cpmain"><span class="cpfor">'+esc(x.lab||'')+'</span><p class="cpwhy">Nothing in this aisle fits all your answers for this group — <button type="button" class="jalink" data-caask="1">ask Steven</button> and we’ll source it.</p></div></div>';
+  var it=BYKEY[x.main.k],q=caQtyOf(cfg,A,x.role),u=caUnit(x.main.k,q),open=(A._open===x.role);
+  return '<div class="cprow" data-row="'+esc(x.role)+'">'+
+    '<button type="button" class="cpimg" data-xpopen="'+esc(x.main.k)+'" aria-label="See '+esc(it.name)+' with your logo">'+caThumb(x.main.k)+'</button>'+
+    '<div class="cpmain">'+(x.lab?('<span class="cpfor">'+(cfg.roleLabs?'':'For ')+esc(x.lab)+'</span>'):'')+
+      '<b class="cpname">'+esc(caShort(it.name))+'</b><span class="cpbr">'+esc(it.brand||it.sku||'')+(it.msku?(' · '+esc(it.msku)):'')+(hasLadies(it)?' · men’s & women’s cuts':'')+'</span>'+
+      '<p class="cpwhy">'+esc(caWhyLine(cfg,A,x).replace(/\s*Hooded option: [^.]*\.?$/,''))+'</p>'+caFamHtml(cfg,A,x)+
+      (function(){var nt=x.note||'';if(!nt&&cfg.rowNote){try{nt=cfg.rowNote(A,x.role,BYKEY[x.main.k])||'';}catch(e){nt='';}}return nt?('<p class="cpnote">'+esc(nt)+'</p>'):'';})()+
+      caChoiceTag(cfg,A,x)+
+      (function(){var bb=caBaseOf(cfg,A,x.role)||x;if(!(bb.alts||[]).length)return '';
+        return '<div class="cpcmpw"><button type="button" class="cpcmp'+(open?' on':'')+'" data-cadet="'+esc(x.role)+'" aria-expanded="'+open+'">'+(open?'Hide comparison':('Compare '+(bb.alts.length+1)+' options'))+' <span aria-hidden="true">'+(open?'▴':'▾')+'</span></button>'+
+          '<span class="cpcmpl">Our pick · '+bb.alts.map(function(a){return esc(a.lab);}).join(' · ')+'</span></div>';})()+'</div>'+
+    (cfg.roles?'':('<div class="cpqty"><span class="cpql">People</span>'+caStepper(esc(x.role),q)+'</div>'))+
+    '<div class="cpprice"><b data-cpu="'+esc(x.role)+'">'+money(u)+'</b><i data-cpq="'+esc(x.role)+'">/pc at '+q+'</i><span class="cpline" data-cpl="'+esc(x.role)+'">'+money(u*q)+'</span></div>'+
+  '</div>'+
+  '<div class="cpdetail" data-detail="'+esc(x.role)+'"'+(open?'':' hidden')+'>'+(open?caCompareHtml(cfg,A,x):'')+'</div>';}
+/* when the buyer has chosen something other than our pick, the row says so -- and offers the way back */
+function caChoiceTag(cfg,A,x){var b=caBaseOf(cfg,A,x.role);if(!b||b.none||b.main.k===x.main.k)return '';
+  return '<p class="cpchoice"><span>Your choice</span> — our pick was <b>'+esc(caShort(BYKEY[b.main.k].name))+'</b> <button type="button" class="cpsw" data-cachoose="'+esc(x.role)+'|'+esc(b.main.k)+'">Back to our pick</button></p>';}
+/* the same garment with a hood (or a longer cut) is ONE recommendation -- name it on the row, with its style number */
+function caFamHtml(cfg,A,x){if(typeof JA_FAMILY==='undefined')return '';var f=JA_FAMILY[x.main.k];if(!f||!BYKEY[f[0]]||caPool(cfg,A,x.role).indexOf(f[0])<0)return '';
+  var t=BYKEY[f[0]],nm=caShort(t.name).replace(/\s+(Insulated|Heavy-Duty).*$/,'');
+  return '<p class="cpfam"><span>'+esc(/hood/i.test(f[1])?'Hooded option':'Also comes as')+':</span> <b>'+esc(nm)+(t.msku?(' '+esc(t.msku)):'')+'</b> — '+esc(f[1].replace(/^[^—]*—\s*/,''))+
+    ' <button type="button" class="cpsw" data-caswap="'+esc(x.role)+'|'+esc(f[0])+'">Switch</button></p>';}
+/* the alternatives, by purpose, right on the row: one tap swaps them in */
+function caAltChips(cfg,x){if(!(x.alts||[]).length)return '';
+  return '<div class="cpalts"><span>Also consider</span>'+x.alts.map(function(a){var it=BYKEY[a.r.k],d=a.r.p-x.main.p;
+    return '<button type="button" class="cpalt" data-caswap="'+esc(x.role)+'|'+esc(a.r.k)+'" title="'+esc(a.ang||it.name)+'"><em>'+esc(a.lab)+'</em> '+esc(caShort(it.name))+
+      ' <i>'+(Math.abs(d)<0.5?'same price':((d<0?'−':'+')+money(Math.abs(d))))+'</i></button>';}).join('')+'</div>';}
+function caTotals(cfg,A,P){var t=0,n=0;P.forEach(function(x){if(x.none)return;var q=caQtyOf(cfg,A,x.role);t+=caUnit(x.main.k,q)*q;n+=q;});return {t:t,n:n};}
+function caProgHtml(cfg,A,P){var ok=P.filter(function(x){return !x.none;}),T=caTotals(cfg,A,P),allIn=ok.length&&ok.every(function(x){return cartHasAny(x.main.k);});
+  var kq=cfg.roles?caQtyOf(cfg,A,'_kit'):0;
+  return '<div class="cprog">'+
+    (cfg.roles?('<div class="cpkit"><span><b>How many people?</b><i>Each person gets the full kit</i></span>'+caStepper('_kit',kq)+'</div>'):'')+
+    '<div class="cphead"><span>'+(cfg.roles?'Piece':'Group & our pick')+'</span>'+(cfg.roles?'':'<span>People</span>')+'<span>Price</span></div>'+
+    P.map(function(x){return caRowHtml(cfg,A,x);}).join('')+
+    '<div class="cptot"><div class="cptott"><b>Program estimate <span data-cptot="1">'+money(T.t)+'</span></b>'+
+      '<i><span data-cptn="1">'+(cfg.roles?(kq+' people · '+ok.length+' pieces each'):(T.n+' pieces'))+'</span> · your logo included · before one-time setup, tax &amp; freight</i></div>'+
+      (ok.length?('<button type="button" class="jaall cpadd'+(allIn?' done':'')+'" data-caall="1">'+(allIn?'✓ Added — view my quote →':'Add all to quote →')+'</button>'):'')+'</div>'+
+    (allIn?'<div class="cpadded">Added to your quote. Keep adding anything else you need — then send it all from your quote.</div>':'')+
+    '<div class="cpfoot"><span>Free digital proof with your logo before anything is made · no payment to get a quote</span>'+
+      '<button type="button" class="jalink" data-caask="1">Have Steven review it</button></div>'+
+  '</div>';}
+/* ADD TO QUOTE, THEN KEEP GOING (Steven, 2026-10-19: "should be simple and easy ... we want them to use the quote feature
+   and convert from there after they have finished adding all the products they want"). The recommendation has ONE
+   action -- "Add all to quote". Adding no longer throws the buyer into the full-screen quote: the program lands on the
+   quote (quantified, size-split, colour shown), the button turns into "View my quote", and they carry on shopping.
+   The quote is where they send it, once, with everything they chose. */
+var CA_ST1={};
+function caLoadProgram(cfg,A){var P=caLabelled(cfg,A).filter(function(x){return !x.none;}),want={};
+  P.forEach(function(x){var q=caQtyOf(cfg,A,x.role);want[x.main.k]=(want[x.main.k]||0)+q;});
+  Object.keys(want).forEach(function(k){var it=BYKEY[k],q=want[k];if(!cartHasAny(k))addToQuoteQuick(k);var ck=cartAnyKey(k)||k,c=CART[ck];if(!c)return;
+    if(!(it.layer==='promo')){c.qty=q;if(!oneSize(it)){c.sizes=spreadSizes(q,'mens',it);c.qty=sizeSum(c.sizes);}else delete c.sizes;}
+    c.colour=CA_COL[k]||caColOf(k)||c.colour;});
+  saveCart();refreshCartUI();try{syncBoardIfOpen();}catch(e){}
+  return {P:P,tot:caTotals(cfg,A,P)};}
+function renderCatAdvisor(el,cfg){
+  var A=caSt(cfg.id);
+  if(cfg.preset)try{cfg.preset(A,VIEW.cat,VIEW.sub);}catch(e){}
+  var qs=caQs(cfg,A),ready=caReady(cfg,A),n=qs.length;
+  var mode=A._m||(ready?'res':'q');if(mode==='intro')mode='q';if(mode==='res'&&!ready)mode='q';
+  var i=Math.max(0,Math.min(n-1,A._i||0));
+  if(mode==='q'&&A._i==null){var f0=caFirstOpen(qs,A);if(f0>0){i=f0;A._fresh=1;}}
+  var head='<div class="cahd"><span class="xpeyb">'+esc(cfg.label)+'</span>';
+  var body='',P=null;
+  if(mode==='q'){
+    var q=qs[i],answered=q.multi?((A[q.id]||[]).length>0):(A[q.id]!=null&&A[q.id]!=='');
+    var dflt=q.def!=null?(q.opts.filter(function(o){return String(o.id)===String(q.def);})[0]||null):null;
+    body=head+'<span class="castep">'+(i+1)+' of '+n+'</span></div>'+
+      ((i===0||A._fresh)?('<h3 class="xph">'+esc(cfg.h)+'</h3><p class="xpadv">'+esc(nwords(n))+' quick question'+(n>1?'s':'')+', then a recommended program'+(cfg.roles?' for your kit':(cfg.who?' for each group':''))+' — priced for your headcount, with your logo on it.</p>'):'')+
+      caStepsHtml(cfg,A,qs,i)+
+      '<h3 class="caq">'+esc(q.q)+'</h3>'+(q.hint||q.multi?('<p class="caqh">'+esc(q.multi?(q.preHint||'Select every group that applies — each gets its own pick. Tap again to remove one.'):q.hint)+'</p>'):'')+
+      (q.multi?('<div class="camulti"><span class="cacount" data-cacount="1">'+((A[q.id]||[]).length?((A[q.id]||[]).length+' selected'):'None selected yet')+'</span>'+
+        '<button type="button" class="jalink" data-casall="'+esc(q.id)+'">Select all</button><button type="button" class="jalink" data-caclr="'+esc(q.id)+'"'+((A[q.id]||[]).length?'':' hidden')+'>Clear</button></div>'):'')+
+      caOptHtml(q,A)+
+      '<div class="canav">'+(i>0?'<button type="button" class="jalink" data-cago="'+(i-1)+'">← Back</button>':'<button type="button" class="jalink" data-caask="1">Rather talk it through? Ask Steven</button>')+
+        (dflt&&!answered?('<button type="button" class="jalink caskip" data-caskip="'+esc(q.id)+'">Not sure? We’ll assume “'+esc(dflt.lab)+'”</button>'):'')+
+        (q.multi?('<button type="button" class="jaall" data-cago="'+(i+1)+'"'+(answered?'':' disabled')+'>'+(i+1>=n?'See my program →':'Continue →')+'</button>'):
+          (answered?(ready&&i+1>=n?'<button type="button" class="jaall" data-cares="1">See my program →</button>':'<button type="button" class="jaall" data-cago="'+(i+1)+'">Next →</button>'):''))+'</div>';
+  }else{
+    P=caLabelled(cfg,A);
+    var ok=P.filter(function(x){return !x.none;}),nS=caPool(cfg,A).length;
+    /* one group: the comparison IS the decision, so it starts open */
+    if(A._open===undefined&&ok.length===1&&(ok[0].alts||[]).length)A._open=ok[0].role;
+    body=head+'<span class="castep done">✓ Recommended program</span></div>'+
+      '<h3 class="xph">'+(cfg.roles?('Your golf kit — '+ok.length+' piece'+(ok.length===1?'':'s')):(ok.length>1?('Your '+esc(cfg.noun)+' program — '+ok.length+' groups'):('Our recommendation')))+'</h3>'+
+      '<div class="casum"><span class="casuml">Based on</span>'+caQs(cfg,A).map(function(qq,j){var v=A[qq.id],t=qq.multi?(v||[]).map(function(z){return caAnsLab(qq,z);}).join(', '):caAnsLab(qq,v);
+          return t?('<button type="button" class="casumc" data-cago="'+j+'" title="Change: '+esc(qq.q)+'">'+esc(t)+' <span aria-hidden="true">✎</span></button>'):'';}).join('')+
+        '<button type="button" class="jalink" data-cago="0">Change answers</button></div>'+
+      (cfg.toggles?('<div class="catog">'+cfg.toggles.map(function(g){var on=A[g.id]==='1';
+        return '<button type="button" class="catgl'+(on?' on':'')+'" data-catog="'+esc(g.id)+'" aria-pressed="'+on+'"><span class="catsw" aria-hidden="true"></span><b>'+esc(g.lab)+'</b><i>'+esc(g.sub)+'</i></button>';}).join('')+'</div>'):'')+
+      caProgHtml(cfg,A,P)+
+      caTakeHtml(cfg,A,P,true)+
+      caNextHtml(cfg)+
+      '<p class="cacmp">'+(ok.some(function(x){return x.cur;})?('Hand-picked by our team from the '+nS+' '+esc(cfg.noun)+' in this store for exactly these answers.'):('Chosen from all '+nS+' '+esc(cfg.noun)+' in this store against your answers — fabric, fit, sizes and how they’re built for the job.'))+
+        (cfg.note?(function(){try{var t=cfg.note(A);return t?(' '+t):'';}catch(e){return '';}})():'')+'</p>'+
+      ((cfg.tips&&cfg.tips(A).length)?('<details class="catips"><summary>What our team would tell you before you order</summary><ul>'+cfg.tips(A).map(function(t){return '<li>'+esc(t)+'</li>';}).join('')+'</ul></details>'):'')+
+      '<div class="cabarl cpreset"><button type="button" class="jalink" data-careset="1">Start over</button></div>';
+  }
+  el.innerHTML='<section class="xpert cadv2 m-'+mode+'" aria-label="'+esc(cfg.label)+'">'+body+'</section>';
+  try{wireAdvGo(el);}catch(e){}
+  if(mode==='q'){if(i===n-1)caWarm(cfg,A);}   /* ca_start now means a first ANSWER (2026-10-19) -- it used to fire on every render, so 122 "starts" were page views */
+  else if(!A._shown){A._shown=1;jdpTrack('ca_result',{c:cfg.id,n:(P||[]).filter(function(x){return !x.none;}).length});}
+  /* ONE delegated listener: rows' details are built on demand, and their buttons must work the moment they exist */
+  if(el._caBound!==cfg.id){el._caBound=cfg.id;el.onclick=function(e){caClick(e,el,cfg);};el.oninput=function(e){caInput(e,el,cfg);};
+    el.onchange=function(e){caInput(e,el,cfg,true);};}
+}
+function caMultiSync(el,l){var n=(l||[]).length,c=el.querySelector('[data-cacount]');if(c)c.textContent=n?(n+' selected'):'None selected yet';
+  var clr=el.querySelector('[data-caclr]');if(clr)clr.hidden=!n;var go=el.querySelector('.canav .jaall[data-cago]');if(go)go.disabled=!n;}
+function caScrollIn(el){var r=el.getBoundingClientRect();if(r.top<56)window.scrollTo({top:window.scrollY+r.top-84,behavior:'smooth'});}
+function caRefreshTotals(el,cfg,A){var P=caLabelled(cfg,A),T=caTotals(cfg,A,P);
+  P.forEach(function(x){if(x.none)return;var q=caQtyOf(cfg,A,x.role),u=caUnit(x.main.k,q),r=x.role;
+    var bu=el.querySelector('[data-cpu="'+r+'"]'),bq=el.querySelector('[data-cpq="'+r+'"]'),bl=el.querySelector('[data-cpl="'+r+'"]');
+    if(bu)bu.textContent=money(u);if(bq)bq.textContent='/pc at '+q;if(bl)bl.textContent=money(u*q);});
+  var t=el.querySelector('[data-cptot]');if(t)t.textContent=money(T.t);
+  var tn=el.querySelector('[data-cptn]');if(tn)tn.textContent=cfg.roles?(caQtyOf(cfg,A,'_kit')+' people · '+P.filter(function(x){return !x.none;}).length+' pieces each'):(T.n+' pieces');}
+function caSetQty(el,cfg,A,role,v){A._qty=A._qty||{};A._qty[role]=Math.max(moq(),Math.min(99999,parseInt(v,10)||moq()));caSave();
+  el.querySelectorAll('[data-caqi="'+role+'"]').forEach(function(x){if(document.activeElement!==x)x.value=A._qty[role];});caRefreshTotals(el,cfg,A);}
+function caInput(e,el,cfg,commit){var t=e.target;if(!t||!t.dataset||t.dataset.caqi==null)return;var A=caSt(cfg.id),v=String(t.value).replace(/[^0-9]/g,'');
+  if(!commit){if(!v)return;A._qty=A._qty||{};A._qty[t.dataset.caqi]=Math.max(moq(),parseInt(v,10));caSave();caRefreshTotals(el,cfg,A);return;}
+  caSetQty(el,cfg,A,t.dataset.caqi,v);t.value=A._qty[t.dataset.caqi];jdpTrack('ca_qty',{c:cfg.id});}
+function caClick(e,el,cfg){
+  var b=e.target.closest('button,[data-xpopen]');if(!b||!el.contains(b))return;var d=b.dataset,A=caSt(cfg.id);if(A._fresh)delete A._fresh;
+  if(d.advgo!=null)return;
+  if(d.cafr!=null){jdpTrack('ca_fr',{c:cfg.id});setCat('fr',true);return;}
+  var re=function(){caSave();renderCatAdvisor(el,cfg);};
+  if(d.ca!=null){var nq=d.ca,v=d.v,L=caQs(cfg,A),qd=L.filter(function(x){return x.id===nq;})[0]||{};CA_PICK={};
+    if(qd.multi){if(nq==='who')A._whoUser=1;var l=A[nq]=(A[nq]||[]).slice(),k=l.indexOf(v);if(k>=0)l.splice(k,1);else l.push(v);caSave();if(!CA_ST1[cfg.id]){CA_ST1[cfg.id]=1;jdpTrack('ca_start',{c:cfg.id});}jdpTrack('ca_q',{c:cfg.id,q:nq,v:v});
+      /* in place: tick or untick, no re-render, no flicker */
+      var on=l.indexOf(v)>=0;b.classList.toggle('on',on);b.setAttribute('aria-checked',on);caMultiSync(el,l);return;}
+    var was=A[nq];A[nq]=v;if(nq==='icp'||nq==='fr')caIcpSet(nq,v);caSave();if(!CA_ST1[cfg.id]){CA_ST1[cfg.id]=1;jdpTrack('ca_start',{c:cfg.id});}jdpTrack('ca_q',{c:cfg.id,q:nq,v:v});
+    el.querySelectorAll('[data-ca="'+nq+'"]').forEach(function(x){x.classList.toggle('on',x===b);x.setAttribute('aria-checked',x===b);});
+    /* a new answer moves on by itself after a visible beat; re-tapping the same answer just confirms it */
+    var L2=caQs(cfg,A),next=L2.indexOf(L2.filter(function(x){return x.id===nq;})[0])+1;
+    setTimeout(function(){if(next>=L2.length){A._m='res';A._shown=0;jdpTrack('ca_done',{c:cfg.id});}else{A._m='q';A._i=next;}re();caScrollIn(el);},String(was)===String(v)?60:220);return;}
+  if(d.casall!=null){var qa=caQs(cfg,A).filter(function(x){return x.id===d.casall;})[0];if(!qa)return;if(qa.id==='who')A._whoUser=1;A[qa.id]=qa.opts.map(function(o){return String(o.id);});CA_PICK={};caSave();
+    el.querySelectorAll('[data-ca="'+qa.id+'"]').forEach(function(x){x.classList.add('on');x.setAttribute('aria-checked','true');});caMultiSync(el,A[qa.id]);jdpTrack('ca_all',{c:cfg.id});return;}
+  if(d.caclr!=null){if(d.caclr==='who')A._whoUser=1;A[d.caclr]=[];CA_PICK={};caSave();el.querySelectorAll('[data-ca="'+d.caclr+'"]').forEach(function(x){x.classList.remove('on');x.setAttribute('aria-checked','false');});caMultiSync(el,[]);return;}
+  if(d.cachoose!=null){var pc=d.cachoose.split('|'),rl=pc[0],kk=pc[1],bs=caBaseOf(cfg,A,rl),grp2=(bs&&bs.roles)?bs.roles:[rl];
+    grp2.forEach(function(rr){if(bs&&bs.main.k===kk)delete CA_PICK[cfg.id+'.'+rr];else CA_PICK[cfg.id+'.'+rr]=kk;});
+    A._open=rl;jdpTrack('ca_choose',{c:cfg.id,k:kk});re();
+    var row=el.querySelector('[data-row="'+rl+'"]');if(row){row.classList.add('flash');setTimeout(function(){row.classList.remove('flash');},900);}return;}
+  if(d.caskip!=null){var qd2=caQs(cfg,A).filter(function(x){return x.id===d.caskip;})[0];if(!qd2)return;A[d.caskip]=String(qd2.def);CA_PICK={};jdpTrack('ca_skip',{c:cfg.id,q:d.caskip});
+    var L3=caQs(cfg,A),nx=L3.indexOf(qd2)+1;if(nx>=L3.length){A._m='res';A._shown=0;}else{A._m='q';A._i=nx;}re();caScrollIn(el);return;}
+  if(d.cago!=null){var t=+d.cago,L4=caQs(cfg,A);if(t>=L4.length){A._m='res';A._shown=0;jdpTrack('ca_done',{c:cfg.id});}else{A._m='q';A._i=t;}re();caScrollIn(el);return;}
+  if(d.cares!=null){A._m='res';A._shown=0;re();caScrollIn(el);return;}
+  if(d.careset!=null){CA[cfg.id]={_m:'q',_i:0};CA_PICK={};caSave();jdpTrack('ca_reset',{c:cfg.id});renderCatAdvisor(el,cfg);caScrollIn(el);return;}
+  if(d.caq!=null){var pp=d.caq.split('|'),role=pp[0],step=+pp[1],cur=caQtyOf(cfg,A,role);caSetQty(el,cfg,A,role,cur+step);return;}
+  if(d.cadet!=null){var r=d.cadet,box=el.querySelector('[data-detail="'+r+'"]');if(!box)return;var open=box.hidden;
+    if(open&&!box.innerHTML){var x=caLabelled(cfg,A).filter(function(y){return y.role===r;})[0];if(x&&!x.none)box.innerHTML=caCompareHtml(cfg,A,x);}
+    box.hidden=!open;A._open=open?r:'';caSave();b.classList.toggle('on',open);b.setAttribute('aria-expanded',open);
+    var nb=(caBaseOf(cfg,A,r)||{alts:[]}).alts.length+1;b.innerHTML=(open?'Hide comparison':('Compare '+nb+' options'))+' <span aria-hidden="true">'+(open?'▴':'▾')+'</span>';if(open)jdpTrack('ca_det',{c:cfg.id,r:r});return;}
+  if(d.caswap!=null){var p=d.caswap.split('|'),grp=caLabelled(cfg,A).filter(function(x){return !x.none&&x.roles.indexOf(p[0])>=0;})[0];
+    (grp?grp.roles:[p[0]]).forEach(function(rr){CA_PICK[cfg.id+'.'+rr]=p[1];});A._open=p[0];jdpTrack('ca_swap',{c:cfg.id,k:p[1]});re();return;}
+  if(d.catog!=null){var tg=d.catog;A[tg]=A[tg]==='1'?'':'1';CA_PICK={};jdpTrack('ca_q',{c:cfg.id,q:tg,v:A[tg]||'0'});re();return;}
+  if(d.cacol!=null){var c2=d.cacol.split('|'),k2=c2[0],col=c2.slice(1).join('|');CA_COL[k2]=col;jdpTrack('ca_col',{c:cfg.id,k:k2});
+    var card=b.closest('.cam');if(card){var im=card.querySelector('.camimg');if(im)im.innerHTML=caThumb(k2,col)+'<span class="camlogo">Shown with your logo</span>';
+      card.querySelectorAll('[data-cacol]').forEach(function(x){x.classList.toggle('on',x===b);});var cl=card.querySelector('[data-cacur]');if(cl)cl.textContent=col;}
+    el.querySelectorAll('.cprow .cpimg[data-xpopen="'+k2+'"]').forEach(function(x){x.innerHTML=caThumb(k2,col);});
+    if(cartHasAny(k2)){var ck2=cartAnyKey(k2);if(CART[ck2]){CART[ck2].colour=col;saveCart();refreshCartUI();}}return;}
+  if(d.caadd!=null){var k3=d.caadd;if(cartHasAny(k3)){openQuote('advisor');return;}addToQuoteQuick(k3);if(CA_COL[k3]&&CART[k3]){CART[k3].colour=CA_COL[k3];saveCart();refreshCartUI();}
+    jdpTrack('ca_add1',{c:cfg.id,k:k3});b.textContent='✓ In your quote';b.classList.add('done');return;}
+  if(d.caall!=null){var okP=caLabelled(cfg,A).filter(function(x){return !x.none;});
+    if(okP.length&&okP.every(function(x){return cartHasAny(x.main.k);})){openQuote('advisor');return;}caAddProgram(cfg,A);re();return;}
+  if(d.caask!=null){caAsk(cfg,A);return;}
+  if(d.xpopen!=null){jdpTrack('xp_open',{k:d.xpopen,src:'ca_'+cfg.id});openSheet(d.xpopen);return;}
+}
+/* every line lands on the quote at its headcount, size-split, in the colour the buyer looked at */
+function caAddProgram(cfg,A){var L=caLoadProgram(cfg,A),P=L.P,tot=L.tot;jdpTrack('ca_add',{c:cfg.id,n:P.length,q:tot.n});
+  toast('Added '+P.length+' line'+(P.length===1?'':'s')+' · '+tot.n+' pieces to your quote');}
+function caAsk(cfg,A){jdpTrack('xp_ask',{c:cfg.id});openSourcing('');
+  var nt=document.getElementById('coNote');if(nt&&!nt.value){
+    var lines=['Please review this '+cfg.noun+' program for our team.'];
+    caQs(cfg,A).forEach(function(x){var v=A[x.id];if(v==null||v===''||(x.multi&&!(v||[]).length))return;lines.push(x.q+': '+(x.multi?(v||[]).map(function(z){return caAnsLab(x,z);}).join(', '):caAnsLab(x,v)));});
+    if(caReady(cfg,A)){caLabelled(cfg,A).filter(function(x){return !x.none;}).forEach(function(x){lines.push((x.lab?x.lab+': ':'')+BYKEY[x.main.k].name+' × '+caQtyOf(cfg,A,x.role));});}
+    lines.push('Needed by: ');nt.value=lines.join('\n');}}
+/* ---- the advisors, one per major apparel category ------------------------------------------------- */
+var CA_WHO_WEAR=[
+  {id:'office',lab:'Office & client-facing',sub:'Sales, managers, front desk'},
+  {id:'mixed',lab:'In and out all day',sub:'Warehouse, drivers, techs'},
+  {id:'outdoor',lab:'Outdoor crews',sub:'Yard, construction, grounds'},
+  {id:'events',lab:'Events & volunteers',sub:'Trade shows, community days'}];
+var CADV=[];
+/* JACKETS -- the jacket advisor (2026-10-09) on the shared engine. Research: Brandsauce, Quality Imprint,
+   Arklavo jacket-program guides -- start from the job; one core jacket per role; the deciding facts are
+   warmth, water-repellent vs waterproof, men's and women's cuts, extended sizes and price per person. */
+/* JACKETS v3 -- CURATED (Steven, 2026-10-12 15:06: "your selection based off what they pick is off ... understand
+   enterprise needs and create the optimal jacket advisor with the right picks!"). v2 let a points score choose, and a
+   score has no taste: it handed the same quilted jacket to the office and the drivers, a men's-only bomber to mixed
+   crews, a $199 jacket to a winter-rain buyer and a 3-in-1 to office commuters. So every answer now maps to a
+   HAND-PICKED trio -- our pick, a real lower-cost option and a real step up -- per market (Canada, United States),
+   built from the attached sheet and corrected:
+     - the sheet's four warmth levels come back (a fleece-backed softshell is its own level between a windbreaker and
+       an insulated jacket -- lumping them is what put rain shells on spring buyers), and wet goes back to the sheet's
+       two answers, where "rain or wet snow" means SEAM-SEALED, quoted from the maker's copy, never a DWR finish;
+     - office and driver picks come in matched men's AND women's cuts (Harrison, the sheet's office pick, has none);
+     - drivers get bomber and jacket lengths, never a parka that bunches in the seat; office commuters in deep cold get
+       a long city coat, not a $254 expedition parka; warehouse picks stay light enough for indoors (3-in-1s whose
+       liner comes out), outdoor crews get heavy-duty Thinsulate and seam-sealed 3-in-1s;
+     - Carhartt and the big lifestyle names are the Premium step, never the default (Steven, 2026-10-09);
+     - every pick is a current style we carry and can price; the sheet named 14 we do not.
+   A pick the store can't show (hidden in a market, or no women's cut when that's required) falls back to the scored
+   ranking, so the advisor never comes back empty. */
+var JA2_ROLES=[
+  {id:'office',lab:'Office & client-facing',sub:'Sales, managers, front desk'},
+  {id:'drivers',lab:'Drivers & field techs',sub:'In and out of vehicles all shift'},
+  {id:'warehouse',lab:'Warehouse & shop',sub:'Mostly indoors, quick trips out'},
+  {id:'outdoor',lab:'Outdoor crews',sub:'Construction, yards, grounds'}];
+var JA2_BASE={office:'office',drivers:'mixed',warehouse:'mixed',outdoor:'outdoor'};
+var JA2_EXPO={office:'outside for commutes and site visits',drivers:'in and out of vehicles all shift',warehouse:'mostly indoors with quick trips out',outdoor:'outside most of the shift'};
+var JA_WARM4=[{id:1,lab:'Mild',sub:'Wind and a chill — late spring to early fall'},{id:2,lab:'Cool',sub:'Crisp spring and fall mornings'},
+  {id:3,lab:'Cold winter',sub:'Below freezing'},{id:4,lab:'Deep winter',sub:'Hours well below freezing'}];
+var JA_WET2=[{id:0,lab:'Mostly dry',sub:'The odd shower — water-repellent is fine'},{id:1,lab:'Rain or wet snow is part of the job',sub:'We’ll only recommend seam-sealed waterproof jackets'}];
+/* the scored fallback still thinks in three warmth bands */
+function ja3Cold(w){return {1:1,2:1,3:2,4:3}[+w||3]||2;}
+function ja2Eff(role,cold){cold=+cold||2;return role==='warehouse'?Math.max(1,cold-1):cold;}
+/* ONE recommendation, two cuts of it: the buyer picks hood or length, we never present twins as two choices */
+var JA_FAMILY={cs_cyclone:['cs_l03170','Hurricane — adds a removable hood and storm cuffs'],cs_l03170:['cs_cyclone','Cyclone — no hood, a cleaner uniform look'],
+  cs_l01110:['cs_l01100','Defender — parka length for more coverage'],cs_l01100:['cs_l01110','Champion — bomber length, easier in and out of vehicles'],
+  cs_l01115:['cs_l01120','Pinnacle — parka length for more coverage'],cs_l01120:['cs_l01115','Glacier Bay — bomber length, easier to move in'],
+  st_pacificawind:['st_pacifica','Pacifica Full Zip — no hood, a cleaner uniform look'],st_pacifica:['st_pacificawind','Pacifica — with an attached hood'],
+  st_squall:['st_waterfall','Waterfall — mid-length and fully lined, for commuters'],st_waterfall:['st_squall','Squall — hip length, for active work'],
+  st_tradesmith:['st_tradesmithhoody','Tradesmith Hoody — the same sherpa-lined canvas with a hood'],st_tradesmithhoody:['st_tradesmith','Tradesmith Jacket — collar and snap front']};
+/* what each option IS, in a line -- from the maker's own copy and our catalogue facts */
+var JA_ANG={st_pacificawind:'Ultra-light 65 gsm windbreaker with a hood',st_pacifica:'Hoodless Pacifica windbreaker',st_nautilusshell:'Packable lightweight shell',
+  st_stratus:'Ultra-light packable shell with sealed seams',cs_l07200:'Stretch softshell bonded to micro fleece',softshell:'Clean, economical everyday softshell',
+  cs_l07240:'Lightweight stretch softshell with a brushed backing',cs_l04200:'Packable four-way-stretch jacket',cs_l03170:'Insulated stretch softshell, removable hood',
+  cs_cyclone:'Insulated stretch softshell, no hood',cs_l03400:'Conventional insulated jacket with a detachable hood',st_orbiter:'Insulated softshell, Thermolex high-loft fill',
+  cs_l01110:'Heavy-duty bomber, 3M Thinsulate 200/170 gsm',cs_l01100:'Heavy-duty parka, 3M Thinsulate 200/170 gsm',
+  cs_l01115:'Heavy-duty 3-in-1 bomber: seam-sealed shell + zip-out quilted jacket',cs_l01120:'Heavy-duty 3-in-1 parka: seam-sealed shell + zip-out quilted jacket',
+  cs_l06000:'3-in-1: 10,000 mm seam-sealed shell + zip-out liner',st_nostromo:'Insulated jacket with a sealed 15000/10000 waterproof shell',
+  cs_l02185:'Fully seam-sealed 5,000 mm stretch rain shell',st_scirocco:'Seam-sealed lightweight rain shell',st_patrol:'Softshell with sealed seams — warmth and rain protection in one',
+  cs_l06025:'Long puffy coat, 300 gsm body insulation',st_denali:'Long parka: sealed 10000/10000 shell, Thermolex fill',st_explorerparka:'Sherpa-lined parka, sealed 10000/10000 shell',
+  st_magellan:'3-in-1 with fully sealed seams and a zip-out thermal liner',cs_l00910:'Cotton-canvas bomber, sherpa lined',cs_l01080:'Insulated work parka, 220/170 gsm fill',
+  cs_l01025:'Quilted freezer jacket, 150 gsm fill',st_nautilusjkt:'Slim quilted jacket, windproof shell',cs_l00980:'Puffy jacket with a detachable hood',
+  cbc_evoke_puffer:'Cutter & Buck puffer — the premium corporate name',cb_adapt:'Cutter & Buck hybrid full-zip',cbc_rainier_hybrid:'Cutter & Buck puffer hybrid',
+  st_sierrashell:'Budget lightweight shell',ch_102199:'Carhartt Rain Defender heavyweight softshell',ch_106674:'Carhartt firm-duck insulated coat',
+  st_steelhead:'Heavy-duty Taslan oxford jacket, 5000/5000 waterproof shell',st_oslo:'Quilted city parka, 5000/5000 waterproof shell',
+  st_atmosphere:'3-in-1: sealed 5000/5000 shell + zip-out liner',st_artimus:'Technical shell, 10,000 mm, sealed seams',st_vertex:'Three-layer storm shell, 20,000 mm, sealed seams',
+  st_squall:'Rain jacket with welded seams',st_waterfall:'Lined mid-length raincoat, welded seams',st_cascades:'H2XTREME softshell with a water-repellent finish',
+  st_greenwich:'Lightweight H2XTREME softshell',st_narvik:'Insulated hybrid jacket',st_vortex:'Heavy-duty 3-in-1 work parka with a zip-out fleece',
+  st_cruise:'Hooded H2XTREME stretch softshell',cs_l01055:'600 gsm softshell bonded to sherpa, abrasion-resistant',st_tradesmith:'Sherpa-lined canvas work jacket',
+  st_flatiron:'Diamond-quilted work jacket',st_avalante3in1:'3-in-1: sealed shell + quilted high-loft inner jacket',st_matrix:'3-in-1: sealed H2XTREME shell + thermal liner',
+  rainier:'Full-length seam-sealed raincoat',st_axis:'Woven shell with a mesh lining',tnf_soft:'The North Face softshell',st_sierrajkt:'Value quilted jacket, windproof shell'};
+/* THE MATRIX: role|warmth|wet -> [our pick, lower cost, premium, why this is the pick]. null = deliberately none. */
+var JA_CUR={
+ca:{
+'office|1|0':['st_pacificawind','st_nautilusshell','st_stratus','A light windbreaker is all a commute needs on mild days — choose hood or hoodless and keep one look across the team.'],
+'office|2|0':{p:'softshell',ang:'Clean everyday corporate uniform: a fleece-backed softshell that reads polished over a shirt, in matching men’s and women’s cuts.',alts:[['cbc_evoke_fleece','Polished','Cutter & Buck Evoke Eco — a refined corporate softshell'],['st_cruise','Weather-ready','Hooded H2XTREME stretch softshell for wind and rain']]},
+'office|3|0':{p:'cs_cyclone',ang:'A structured insulated softshell — warm on winter commutes, with a clean, tailored look for client-facing staff. Hooded option: Hurricane L03170.',alts:[['st_stavanger','Lightweight puffer','Stormtech Stavanger — a light, everyday quilted puffer'],['cbc_rainier_puffer','Polished premium','Cutter & Buck Rainier PrimaLoft — the polished premium puffer']]},
+'office|4|0':['cs_l06025',null,'st_oslo','Deep cold on the commute calls for length: a long puffy coat that covers past the hips, without the bulk of an expedition parka.'],
+'office|1|1':['st_stratus','rainier','st_scirocco','Sealed seams keep steady rain out, and the ultra-light shell packs into a work bag on dry days.'],
+'office|2|1':['st_scirocco','cs_l02185','st_vertex','A seam-sealed shell over office layers: dry in steady rain, with the warmth coming from what’s underneath.'],
+'office|3|1':['st_nostromo',null,'st_avalante3in1','Insulation and a sealed waterproof shell in one sleek jacket — no separate rain layer on winter commutes.'],
+'office|4|1':['cs_l06000',null,'st_denali','A seam-sealed shell with a zip-out liner: the full system for the wettest, coldest commutes, the shell alone for spring rain.'],
+'drivers|1|0':['st_pacificawind','st_nautilusshell','st_greenwich','Light and unrestrictive for getting in and out of vehicles all day.'],
+'drivers|2|0':{p:'cs_l07200',ang:'Stretch and a micro-fleece backing: moves with drivers and techs, and takes the edge off cool mornings.',alts:[['softshell','Value','Balmy — the economical everyday softshell'],['st_cruise','Weather-ready','Hooded H2XTREME stretch softshell']]},
+'drivers|3|0':{p:'cs_cyclone',ang:'An insulated stretch softshell — warm, but not bulky behind the wheel. Hooded option: Hurricane L03170.',alts:[['cs_l03400','Value','Playmaker — a conventional insulated jacket with a detachable hood'],['st_orbiter','Technical','Stormtech Orbiter — insulated softshell, Thermolex fill']]},
+'drivers|4|0':['cs_l01110',null,'cs_l01115','Heavy-duty Thinsulate warmth at bomber length, so it doesn’t bunch up in the driver’s seat.'],
+'drivers|1|1':['cs_l02185',null,'st_scirocco','Fully seam-sealed and stretchy, light enough to wear in and out of the vehicle all day.'],
+'drivers|2|1':['cs_l02185',null,'st_patrol','A seam-sealed stretch shell; a fleece or hoodie underneath supplies the warmth.'],
+'drivers|3|1':['st_nostromo',null,'cs_l01115','Insulated and sealed in one jacket — nothing extra to shed every time they climb back in the cab.'],
+'drivers|4|1':['cs_l01115','cs_l06000','st_magellan','A heavy-duty 3-in-1 bomber: sealed shell and warm inner jacket, at a length made for climbing in and out of cabs.'],
+'warehouse|1|0':['cs_l04200','st_nautilusshell','cs_l07200','Light and stretchy, so it doesn’t overheat indoors between quick trips out.'],
+'warehouse|2|0':['softshell','cs_l07240','cs_l07200','A simple fleece-backed softshell for quick trips outside — warm enough on the dock, not too warm inside.'],
+'warehouse|3|0':['cs_l03400',null,'cs_l03170','A straightforward insulated jacket for the loading dock, with a detachable hood for indoor stretches.'],
+'warehouse|4|0':['cs_l01110','cs_l01025','cs_l01115','Long cold stretches on the dock or in the yard: heavy-duty Thinsulate in a bomber cut that still lets them move.'],
+'warehouse|1|1':['cs_l02185',null,'st_scirocco','A seam-sealed rain shell for dock runs in the rain, light enough to leave on indoors.'],
+'warehouse|2|1':['cs_l02185',null,'st_scirocco','A seam-sealed shell over a hoodie: dry on the dock, not too warm inside.'],
+'warehouse|3|1':['cs_l06000','st_nostromo','cs_l01115','The liner zips out for indoor stretches, and the seam-sealed shell handles wet dock work.'],
+'warehouse|4|1':['cs_l01115','cs_l06000','st_magellan','Heavy-duty 3-in-1: sealed shell and warm inner jacket together for long wet, cold stretches outside.'],
+'outdoor|1|0':{p:'cs_l07240',ang:'A stretch softshell stands up to a working day better than a thin windbreaker.',alts:[['st_sierrashell','Value','Budget lightweight shell'],['st_cruise','Weather-ready','Hooded H2XTREME stretch softshell']]},
+'outdoor|2|0':['cs_l07200','softshell','cs_l01055','Stretch softshell bonded to micro fleece: moves with active crews and takes the edge off cool mornings.'],
+'outdoor|3|0':{p:'cs_l01110',ang:'Most of the shift outside in winter: heavy-duty 3M Thinsulate in a bomber cut that keeps arms free.',alts:[['cs_l00910','Traditional canvas','Big Red — cotton canvas, sherpa lined'],['st_steelhead','Technical heavy-duty','Stormtech Steelhead HD — the technical counterpart to Champion']]},
+'outdoor|4|0':['cs_l01100','cs_l01080','st_denali','Hours outside in deep cold: parka length adds coverage over the same heavy-duty Thinsulate.'],
+'outdoor|1|1':['cs_l02185',null,'st_scirocco','A fully seam-sealed stretch shell keeps active crews dry without slowing them down.'],
+'outdoor|2|1':['cs_l02185',null,'st_vertex','Seam-sealed and stretchy, worn over a fleece: dry all shift, and the layer underneath does the warming.'],
+'outdoor|3|1':['cs_l01115','cs_l06000','st_magellan','Heavy-duty 3-in-1: seam-sealed shell plus a warm inner jacket, and either piece works alone as the weather shifts.'],
+'outdoor|4|1':['cs_l01120',null,'st_denali','Parka-length heavy-duty 3-in-1 for long wet, cold shifts: sealed shell plus a zip-out quilted jacket.']},
+us:{
+'office|1|0':['st_pacificawind','st_nautilusshell','st_stratus','A light windbreaker is all a commute needs on mild days — choose hood or hoodless and keep one look across the team.'],
+'office|2|0':{p:'cbc_evoke_fleece',ang:'A refined corporate softshell from Cutter & Buck — polished in front of clients, in matching men’s and women’s cuts.',alts:[['cq_tempest','Practical','Clique Tempest — a waterproof stretch softshell at a uniform-friendly price'],['st_cruise','Weather-ready','Hooded H2XTREME stretch softshell']]},
+'office|3|0':{p:'cq_equinox',ang:'A structured insulated softshell with a hood — clean and warm for winter commutes, in matching men’s and women’s cuts.',alts:[['st_stavanger','Lightweight puffer','Stormtech Stavanger — a light, everyday quilted puffer'],['cbc_rainier_puffer','Polished premium','Cutter & Buck Rainier PrimaLoft — the polished premium puffer']]},
+'office|4|0':['st_oslo',null,'st_denali','A quilted city parka with a waterproof shell: polished for the commute, warm for deep cold.'],
+'office|1|1':['st_stratus','st_squall','st_artimus','Sealed seams keep steady rain out, and the ultra-light shell packs into a work bag on dry days.'],
+'office|2|1':['st_scirocco','st_stratus','st_vertex','A seam-sealed shell over office layers: dry in steady rain, with the warmth coming from what’s underneath.'],
+'office|3|1':['st_nostromo',null,'st_atmosphere','Insulation and a sealed waterproof shell in one sleek jacket — no separate rain layer on winter commutes.'],
+'office|4|1':['st_atmosphere','st_oslo','st_denali','A sealed shell with a zip-out liner: the full system for the wettest, coldest commutes, the shell alone for spring rain.'],
+'drivers|1|0':['st_pacificawind','st_nautilusshell','st_greenwich','Light and unrestrictive for getting in and out of vehicles all day.'],
+'drivers|2|0':{p:'cq_tempest',ang:'A waterproof stretch softshell that moves with drivers and techs all day.',alts:[['cq_tempo','Value','Clique Tempo — the stretch softshell at a lower price'],['st_cruise','Weather-ready','Hooded H2XTREME stretch softshell']]},
+'drivers|3|0':{p:'cq_equinox',ang:'An insulated stretch softshell with a hood — warm, but not bulky behind the wheel.',alts:[['cq_hudson','Value puffer','Clique Hudson — an insulated puffer at a uniform-friendly price'],['st_orbiter','Technical','Stormtech Orbiter — insulated softshell, Thermolex fill']]},
+'drivers|4|0':['st_magellan','st_vortex','st_matrix','A 3-in-1 at jacket length: the full system for deep cold, the shell alone on milder days — and it won’t bunch in the seat.'],
+'drivers|1|1':['st_stratus','st_squall','st_artimus','Sealed seams and next to no weight, for wearing in and out of the vehicle all day.'],
+'drivers|2|1':['st_scirocco','st_squall','st_patrol','A seam-sealed shell; a fleece or hoodie underneath supplies the warmth.'],
+'drivers|3|1':['st_nostromo',null,'st_magellan','Insulated and sealed in one jacket — nothing extra to shed every time they climb back in the cab.'],
+'drivers|4|1':['st_magellan',null,'st_matrix','Fully sealed 3-in-1 at jacket length: deep-winter warmth that still works behind the wheel.'],
+'warehouse|1|0':['st_axis','st_sierrashell','st_greenwich','A light woven shell that won’t overheat indoors between quick trips out.'],
+'warehouse|2|0':['st_greenwich','st_axis','st_cascades','A lightweight softshell for quick trips outside — warm enough on the dock, not too warm inside.'],
+'warehouse|3|0':{p:'st_narvik',ang:'An insulated hybrid: warm through the body for the dock, with less bulk for working indoors.',alts:[['cq_hudson','Value puffer','Clique Hudson insulated puffer'],['cq_equinox','Insulated softshell','Clique Equinox — hooded insulated softshell']]},
+'warehouse|4|0':['st_vortex',null,'st_magellan','A heavy-duty 3-in-1 parka for long cold stretches outside — the fleece comes out for indoor work.'],
+'warehouse|1|1':['st_squall',null,'st_scirocco','Welded seams keep the rain out on dock runs, and it’s light enough to leave on indoors.'],
+'warehouse|2|1':['st_squall',null,'st_scirocco','A welded-seam rain jacket over a hoodie: dry on the dock, not too warm inside.'],
+'warehouse|3|1':['st_atmosphere','st_nostromo','st_avalante3in1','The liner zips out for indoor stretches, and the sealed shell handles wet dock work.'],
+'warehouse|4|1':['st_magellan',null,'st_matrix','A fully sealed 3-in-1: shell and liner together for long wet, cold stretches outside.'],
+'outdoor|1|0':['st_greenwich','st_pacificawind','st_cascades','A light softshell stands up to a working day better than a thin windbreaker.'],
+'outdoor|2|0':{p:'st_cascades',ang:'A stretch H2XTREME softshell for active crews on cool days.',alts:[['cq_tempest','Value','Clique Tempest — waterproof stretch softshell'],['st_cruise','Weather-ready','Hooded H2XTREME stretch softshell']]},
+'outdoor|3|0':{p:'st_steelhead',ang:'Heavy-duty insulated work jacket with an HD 5000/5000 waterproof shell — the US counterpart to our Canadian Champion pick.',alts:[['st_tradesmith','Traditional canvas','Tradesmith — sherpa-lined canvas work jacket'],['st_flatiron','Value','Flatiron — diamond-quilted work jacket']]},
+'outdoor|4|0':['st_vortex',null,'st_denali','Hours outside in deep cold: a heavy-duty 3-in-1 parka, fleece in for the coldest days.'],
+'outdoor|1|1':['st_squall',null,'st_artimus','Welded seams keep active crews dry in steady rain, at a price that works for a whole crew.'],
+'outdoor|2|1':['st_scirocco','st_squall','st_vertex','A seam-sealed shell over a fleece: dry all shift, and the layer underneath does the warming.'],
+'outdoor|3|1':['st_magellan','st_nostromo','st_denali','A fully sealed 3-in-1: shell plus a warm liner, and either piece works alone as the weather shifts.'],
+'outdoor|4|1':['st_denali','st_magellan',null,'Long wet, cold shifts: a parka with a sealed 10000/10000 shell and Thermolex fill.']}};
+/* a curated row is either the original trio [pick, lower, premium, why] or, where the buyer is choosing between
+   purposes, {p, ang, alts:[[key, label, line], ...], note, only} */
+function caRow(row){if(!row)return null;if(Array.isArray(row))return {pick:row[0],lo:row[1],hi:row[2],ang:row[3]};
+  return {pick:row.p,ang:row.ang||'',note:row.note||'',only:!!row.only,alts:(row.alts||[]).map(function(a){return {k:a[0],lab:a[1],why:a[2]||''};})};}
+/* THE KIND OF WORK (Steven, 2026-10-14: "they might need more rugged workwear like the CSW Boulder L01055 for colder
+   abrasive work; CSW Big Red for traditional canvas styling or the CSW freezer-jacket range, including Contender L01025,
+   subject to the actual temperature and work assessment"). Asked only when the buyer is outfitting outdoor crews or
+   warehouse staff; it re-points THOSE groups' picks and leaves office and drivers alone. Freezer wear is offered for
+   warehouse staff only, in the market that stocks it, and always with the assessment caveat. */
+var JA_WORK={
+ca:{
+'abr|cool':{p:'cs_l01055',ang:'A 600 gsm softshell bonded to sherpa fleece and finished to resist abrasion — built for rough, colder work.',alts:[['cs_l00910','Traditional canvas','Big Red — cotton canvas, sherpa lined'],['cs_l07200','Lighter','Navigator — stretch softshell for active days']]},
+'abr|cold':{p:'cs_l01055',ang:'Abrasion-resistant softshell bonded to sherpa fleece — the rugged answer for colder, abrasive work.',alts:[['cs_l01110','Heavy-duty insulated','Champion — 3M Thinsulate in a heavy-duty bomber'],['cs_l00910','Traditional canvas','Big Red — cotton canvas, sherpa lined']]},
+'abr|deep':{p:'cs_l01110',ang:'Deep cold and rough work: heavy-duty 3M Thinsulate in a bomber cut that keeps arms free.',alts:[['cs_l01100','Parka length','Defender — the same build, longer coverage'],['cs_l01055','Abrasion-resistant','Boulder — sherpa-bonded softshell for rough work']]},
+'canvas|cool':{p:'cs_l00910',ang:'Traditional workwear styling: a cotton-canvas bomber with a sherpa lining and a detachable hood.',alts:[['st_oxide','Stormtech canvas','Oxide — sherpa-lined canvas jacket'],['st_tradesmith','Canvas work jacket','Tradesmith — sherpa-lined canvas, light thermal fill']]},
+'canvas|cold':{p:'cs_l00910',ang:'Traditional workwear styling: a cotton-canvas bomber with a sherpa lining and a detachable hood.',alts:[['st_tradesmith','Canvas work jacket','Tradesmith — sherpa-lined canvas, light thermal fill'],['cs_l01110','Warmer','Champion — heavy-duty 3M Thinsulate bomber']]},
+'canvas|deep':{p:'cs_l00910',ang:'The canvas look in deep cold: Big Red’s sherpa-lined canvas — layer underneath for long hours outside.',alts:[['cs_l01110','Warmer','Champion — heavy-duty 3M Thinsulate bomber'],['cs_l01100','Warmest','Defender — heavy-duty parka']]},
+'frz|any':{p:'cs_l01025',only:true,ang:'A quilted freezer jacket from Canada Sportswear’s freezer range, for cold-storage and freezer work.',alts:[['cs_l01090','Modern quilted','Nomad — stylized quilted freezer jacket']],
+  note:'Freezer wear is recommended subject to your actual temperatures and a work assessment — tell us the temperature and how long staff are inside.'}},
+us:{
+'abr|cool':{p:'st_steelhead',ang:'Heavy-duty Taslan oxford with an HD waterproof shell — built for rough work.',alts:[['st_tradesmith','Traditional canvas','Tradesmith — sherpa-lined canvas'],['st_flatiron','Value','Flatiron — diamond-quilted work jacket']]},
+'abr|cold':{p:'st_steelhead',ang:'Heavy-duty Taslan oxford with an HD waterproof shell — the rugged answer for colder, abrasive work.',alts:[['st_tradesmith','Traditional canvas','Tradesmith — sherpa-lined canvas'],['st_flatiron','Value','Flatiron — diamond-quilted work jacket']]},
+'abr|deep':{p:'st_steelhead',ang:'Heavy-duty Taslan oxford with an HD waterproof shell — layer underneath for long hours in deep cold.',alts:[['st_vortex','3-in-1 parka','Vortex HD — heavy-duty 3-in-1 with a zip-out fleece'],['st_tradesmith','Traditional canvas','Tradesmith — sherpa-lined canvas']]},
+'canvas|cool':{p:'st_tradesmith',ang:'Traditional workwear styling: sherpa-lined canvas with a light thermal fill.',alts:[['st_oxide','Sherpa canvas','Oxide — sherpa-lined canvas jacket'],['st_tradesmithhoody','Hooded','Tradesmith Hoody — the same canvas with a hood']]},
+'canvas|cold':{p:'st_tradesmith',ang:'Traditional workwear styling: sherpa-lined canvas with a light thermal fill.',alts:[['st_oxide','Sherpa canvas','Oxide — sherpa-lined canvas jacket'],['st_steelhead','Warmer','Steelhead HD — heavy-duty insulated']]},
+'canvas|deep':{p:'st_tradesmith',ang:'The canvas look in deep cold — layer underneath for long hours outside.',alts:[['st_steelhead','Warmer','Steelhead HD — heavy-duty insulated'],['st_vortex','Warmest','Vortex HD 3-in-1 parka']]}}};
+function jaMkt(){return (typeof isUS==='function'&&isUS())?'us':'ca';}
+function jaWorkOpts(A){var who=A.who||[],w=+A.warm||0,o=[{id:'gen',lab:'Standard work',sub:'Yards, sites, docks — nothing unusual'}];
+  var rough=(who.indexOf('outdoor')>=0||who.indexOf('warehouse')>=0)&&w>=2;
+  if(rough){o.push({id:'abr',lab:'Rough, abrasive work',sub:'Trades, heavy handling — needs tough fabric'});o.push({id:'canvas',lab:'Traditional canvas look',sub:'Classic workwear styling'});}
+  if(who.indexOf('warehouse')>=0&&JA_WORK[jaMkt()]['frz|any'])o.push({id:'frz',lab:'Cold storage or freezer',sub:'Freezer jackets — confirm against your temperature assessment'});
+  return o;}
+function jaCurated(A,role){var mk=jaMkt(),M=JA_CUR[mk]||{},w=+A.warm||0,r=+A.rain||0,wk=A.work||'gen';
+  if(wk!=='gen'&&(role==='outdoor'||role==='warehouse')){var band=w>=4?'deep':(w>=3?'cold':'cool');
+    var o=wk==='frz'?(role==='warehouse'?JA_WORK[mk]['frz|any']:null):JA_WORK[mk][wk+'|'+band];if(o&&!(wk!=='frz'&&w<2))return caRow(o);}
+  return caRow(M[role+'|'+w+'|'+(r?1:0)]);}
+CADV.push({id:'jackets',tile:'Warmth, rain and the job — the right jacket for each group',one:'jacket',label:'Jacket advisor',noun:'jackets',noun2:'jackets',
+  h:'Not sure which jacket? Start with the job.',
+  sub:'Three quick questions — who wears it, how cold, how wet. Every answer leads to a jacket we’ve hand-picked for that job, plus a lower-cost and a premium option.',
+  overWhy:'how cold and wet it gets',
+  applies:function(c,s){return c==='outerwear'||(c==='carhartt'&&/Jackets/.test(s));},
+  preset:function(A,c){
+    /* answers saved by the first jacket advisor used 'mixed' for drivers */
+    if(A.who)A.who=A.who.map(function(x){return x==='mixed'?'drivers':x;}).filter(function(x,i,a){return x!=='site'&&a.indexOf(x)===i;});
+    /* earlier versions: cold 1-3 (spring & fall / Canadian winter / deep winter) and wet as 2 (v1) or 3 (v2) levels */
+    if(A._wv!==3){if(A.cold!=null&&A.cold!==''&&(A.warm==null||A.warm===''))A.warm=String({1:2,2:3,3:4}[+A.cold]||'');
+      if(A.rain!=null&&A.rain!=='')A.rain=String(A._wv===2?(+A.rain>=2?1:0):(+A.rain?1:0));
+      delete A.cold;A._wv=3;}},
+  who:true,
+  qs:[{id:'who',q:'Who are you outfitting?',short:'Who wears it',hint:'Pick every group that needs a jacket — each gets its own pick',multi:true,wide:true,opts:JA2_ROLES},
+      {id:'warm',q:'How cold does it get when they’re outside?',short:'How cold',def:'3',opts:JA_WARM4},
+      {id:'work',q:'What kind of work do they do?',short:'The work',def:'gen',hint:'This only changes the pick for outdoor crews and warehouse staff.',
+        when:function(A){return jaWorkOpts(A).length>1;},optsFor:jaWorkOpts},
+      {id:'rain',q:'Rain or wet snow?',short:'How wet',def:'0',opts:JA_WET2,when:function(A){var w=A.who||[];return !(A.work==='frz'&&w.length===1&&w[0]==='warehouse');}}],
+  curate:function(A,role){return jaCurated(A,role);},
+  /* a curated option must still suit THIS buyer: a women's cut when they need one */
+  curOk:function(it,A){return !(A.lad==='1'&&!hasLadies(it));},
+  angOf:function(k){return JA_ANG[k]||'';},
+  fact:function(it){var w=jaWarm(it),f=jaFlags(it),sys=!!(it.sys||/in-1/i.test(it.name));
+    return caArt((sys?'3-in-1 ':'')+({1:'lightweight',2:'insulated',3:'winter-weight'}[w]||'')+' jacket')+(f.indexOf('sealed seams')>=0?', seam-sealed and waterproof':(f.indexOf('waterproof')>=0?', waterproof':(f.indexOf('water-repellent')>=0?', water-repellent':'')))+(hasLadies(it)?', in men’s and women’s cuts':'');},
+  pool:function(){return jaPool().filter(function(k){return !jaHivis(BYKEY[k]);});},
+  /* the FALLBACK (Carhartt aisle, or a curated pick this store can't show) */
+  score:function(it,A,role,p){var wet=+A.rain||0,warm=+A.warm||3,cold=ja3Cold(warm),f=jaFlags(it),n=(it.name||'').toLowerCase(),w=jaWarm(it),g=caGsm(it);
+    var wp=f.indexOf('waterproof')>=0,ss=f.indexOf('sealed seams')>=0;
+    if(A.lad==='1'&&!hasLadies(it))return null;                 // the buyer needs a matching women's cut
+    if(wet&&!ss&&!(wp&&w>=2))return null;                       // rain is part of the job: sealed seams (or a waterproof insulated shell)
+    var s=jaScore(it,JA2_BASE[role]||'mixed',ja2Eff(role,cold),wet,'x',p);if(s==null)return null;
+    if(wet&&ss)s+=12;
+    if(warm===1&&g>=300)s-=10;                                  // mild: a heavy bonded softshell is too much
+    if(warm===2&&w===1&&/soft ?shell/.test(n))s+=14;             // cool: a fleece-backed softshell is the answer
+    if(role==='outdoor'&&warm===3&&w===3)s+=16;                  // most of the shift outside in winter: lean warmer
+    if(role==='drivers'&&/parka|full-length/.test(n))s-=12;      // long hems fight a driver's seat
+    if(role==='warehouse'&&w===3&&!(it.sys||/in-1/i.test(it.name)))s-=14;   // indoors most of the day: winter weight overheats unless the liner comes out
+    if(role==='office'&&/heavy-duty|canvas|duck|freezer/.test(n))s-=10;
+    return s;},
+  why:function(it,A,role){return jaWhy(it,JA2_BASE[role]==='office'?'office':role);},
+  toggles:[{id:'lad',lab:'Women’s cut needed',sub:'Only show styles with a matching women’s cut'}],
+  note:function(A){return 'Picked for how long each group is outside: '+(A.who||[]).map(function(r){return '<b>'+esc((JA2_ROLES.filter(function(x){return x.id===r;})[0]||{}).lab||r)+'</b> '+esc(JA2_EXPO[r]||'');}).join(' · ')+'.';},
+  extra:function(it,A,role){var out='',f=jaFlags(it),fam=JA_FAMILY[it.key],pool=caPool(this,A);
+    if(+A.rain===1&&f.indexOf('sealed seams')<0&&f.indexOf('waterproof')>=0)
+      out+='<p class="jaover">Waterproof shell — the maker doesn’t list sealed seams, so for all-day downpours choose a seam-sealed option.</p>';
+    if(fam&&BYKEY[fam[0]]&&pool.indexOf(fam[0])>=0&&!(A.lad==='1'&&!hasLadies(BYKEY[fam[0]])))
+      out+='<div class="cafam"><span>Also comes as</span><b>'+esc(fam[1])+'</b><button type="button" class="jasw" data-caswap="'+esc(role)+'|'+esc(fam[0])+'">Switch</button></div>';
+    if(jaWarm(it)===1&&+A.warm>=2){var L=(typeof CADV!=='undefined')?CADV.filter(function(g){return g.id==='layers';})[0]:null,lr=null;
+      if(L){try{lr=caRank(L,{office:'office',drivers:'mixed',warehouse:'mixed',outdoor:'outdoor'}[role]||'mixed',{style:'auto',warm:'2'})[0];}catch(e){lr=null;}}
+      if(lr){var li=BYKEY[lr.k];out+='<div class="capair"><span class="capairl">Layer it for cooler days</span><button type="button" class="caaimg" data-xpopen="'+esc(lr.k)+'">'+caThumb(lr.k)+'</button>'+
+        '<div class="caab"><b class="caan">'+esc(li.name)+'</b><span class="cambr">'+esc(li.brand||'')+' · '+money(lr.p)+'/pc</span></div>'+
+        '<button type="button" class="jasw" data-caadd="'+esc(lr.k)+'">'+(cartHasAny(lr.k)?'✓ In quote':'Add')+'</button></div>';}}
+    return out;},
+  tips:function(A){var t=['Water-repellent sheds a shower; for rain that’s part of the job we only recommend jackets whose maker lists sealed or welded seams.',
+      'If they’ll wear a hoodie underneath, check the size chart before you set sizes.'];
+    if((A.who||[]).indexOf('warehouse')>=0){t.push('Mostly indoors? A vest or a fleece often does the job better than a jacket — the Vests and Fleece aisles have their own advisors.');
+      t.push('Cold storage or freezer work needs freezer-rated wear — ask Steven and we’ll spec it.');}
+    if(+A.warm===4)t.push('For long hours in deep cold, how long they’re out and how hard they’re working matter as much as the jacket — tell us on the quote and we’ll check the pick.');
+    t.push('Site crews near traffic need CSA hi-vis — the Hi-Vis & Safety aisle has its own advisor.');
+    return t;}
+});
+/* POLOS & SHIRTS. Research (Swag.com, Custom2Wear, API Corporate/Armada 2026 fabric guide, 4imprint polo FAQ):
+   the deciding questions are who wears it and where, how physical the work is, and the look -- polo, tee or
+   button-up. Performance polyester for anyone who sweats; cotton or cotton-blend piqué reads polished in the
+   office (but shrinks if washed hot); snag-resistant for warehouse and tool belts; heavier tees last longer;
+   women's cuts or the shirts end up in a drawer; button-ups are woven, so embroidery only. */
+CADV.push({id:'tops',tile:'Polo, tee or button-up, picked for each group',one:'shirt',label:'Shirt advisor',noun:'shirts',noun2:'styles',
+  h:'Polo, tee or button-up? Start with who wears it.',
+  sub:'A few quick questions about the job, then one recommended shirt for each group, with the reasons it fits.',
+  overWhy:'this look for these groups',
+  applies:function(c,s){return c==='tops'||(c==='carhartt'&&/T-Shirts|^Shirts/.test(s));},
+  preset:function(A,c,s){if(!A.look){if(/Tees|T-Shirts/.test(s||''))A.look='tee';else if(/Shirts/.test(s||''))A.look='woven';else if(/Polos/.test(s||''))A.look='polo';}},
+  who:true,
+  qs:[{id:'who',q:'Who wears it?',short:'Who wears it',hint:'Pick every group',multi:true,wide:true,opts:CA_WHO_WEAR},
+      {id:'look',q:'What look are you after?',short:'The look',def:'polo',opts:[{id:'polo',lab:'Polo',sub:'Collared, the uniform default'},{id:'tee',lab:'T-shirt',sub:'Casual, events, crews'},{id:'woven',lab:'Button-up',sub:'Woven, most formal'}]},
+      /* conditional (2026-10-14): crews in button-ups often go through a uniform laundry -- then industrial-wash shirts */
+      {id:'twash',q:'Who launders the shirts?',short:'The laundry',def:'home',hint:'This only changes the pick for crews and in-and-out staff.',
+        when:function(A){var w=A.who||[];return A.look==='woven'&&(w.indexOf('mixed')>=0||w.indexOf('outdoor')>=0);},
+        opts:[{id:'home',lab:'Staff, at home',sub:'A regular home wash'},{id:'ind',lab:'A uniform laundry service',sub:'Industrial washing — needs industrial-wash shirts'}]}],
+  fact:function(it,A){var L=A.look||'polo',n={polo:'polo',tee:'tee',woven:'button-up shirt'}[L],m=caPerf(it)?'wicking performance':(/piqu|pique/i.test(it.name+' '+caFab(it))?'piqué':(caCotton(it)>=90?'cotton':(/industrial/i.test(it.name)?'industrial-wash':'')));
+    return caArt((m?m+' ':'')+n)+(hasLadies(it)?' in men’s and women’s cuts':'');},
+  pool:function(A){var L=A.look||'polo';
+    return caKeys(L==='tee'?[['tops','Tees'],['carhartt','T-Shirts']]:(L==='woven'?[['tops','Shirts'],['carhartt','Shirts']]:[['tops','Polos']]));},
+  score:function(it,A,role,p){
+    var L=A.look||'polo',n=(it.name||'').toLowerCase(),s=0,perf=caPerf(it),cot=caCotton(it),ind=/industrial|work shirt|force|rugged/i.test(n)||/Red Kap|Carhartt/i.test(caBrand(it));
+    if(/long[- ]sleeve|\bls\b/.test(n))s-=8;                    // short sleeves by default; long sleeves are a choice, not a surprise
+    if(role==='office'){
+      if(L==='woven'&&/industrial/i.test(n))return null;          // a laundry-service shirt is not front-desk wear
+      if(/carhartt/i.test(caBrand(it)))s-=14;
+      if(hasLadies(it))s+=16;
+      if(L==='polo'&&/piqu|pique|knit/i.test(n+' '+caFab(it)))s+=10;
+      if(L!=='tee'&&caGsm(it)>=160)s+=8;if(L!=='tee'&&caCotton(it)>=50)s+=6;   // a substantial, cotton-rich piqué reads polished at the front desk
+      if(caLuxe(it)&&!/carhartt/i.test(caBrand(it)))s+=6;
+      if(perf)s+=4;
+    }else if(role==='mixed'){
+      if(perf)s+=20;if(caFin(it,/snag/i))s+=12;if(hasLadies(it))s+=10;if(/[4-6]XL/.test(jaMaxSize(it)))s+=6;
+      if(L==='woven'&&ind)s+=15;
+    }else if(role==='outdoor'){
+      if(L!=='woven'){if(perf)s+=25;else if(cot>=90)s-=15;}
+      if(caFin(it,/UPF|UV/i))s+=10;if(ind)s+=8;if(/[4-6]XL/.test(jaMaxSize(it)))s+=6;
+      if(/Cutter & Buck|Nike|adidas/i.test(caBrand(it)))s-=10;
+    }else{ /* events: a crowd, often one day -- price and colour range lead */
+      s+=Math.max(0,24-p/2);var nc=(it.cols||[]).length;if(nc>=10)s+=8;if(hasLadies(it))s+=6;if(caLuxe(it))s-=10;
+    }
+    if(A.twash==='ind'&&L==='woven'&&(role==='mixed'||role==='outdoor')){if(ind||/industrial/i.test(n))s+=26;else if(caCotton(it)>=60)s-=12;}
+    return s;},
+  why:function(it,A,role){var out=[],mx=caMixTxt(it),w=caWeightTxt(it);
+    if(mx)out.push(mx+(w?(', '+w):''));
+    if(caPerf(it))out.push('Wicks sweat and dries fast');else if(caCotton(it)>=90)out.push('Soft cotton — wash cool to avoid shrinking');
+    if(caFin(it,/snag/i))out.push('Snag-resistant — survives tool belts and shelving');
+    else if(caFin(it,/UPF|UV/i))out.push('UPF sun protection for outdoor days');
+    else if(/industrial/i.test(it.name))out.push('Built for industrial laundering');
+    out.push(caCutsTxt(it));
+    var nc=(it.cols||[]).length;if(nc>1)out.push(nc+' colours');
+    return out.slice(0,4);},
+  tips:function(A){var t=[];
+    if((A.look||'polo')==='polo')t.push('Polos are embroidered, left chest. Very thin performance fabric can pucker under a dense logo, so we check the stitch count on your proof.');
+    if(A.look==='tee')t.push('Tees take a screen print. Heavier tees (180 gsm and up) hold their shape longer when worn every day.');
+    if(A.look==='woven')t.push('Button-ups are woven, so the logo is embroidered — no prints.');
+    t.push('Most daily-wear programs plan three or four shirts per person; long-sleeve versions exist for most styles.');
+    return t;}
+});
+/* HI-VIS & SAFETY. Research (CCOHS OSH Answers on CSA Z96; CSA Z96:22 scope; WorkSafeBC / Ontario Reg. 213/91 /
+   Alberta OHS Code Part 18 referencing Z96; breakaway-vest guidance): start from the hazard. Class 1 is for
+   low-speed, off-road areas; Class 2 is the practical minimum near moving traffic or vehicles; Class 3 (flaggers,
+   highway, night) adds arm AND leg bands, so it needs sleeves -- a vest alone can never be Class 3. Tear-away
+   (5-point breakaway) wherever a vest could snag. Polyester holds its fluorescent colour; cotton hi-vis fades out
+   of compliance with washing. Hi-vis has to be the OUTER layer. Logos go on the background panel, never over
+   the retroreflective tape. */
+var CA_HV_JOB=[
+  {id:'road',lab:'Road & traffic',sub:'Roadside, flaggers, traffic control'},
+  {id:'site',lab:'Construction site',sub:'Trades and site crews'},
+  {id:'yard',lab:'Warehouse & yard',sub:'Forklifts, loading docks'},
+  {id:'night',lab:'Night & low light',sub:'Utilities, dawn and dusk shifts'},
+  {id:'visit',lab:'Visitors & occasional',sub:'Guests, inspectors, events'}];
+CADV.push({id:'hivis',tile:'The CSA class and piece each crew needs',one:'piece',label:'Hi-vis advisor',noun:'hi-vis gear',noun2:'pieces',
+  h:'Which hi-vis do your crews need? Start with the hazard.',
+  sub:'Tell us where they work and what you’re buying. We’ll recommend a compliant piece for each crew.',
+  overWhy:'the class and conditions these crews need',
+  applies:function(c,s){return c==='hivis'&&!/Hard Hats/.test(s)||(c==='vests'&&/Hi-Vis/.test(s));},
+  preset:function(A,c,s){if(!A.kind){if(/Vests/.test(s))A.kind='vest';else if(/T-Shirts/.test(s))A.kind='tee';else if(/Sweatshirts/.test(s))A.kind='layer';else if(/Jackets|Parkas|Rain/.test(s))A.kind='jacket';}},
+  who:true,
+  qs:[{id:'who',q:'Where do they work?',short:'Where they work',hint:'Pick every crew',multi:true,wide:true,opts:CA_HV_JOB},
+      {id:'kind',q:'What are you buying?',short:'What you need',opts:[{id:'vest',lab:'Safety vests',sub:'Over their own clothes'},{id:'tee',lab:'Hi-vis shirts',sub:'Worn as the top layer'},{id:'layer',lab:'Hoodies & sweatshirts',sub:'Warmth and visibility'},{id:'jacket',lab:'Jackets & parkas',sub:'Cold and wet weather'}]},
+      {id:'snag',q:'Near machinery or anything a vest could catch on?',short:'Snag hazards',def:'1',when:function(A){return A.kind==='vest';},opts:[{id:'1',lab:'Yes',sub:'Conveyors, equipment, fencing'},{id:'0',lab:'No',sub:'Open ground, nothing to snag'}]},
+      {id:'season',q:'What weather do they work in?',short:'The weather',when:function(A){return A.kind&&A.kind!=='vest';},opts:[{id:'hot',lab:'Hot summer',sub:'Light and breathable'},{id:'mild',lab:'Spring & fall',sub:'Cool mornings'},{id:'cold',lab:'Cold winter',sub:'Insulated'},{id:'wet',lab:'Rain is part of the job',sub:'Waterproof'}]}],
+  fact:function(it,A){var c=caClass(it),n={vest:'safety vest',tee:'hi-vis shirt',layer:'hi-vis layer',jacket:'hi-vis jacket'}[A.kind||'vest'],nm=it.name||'';
+    return caArt((c?('CSA Class '+c+' '):'CSA Z96 ')+n)+(/tear-?away|breakaway/i.test(nm)?' that tears away if it snags':(/long[- ]sleeve/i.test(nm)?' with long sleeves':''));},
+  pool:function(A){var K=A.kind||'vest';
+    if(K==='vest')return caKeys([['hivis','Safety Vests']]);
+    if(K==='tee')return caKeys([['hivis','Hi-Vis T-Shirts']]);
+    if(K==='layer')return caKeys([['hivis','Sweatshirts & Hoodies']]).filter(function(k){return !/jacket|bomber|softshell/i.test(BYKEY[k].name);});
+    return caKeys([['hivis','Hi-Vis Jackets'],['hivis','Winter Parkas'],['hivis','Rain & Gear'],['hivis','Sweatshirts & Hoodies']]).filter(function(k){var n=BYKEY[k].name;return /jacket|parka|bomber|softshell|coat/i.test(n)&&!/pant|overall|bib/i.test(n);});},
+  score:function(it,A,role,p){
+    var K=A.kind||'vest',n=(it.name||'').toLowerCase(),c=caClass(it),s=0,cot=caCotton(it)>=60||/cotton/i.test(n),lng=/long[- ]sleeve/.test(n);
+    var strict=(role==='road'||role==='site'||role==='night');
+    if(c===1&&strict)return null;                                // Class 2 is the minimum near traffic and vehicles
+    s+=c>=2?24:(c===1?0:6);                                      // a stated class beats "meets CSA Z96"
+    if(K==='vest'){var tear=/tear-?away|breakaway/.test(n);
+      if(A.snag==='1'&&!tear)return null;
+      if(tear)s+=10;if(/pocket|surveyor/.test(n)&&(role==='site'||role==='road'))s+=6;if(/mesh/.test(n)&&role!=='night')s+=4;
+      if(role==='visit')s+=Math.max(0,20-p);}
+    else{
+      if(cot)s-=10;else s+=10;                                   // polyester holds its fluorescent colour
+      if(K==='tee'){var wantLong=(role==='night'||role==='road'||A.season==='cold');if(wantLong&&lng)s+=14;if(!wantLong&&lng)s-=8;if(A.season==='hot'&&!lng)s+=6;}
+      if(K==='jacket'){var cold=A.season==='cold'?3:(A.season==='hot'||A.season==='mild'||A.season==='wet'?1:2);
+        var js=jaScore(it,'site',cold,A.season==='wet'?1:0,'x',p);if(js==null)return null;s+=js;}
+      if(K==='layer'&&A.season==='hot'&&/hooded t-shirt/i.test(n))s+=10;
+      if(K==='layer'&&A.season==='cold'&&/sweatshirt|hoodie/i.test(n))s+=8;
+    }
+    if(/[4-6]XL/.test(jaMaxSize(it)))s+=4;
+    return s;},
+  why:function(it,A,role){var out=[],c=caClass(it),n=it.name||'';
+    out.push(c?('CSA Z96 Class '+c+(c>=2?' — the minimum near moving traffic':' — low-speed areas only')):'Meets CSA Z96 — check the class against your site rules');
+    if(/tear-?away|breakaway/i.test(n))out.push('5-point tear-away — breaks free if it snags');
+    else if(/zipper/i.test(n))out.push('Zip front');
+    var pk=/(\d+)\s*pockets?/i.exec(n);if(pk)out.push(pk[1]+' pockets');else if(/surveyor/i.test(n))out.push('Surveyor pockets for tools and tablets');
+    if(A.kind==='jacket'){var j=jaWhy(it,'site').filter(function(x){return !/CSA hi-vis/.test(x);});out=out.concat(j.slice(0,2));}
+    else if(/cotton/i.test(n)||caCotton(it)>=60)out.push('Cotton: soft, but hi-vis colour fades faster — replace sooner');
+    else if(A.kind!=='vest')out.push('Polyester holds its fluorescent colour wash after wash');
+    if(/long[- ]sleeve/i.test(n))out.push('Long sleeves for arm visibility and sun cover');
+    var mx=jaMaxSize(it);if(mx&&out.length<4)out.push('Sizes up to '+mx);
+    return out.slice(0,4);},
+  tips:function(A){var t=['Hi-vis must be the outer layer — a vest under a jacket doesn’t count.',
+      'Flaggers, highway and night work call for CSA Class 3: sleeves AND leg bands. Pair a Class 2 long-sleeve or jacket with hi-vis pants, or ask Steven to spec it.',
+      'Your logo goes on the background panel, clear of the reflective tape — we never print over it.'];
+    if(A.kind!=='vest')t.push('Cotton hi-vis fades out of compliance sooner than polyester; plan to replace it more often.');
+    return t;}
+});
+/* FLEECE & SWEATERS. Research (Swag.com corporate hoodie guide, SanMar Canada fleece range, Cutter & Buck
+   buyer's guide): who wears it decides the style -- the quarter-zip is the corporate default (layers over a
+   polo, embroiders cleanly left chest), hoodies get worn off-shift, crewnecks read cleaner than a hoodie;
+   weight decides warmth -- light (under ~270 gsm) layers under a jacket, midweight (~280-320) is the everyday
+   sweet spot, heavyweight (400+) is warm on its own and "feels expensive"; a gift leans on brand and weight;
+   embroidery on fleece; women's cuts or it isn't worn. */
+function caStyle(it){var n=(it.name||'').toLowerCase();
+  if(/1\/4|quarter|half-zip|1\/2|¼|mock neck/.test(n))return 'qz';
+  if(/full-zip|full zip|fleece jacket|zip hood|shacket|jacket/.test(n))return 'fz';
+  if(/hood/.test(n))return 'hood';
+  if(/crew|sweatshirt|sweater/.test(n))return 'crew';
+  return caInCats(it,[['layers','Fleece']])?'fz':'crew';}
+function caWarmBand(it){var g=caGsm(it);if(!g){var n=(it.name||'').toLowerCase();return /heavyweight/.test(n)?3:(/midweight/.test(n)?2:(/lightweight/.test(n)?1:0));}return g<270?1:(g<380?2:3);}
+var CA_WHO_LAYER=[
+  {id:'office',lab:'Office & client-facing',sub:'Sales, managers, front desk'},
+  {id:'mixed',lab:'In and out all day',sub:'Warehouse, drivers, techs'},
+  {id:'outdoor',lab:'Outdoor crews',sub:'Yard, construction, grounds'},
+  {id:'gift',lab:'A gift or welcome kit',sub:'Something they’ll keep'}];
+CADV.push({id:'layers',tile:'Quarter-zip, hoodie or fleece — by who wears it',one:'layer',label:'Fleece & sweater advisor',noun:'fleece and sweaters',noun2:'layers',
+  h:'Quarter-zip, hoodie or fleece? Start with who wears it.',
+  sub:'A few quick questions about the job, then one recommended layer for each group, with the reasons it fits.',
+  overWhy:'this style and warmth',
+  applies:function(c,s){return c==='layers'||(c==='carhartt'&&/Sweatshirts/.test(s));},
+  who:true,
+  qs:[{id:'who',q:'Who wears it?',short:'Who wears it',hint:'Pick every group',multi:true,wide:true,opts:CA_WHO_LAYER},
+      {id:'style',q:'Which style?',short:'The style',def:'auto',opts:[{id:'auto',lab:'Best for each group',sub:'Let us choose'},{id:'qz',lab:'Quarter-zip',sub:'The polished default'},{id:'hood',lab:'Pullover hoodie',sub:'Casual, everyday'},{id:'fz',lab:'Full-zip',sub:'Hoodie or fleece jacket'},{id:'crew',lab:'Crewneck',sub:'Cleaner than a hoodie'}]},
+      {id:'warm',q:'How warm should it be?',short:'How warm',def:'2',opts:[{id:'1',lab:'Light layer',sub:'Under a jacket'},{id:'2',lab:'Midweight',sub:'The everyday weight'},{id:'3',lab:'Heavyweight',sub:'Warm on its own'}]},
+      /* conditional (2026-10-14): for crews, is this the OUTER layer? Then water-repellent, heavier fabric wins */
+      {id:'outer',q:'Will crews wear it as the outer layer outside?',short:'Outer layer',def:'0',hint:'This only changes the pick for outdoor crews and in-and-out staff.',
+        when:function(A){var w=A.who||[];return w.indexOf('outdoor')>=0||w.indexOf('mixed')>=0;},
+        opts:[{id:'0',lab:'Under a jacket or hi-vis',sub:'A mid-layer'},{id:'1',lab:'Yes, on its own outside',sub:'Water-repellent, heavier fabric'}]}],
+  fact:function(it){var g=caGsm(it),st={qz:'quarter-zip',fz:'full-zip',hood:'pullover hoodie',crew:'crewneck'}[caStyle(it)];
+    return caArt((g?(g+' gsm '):'')+st)+(hasLadies(it)?' in men’s and women’s cuts':'');},
+  pool:function(){var ks=caKeys([['layers','Quarter & Half-Zips'],['layers','Hoodies'],['layers','Crewnecks & Sweatshirts'],['layers','Fleece'],['carhartt','Sweatshirts & Hoodies']]);
+    return ks.filter(function(k){return !jaHivis(BYKEY[k]);});},
+  score:function(it,A,role,p){
+    var st=caStyle(it),want=A.style||'auto',s=0,b=caWarmBand(it),w=+A.warm||2;
+    if(want!=='auto'){if(st!==want)return null;}
+    else{var best={office:['qz','crew','fz'],mixed:['fz','hood','qz'],outdoor:['hood','fz','crew'],gift:['qz','fz','hood']}[role]||['qz'];
+      var i=best.indexOf(st);if(i<0)return null;s+=[22,12,4][i];}
+    if(b)s+=(b===w)?18:(Math.abs(b-w)===1?4:-10);else if(st==='fz'&&w>=2)s+=6;
+    if(role==='office'){if(hasLadies(it))s+=16;if(/carhartt/i.test(caBrand(it)))s-=16;if(caLuxe(it))s+=6;if(caPoly(it)>=60)s+=6;}
+    else if(role==='mixed'){if(hasLadies(it))s+=8;if(caFin(it,/water-repellent/i))s+=8;if(caPoly(it)>=30)s+=4;}
+    else if(role==='outdoor'){if(b===3&&w===3)s+=12;if(caFin(it,/water-repellent/i)||/rain defender|repel/i.test(it.name))s+=12;if(/Cutter & Buck|Nike/i.test(caBrand(it)))s-=10;}
+    if(A.outer==='1'&&(role==='outdoor'||role==='mixed')){if(caFin(it,/water-repellent/i)||/repel|water-repellent/i.test(it.name))s+=18;if(caGsm(it)>=380)s+=8;if(st==='qz')s-=8;}
+    else{if(caLuxe(it))s+=20;if(b===3)s+=8;if(hasLadies(it))s+=6;}
+    return s;},
+  why:function(it,A,role){var out=[],g=caGsm(it),mx=caMixTxt(it),st=caStyle(it);
+    var sl={qz:'Quarter-zip — layers over a polo and under a jacket',fz:'Full zip — easy on and off over anything',hood:'Pullover hoodie — the one people wear off-shift',crew:'Crewneck — cleaner than a hoodie'}[st];
+    if(sl)out.push(sl);
+    if(mx||g)out.push((mx||'')+(g?((mx?', ':'')+g+' gsm'+(g>=380?' heavyweight — warm on its own':(g<270?' — a light layer':' midweight — the everyday weight'))):''));
+    if(caFin(it,/water-repellent/i)||/rain defender|repel/i.test(it.name))out.push('Water-repellent for wet days');
+    out.push(caCutsTxt(it));
+    return out.slice(0,4);},
+  tips:function(A){return ['Fleece is embroidered, left chest — we check fine detail on your proof.',
+    'Wearing it over another layer? Size up, or pick a relaxed fit.',
+    'Hoodies get worn off-shift and on weekends, which is exactly when your logo is seen most.'];}
+});
+/* VESTS. Research (Custommark vest guide, Cutter & Buck buyer's guide, Swag.com): where it's worn decides
+   the vest -- indoors all day wants fleece or softshell (a puffer is too warm on a show floor); over a hoodie
+   outside wants softshell or quilted (fleece has no wind resistance); on its own in the cold wants real
+   insulation; a gift reads premium as quilted/puffer, a uniform as softshell; the logo on a quilted vest goes
+   on the flat chest panel, never across a baffle seam; women's cuts show more on a vest than on a tee. */
+function caVestType(it){var n=(it.name||'').toLowerCase(),f=caFab(it);
+  if(/canvas|duck|sherpa/.test(n))return 'canvas';
+  if(/fleece/.test(n)&&!/lined/.test(n))return 'fleece';
+  if(/soft ?shell/.test(n+' '+f))return 'soft';
+  return 'quilt';}
+CADV.push({id:'vests',tile:'Indoors, over a hoodie, or real warmth',one:'vest',label:'Vest advisor',noun:'vests',noun2:'vests',
+  h:'Which vest? Start with where it’s worn.',
+  sub:'A few quick questions about the job, then one recommended vest for each group, with the reasons it fits.',
+  overWhy:'where these vests will be worn',
+  applies:function(c,s){return (c==='vests'&&!/Hi-Vis/.test(s))||(c==='carhartt'&&/Vests/.test(s));},
+  who:true,
+  qs:[{id:'who',q:'Who wears it?',short:'Who wears it',hint:'Pick every group',multi:true,wide:true,opts:CA_WHO_LAYER},
+      {id:'worn',q:'Where is it worn?',short:'Where it’s worn',opts:[{id:'in',lab:'Indoors all day',sub:'Office, shop, show floor'},{id:'over',lab:'Over a hoodie, outside',sub:'Wind and light rain'},{id:'cold',lab:'On its own in the cold',sub:'Real insulation'}]},
+      /* conditional (2026-10-14): crews and in-and-out staff wearing it outside may need canvas for rough work, or the
+         freezer range for cold storage -- the freezer answer always carries the assessment caveat */
+      {id:'vwork',q:'What kind of work do they do?',short:'The work',def:'gen',hint:'This only changes the pick for outdoor crews and in-and-out staff.',
+        when:function(A){var w=A.who||[];return (w.indexOf('outdoor')>=0||w.indexOf('mixed')>=0)&&!!A.worn;},
+        optsFor:function(A){var o=[{id:'gen',lab:'Standard work',sub:'Nothing unusual'},{id:'abr',lab:'Rough, abrasive work',sub:'Canvas and duck stand up to it'}];
+          if(caKeys([['vests','Quilted & Puffer'],['vests','Fleece & Softshell'],['vests','Canvas & Lined']]).some(function(k){return BYKEY[k]&&BYKEY[k].freezer&&caRecOk(k);}))
+            o.push({id:'frz',lab:'Cold storage or freezer',sub:'Freezer vests — confirm against your temperature assessment'});return o;}}],
+  fact:function(it){var t={quilt:'quilted vest',soft:'softshell vest',fleece:'fleece vest',canvas:'canvas work vest'}[caVestType(it)],f=jaFlags(it);
+    return caArt(t)+(f.indexOf('windproof')>=0?', windproof':'')+(hasLadies(it)?', in men’s and women’s cuts':'');},
+  pool:function(){return caKeys([['vests','Quilted & Puffer'],['vests','Fleece & Softshell'],['vests','Canvas & Lined'],['carhartt','Vests']]).filter(function(k){return !jaHivis(BYKEY[k]);});},
+  rowNote:function(A,role,it){return (A.vwork==='frz'&&(role==='outdoor'||role==='mixed')&&it&&it.freezer)?'Freezer wear is recommended subject to your actual temperatures and a work assessment — tell us the temperature and how long staff are inside.':'';},
+  score:function(it,A,role,p){var t=caVestType(it),s=0,f=jaFlags(it),W=A.worn||'in',VW=A.vwork||'gen';
+    if(role==='outdoor'||role==='mixed'){if(VW==='frz'){if(!it.freezer)return null;s+=40;}else if(VW==='abr')s+=(t==='canvas'?30:-8);}
+    if(W==='in'){s+={fleece:14,soft:10,quilt:2,canvas:-12}[t];}
+    else if(W==='over'){s+={soft:12,quilt:12,canvas:6,fleece:-10}[t];}
+    else{s+={quilt:16,canvas:12,soft:-6,fleece:-12}[t];if(jaWarm(it)>=2)s+=6;}
+    if(f.indexOf('windproof')>=0&&W!=='in')s+=4;if((f.indexOf('water-repellent')>=0||f.indexOf('waterproof')>=0)&&W!=='in')s+=4;
+    if(role==='office'){if(t==='canvas')return null;if(hasLadies(it))s+=16;if(/carhartt/i.test(caBrand(it)))s-=16;if(caLuxe(it))s+=4;}
+    else if(role==='mixed'){if(hasLadies(it))s+=8;if(t==='quilt'||t==='soft')s+=6;}
+    else if(role==='outdoor'){if(t==='canvas')s+=14;if(t==='quilt')s+=8;if(/carhartt|rugged wear/i.test(caBrand(it)+' '+(it.line||'')))s+=8;if(/Cutter & Buck|North Face/i.test(caBrand(it)))s-=10;}
+    else{if(t==='quilt')s+=14;if(caLuxe(it))s+=14;if(hasLadies(it))s+=6;}
+    return s;},
+  why:function(it,A,role){var out=[],t=caVestType(it),ws=it.warm||{},f=jaFlags(it);
+    out.push({quilt:'Quilted insulation — warmth with the arms free',soft:'Softshell — blocks wind, looks sharp indoors',fleece:'Fleece — soft and breathable for indoor layering',canvas:'Canvas — built for the yard'}[t]+(ws.ins?(' ('+ws.ins+(ws.gsm?(', '+ws.gsm):'')+')'):''));
+    var fl=[];if(f.indexOf('windproof')>=0)fl.push('windproof');if(f.indexOf('waterproof')>=0)fl.push('waterproof');else if(f.indexOf('water-repellent')>=0)fl.push('water-repellent');
+    if(fl.length)out.push(fl.join(', ').replace(/^./,function(c){return c.toUpperCase();}));
+    out.push(caCutsTxt(it));
+    var nc=(it.cols||[]).length;if(nc>1)out.push(nc+' colours');
+    return out.slice(0,4);},
+  tips:function(){return ['A vest stays on indoors, so your logo is seen all day.',
+    'On quilted vests the logo goes on the flat chest panel, not across the stitching — we place it on your proof.',
+    'Fleece doesn’t stop wind; outdoor crews are better in softshell or quilted.'];}
+});
+/* HEADWEAR. Research (PPAI "Cap-italization" incl. Kati Sportcap; Swag.com corporate hat guide; Griwolfe):
+   season first (sun vs cold); then the look -- structured caps read polished and hold embroidery best,
+   unstructured "dad" hats read casual and want a small simple logo, mesh-back truckers breathe outside;
+   for a mixed group default to adjustable, never fitted (fitted needs a head-size survey); a cuffed toque
+   is the safest one-size order for a Canadian winter, logo on the cuff; "pick the hat they'd grab on a
+   Saturday, not the one you'd wear". */
+function caCapLook(it){var n=(it.name||'').toLowerCase();
+  if(/trucker|mesh|snap ?back/.test(n)||caInCats(it,[['headwear','Trucker & Snapback']]))return 'trucker';
+  if(/dri-fit|performance|golf|visor|poly cap|sport/.test(n)||caInCats(it,[['headwear','Performance & Golf']]))return 'perf';
+  if(/unstructured|dad|bucket|5 panel cotton|start five/.test(n))return 'soft';
+  return 'struct';}
+CADV.push({id:'headwear',tile:'The right cap or toque for the season and the crowd',one:'hat',label:'Hat advisor',noun:'hats',noun2:'hats',
+  h:'Cap or toque? Start with the season.',
+  sub:'A few quick questions about the job, then the hat we’d order for your team, with the reasons it fits.',
+  overWhy:'this season and look',budQ:'Budget per hat',
+  applies:function(c,s){return c==='headwear'||(c==='carhartt'&&/Headwear/.test(s));},
+  preset:function(A,c,s){if(!A.use&&/Beanies/.test(s||''))A.use='cold';},
+  who:false,
+  qs:[{id:'use',q:'When will they wear it?',short:'The season',opts:[{id:'sun',lab:'Sun & summer',sub:'Outdoor work, events'},{id:'cold',lab:'Cold weather',sub:'Toques for winter'},{id:'year',lab:'Year-round crew cap',sub:'Everyday uniform'}]},
+      {id:'look',q:'What look are you after?',short:'The look',when:function(A){return A.use&&A.use!=='cold';},opts:[{id:'struct',lab:'Structured',sub:'Polished, crisp logo'},{id:'soft',lab:'Unstructured',sub:'Relaxed dad-hat look'},{id:'trucker',lab:'Trucker',sub:'Mesh back, breathes'},{id:'perf',lab:'Performance',sub:'Wicking, golf days'}]},
+      {id:'for',q:'Who is it for?',short:'Who it’s for',def:'crew',opts:[{id:'crew',lab:'Our crew',sub:'Daily wear'},{id:'event',lab:'An event',sub:'Lots of people, one day'},{id:'gift',lab:'A gift',sub:'Clients or staff'}]}],
+  fact:function(it,A){var n=(it.name||'').toLowerCase();if(A.use==='cold')return caArt((/fleece lined|thermo/.test(n)?'fleece-lined ':'')+(/cuff/.test(n)?'cuffed ':'')+'toque')+' — one size fits all';
+    return caArt({struct:'structured cap',soft:'relaxed unstructured cap',trucker:'mesh-back trucker',perf:'performance cap'}[caCapLook(it)])+(/fitted/.test(n)?'':', adjustable to fit everyone');},
+  pool:function(A){return A.use==='cold'?caKeys([['headwear','Beanies & Toques'],['carhartt','Headwear']]).filter(function(k){return /toque|beanie|watch hat|knit/i.test(BYKEY[k].name);})
+                        :caKeys([['headwear','Caps & Hats'],['headwear','Trucker & Snapback'],['headwear','Performance & Golf'],['carhartt','Headwear']]).filter(function(k){return !/toque|beanie|watch hat|knit/i.test(BYKEY[k].name);});},
+  score:function(it,A,role,p){var n=(it.name||'').toLowerCase(),s=0,F=A.for||'crew';
+    if(A.use==='cold'){if(/fleece lined|thermo/.test(n))s+=(F==='crew'?12:4);if(/cuff/.test(n))s+=8;}
+    else{var lk=caCapLook(it),want=A.look||'struct';if(lk!==want)return null;
+      if(/fitted/.test(n))s-=(F==='gift'?4:18);
+      if(A.use==='sun'&&(lk==='trucker'||lk==='perf'||/visor|bucket/.test(n)))s+=6;
+      if(/visor|bucket/.test(n)&&A.use==='year')s-=12;}
+    if(F==='gift'){if(caLuxe(it))s+=18;}else if(F==='event'){s+=Math.max(0,20-p);if(caLuxe(it))s-=8;}else{s+=Math.max(0,12-p/3);}   // a crew cap is bought by the dozen: value leads
+    return s;},
+  why:function(it,A){var out=[],n=(it.name||'').toLowerCase();
+    if(A.use==='cold'){out.push(/fleece lined|thermo/.test(n)?'Fleece-lined for real cold':'Knit toque — fits under a hood or hard hat');if(/cuff/.test(n))out.push('Cuffed — your logo sits on the cuff, where it stays visible');}
+    else{var lk=caCapLook(it);out.push({struct:'Structured front — holds an embroidered logo crisp',soft:'Unstructured — relaxed, best with a small simple logo',trucker:'Mesh back — breathes on hot days',perf:'Performance fabric — wicks sweat'}[lk]);}
+    out.push(/fitted/.test(n)?'Fitted — needs a head-size count for your team':'One size, adjustable — no sizes to collect');
+    if(caBrand(it))out.push(caBrand(it));
+    return out.slice(0,4);},
+  tips:function(){return ['Pick the hat people would grab on a Saturday — that’s the one that gets worn.','Very fine text doesn’t embroider cleanly at cap size; if your logo has it, we’ll suggest a patch on your proof.'];}
+});
+/* PANTS & JOGGERS. Research (UniFirst work-pant guide Dec 2025; Red Kap uniform programs; All Seasons
+   Uniforms; Dickies/Carhartt): pants are the unbranded base of a program -- buyers choose on the laundry
+   (65/35 poly-cotton survives industrial washing; 100% cotton duck shrinks and fades there), the work (light
+   duty vs shop floor vs trades), pockets (cargo only if the job carries tools -- otherwise a snag), and
+   women's cuts (a different pattern, not a smaller men's size). */
+var CA_WHO_PANT=[
+  {id:'light',lab:'Light duty & service',sub:'Facilities, retail, front of house'},
+  {id:'shop',lab:'Warehouse & shop floor',sub:'Production, logistics, mechanics'},
+  {id:'trades',lab:'Trades & outdoor crews',sub:'Construction, landscaping, HVAC'}];
+CADV.push({id:'pants',tile:'Pants built for the job and the laundry',one:'style',label:'Work pant advisor',noun:'work pants',noun2:'pants',
+  h:'Which work pant? Start with the work and the wash.',
+  sub:'A few quick questions about the job, then one recommended pant for each group. Pants carry no logo — they’re the base your branded tops sit on.',
+  overWhy:'this work and laundry',budQ:'Budget per pair',
+  applies:function(c,s){return (c==='bottoms'&&!/Joggers/.test(s))||(c==='carhartt'&&/Pants/.test(s));},
+  who:true,
+  qs:[{id:'who',q:'Who wears them?',short:'Who wears them',hint:'Pick every group',multi:true,wide:true,opts:CA_WHO_PANT},
+      {id:'wash',q:'Who washes them?',short:'The laundry',def:'home',opts:[{id:'home',lab:'Staff, at home',sub:'A regular home wash'},{id:'ind',lab:'A uniform laundry service',sub:'Industrial washing'}]},
+      {id:'cargo',q:'Do they carry tools on their legs?',short:'Pockets',opts:[{id:'1',lab:'Yes',sub:'Cargo pockets'},{id:'0',lab:'No',sub:'Clean, flat-front look'}]}],
+  fact:function(it,A){var n=(it.name||'').toLowerCase();var t=/industrial|dura-kap/.test(n)?'industrial-wash work pant':(/duck|canvas/.test(n)?'canvas work pant':(/flex|stretch/.test(n)?'stretch work pant':'work pant'));
+    return caArt(t)+(/cargo|utility/.test(n)?' with cargo pockets':'');},
+  pool:function(){return caKeys([['bottoms','Work Pants'],['carhartt','Pants & Bibs'],['bottoms','Shorts']]).filter(function(k){return !/women/i.test(BYKEY[k].name)&&!/bib|overall|coverall|\brain\b/i.test(BYKEY[k].name);});},
+  score:function(it,A,role,p){var n=(it.name||'').toLowerCase(),b=caBrand(it),s=0,ind=/industrial|dura-kap/.test(n),duck=/duck|canvas/.test(n),flex=/flex|stretch/.test(n),cargo=/cargo|utility/.test(n),shorts=/short/.test(n);
+    if(shorts)s-=14;
+    if(A.wash==='ind'){if(ind)s+=20;if(duck)s-=15;}else if(duck&&role==='trades')s+=6;
+    if(role==='trades'){if(duck||/carhartt/i.test(b))s+=16;if(flex)s+=6;if(ind)s+=4;}
+    else if(role==='shop'){if(ind)s+=16;if(/874|dickies/i.test(n+' '+b))s+=8;}
+    else{if(flex)s+=10;if(ind)s+=4;if(duck)s-=10;}
+    if(A.cargo==='1'){if(cargo)s+=14;}else if(cargo)s-=6;
+    return s;},
+  why:function(it,A,role){var out=[],n=(it.name||'').toLowerCase(),mx=caMixTxt(it);
+    if(/industrial|dura-kap/.test(n))out.push('Built for industrial laundering');
+    else if(/duck|canvas/.test(n))out.push('Canvas/duck — abrasion-resistant for trades');
+    if(mx)out.push(mx);
+    if(/flex|stretch/.test(n))out.push('Stretch for kneeling and climbing');
+    if(/cargo|utility/.test(n))out.push('Cargo/utility pockets for tools');
+    var w=caKeys([['bottoms','Work Pants'],['carhartt','Pants & Bibs'],['bottoms','Shorts']]).filter(function(k){var x=BYKEY[k];return /women/i.test(x.name)&&caBrand(x)===caBrand(it);})[0];
+    if(w)out.push('Women’s cut available: '+BYKEY[w].name);
+    else if(hasLadies(it))out.push('Men’s and women’s cuts');
+    return out.slice(0,4);},
+  tips:function(A){var t=['Pants carry no logo — your brand lives on the tops and outerwear above them.','Women’s work pants are a different pattern (rise, hip, inseam), not a smaller men’s size.'];
+    if(A.wash==='ind')t.unshift('Uniform laundry service: poly-cotton holds its colour and shape; 100% cotton duck shrinks and fades there.');
+    return t;}
+});
+/* GOLF (Steven, 2026-10-13: "add a golf section"). Research (corporate-golf outfitting guides from 4imprint, Cutter &
+   Buck Corporate, Brandsauce; tournament-gift practice): the buyer starts from the OCCASION, not the garment --
+     * hosting a tournament or client golf day: the polo is the gift, so it has to be one golfers wear again (a
+       golf-brand performance polo beats a cheap uniform knit), plus a cap everyone uses on the day;
+     * our own people playing with clients: polished first -- the polo, a quarter-zip that also walks into the
+       clubhouse, a premium cap;
+     * staff and volunteers working the event: easy to spot, easy on the budget, lots of colours.
+   Cool or breezy days add a light quarter-zip or windshirt. So the advisor returns a KIT -- one pick per piece --
+   rather than one pick per group, each with a lower-cost and a premium option. Course extras (logo balls, towels,
+   umbrellas, tee packs) are not stocked: the aisle offers to source them on the quote, never with an invented price. */
+var GOLF_OCC=[{id:'host',lab:'Our tournament or client golf day',sub:'Gifts for players and guests'},
+  {id:'team',lab:'Our people on the course',sub:'Execs and sales teams playing with clients'},
+  {id:'staff',lab:'Staff & volunteers at the event',sub:'Easy to spot, easy on the budget'}];
+var GOLF_PIECE={gpolo:'The polo',glayer:'The layer',gcap:'The cap'};
+var GOLF_SUB={gpolo:['Golf Polos'],glayer:['Quarter-Zips & Pullovers','Windshirts & Vests'],gcap:['Golf Caps']};
+var GOLF_CUR={
+ca:{
+'host|gpolo':{p:'cbc_prospect_polo',ang:'The polo is the gift, so it has to be one golfers wear again: Cutter & Buck’s textured-stretch Prospect, in men’s and women’s cuts.',alts:[['cq_spin_polo','Value','Clique Spin — the value tournament polo'],['cbc_forge_polo','Premium performance','Cutter & Buck Forge performance polo']]},
+'host|glayer':{p:'cbc_coastline_qz',ang:'A lightweight quarter-zip for a cool early tee time — it comes off easily once the day warms up.',alts:[['st_treeline','Value','Stormtech Treeline performance quarter-zip'],['cbc_stealth_jacket','Windshirt','Cutter & Buck Stealth hybrid windbreaker']]},
+'host|gcap':{p:'at_whippy',ang:'The one piece every golfer uses on the day: a structured six-panel poly cap with your logo on the front.',alts:[['at_recyfive','Value','Recycled-poly five-panel cap'],['at_sportsand','Visor','Sport Sandwich visor cap']]},
+'team|gpolo':{p:'cbc_forge_polo',ang:'Your people are playing with clients, so the polo has to look as sharp on the 18th green as at lunch: a Cutter & Buck performance polo.',alts:[['cbc_prospect_polo','Textured stretch','Cutter & Buck Prospect'],['cbc_advantage_polo','Classic piqué','Cutter & Buck Advantage cotton-blend piqué']]},
+'team|glayer':{p:'cbc_traverse_qz',ang:'A stretch quarter-zip that layers over the polo on the course and still looks right walking into the clubhouse.',alts:[['cbc_coastline_qz','Lighter','Cutter & Buck Coastline lightweight quarter-zip'],['cbc_stealth_jacket','Windshirt','Cutter & Buck Stealth hybrid windbreaker']]},
+'team|gcap':{p:'at_whippy',ang:'A structured six-panel poly cap — clean and crisp for people playing with clients.',alts:[['at_recyfive','Value','Recycled-poly five-panel cap'],['at_sportsand','Visor','Sport Sandwich visor cap']]},
+'staff|gpolo':{p:'cq_spin_polo',ang:'Staff and volunteers need to be easy to spot and easy on the budget: a performance polo that comes in a wide range of colours, so guests know who to ask.',alts:[['st_milanopolo','Stormtech','Stormtech Milano sports polo'],['cbc_prospect_polo','Premium','Cutter & Buck Prospect']]},
+'staff|glayer':{p:'st_pacificawind',ang:'A light windbreaker for a breezy day on the course — easy to wear over the polo.',alts:[['st_treeline','Quarter-zip','Stormtech Treeline performance quarter-zip'],['cbc_coastline_qz','Premium','Cutter & Buck Coastline quarter-zip']]},
+'staff|gcap':{p:'at_recyfive',ang:'A value cap for everyone working the event, in your colours.',alts:[['at_whippy','Structured','Whippy six-panel poly cap'],['at_sportsand','Visor','Sport Sandwich visor cap']]}},
+us:{
+'host|gpolo':{p:'cbc_prospect_polo',ang:'The polo is the gift, so it has to be one golfers wear again: Cutter & Buck’s textured-stretch Prospect, in men’s and women’s cuts.',alts:[['cq_spin_polo','Value','Clique Spin — the value tournament polo'],['cbc_forge_polo','Premium performance','Cutter & Buck Forge performance polo']]},
+'host|glayer':{p:'cbc_coastline_qz',ang:'A lightweight quarter-zip for a cool early tee time — it comes off easily once the day warms up.',alts:[['st_treeline','Value','Stormtech Treeline performance quarter-zip'],['cbc_stealth_jacket','Windshirt','Cutter & Buck Stealth hybrid windbreaker']]},
+'host|gcap':{p:'st_summitcap',ang:'A lightweight recycled-nylon cap with your logo on the front — the piece every golfer uses on the day.',alts:[]},
+'team|gpolo':{p:'cbc_forge_polo',ang:'Your people are playing with clients, so the polo has to look as sharp on the 18th green as at lunch: a Cutter & Buck performance polo.',alts:[['cbc_prospect_polo','Textured stretch','Cutter & Buck Prospect'],['cbc_advantage_polo','Classic piqué','Cutter & Buck Advantage cotton-blend piqué']]},
+'team|glayer':{p:'cbc_traverse_qz',ang:'A stretch quarter-zip that layers over the polo on the course and still looks right walking into the clubhouse.',alts:[['cbc_coastline_qz','Lighter','Cutter & Buck Coastline lightweight quarter-zip'],['cbc_stealth_jacket','Windshirt','Cutter & Buck Stealth hybrid windbreaker']]},
+'team|gcap':{p:'st_summitcap',ang:'A lightweight recycled-nylon cap — clean and simple for people playing with clients.',alts:[]},
+'staff|gpolo':{p:'cq_spin_polo',ang:'Staff and volunteers need to be easy to spot and easy on the budget: a performance polo that comes in a wide range of colours, so guests know who to ask.',alts:[['st_monterey','Stormtech','Stormtech Monterey polo, many colours'],['cbc_prospect_polo','Premium','Cutter & Buck Prospect']]},
+'staff|glayer':{p:'st_pacificawind',ang:'A light windbreaker for a breezy day on the course — easy to wear over the polo.',alts:[['st_treeline','Quarter-zip','Stormtech Treeline performance quarter-zip'],['cb_adapt','Premium','Cutter & Buck Adapt hybrid']]},
+'staff|gcap':{p:'st_summitcap',ang:'A lightweight cap for everyone working the event, in your colours.',alts:[]}}};
+CADV.push({id:'golf',tile:'Polo, layer and cap for your golf day',one:'piece',label:'Golf advisor',noun:'golf pieces',noun2:'pieces',
+  h:'Outfitting a golf day? We’ll build the kit.',
+  sub:'Two quick questions — the occasion and the weather. You get our pick for each piece, with a lower-cost and a premium option.',
+  overWhy:'this golf day',
+  applies:function(c){return c==='golf';},
+  qs:[{id:'occ',q:'What’s the golf day?',short:'The occasion',opts:GOLF_OCC},
+      {id:'wx',q:'What will the weather be like?',short:'The weather',def:'warm',opts:[{id:'warm',lab:'Warm and sunny',sub:'Polo and cap'},{id:'cool',lab:'Cool or breezy',sub:'Adds a quarter-zip or windshirt'}]}],
+  roleLabs:GOLF_PIECE,
+  roles:function(A){var self=this;return ['gpolo','glayer','gcap'].filter(function(r){return (r!=='glayer'||A.wx==='cool')&&caPool(self,A,r).length;});},
+  curate:function(A,role){var M=GOLF_CUR[(typeof isUS==='function'&&isUS())?'us':'ca']||{};return caRow(M[(A.occ||'host')+'|'+role]);},
+  curOk:function(it,A){return !(A.lad==='1'&&!hasLadies(it)&&!/cap|hat|visor/i.test(it.name||''));},
+  angOf:function(k){return (typeof JA_ANG!=='undefined'&&JA_ANG[k])||GOLF_ANG[k]||'';},
+  fact:function(it,A,role){var n=it.name||'';
+    if(role==='gcap')return caArt((/dri-?fit|performance|perforated/i.test(n)?'performance ':'')+(/visor/i.test(n)?'visor cap':'cap'))+' with your logo on the front';
+    if(role==='glayer')return caArt(/wind|jacket|vest|hybrid/i.test(n)?'light windshirt layer':'lightweight quarter-zip')+(hasLadies(it)?' in men’s and women’s cuts':'');
+    return caArt((caPerf(it)?'performance ':'')+'golf polo')+(hasLadies(it)?' in men’s and women’s cuts':'');},
+  pool:function(A,role){var subs=GOLF_SUB[role]||['Golf Polos','Quarter-Zips & Pullovers','Windshirts & Vests','Golf Caps'];
+    return caKeys(subs.map(function(s){return ['golf',s];}));},
+  score:function(it,A,role,p){var s=0,n=(it.name||'').toLowerCase(),gb=GOLF_BRAND.test(caBrand(it)),occ=A.occ||'host';
+    if(A.lad==='1'&&role!=='gcap'&&!hasLadies(it))return null;
+    if(caPerf(it))s+=12;if(hasLadies(it))s+=10;
+    if(occ==='staff'){s+=Math.max(0,30-p/2);if((it.cols||[]).length>=8)s+=10;}
+    else{if(gb)s+=18;if(occ==='team'&&caLuxe(it))s+=8;}
+    if(role==='glayer'&&/quarter|1\/4|half-zip/.test(n))s+=6;
+    return s;},
+  why:function(it,A,role){var out=[],mx=caMixTxt(it),w=caWeightTxt(it);
+    if(mx)out.push(mx+(w?(', '+w):''));
+    if(caPerf(it))out.push('Wicks sweat and dries fast');
+    if(caFin(it,/UPF|UV/i))out.push('UPF sun protection');
+    if(role!=='gcap')out.push(caCutsTxt(it));
+    var nc=(it.cols||[]).length;if(nc>1)out.push(nc+' colours');
+    return out.slice(0,4);},
+  toggles:[{id:'lad',lab:'Women’s cut needed',sub:'Only show polos and layers with a matching women’s cut'}],
+  note:function(A){var o=(GOLF_OCC.filter(function(x){return x.id===A.occ;})[0]||{});return o.lab?('Built for <b>'+esc(o.lab.toLowerCase())+'</b> — '+esc((o.sub||'').toLowerCase())+'.'):'';},
+  tips:function(A){var t=['Golf polos are embroidered on the left chest; a sleeve or back-collar mark is where an event sponsor usually goes.',
+      'Logo golf balls, towels, umbrellas and tee packs aren’t in the store — add them to your quote note and we’ll source and price them for you.'];
+    if((A.occ||'host')==='host')t.push('Buying for players you haven’t sized yet? Send us your registration list or headcount and we’ll help you plan the size run.');
+    return t;}
+});
+var GOLF_ANG={cbc_prospect_polo:'Cutter & Buck’s textured-stretch performance polo',cq_spin_polo:'Clique performance piqué — the value tournament polo',
+  nk_polo:'Nike Dri-FIT polo — the premium golf name',cbc_forge_polo:'Cutter & Buck performance polo',cbc_coastline_qz:'Lightweight Cutter & Buck quarter-zip',
+  st_treeline:'Stormtech performance quarter-zip',cbc_stealth_jacket:'Cutter & Buck quilted hybrid windbreaker',cbc_traverse_qz:'Cutter & Buck stretch quarter-zip',
+  nk_fb6447:'Nike Dri-FIT Legacy cap',nk_fb6445:'Nike Dri-FIT perforated cap',at_sportsand:'Value cotton visor cap',st_milanopolo:'Stormtech sports polo',
+  st_monterey:'Stormtech value polo, many colours',cbc_stealth_vest:'Cutter & Buck windbreaker vest',cb_adapt:'Cutter & Buck hybrid full-zip',
+  c3_88181:'CORE365 performance piqué',st_sonora:'Stormtech knit polo',cbc_coastline_polo:'Cutter & Buck everyday polo'};
+/* CURATED TRIOS FOR EVERY APPAREL ADVISOR (Steven, 2026-10-14: "fill out US for other categories so their comparisons
+   are curated too"). Like jackets: for each answer, a hand-picked pick plus two NAMED alternatives that differ by
+   purpose (Premium, Value, Classic cotton, Water-repellent...), per market. Every angle restates catalogue facts only.
+   A pick this store can't show steps up to the first named option that fits; anything still missing falls back to the
+   ranking. Rows for answers not listed here (a chosen layer style, rough or freezer work) stay with the ranking. */
+var CUR_TOPS={
+ca:{
+'polo|office':{p:'st_sonora',ang:'A cotton-rich knit polo with stretch — snag-resistant and UPF 40+, polished at the front desk without the fuss.',alts:[['cbc_advantage_polo','Premium brand','Cutter & Buck Advantage — recycled cotton-blend piqué with stretch'],['st_nevadass','Classic cotton','Nevada — 100% cotton micro-piqué with mechanical stretch']]},
+'polo|mixed':{p:'st_monterey',ang:'A wicking polyester polo, snag-resistant with UPF 40+ — keeps its shape through an active shift.',alts:[['cs_s05735','Value','Ace — wicking piqué mesh, snag-resistant'],['cbc_forge_polo','Premium performance','Cutter & Buck Forge — recycled performance stretch, UPF 50+']]},
+'polo|outdoor':{p:'st_milanopolo',ang:'H2X-DRY moisture management, UPF 50+ and snag resistance — the polo for sun and sweat.',alts:[['cs_s05735','Value','Ace — wicking piqué mesh'],['st_torrente','Cooling performance','Torrente — H2X-DRY with UPF 50+']]},
+'polo|events':{p:'cq_spin_polo',ang:'Solution-dyed performance piqué: the colour holds and the price suits a crowd.',alts:[['cs_s05785','Cotton-blend','Elite — 220 gsm cotton-blend piqué, fade-resistant'],['st_sonora','Step up','Sonora — cotton-rich knit, UPF 40+']]},
+'tee|office':{p:'st_baseline',ang:'180 gsm cotton with H2X-DRY wicking and UPF 50+ — a tee that still looks put-together.',alts:[['cbc_coastline_tee','Premium','Cutter & Buck Coastline — double-peached recycled performance'],['crewtee','Value','Parkour — 160 gsm cotton']]},
+'tee|mixed':{p:'cs_s05935',ang:'Performance polyester jersey that wicks — comfortable on an active shift.',alts:[['st_baseline','Cotton comfort','Baseline — 180 gsm cotton, H2X-DRY wicking'],['crewtee','Value','Parkour — 160 gsm cotton']]},
+'tee|outdoor':{p:'st_baseline',ang:'Cotton with H2X-DRY wicking and UPF 50+ sun protection for long days outside.',alts:[['cs_s05935','Lightweight performance','Coast — 100% polyester performance jersey'],['cs_s05937','Long-sleeve sun cover','Shore — performance long-sleeve tee']]},
+'tee|events':{p:'crewtee',ang:'160 gsm cotton at the friendliest price — built for a crowd.',alts:[['cs_s05935','Performance','Coast — polyester performance jersey'],['cs_s05670','Premium feel','Horizon — 240 gsm garment-dyed vintage wash']]},
+'woven|office':{p:'shirt',ang:'A wrinkle-resistant, stain-release poly-cotton twill — a crisp button-up that survives the workday.',alts:[['st_sonora_shirt','Modern stretch','Sonora — 4-way stretch knit button-up with H2X-DRY'],['ashton','Short sleeve','Ashton — the same easy-care twill, short sleeves']]},
+'woven|mixed':{p:'ashton',ang:'Short-sleeve easy-care twill, wrinkle-resistant with stain release — tidy in and out all day.',alts:[['st_logan','Snap-front','Logan — cotton-poly snap-front shirt'],['rk_sp24','Industrial wash','Red Kap — made for uniform laundry services']]},
+'woven|outdoor':{p:'st_logan',ang:'A cotton-poly snap-front work shirt with character — at home in the yard.',alts:[['st_cambridge','Flannel','Cambridge — woven flannel for cooler days'],['rk_sp24','Industrial wash','Red Kap — made for uniform laundry services']]},
+'woven|events':{p:'ashton',ang:'Easy-care twill that arrives looking sharp — short sleeves for a long day on your feet.',alts:[['shirt','Long sleeve','Camden — the same twill, long sleeves'],['st_sonora_shirt','Modern stretch','Sonora — stretch knit button-up']]},
+'woven|mixed|ind':{p:'rk_sp24',ang:'Built for industrial laundering: wrinkle-resistant Touchtex poly-cotton that comes back from the service looking right.',alts:[['rk_sx20','Flex panels','Red Kap MIMIX — flex panels for reaching and lifting'],['dk_2574','Stain release','Dickies — traditional work shirt with stain release']]},
+'woven|outdoor|ind':{p:'rk_sp24',ang:'Built for industrial laundering: wrinkle-resistant Touchtex poly-cotton that comes back from the service looking right.',alts:[['rk_sx20','Flex panels','Red Kap MIMIX — flex panels for reaching and lifting'],['dk_2574','Stain release','Dickies — traditional work shirt with stain release']]}},
+us:{
+'polo|office':{p:'st_sonora',ang:'A cotton-rich knit polo with stretch — snag-resistant and UPF 40+, polished at the front desk without the fuss.',alts:[['cbc_advantage_polo','Premium brand','Cutter & Buck Advantage — recycled cotton-blend piqué with stretch'],['st_nevadass','Classic cotton','Nevada — 100% cotton micro-piqué with mechanical stretch']]},
+'polo|mixed':{p:'st_monterey',ang:'A wicking polyester polo, snag-resistant with UPF 40+ — keeps its shape through an active shift.',alts:[['cq_spin_polo','Value','Clique Spin — solution-dyed performance piqué'],['cbc_forge_polo','Premium performance','Cutter & Buck Forge — recycled performance stretch, UPF 50+']]},
+'polo|outdoor':{p:'st_milanopolo',ang:'H2X-DRY moisture management, UPF 50+ and snag resistance — the polo for sun and sweat.',alts:[['cq_spin_polo','Value','Clique Spin — solution-dyed performance piqué'],['st_torrente','Cooling performance','Torrente — H2X-DRY with UPF 50+']]},
+'polo|events':{p:'cq_spin_polo',ang:'Solution-dyed performance piqué: the colour holds and the price suits a crowd.',alts:[['st_monterey','Step up','Monterey — wicking, UPF 40+, snag-resistant'],['st_nevadass','Classic cotton','Nevada — 100% cotton micro-piqué']]},
+'tee|office':{p:'st_baseline',ang:'180 gsm cotton with H2X-DRY wicking and UPF 50+ — a tee that still looks put-together.',alts:[['cbc_coastline_tee','Premium','Cutter & Buck Coastline — double-peached recycled performance'],['st_stockton_ss','Value','Stockton — cotton-rich jersey']]},
+'tee|mixed':{p:'cq_charge_tee',ang:'Active jersey that wicks — comfortable on a shift that never sits still.',alts:[['st_baseline','Cotton comfort','Baseline — 180 gsm cotton, H2X-DRY wicking'],['cq_spin_tee','Value','Clique Spin — solution-dyed performance jersey']]},
+'tee|outdoor':{p:'st_baseline',ang:'Cotton with H2X-DRY wicking and UPF 50+ sun protection for long days outside.',alts:[['cq_charge_tee','Lightweight performance','Clique Charge — active performance jersey'],['st_stockton_ls','Long-sleeve sun cover','Stockton — long-sleeve cotton-rich jersey']]},
+'tee|events':{p:'cq_spin_tee',ang:'Solution-dyed performance jersey at a crowd-friendly price — the colour holds wash after wash.',alts:[['st_stockton_ss','Cotton-rich','Stockton — cotton-rich jersey'],['st_baseline','Premium cotton','Baseline — 180 gsm cotton, UPF 50+']]},
+'woven|office':{p:'cbc_skyline_shirt',ang:'Cutter & Buck Skyline: a recycled-stretch end-on-end button-down that wicks and resists wrinkles — polished for the office.',alts:[['st_sonora_shirt','Modern stretch','Sonora — 4-way stretch knit button-up with H2X-DRY'],['cq_hustle_shirt','Value','Clique Hustle — cotton / recycled-poly easy-care button-down']]},
+'woven|mixed':{p:'st_sonora_shirt',ang:'A 4-way-stretch knit button-up with H2X-DRY moisture management — moves easily in and out all day.',alts:[['cbc_skyline_shirt','Premium woven','Cutter & Buck Skyline — recycled stretch end-on-end, wrinkle-resistant'],['cq_hustle_shirt','Value','Clique Hustle — cotton / recycled-poly easy-care button-down']]},
+'woven|outdoor':{p:'st_logan',ang:'A cotton-poly snap-front work shirt with character — at home in the yard.',alts:[['st_cambridge','Flannel','Cambridge — woven flannel for cooler days'],['cq_hustle_shirt','Value','Clique Hustle — cotton / recycled-poly easy-care button-down']]},
+'woven|events':{p:'cq_hustle_shirt',ang:'A cotton / recycled-poly easy-care button-down at an event-friendly price.',alts:[['cbc_skyline_shirt','Step up','Cutter & Buck Skyline — recycled stretch end-on-end'],['st_sonora_shirt','Modern stretch','Sonora — stretch knit button-up']]}}};
+var CUR_LAYERS={
+ca:{
+'office|1':{p:'cbc_coastline_qz',ang:'A lightweight recycled-performance quarter-zip with UPF 50+ — layers cleanly over a polo.',alts:[['cbc_traverse_qz','Premium stretch','Cutter & Buck Traverse — recycled stretch quarter-zip'],['st_treeline','Warmer knit','Treeline — 270 gsm stretch quarter-zip']]},
+'office|2':{p:'st_treeline',ang:'A 270 gsm stretch quarter-zip that wicks — the everyday office layer.',alts:[['cbc_traverse_qz','Premium brand','Cutter & Buck Traverse — recycled stretch quarter-zip'],['flux','Value','Flux — 280 gsm cotton-blend quarter-zip']]},
+'office|3':{p:'st_avalanteqz',ang:'320 gsm recycled fleece in a quarter-zip — warm enough to wear on its own.',alts:[['st_avalante','Full-zip','Avalante — the same fleece as a full-zip jacket'],['cs_l00602','Value','Fairmount — 330 gsm cotton-rich quarter-zip']]},
+'mixed|1':{p:'st_stocktonhoody',ang:'A 240 gsm fleece pullover hoodie with UPF 50+ — light enough to wear under a jacket.',alts:[['vault','Value','Vault — 280 gsm cotton-blend hoodie'],['cbc_coastline_qz','Quarter-zip','Cutter & Buck Coastline — lightweight quarter-zip']]},
+'mixed|2':{p:'surfer',ang:'A 280 gsm full-zip hoodie — on and off all day without a fight.',alts:[['st_avalante','Premium fleece','Avalante — 320 gsm recycled fleece jacket'],['vault','Pullover','Vault — 280 gsm pullover hoodie']]},
+'mixed|3':{p:'forge',ang:'440 gsm heavyweight fleece — a hoodie that is warm on its own.',alts:[['repel','Water-repellent','Repel — 440 gsm with a water-repellent finish'],['st_avalante','Fleece jacket','Avalante — 320 gsm full-zip fleece']]},
+'outdoor|1':{p:'vault',ang:'A 280 gsm cotton-blend pullover hoodie — the layer crews actually wear.',alts:[['st_stocktonhoody','Step up','Stockton — fleece hoody, UPF 50+'],['crew','Crewneck','Crew — 280 gsm crewneck sweatshirt']]},
+'outdoor|2':{p:'vault',ang:'A 280 gsm cotton-blend pullover hoodie — the layer crews actually wear.',alts:[['repel','Water-repellent','Repel — 440 gsm water-repellent hoodie'],['surfer','Full-zip','Surfer — 280 gsm full-zip hoodie']]},
+'outdoor|3':{p:'forge',ang:'440 gsm heavyweight fleece — warm on its own on cold mornings.',alts:[['repel','Water-repellent','Repel — 440 gsm with a water-repellent finish'],['foundry','Crewneck','Foundry — 440 gsm heavyweight crewneck']]},
+'outer':{p:'repel',ang:'440 gsm fleece with a PFAS-free water-repellent finish — made to be the outer layer.',alts:[['cs_l00880','Fortress','Fortress — 440 gsm water-repellent pullover hoodie'],['forge','Heavyweight','Forge — 440 gsm heavyweight hoodie']]},
+'gift|1':{p:'cbc_coastline_qz',ang:'A lightweight Cutter & Buck quarter-zip with UPF 50+ — a gift that gets worn.',alts:[['cb_roamqz','Premium soft-knit','Cutter & Buck Roam — soft-knit quarter-zip jacket'],['st_treeline','Stormtech','Treeline — 270 gsm stretch quarter-zip']]},
+'gift|2':{p:'cbc_traverse_qz',ang:'Cutter & Buck Traverse: a recycled-stretch quarter-zip people keep reaching for.',alts:[['cb_roamqz','Premium soft-knit','Cutter & Buck Roam — water-repellent soft-knit'],['st_treeline','Value','Treeline — 270 gsm stretch quarter-zip']]},
+'gift|3':{p:'st_avalante',ang:'A 320 gsm recycled-fleece full-zip — the warm, keep-forever welcome gift.',alts:[['st_avalanteqz','Quarter-zip','Avalante — the same fleece as a quarter-zip'],['cbc_roam_hoodie','Premium hoodie','Cutter & Buck Roam — water-repellent hoodie']]}},
+us:{
+'office|1':{p:'cbc_coastline_qz',ang:'A lightweight recycled-performance quarter-zip with UPF 50+ — layers cleanly over a polo.',alts:[['cbc_traverse_qz','Premium stretch','Cutter & Buck Traverse — recycled stretch quarter-zip'],['cq_ice_hz','Value','Clique Ice — piqué tech half-zip']]},
+'office|2':{p:'st_treeline',ang:'A 270 gsm stretch quarter-zip that wicks — the everyday office layer.',alts:[['cbc_adapt_heather_qz','Premium brand','Cutter & Buck Adapt — heathered quarter-zip'],['cq_summit_hz','Value fleece','Clique Summit — performance fleece half-zip']]},
+'office|3':{p:'st_avalanteqz',ang:'320 gsm recycled fleece in a quarter-zip — warm enough to wear on its own.',alts:[['cbc_peshastin_hz','Premium fleece','Cutter & Buck Peshastin — recycled fleece half-zip'],['cq_powder_fz','Value full-zip','Clique Powder — recycled fleece full-zip']]},
+'mixed|1':{p:'st_stocktonhoody',ang:'A 240 gsm fleece pullover hoodie with UPF 50+ — light enough to wear under a jacket.',alts:[['cq_lift_hoodie','Value','Clique Lift — performance pullover hoodie'],['cbc_coastline_qz','Quarter-zip','Cutter & Buck Coastline — lightweight quarter-zip']]},
+'mixed|2':{p:'cq_powder_fz',ang:'A recycled-fleece full-zip — on and off all day without a fight.',alts:[['st_avalante','Premium fleece','Avalante — 320 gsm recycled fleece jacket'],['st_stocktonhoody','Pullover hoodie','Stockton — fleece hoody, UPF 50+']]},
+'mixed|3':{p:'st_avalante',ang:'320 gsm recycled fleece in a full-zip jacket — warm on its own.',alts:[['cbc_roam_hoodie','Water-repellent','Cutter & Buck Roam — water-repellent hoodie'],['cq_powder_fz','Value','Clique Powder — recycled fleece full-zip']]},
+'outdoor|1':{p:'st_stocktonhoody',ang:'A 240 gsm fleece pullover hoodie with UPF 50+ — the layer crews actually wear.',alts:[['cq_lift_hoodie','Value','Clique Lift — performance pullover hoodie'],['cbc_roam_hoodie','Water-repellent','Cutter & Buck Roam — water-repellent hoodie']]},
+'outdoor|2':{p:'st_stocktonhoody',ang:'A 240 gsm fleece pullover hoodie with UPF 50+ — the layer crews actually wear.',alts:[['cbc_roam_hoodie','Water-repellent','Cutter & Buck Roam — water-repellent hoodie'],['cq_powder_fz','Full-zip','Clique Powder — recycled fleece full-zip']]},
+'outdoor|3':{p:'st_avalante',ang:'320 gsm recycled fleece — warm on its own on cold mornings.',alts:[['cbc_roam_hoodie','Water-repellent','Cutter & Buck Roam — water-repellent hoodie'],['cq_powder_fz','Value','Clique Powder — recycled fleece full-zip']]},
+'outer':{p:'cbc_roam_hoodie',ang:'A water-repellent soft-knit hoodie — made to be worn as the outer layer.',alts:[['cb_roamqz','Quarter-zip','Cutter & Buck Roam — water-repellent quarter-zip jacket'],['st_avalante','Warm fleece','Avalante — 320 gsm full-zip fleece']]},
+'gift|1':{p:'cbc_coastline_qz',ang:'A lightweight Cutter & Buck quarter-zip with UPF 50+ — a gift that gets worn.',alts:[['cb_roamqz','Premium soft-knit','Cutter & Buck Roam — soft-knit quarter-zip jacket'],['st_treeline','Stormtech','Treeline — 270 gsm stretch quarter-zip']]},
+'gift|2':{p:'cbc_traverse_qz',ang:'Cutter & Buck Traverse: a recycled-stretch quarter-zip people keep reaching for.',alts:[['cbc_peshastin_hz','Cozy fleece','Cutter & Buck Peshastin — recycled fleece half-zip'],['st_treeline','Value','Treeline — 270 gsm stretch quarter-zip']]},
+'gift|3':{p:'st_avalante',ang:'A 320 gsm recycled-fleece full-zip — the warm, keep-forever welcome gift.',alts:[['cbc_peshastin_hz','Premium half-zip','Cutter & Buck Peshastin — recycled fleece half-zip'],['cbc_roam_hoodie','Premium hoodie','Cutter & Buck Roam — water-repellent hoodie']]}}};
+var CUR_VESTS={
+ca:{
+'office|in':{p:'st_avalantevest',ang:'A full-zip fleece vest — soft and breathable for indoors all day.',alts:[['cq_trail_vest','Softshell','Clique Trail — recycled stretch softshell vest'],['cq_summit_vest','Value','Clique Summit — performance fleece vest']]},
+'office|over':{p:'cq_equinox_vest',ang:'An insulated softshell vest — blocks the wind and still looks sharp.',alts:[['cbc_stealth_vest','Premium','Cutter & Buck Stealth — hybrid quilted windbreaker vest'],['st_sierravest','Quilted','Sierra — quilted vest']]},
+'office|cold':{p:'st_stavangervest',ang:'A water-repellent quilted vest with real insulation — warmth with a clean, corporate look.',alts:[['cbc_evoke_vest','Premium brand','Cutter & Buck Evoke — puffer vest'],['cq_hudson_vest','Value','Clique Hudson — insulated puffer vest']]},
+'mixed|in':{p:'cq_trail_vest',ang:'A recycled stretch softshell vest — moves with you and blocks a draft at the loading door.',alts:[['st_avalantevest','Fleece','Avalante — full-zip fleece vest'],['cq_summit_vest','Value','Clique Summit — performance fleece vest']]},
+'mixed|over':{p:'vest',ang:'Stormtech’s quilted vest — warmth over a hoodie with the arms free.',alts:[['cq_equinox_vest','Softshell','Clique Equinox — insulated softshell vest'],['cq_hudson_vest','Value','Clique Hudson — insulated puffer vest']]},
+'mixed|cold':{p:'st_basecampvest',ang:'A quilted vest built for real cold — the core stays warm, the arms stay free.',alts:[['st_stavangervest','Water-repellent','Stavanger — water-repellent quilted vest'],['cq_hudson_vest','Value','Clique Hudson — insulated puffer vest']]},
+'outdoor|in':{p:'cq_trail_vest',ang:'A recycled stretch softshell vest — tough enough for the shop floor.',alts:[['cs_l00915','Canvas','Ram — cotton canvas with sherpa lining'],['cq_summit_vest','Value','Clique Summit — performance fleece vest']]},
+'outdoor|over':{p:'cs_l00915',ang:'Cotton canvas with a sherpa lining — a work vest built for the yard.',alts:[['vest','Quilted','Stormtech — quilted vest'],['cq_equinox_vest','Softshell','Clique Equinox — insulated softshell vest']]},
+'outdoor|cold':{p:'st_basecampvest',ang:'A quilted vest built for real cold — the core stays warm, the arms stay free.',alts:[['cs_l00915','Canvas','Ram — cotton canvas with sherpa lining'],['cq_hudson_vest','Value','Clique Hudson — insulated puffer vest']]},
+'gift|in':{p:'cbc_charter_vest',ang:'A Cutter & Buck packable vest — light, easy to wear, and a brand people know.',alts:[['st_avalantevest','Fleece','Avalante — full-zip fleece vest'],['cq_trail_vest','Value','Clique Trail — recycled stretch softshell vest']]},
+'gift|over':{p:'cbc_stealth_vest',ang:'Cutter & Buck Stealth: a hybrid quilted windbreaker vest that reads premium.',alts:[['cq_equinox_vest','Softshell','Clique Equinox — insulated softshell vest'],['st_sierravest','Value','Sierra — quilted vest']]},
+'gift|cold':{p:'cbc_evoke_vest',ang:'The Cutter & Buck Evoke puffer — the premium, keep-forever vest.',alts:[['st_stavangervest','Stormtech','Stavanger — water-repellent quilted vest'],['cq_hudson_vest','Value','Clique Hudson — insulated puffer vest']]}},
+us:{
+'office|in':{p:'st_avalantevest',ang:'A full-zip fleece vest — soft and breathable for indoors all day.',alts:[['cq_trail_vest','Softshell','Clique Trail — recycled stretch softshell vest'],['cq_summit_vest','Value','Clique Summit — performance fleece vest']]},
+'office|over':{p:'cq_equinox_vest',ang:'An insulated softshell vest — blocks the wind and still looks sharp.',alts:[['cbc_stealth_vest','Premium','Cutter & Buck Stealth — hybrid quilted windbreaker vest'],['st_sierravest','Quilted','Sierra — quilted vest']]},
+'office|cold':{p:'st_stavangervest',ang:'A water-repellent quilted vest with real insulation — warmth with a clean, corporate look.',alts:[['cbc_evoke_vest','Premium brand','Cutter & Buck Evoke — puffer vest'],['cq_hudson_vest','Value','Clique Hudson — insulated puffer vest']]},
+'mixed|in':{p:'cq_trail_vest',ang:'A recycled stretch softshell vest — moves with you and blocks a draft at the loading door.',alts:[['st_avalantevest','Fleece','Avalante — full-zip fleece vest'],['cq_summit_vest','Value','Clique Summit — performance fleece vest']]},
+'mixed|over':{p:'vest',ang:'Stormtech’s quilted vest — warmth over a hoodie with the arms free.',alts:[['cq_equinox_vest','Softshell','Clique Equinox — insulated softshell vest'],['cq_hudson_vest','Value','Clique Hudson — insulated puffer vest']]},
+'mixed|cold':{p:'st_basecampvest',ang:'A quilted vest built for real cold — the core stays warm, the arms stay free.',alts:[['st_stavangervest','Water-repellent','Stavanger — water-repellent quilted vest'],['cq_hudson_vest','Value','Clique Hudson — insulated puffer vest']]},
+'outdoor|in':{p:'cq_trail_vest',ang:'A recycled stretch softshell vest — tough enough for the shop floor.',alts:[['cq_summit_vest','Value','Clique Summit — performance fleece vest'],['st_avalantevest','Fleece','Avalante — full-zip fleece vest']]},
+'outdoor|over':{p:'vest',ang:'Stormtech’s quilted vest — warmth over a hoodie with the arms free.',alts:[['cq_equinox_vest','Softshell','Clique Equinox — insulated softshell vest'],['cq_hudson_vest','Value','Clique Hudson — insulated puffer vest']]},
+'outdoor|cold':{p:'st_basecampvest',ang:'A quilted vest built for real cold — the core stays warm, the arms stay free.',alts:[['cq_hudson_vest','Value','Clique Hudson — insulated puffer vest'],['st_stavangervest','Water-repellent','Stavanger — water-repellent quilted vest']]},
+'gift|in':{p:'cbc_charter_vest',ang:'A Cutter & Buck packable vest — light, easy to wear, and a brand people know.',alts:[['st_avalantevest','Fleece','Avalante — full-zip fleece vest'],['cq_trail_vest','Value','Clique Trail — recycled stretch softshell vest']]},
+'gift|over':{p:'cbc_stealth_vest',ang:'Cutter & Buck Stealth: a hybrid quilted windbreaker vest that reads premium.',alts:[['cq_equinox_vest','Softshell','Clique Equinox — insulated softshell vest'],['st_sierravest','Value','Sierra — quilted vest']]},
+'gift|cold':{p:'cbc_evoke_vest',ang:'The Cutter & Buck Evoke puffer — the premium, keep-forever vest.',alts:[['st_stavangervest','Stormtech','Stavanger — water-repellent quilted vest'],['cq_hudson_vest','Value','Clique Hudson — insulated puffer vest']]}}};
+function curMkt(){return (typeof isUS==='function'&&isUS())?'us':'ca';}
+function curAngFrom(T){var o={};['ca','us'].forEach(function(m){var M=T[m]||{};for(var k in M){var r=M[k];(r.alts||[]).forEach(function(a){if(!o[a[0]])o[a[0]]=a[2]||'';});}});return o;}
+var CUR_ANG=Object.assign({},curAngFrom(CUR_TOPS),curAngFrom(CUR_LAYERS),curAngFrom(CUR_VESTS));
+(function(){var C={};CADV.forEach(function(c){C[c.id]=c;});
+  var lad=function(it,A){return !(A.lad==='1'&&!hasLadies(it));},
+      tog={id:'lad',lab:'Women’s cut needed',sub:'Only show styles with a matching women’s cut'},
+      wrapScore=function(cfg){var s0=cfg.score;cfg.score=function(it,A,role,p){if(A.lad==='1'&&!hasLadies(it))return null;return s0.call(this,it,A,role,p);};},
+      ang=function(cfg){var a0=cfg.angOf;cfg.angOf=function(k){return (a0&&a0(k))||CUR_ANG[k]||'';};};
+  if(C.tops){C.tops.curate=function(A,role){var L=A.look||'polo',ind=L==='woven'&&A.twash==='ind'&&(role==='mixed'||role==='outdoor');
+      var M=CUR_TOPS[curMkt()]||{};return caRow(M[L+'|'+role+(ind?'|ind':'')]||(ind?null:undefined));};
+    C.tops.curOk=lad;C.tops.toggles=[tog];wrapScore(C.tops);ang(C.tops);}
+  if(C.layers){C.layers.curate=function(A,role){if(A.style&&A.style!=='auto')return null;var M=CUR_LAYERS[curMkt()]||{};
+      if(A.outer==='1'&&(role==='outdoor'||role==='mixed'))return caRow(M.outer);return caRow(M[role+'|'+(A.warm||'2')]);};
+    C.layers.curOk=lad;C.layers.toggles=[tog];wrapScore(C.layers);ang(C.layers);}
+  if(C.vests){C.vests.curate=function(A,role){if((A.vwork||'gen')!=='gen'&&(role==='outdoor'||role==='mixed'))return null;
+      var M=CUR_VESTS[curMkt()]||{};return caRow(M[role+'|'+(A.worn||'in')]);};
+    C.vests.curOk=lad;C.vests.toggles=[tog];wrapScore(C.vests);ang(C.vests);}
+})();
+var XP_SUB={};
+function renderXpert(){
+  var el=document.getElementById('xpert');if(!el)return;
+  var cat=VIEW.cat,q=(VIEW.q||'').trim();
+  if(q||!cat||cat==='accessories'||(typeof giftViewOn==='function'&&giftViewOn())){el.innerHTML='';return;}
+  /* every major apparel category has its own advisor; the rest keep the three picks */
+  var cfg=caCfg();if(cfg){renderCatAdvisor(el,cfg);return;}
+  var subs=xpSubs(cat);if(!subs.length){el.innerHTML='';return;}
+  var sub=(VIEW.sub&&VIEW.sub!=='all'&&subs.indexOf(VIEW.sub)>=0)?VIEW.sub:(XP_SUB[cat]&&subs.indexOf(XP_SUB[cat])>=0?XP_SUB[cat]:(subs.indexOf(XP[cat])>=0?XP[cat]:subs[0]));
+  var picks=xpPicks(cat,sub),cfg=XPERT[sub]||(sub==='Safety Vests'?XPERT['Hi-Vis Vests']:{});
+  var tabs=(VIEW.sub==='all'&&subs.length>1)?('<div class="xptabs" role="tablist">'+subs.map(function(s){
+    return '<button type="button" role="tab" class="xptab'+(s===sub?' on':'')+'" aria-selected="'+(s===sub)+'" data-xpsub="'+esc(s)+'">'+esc(s)+'</button>';}).join('')+'</div>'):'';
+  el.innerHTML='<section class="xpert" aria-label="Our recommendation">'+
+    '<div class="xphd"><div><span class="xpeyb">Not sure which to choose?</span>'+
+      '<h3 class="xph">Our three picks'+(VIEW.sub==='all'?'':'')+' <span>· '+esc(sub)+'</span></h3>'+
+      (cfg.a?('<p class="xpadv">'+esc(cfg.a)+'</p>'):'')+'</div>'+
+      '<button type="button" class="xpask" id="xpAsk"><span class="xpav" aria-hidden="true">S</span><span><b>Have Steven pick for you</b><i>Tell us the team and budget — we reply with a recommendation</i></span></button></div>'+
+    tabs+
+    '<div class="xpgrid">'+picks.map(xpCardHtml).join('')+'</div>'+
+  '</section>';
+  el.querySelectorAll('[data-xpsub]').forEach(function(b){b.addEventListener('click',function(){XP_SUB[cat]=b.dataset.xpsub;jdpTrack('xp_tab',{s:bslug(b.dataset.xpsub)});renderXpert();});});
+  el.querySelectorAll('[data-xpopen]').forEach(function(b){b.addEventListener('click',function(){jdpTrack('xp_open',{k:b.dataset.xpopen});openSheet(b.dataset.xpopen);});});
+  el.querySelectorAll('[data-xpadd]').forEach(function(b){b.addEventListener('click',function(){var k=b.dataset.xpadd;jdpTrack('xp_add',{k:k});addToQuoteQuick(k);
+    b.textContent='✓ In your quote';b.classList.add('done');});});
+  var a=document.getElementById('xpAsk');if(a)a.addEventListener('click',function(){jdpTrack('xp_ask',{c:cat,s:bslug(sub)});openSourcing('');
+    var nt=document.getElementById('coNote');if(nt&&!nt.value)nt.value='Please recommend '+sub.toLowerCase()+' for our team.\nHow many people: \nWho wears it (office / warehouse / outdoor / client-facing): \nBudget per person: \nNeeded by: ';});
+}
+
+function renderGrid(){renderGridCore();try{syncInbar();}catch(e){}try{renderXpert();}catch(e){}}
+function renderGridCore(){
+  var grid=document.getElementById('grid'),hd=document.getElementById('gridhd'),nr=document.getElementById('noResults');
+  if(!grid)return;var q=(VIEW.q||'').trim().toLowerCase();
+  /* While a search is showing, the aisle chips and the warmth / budget bars describe a shelf the
+     buyer is not looking at; the results carry their own "refine by aisle" row instead. */
+  document.documentElement.classList.toggle('sxon',!!q);
+  if(q){
+    if(VIEW._sxq!==q){VIEW._sxq=q;VIEW.qa=null;VIEW.qb=VIEW.qc=VIEW.qfit=VIEW.qs=null;}
+    var R=sxResultsFor(q),matches=R.keys;
+    if(VIEW.qa!=null&&SX.aisles[VIEW.qa]){
+      var inA={};(SX.aisles[VIEW.qa].keys||[]).forEach(function(k){inA[k]=1;});
+      matches=matches.filter(function(k){return inA[k];});}
+    var _pre=matches;matches=sxRefine(matches);
+    hd.innerHTML=R.keys.length?(sxResultsHead(VIEW.q,R,matches,matches.length)+sxToolsHtml(_pre)):'';
+    if(R.keys.length){wireResultsHead(hd);wireSxTools(hd);}
+    grid.innerHTML='<div class="menu">'+matches.map(menuCard).join('')+'</div>';
+    if(R.keys.length){nr.style.display='none';}
+    else{nr.style.display='';nr.innerHTML=noResultsHtml(VIEW.q,R);wireNoResults(nr);}
+    wireCards();return;}
+  VIEW._sxq=null;VIEW.qa=null;VIEW.qb=VIEW.qc=VIEW.qfit=VIEW.qs=null;
+  nr.style.display='none';
+  // One place decides which keys the grid may show, so the Fit chip behaves identically in the flat,
+  // grouped and single-sub layouts.
+  // Ladies' includes UNISEX. A unisex hoodie is genuinely available to her — it simply isn't cut
+  // separately — so excluding it hid 10 of the 21 Sweaters & Fleece styles from anyone shopping for
+  // the women on their team. Items with neither flag are men's-only and stay hidden.
+  var fitOK=function(list){var L=(VIEW.fit==='womens')?list.filter(function(k){var i=BYKEY[k]||{};return hasLadies(i)||i.unisex;}):list;return sortList(warmOK(bandOK(colourOK(L))));};
+  var subs=subNames(VIEW.cat),csa=VIEW.cat==='hivis'?' <span class="csa">CSA Z96 · ANSI 107</span>':'';
+  var _shown=(VIEW.sub==='all'?fitOK(ALLKEYS.filter(function(k){return (BUCKETS[VIEW.cat]||{})&&subs.some(function(s){return BUCKETS[VIEW.cat][s].indexOf(k)>=0;});})).length:fitOK(BUCKETS[VIEW.cat][VIEW.sub]||[]).length);
+  SHOWN=_shown;
+  hd.innerHTML='<h2 class="glbl">'+esc(megaName(VIEW.cat))+csa+'</h2><span class="gsub">'+_shown+' styles'+(VIEW.fit==='womens'?' in ladies’ &amp; unisex fits':'')+'</span>'+catGuideHtml();
+  var inner;
+  if(VIEW.sub!=='all'){inner='<div class="menu">'+fitOK(BUCKETS[VIEW.cat][VIEW.sub]||[]).map(menuCard).join('')+'</div>';}
+  else if(subs.length>1&&TOTALS[VIEW.cat]>6){
+    /* THE "ALL" VIEW IS A PREVIEW, NOT THE WHOLE RANGE. 62 jackets rendered in full made this
+       category 11.8 screens deep on desktop and 25.6 on a phone -- the wall Steven kept calling a
+       headache. Each group now shows its first few and offers its own tab, so the category is
+       scannable in a couple of screens and nothing is more than one click away. The preview is
+       taken AFTER sortList(), whose default order is top picks first then the keener price, so what
+       shows is the strongest of each group rather than an arbitrary slice. */
+    var _pn=grpPreviewN();GRP_N_USED=_pn;
+    inner=subs.map(function(s){var ks=fitOK(BUCKETS[VIEW.cat][s]);if(!ks.length)return '';
+      /* The cap exists to tame the UNFILTERED wall. Once the buyer has narrowed -- by warmth,
+         budget, colour or fit -- they have already done the choosing, and hiding four of their
+         fourteen winter jackets behind a "See all" is the opposite of helpful. So the preview
+         applies only while nothing is filtered. */
+      var shown=narrowed()?ks:ks.slice(0,_pn),rest=ks.length-shown.length;
+      /* "SEE ALL" HAS TO LOOK LIKE MORE PRODUCT, NOT A TAG. Steven, 2026-10-02: "See all 10 Quarter &
+         Half-Zips -> and other buttons like this are not clearly visual and users do not see that we
+         have more options!" It was a small white pill under the fourth card, below a grey 12px
+         all-caps heading -- so a shelf of four read as the whole range. Now the heading is a real
+         heading with "See all N" in the accent at its right (where Amazon and 4imprint put it), and
+         the shelf ends in a full-width strip that SHOWS the hidden styles, says how many, and carries
+         a filled button. Same destination as before: setSub(s). */
+      return '<div class="subgrp"><div class="subhdrow"><h3 class="subhd">'+esc(s)+' <span class="subn">'+ks.length+' styles</span></h3>'+
+          (rest>0?('<button type="button" class="seetop" data-seesub="'+esc(s)+'">See all '+ks.length+' <span aria-hidden="true">\u2192</span></button>'):'')+
+        '</div>'+subGuideHtml(s)+
+        '<div class="menu">'+shown.map(menuCard).join('')+'</div>'+
+        (rest>0?seeMoreHtml(s,ks,shown.length):'')+
+        '</div>';}).join('');}
+  else{var flat=[];subs.forEach(function(s){flat=flat.concat(BUCKETS[VIEW.cat][s]);});flat=fitOK(flat);inner='<div class="menu">'+flat.map(menuCard).join('')+'</div>';}
+  /* the "Not sure which?" card sits in the first shelf, right after the first row of products */
+  /* "Not sure which?" -- between the first and second shelf in the overview (a full-width strip, so no shelf row is
+     broken), or as a card in the first row of a single shelf */
+  try{var _nh=caNudgeHtml();if(_nh){var _g2=inner.indexOf('<div class="subgrp">',inner.indexOf('<div class="subgrp">')+5);
+    if(VIEW.sub==='all'&&inner.indexOf('<div class="subgrp">')>=0){_nh=_nh.replace('class="canudge"','class="canudge wide"');inner=_g2>0?(inner.slice(0,_g2)+_nh+inner.slice(_g2)):(inner+_nh);}
+    else{var _st=inner.indexOf('<div class="menu">');if(_st>=0){var _need=Math.max(2,Math.min(grpPreviewN(),4))-1,_ix=[],_m,_rx=/<article class="mcard/g;_rx.lastIndex=_st;
+      while((_m=_rx.exec(inner))&&_ix.length<=_need)_ix.push(_m.index);
+      if(_ix.length>_need)inner=inner.slice(0,_ix[_need])+_nh+inner.slice(_ix[_need]);else inner=inner.replace(/<\/div>$/,_nh+'</div>');}}}}catch(e){}
+  grid.innerHTML=(VIEW.cat==='hivis'?hivisIntroHtml():'')+(VIEW.cat==='golf'?golfIntroHtml():'')+inner+moreCatsHtml();wireCards();wireAdvGo(grid);
+  var _gx=document.getElementById('golfX');if(_gx)_gx.addEventListener('click',function(){jdpTrack('golf_extras');openSourcing('');var nt=document.getElementById('coNote');
+    if(nt&&!nt.value)nt.value='Golf extras we need (logo balls, towels, umbrellas, tee packs…):\nQuantity: \nEvent date: ';});
+  grid.querySelectorAll('[data-seesub]').forEach(function(b){
+    b.addEventListener('click',function(){setSub(b.dataset.seesub);});});}
+/* The strip at the foot of a previewed shelf: up to five of the HIDDEN styles as photos, the count,
+   the entry price across the shelf (the same at-the-minimum figure the cards print), and a filled
+   button. The whole strip is the target. */
+function grpThumb(k){
+  var it=BYKEY[k];if(!it)return '';
+  try{var c=colInList(browseCols(it),browseColour(k,it))||(it.cols||[])[0]||{};return c.front?gurl(c.front):'';}
+  catch(e){var c0=(it.cols||[])[0]||{};return c0.front?gurl(c0.front):'';}
+}
+function seeMoreHtml(s,ks,nShown){
+  var hid=ks.slice(nShown),rest=hid.length;
+  var th=hid.slice(0,5).map(grpThumb).filter(Boolean).map(function(u){
+    return '<span class="smth" style="width:56px;height:56px;flex:none;border-radius:50%;overflow:hidden;display:block">'+
+      '<img src="'+u+'" alt="" loading="lazy" style="width:100%;height:100%;object-fit:contain"></span>';}).join('');
+  var lo=0;ks.forEach(function(k){var it=BYKEY[k]||{},p=(it.layer==='promo')?(it.price_cad||0):sxPrice(k);if(p&&(!lo||p<lo))lo=p;});
+  return '<button type="button" class="seemore" data-seesub="'+esc(s)+'" aria-label="See all '+ks.length+' '+esc(s)+'">'+
+    (th?('<span class="smths">'+th+'</span>'):'')+
+    '<span class="smtx"><b>+'+rest+' more '+esc(s)+'</b>'+
+      '<i>'+ks.length+' styles on this shelf'+(lo?(' \u00b7 from '+money(lo)+'/pc with your logo'):'')+'</i></span>'+
+    '<span class="smgo">See all '+ks.length+' <span aria-hidden="true">\u2192</span></span>'+
+  '</button>';
+}
+// Compliance-forward intro for the Hi-Vis category — safety buyers shop by STANDARD & CLASS first.
+// Certified for BOTH Canada (CSA Z96-22) and the U.S. (ANSI/ISEA 107-2020), with a plain-English class guide.
+function hivisIntroHtml(){
+  return '<div class="hvintro">'+
+    '<div class="hvhead"><span class="hvbadge">🛡 CSA Z96-22 + ANSI/ISEA 107-2020</span>'+
+      '<p>Every hi-vis piece here is <b>certified for both Canada and the U.S.</b> — spec your crew once and stay compliant on either side of the border. Each style is labelled with its exact class so you can match the garment to the hazard.</p></div>'+
+    '<div class="hvclass">'+
+      '<div class="hvc"><b>Class 1</b><span>Low-risk / off-road — parking lots, warehouse yards, sites set back from traffic.</span></div>'+
+      '<div class="hvc"><b>Class 2</b><span>Roadside &amp; active traffic — the workhorse class for road crews, survey, utility &amp; municipal.</span></div>'+
+      '<div class="hvc"><b>Class 3</b><span>High-speed / low-light — highway, night work &amp; poor visibility; full sleeve coverage.</span></div>'+
+    '</div>'+
+    '<p class="hvnote">Classes shown are the rating for the <b>hi-vis colourways</b> — black &amp; navy versions of some styles certify one class lower. Where a maker publishes only “meets CSA” without a class number, we show that as-is rather than guess. <b>Tell us the job and we’ll confirm the exact class in writing on your quote.</b></p>'+
+    '</div>';}
+// Bring the START of the filtered results (the grid heading) to just below the sticky header+nav. Measured
+// live via getBoundingClientRect so it's accurate for any category length — fixes clicks landing at the
+// footer/Instagram feed when a category re-rendered shorter.
+/* SHAREABLE VIEW LINKS — the answer to "a customer asked X, what do I send them?"
+       ?q=stainless+steel+water+bottles   the search, already run
+       ?sub=water-bottles                 that shelf
+       ?cat=accessories                   a whole category
+   Permanent, paste-able, and nothing for anyone to assemble by hand: no board to build, no export,
+   no one in the loop. The sub match is on a SLUG of the real sub name, so "water-bottles",
+   "Water%20Bottles" and "WATER BOTTLES" all land in the same place, and renaming a shelf does not
+   silently 404 a link that is already in a customer's inbox -- it falls through to the category.
+   Runs after buildStore(), so the chips and grid exist to drive. */
+function applyViewLink(){
+  var s=location.search,c,sub2;
+  if(/[?&]view=gifts\b/.test(s)){setGiftView(true);return true;}
+  /* A program has a plain, permanent address -- the link a rep pastes into an email. */
+  var pm=/[?&]program=([a-z0-9_-]+)/.exec(s);
+  if(pm){try{openProgram(pm[1]);}catch(e){}return true;}
+  var qm=s.match(/[?&]q=([^&#]*)/);
+  if(qm){
+    var q=qdec(qm[1]);
+    if(q){
+      /* Drive the real search box rather than reimplementing it, so a shared link and a typed query
+         can never diverge. */
+      var ts=document.getElementById('topSearch');
+      if(ts){ts.value=q;try{ts.dispatchEvent(new Event('input',{bubbles:true}));}catch(e){}}
+      else{VIEW.q=q;renderGrid();}
+      scrollToResults();return true;
+    }
+  }
+  var sm=s.match(/[?&]sub=([^&#]*)/),cm=s.match(/[?&]cat=([^&#]*)/);
+  var wantCat=cm?bslug(qdec(cm[1])):null,wantSub=sm?bslug(qdec(sm[1])):null;
+  if(wantCat==='ruggedwear'){wantCat='outerwear';wantSub=null;}   // the Rugged Wear aisle is gone (2026-10-13)
+  if(wantSub){
+    for(c in BUCKETS){
+      if(wantCat&&bslug(c)!==wantCat)continue;
+      for(sub2 in BUCKETS[c]){
+        if(bslug(sub2)===wantSub&&(BUCKETS[c][sub2]||[]).length){
+          setCat(c,false);setSub(sub2);return true;}}}
+  }
+  if(wantCat){for(c in BUCKETS){if(bslug(c)===wantCat){setCat(c,true);return true;}}}
+  return false;
+}
+/* THE ADDRESS BAR MUST MATCH WHAT YOU ARE LOOKING AT.
+   Clicking "Water Bottles" changed the grid but not the URL, so copying the address bar handed
+   someone the bare store link and they landed back on the front page. That broke sharing in both
+   directions: ours to a customer, and a prospect's to their own team -- and the prospect case is the
+   one that spreads, because a buyer forwarding a shelf to three colleagues is free distribution we
+   were silently throwing away.
+   replaceState, not pushState: the address bar stays correct without stuffing the history with an
+   entry per chip click, so Back still leaves the store the way it always did. */
+function viewUrl(){
+  var b=location.origin+location.pathname;
+  /* The gift page is a destination a rep will want to send on its own -- "here are your gift
+     options" -- so it owns the address bar while it is open. */
+  if(giftViewOn())return b+'?view=gifts';
+  if(VIEW.q)return b+'?q='+encodeURIComponent(VIEW.q).replace(/%20/g,'+');
+  if(VIEW.cat&&VIEW.sub&&VIEW.sub!=='all')return b+'?sub='+bslug(VIEW.sub);
+  if(VIEW.cat)return b+'?cat='+encodeURIComponent(VIEW.cat);
+  return b;
+}
+function viewLabel(){
+  if(VIEW.q)return '\u201c'+VIEW.q+'\u201d';
+  if(VIEW.cat&&VIEW.sub&&VIEW.sub!=='all')return VIEW.sub;
+  if(VIEW.cat)return megaName(VIEW.cat);
+  return CFG.client?(CFG.client+' team store'):'our team store';
+}
+function syncViewUrl(){
+  /* MUST stay silent until the incoming link has been read. buildStore() opens a default category,
+     which called this and rewrote the URL to ?cat=tops BEFORE applyViewLink() could look at it --
+     so every shared ?sub= / ?q= link landed on the front page instead. The flag is only raised once
+     the deep link has had its turn. */
+  if(!VURLOK)return;
+  /* A board owns the address bar while it is open -- its link is the thing worth sharing then. */
+  if(/[?&](b|board|list)=/.test(location.search))return;
+  try{if(typeof boardOpen==='function'&&(boardOpen()||boardsOpen()))return;}catch(e){}
+  try{history.replaceState(null,'',viewUrl());}catch(e){}
+}
+function shareView(){
+  var url=viewUrl(),lab=viewLabel();
+  var title=lab+' \u2014 '+(CFG.client||'Team store');
+  var text=title+' \u00b7 branded with your logo, priced per piece';
+  /* Same rule as sharing an item: the OS sheet only where there is a touch pointer, and any failure
+     other than a deliberate cancel falls through to copying. A share control must never do nothing. */
+  var touch=!!(window.matchMedia&&window.matchMedia('(pointer:coarse)').matches);
+  var canNative=!!navigator.share&&touch&&(!navigator.canShare||navigator.canShare({url:url}));
+  if(canNative){
+    try{
+      var pr=navigator.share({title:title,text:text,url:url});
+      if(pr&&pr.catch)pr.catch(function(err){
+        if(err&&err.name==='AbortError')return;
+        copyLink(url,'Link copied \u2014 opens on '+lab);});
+    }catch(e){copyLink(url,'Link copied \u2014 opens on '+lab);}
+    return;
+  }
+  copyLink(url,'Link copied \u2014 opens on '+lab);
+}
+function scrollToResults(){
+  var hd=document.getElementById('gridhd');if(!hd)return;
+  var hdr=document.querySelector('.hdr'),nav=document.getElementById('navwrap'),tb=document.getElementById('tbar');
+  /* the sticky top bar holds the search box; landing results underneath it hid the count line */
+  var sticky=(tb?tb.offsetHeight:(hdr?hdr.offsetHeight:60))+(nav&&getComputedStyle(nav).position==='sticky'?nav.offsetHeight:0)+10;
+  var y=window.pageYOffset+hd.getBoundingClientRect().top-sticky;
+  window.scrollTo({top:Math.max(0,y),behavior:'smooth'});}
+function setSub(sub){VIEW.sub=sub;document.querySelectorAll('.schip').forEach(function(b){b.classList.toggle('on',b.dataset.sub===sub);});renderGrid();syncViewUrl();scrollToResults();}
+function setCat(cat,doScroll){
+  /* Any move into the catalogue leaves the gift page. Without this a category pick from the
+     Categories menu rendered the grid behind a hidden storefront and the buyer saw nothing move. */
+  if(giftViewOn())setGiftView(false);
+  VIEW.cat=cat;VIEW.sub='all';VIEW.q='';
+  var nw=document.getElementById('navwrap');if(nw)nw.classList.remove('searching');
+  var si=document.getElementById('kitSearch');if(si)si.value='';
+  document.querySelectorAll('.ctab').forEach(function(t){var on=t.dataset.cat===cat;t.classList.toggle('on',on);
+    if(on){var tr=t.closest('.ctabs');if(tr)tr.scrollTo({left:t.offsetLeft-tr.clientWidth/2+t.clientWidth/2,behavior:'smooth'});}});
+  renderSubchips();renderGrid();syncViewUrl();
+  if(doScroll)scrollToResults();}
+// "Keep exploring" — after a category's grid, surface the OTHER major categories so shoppers don't stop
+// after the first one (e.g. Polos). Big reason customers weren't discovering jackets/fleece/etc.
+// Top item of a category (first subcategory, top-sorted) — its branded mockup becomes the category's hero thumbnail.
+function catHeroKey(cat){var subs=subNames(cat);for(var i=0;i<subs.length;i++){var arr=BUCKETS[cat]&&BUCKETS[cat][subs[i]];if(arr&&arr.length)return arr[0];}return null;}
+// A compact branded mockup thumbnail for a category (real product photo + the customer's logo at its placement).
+function catPic(cat){var k=catHeroKey(cat);if(!k)return '';var it=BYKEY[k],vm=vmOf(k),o=overlayHtml(it,vm,vm.colour,'front');
+  return '<div class="mstage"><img class="g" src="'+o.g+'" alt="'+esc(shortCat(cat))+'" loading="lazy" decoding="async">'+o.lg+'</div>';}
+// "Shop the collection" — the storefront hero: big branded image tiles for EVERY category so a buyer sees
+// the whole range at a glance and jumps straight in (Uber-Eats home). Rendered once, above the browse tabs.
+/* ---------- PERSUASION: why buy branded gear, and why buy it from Just Deals ----------
+   Two objections kill a team-store order: "is this worth the spend?" and "am I being overcharged?".
+   The price promise answers the second the moment they start browsing (Walmart-style everyday-low-price
+   positioning); the ROI stats and the reasons block answer both once they've seen the product. */
+function valueStripHtml(){
+  // Slim, scannable value bar — NOT a heavy band. The top of a store page has one job: get people
+  // into product. This answers "am I overpaying / what's the catch / is it worth it" in one line
+  // without pushing the catalogue below the fold.
+  var items=[
+    {i:'\u2605',b:'Competitive pricing, guaranteed',d:'We match any lower written quote'},
+    {i:'\u2713',b:'See it before you commit',d:'Your logo shown on the actual garment'},
+    {i:'\u25C6',b:'3,400+ impressions per shirt',d:'Apparel is the most-kept promo item'}
+  ];
+  return '<section class="vbar"><div class="w vbarin">'+items.map(function(v){
+    return '<div class="vbi"><span class="vbk">'+v.i+'</span><span class="vbt"><b>'+esc(v.b)+'</b><i>'+esc(v.d)+'</i></span></div>';
+  }).join('')+'</div></section>';}
+
+var GEARSTATS=[
+  {n:'3,400+',k:'Impressions per shirt',d:'What one branded shirt earns over its life. Apparel is the most-kept promo item there is.'},
+  {n:'65%',k:'Better perception',d:'Say staff in uniform give them a more positive impression of the company.'},
+  {n:'58%',k:'Higher perceived quality',d:'Expect better product and service when it\u2019s delivered by uniformed staff.'},
+  {n:'77%',k:'Team pride',d:'Of workers say wearing the company brand gives them a sense of pride.'}
+];
+
+/* ---- FAQ: the doubts a first order turns on ------------------------------------------------------
+   4imprint ends every category page with five questions: minimum, how long, printed or embroidered,
+   materials, care. These are ours, and every answer is something this store already does or JDP
+   already publishes. Turnaround is NOT stated as a number -- JDP publishes none -- so the answer is
+   to give us the date and get it confirmed in writing. */
+function faqHtml(){
+  var m=moq(),T=JDP_TRUST;
+  var qa=[
+    ['Is there a minimum order?','Apparel starts at '+m+' pieces per style, and you can split those across sizes. Gifts and kits show their own minimum on each card.'],
+    ['How does ordering work?','Pick a ready program or your own items, set how many people, and download an itemized quote to share with whoever approves it. Send it to us and we confirm it in writing in '+T.reply+', with a proof of your logo. No payment now, and nothing is made until you approve it.'],
+    ['Can you work with our purchasing process?','Yes \u2014 add your PO number, deadline and delivery details when you send the quote, and attach any vendor set-up forms or your own RFQ. Or call '+T.phone+'.'],
+    ['Do I need everyone\u2019s sizes first?','No. Tell us roughly how many people and we will estimate the size split \u2014 you confirm the sizes before anything is produced.'],
+    (isUS()?['Embroidered, heat transfer or patch?','Every card shows what its price includes. Embroidery is stitched in thread \u2014 premium and long-lasting, best on polos, jackets and vests. Heat transfer is full-colour and best value on tees and performance fabrics. A faux leather patch gives jackets and bags a premium, tactile finish.']
+      :['Embroidered or printed?','Every card shows what its price includes. Embroidery is stitched in thread \u2014 premium and long-lasting, best on polos, jackets and caps. Screen print is the best value on tees and hi-vis.']),
+    (isUS()?['What currency are your prices in?','US dollars. Every price in this store is in USD, per piece, with your logo decoration included. Taxes and freight are quoted separately.']:null),
+    ['My logo file isn\u2019t perfect.','Send the best image you have. We redraw it to production quality at no charge, and you see the mockup before anything runs.'],
+    ['How long will it take?','Tell us the date you need it by when you send your request, and we will confirm it in writing before anything is produced.'],
+    ['What if I find a better price?','Send us the written quote for the same job and we will match it. Every order also carries our Logo Reprint Guarantee.']
+  ];
+  qa=qa.filter(Boolean);
+  return '<section class="faq"><div class="w"><h2 class="faqh">Common questions</h2>'+
+    '<div class="faql">'+qa.map(function(x,i){
+      return '<details class="faqi"><summary>'+esc(x[0])+'</summary><p>'+esc(x[1])+'</p></details>';}).join('')+
+    '</div><p class="faqmore">Still a question? '+trustPhoneHtml('inline','Call Steven')+' \u2014 or '+
+    '<button type="button" class="faqask" id="faqAsk">send it with your request</button>.</p></div></section>';
+}
+function whyGearHtml(){
+  return '<section class="why"><div class="w">'+
+    '<div class="whyhd"><span class="eyb">Why branded gear works</span>'+
+      '<h2>Gear that pays for itself.</h2>'+
+      '<p>Branded apparel isn\u2019t a cost — it\u2019s marketing, trust and team pride your people wear every day.</p></div>'+
+    '<div class="stats">'+GEARSTATS.map(function(s){
+      return '<div class="stat"><b>'+esc(s.n)+'</b><span class="statk">'+esc(s.k)+'</span><span class="statd">'+esc(s.d)+'</span></div>';
+    }).join('')+'</div>'+
+  '</div></section>';}
+
+function whyJdpHtml(){
+  // Deliberately does NOT repeat the hero trust facts (since-1994 / 12,846+ teams / ships CA+US).
+  // Each card earns its place by removing a distinct risk.
+  var reasons=[
+    {t:'We match any lower written quote',d:'Same product, same decoration, same quantity — send it over and we match it. You never have to shop around to know the price is right.'},
+    {t:'See it before you commit',d:'Every item shows your logo on the actual garment, at the size and placement we decorate. No cost, no obligation.'},
+    {t:'A real person, not a call centre',d:'You deal with our team directly — same people from first quote through to delivery.'},
+    {t:'One supplier for the whole crew',d:'CSA-rated hi-vis and rugged workwear through to polos and client gifts. One invoice, one contact.'}
+  ];
+  return '<section class="whyjdp"><div class="w">'+
+    '<div class="whyhd"><span class="eyb">Why Just Deals</span>'+
+      '<h2>The right price, and no surprises.</h2>'+
+      '<p>Two things make branded gear risky: overpaying, and it not looking the way you pictured. We take both off the table before you spend anything.</p></div>'+
+    '<div class="rsns">'+reasons.map(function(r,i){
+      return '<div class="rsn'+(i===0?' rsnhero':'')+'"><span class="rsnk">'+(i===0?'\u2605':'\u2713')+'</span>'+
+        '<div><b>'+esc(r.t)+'</b><span>'+esc(r.d)+'</span></div></div>';
+    }).join('')+'</div>'+
+    '<div class="whycta"><button class="reccta" id="whyCta">Build your board — get an exact quote <span class="ar">\u2192</span></button>'+
+      '<span class="whyctan">No payment now · no obligation</span></div>'+
+  '</div></section>';}
+
+
+/* ---- HOME ADVANTAGE: Canadian since 1989 -------------------------------------------------------------
+   Steven, 2026-10-07: "Canadian companies like that we are in canada. we need to leverage this!" and
+   "the overall page is getting very busy now and there is so much text ... do not overload them with
+   text at the bottom."
+   The fact was already published (JDP_TRUST.since, "Canadian since 1989", "Family-owned", "Ships coast to
+   coast", the Toronto address) but it only surfaced as small print inside the product sheet. It now leads,
+   in three places and no more: a maple-leaf proof line under the store name, the leaf on the Ship-to
+   switch, and ONE closing band that replaces four stacked bottom sections (ROI stats essay, "Why Just
+   Deals" essay with a stale "Build your board" button, the open FAQ and a three-screen photo wall).
+   Every word in the band is a published fact or a structural one (a Canadian decorator invoicing in CAD
+   means no border and no conversion); nothing is a new promise. US stores get the same band in US terms. */
+var LEAF_PATH='m-90 2030 45-863a95 95 0 0 0-111-98l-859 151 116-320a65 65 0 0 0-20-73l-941-762 212-99a65 65 0 0 0 34-79l-186-572 542 115a65 65 0 0 0 73-38l105-247 423 454a65 65 0 0 0 111-57l-204-1052 327 189a65 65 0 0 0 91-27l332-652 332 652a65 65 0 0 0 91 27l327-189-204 1052a65 65 0 0 0 111 57l423-454 105 247a65 65 0 0 0 73 38l542-115-186 572a65 65 0 0 0 34 79l212 99-941 762a65 65 0 0 0-20 73l116 320-859-151a95 95 0 0 0-111 98l45 863z';
+function leafSvg(sz,cls){return '<svg class="'+(cls||'leaf')+'" viewBox="-2015 -2000 4030 4030" width="'+sz+'" height="'+sz+'" aria-hidden="true"><path fill="#d52b1e" d="'+LEAF_PATH+'"/></svg>';}
+function homeProofHtml(){
+  if(!trustOn()||CFG.demo)return '';
+  var T=JDP_TRUST;
+  var bits=isUS()
+    ?['Family-owned since '+T.since,'Decorated in the US by Stormtech and Cutter & Buck','Priced in USD']
+    :['Canadian since '+T.since,'Decorated in Canada','Priced in CAD'];
+  return '<div class="hproof">'+(isUS()?'':leafSvg(15,'leaf hpleaf'))+bits.map(function(b,i){
+    return (i?'<span class="hpsep" aria-hidden="true">·</span>':'')+'<span>'+esc(b)+'</span>';}).join('')+
+    /* the rating left the top bar to give search its room, so it sits with the other proof */
+    '<span class="hpsep" aria-hidden="true">·</span><a class="hprate" href="'+T.reviewsUrl+'" target="_blank" rel="noopener noreferrer">'+
+      T.rating.toFixed(1)+' Google rating</a></div>';
+}
+var STAR_SVG='<svg class="hbst" viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path fill="#f5b301" d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.6-4.9-4.6 6.6-.8z"/></svg>';
+function homeBandHtml(){
+  if(!trustOn()||CFG.demo)return '';
+  var T=JDP_TRUST,us=isUS();
+  var tiles=us
+    ?[[T.teams,'teams outfitted'],[STAR_SVG+T.rating.toFixed(1),'Google rating'],['USD','every price, logo included'],['1','quote, one contact']]
+    :[[T.teams,'teams outfitted'],[STAR_SVG+T.rating.toFixed(1),'Google rating'],['CAD','every price, no conversion'],['CSA','Z96 certified hi-vis']];
+  var checks=us
+    ?['Itemized quote for approval','We match any lower written quote','A real person answers']
+    :['No border, no brokerage','We match any lower written quote','A real person answers'];
+  return '<section class="hband'+(us?' hbus':'')+'" id="hband"><div class="w hbin">'+
+    '<div class="hbl">'+
+      (us?'':'<span class="hbleaf">'+leafSvg(30,'leaf')+'</span>')+
+      '<span class="hbey">'+(us?'Family-owned since '+T.since:'Proudly Canadian')+'</span>'+
+      '<h2>'+(us?'Quoted by people you can call.':'Canadian since '+T.since+'.')+'</h2>'+
+      '<p>'+(us?'Your logo decorated in the US by Stormtech and Cutter & Buck, priced in US dollars, with one contact from quote to delivery.'
+                :'Family-owned in Toronto. Decorated in Canada, priced in Canadian dollars and shipped coast to coast.')+'</p>'+
+      '<ul class="hbchk">'+checks.map(function(c){return '<li>'+esc(c)+'</li>';}).join('')+'</ul>'+
+      '<div class="hbcta"><button type="button" class="hbbtn" id="hbQuote">Get your formal quote <span class="ar">→</span></button>'+
+        trustPhoneHtml('hb','or call Steven')+'</div>'+
+    '</div>'+
+    '<div class="hbr">'+tiles.map(function(t){return '<div class="hbt"><b>'+t[0]+'</b><span>'+esc(t[1])+'</span></div>';}).join('')+'</div>'+
+  '</div></section>';
+}
+function wireHomeBand(){
+  var b=document.getElementById('hbQuote');
+  if(b&&!b.dataset.w){b.dataset.w='1';b.addEventListener('click',function(){
+    jdpTrack('band_quote',{n:cartCount()});
+    if(cartCount()>0){openQuote('band');return;}
+    var r=document.getElementById((typeof giftViewOn==='function'&&giftViewOn())?'gfgrid':'recohero');if(r)r.scrollIntoView({behavior:'smooth',block:'start'});});}
+  var m=document.getElementById('socMore');
+  if(m&&!m.dataset.w){m.dataset.w='1';m.addEventListener('click',function(){
+    var c=document.getElementById('socClip');if(!c)return;var on=c.classList.toggle('open');
+    m.textContent=on?'Show less':'See more of our work';if(on)jdpTrack('work_more');});}
+}
+
+function shopCatsHtml(){
+  if(!CATS||CATS.length<2)return '';
+  // Just the two brand worlds — a clean choose-your-world entry. Category picking happens in the sticky tabs.
+  var worlds=AUD.map(function(a){
+    var cs=a.cats.filter(function(c){return CATS.indexOf(c)>=0;});
+    if(!cs.length)return '';
+    var n=cs.reduce(function(s,c){return s+(TOTALS[c]||0);},0);
+    return '<button class="audbanner aud-'+a.id+'" data-world="'+a.id+'" style="background-image:linear-gradient(0deg,rgba(18,13,7,.92),rgba(18,13,7,.34) 52%,rgba(18,13,7,.06)),url('+worldImg(a.id)+')">'+
+      '<span class="audk">'+esc(a.name)+'</span><p>'+esc(a.blurb)+'</p>'+
+      '<span class="audgo">Shop '+n+' styles →</span></button>';
+  }).join('');
+  return '<section class="shopcats"><div class="w">'+
+    '<div class="schd"><h2>Built for the crew &amp; the client</h2><p>Two worlds, one premium store — pick your side, then browse by category.</p></div>'+
+    '<div class="worldgrid">'+worlds+'</div></div></section>';
+}
+// Ready-made kits, curated by ROLE — a premium B2B move: outfit a whole role in one tap.
+function kitsHtml(){
+  var cards=KITS.map(function(k){var items=kitItems(k);if(items.length<2)return '';
+    var pics=items.slice(0,4).map(function(key){var it=BYKEY[key],vm=vmOf(key),o=overlayHtml(it,vm,vm.colour,'front');
+      return '<div class="kpic"><img class="g" src="'+o.g+'" alt="'+esc(it.name)+'" loading="lazy" decoding="async">'+o.lg+'</div>';}).join('');
+    return '<button class="kitcard" data-kit="'+k.id+'" aria-label="'+esc(k.name)+'">'+
+      '<div class="kpics kn'+items.length+'">'+pics+'</div>'+
+      '<div class="kittx"><span class="kittag">'+esc(k.tag)+'</span><b>'+esc(k.name)+'</b>'+
+      '<span class="kitmeta">'+items.length+' pieces · ready with your logo <i>→</i></span></div></button>';
+  }).filter(Boolean).join('');
+  if(!cards)return '';
+  return '<section class="kits"><div class="w"><div class="schd"><h2>Ready-made kits</h2>'+
+    '<p>Curated by role — outfit a crew, a supervisor, a client-facing rep or a new hire in one move.</p></div>'+
+    '<div class="kitgrid">'+cards+'</div></div></section>';
+}
+function openKitSheet(kid){
+  var kit=null;for(var i=0;i<KITS.length;i++)if(KITS[i].id===kid)kit=KITS[i];if(!kit)return;
+  var items=kitItems(kit);if(!items.length)return;
+  var rows=items.map(function(key){var it=BYKEY[key],vm=vmOf(key),o=overlayHtml(it,vm,vm.colour,'front');
+    var price=(it.layer==='promo')?(money(it.price_cad)+' <small>/'+(it.unit==='dozen'?'dozen':'pc')+'</small>')
+      :('from '+money(unitPrice(key,vm.decos,CFG.pricing.cols[CFG.pricing.cols.length-1])));
+    return '<div class="krow"><div class="krpic"><img class="g" src="'+o.g+'" alt="'+esc(it.name)+'">'+o.lg+'</div>'+
+      '<div class="krtx"><b>'+esc(it.name)+'</b><span class="krsku">'+esc(it.sku)+'</span><span class="krpr">'+price+'</span></div></div>';}).join('');
+  document.getElementById('sheet').innerHTML=
+    '<button class="shx" id="shx" aria-label="Close">✕</button>'+
+    '<div class="shscroll"><div class="kithd"><span class="kittag">'+esc(kit.tag)+'</span><h2>'+esc(kit.name)+'</h2><p>'+esc(kit.blurb)+'</p></div>'+
+    '<div class="krows">'+rows+'</div>'+
+    '<div class="pinc"><span class="pinci">✓</span> Add the set, then tweak sizes &amp; colours in your board and send for your exact quote — no obligation.</div></div>'+
+    '<div class="shfoot"><button class="shaddbtn" id="kitAdd"><span>Add all '+items.length+' pieces to my list</span></button>'+
+    '<div class="shtrust">Adjust any piece after adding · no payment now</div></div>';
+  var sh=document.getElementById('sheet');
+  document.getElementById('shx').addEventListener('click',closeAll);
+  sh.querySelectorAll('.krpic .g').forEach(function(im){if(im.complete)im.classList.add('ld');else im.addEventListener('load',function(){im.classList.add('ld');});});
+  document.getElementById('kitAdd').addEventListener('click',function(){items.forEach(function(k){quickAdd(k);});closeAll();refreshCartUI();openBoard();});
+  document.getElementById('ov').classList.add('on');sh.classList.add('on');document.body.style.overflow='hidden';
+}
+function moreCatsHtml(){
+  var others=CATS.filter(function(c){return c!==VIEW.cat;});
+  if(!others.length)return '';
+  var i=CATS.indexOf(VIEW.cat),nextCat=CATS[(i+1)%CATS.length];
+  if(nextCat===VIEW.cat)nextCat=others[0];
+  // (1) "Up next" advance banner — one obvious tap to keep the shopper moving to the next major category.
+  var banner='<div class="nextup" role="button" tabindex="0" data-cat="'+nextCat+'" aria-label="Browse '+esc(shortCat(nextCat))+' next">'+
+      '<div class="nupic">'+catPic(nextCat)+'</div>'+
+      '<div class="nutx"><span class="nulab">Up next</span><b>'+esc(shortCat(nextCat))+'</b>'+
+        '<i>'+TOTALS[nextCat]+' styles ready with your logo</i></div>'+
+      '<span class="nugo" aria-hidden="true">→</span></div>';
+  // (2) Visual gallery of the remaining categories — image-led tiles beat a wall of text buttons for discovery.
+  var rest=others.filter(function(c){return c!==nextCat;});
+  var tiles=rest.map(function(c){return '<div class="mccard" role="button" tabindex="0" data-cat="'+c+'" aria-label="Browse '+esc(shortCat(c))+'">'+
+      '<div class="mcpic">'+catPic(c)+'</div>'+
+      '<div class="mctx"><b>'+esc(shortCat(c))+'</b><i>'+TOTALS[c]+' styles →</i></div></div>';}).join('');
+  return '<div class="morecats">'+banner+'</div>';}   // slim: one "Up next" nudge; the sticky tabs carry navigation
+function openSearch(){var nw=document.getElementById('navwrap');if(nw)nw.classList.add('searching');var si=document.getElementById('kitSearch');if(si){si.focus();}}
+function closeSearch(){var nw=document.getElementById('navwrap');if(nw)nw.classList.remove('searching');VIEW.q='';var si=document.getElementById('kitSearch');if(si)si.value='';renderGrid();syncViewUrl();}
+/* ---------- build page ---------- */
+function buildStore(){
+  var C=CFG.copy||{};
+  buildBuckets();if(!VIEW.cat)VIEW.cat=CATS[0];
+  if(!document.getElementById('jdpBenCss')){var _b=document.createElement('style');_b.id='jdpBenCss';_b.textContent=
+    ".benefits{background:#fff;border-bottom:1px solid #eef0f4}"+
+    ".benin{padding:24px 0 22px}"+
+    ".bengrid{display:flex;justify-content:center;flex-wrap:wrap;gap:2px}"+
+    ".bcell{flex:1;min-width:180px;max-width:360px;text-align:center;padding:6px 30px;position:relative}"+
+    ".bcell+.bcell::before{content:'';position:absolute;left:0;top:8%;height:84%;width:1px;background:#e9ecf1}"+
+    ".bcell b{display:block;font-size:clamp(28px,3.6vw,36px);font-weight:900;color:var(--a,#141821);letter-spacing:-.03em;line-height:1}"+
+    ".bcell span{display:block;font-size:13px;color:#6b7686;margin-top:9px;line-height:1.45}"+
+    ".bcell span strong{font-weight:800;color:#1c2431}"+
+    ".mstage{position:relative}"+
+    ".mvid{position:absolute;left:8px;bottom:8px;z-index:3;display:inline-flex;align-items:center;gap:5px;background:rgba(20,24,33,.82);color:#fff;border:0;border-radius:20px;padding:5px 11px;font:inherit;font-size:11.5px;font-weight:700;cursor:pointer}"+
+    /* z-index 1660, NOT 120. THIS block wins over the identical .vmodal rules in store.css --
+       same specificity, injected later -- so store.css saying 1620 was irrelevant and the modal
+       computed 120. The sheet is 1580 and its overlay 1560, so BOTH "Watch video" and "See it
+       worn" opened UNDERNEATH the product panel: elementFromPoint at the video centre returned
+       the "See it worn" button. The video really was playing, muted, behind a dimmed sheet.
+       Keep this above .sheet(1580) and .ov(1560). NOTE the duplication: store.css also defines
+       .vmodal; if you change modal styling, change it HERE -- that is the copy that applies. */
+    ".vmodal{position:fixed;inset:0;z-index:1660;display:none;align-items:center;justify-content:center;padding:5vw;background:rgba(8,10,14,.9);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);opacity:0;transition:opacity .2s}"+
+    ".vmodal.on{display:flex;opacity:1}"+
+    ".vmodal .vwrap{position:relative;display:flex;flex-direction:column;align-items:center;gap:14px;max-width:min(1000px,94vw)}"+
+    /* width:auto, not 100%: four of the 42 videos are portrait 1080x1920, and forcing them to
+       full width made the player 1000px wide with the clip letterboxed into a thin band. */
+    ".vmodal video{width:auto;max-width:min(1000px,94vw);max-height:78vh;border-radius:14px;box-shadow:0 30px 80px rgba(0,0,0,.6);background:#000;display:block;object-fit:contain}"+
+    ".vunmute{position:absolute;top:-52px;left:0;display:inline-flex;align-items:center;gap:7px;background:#fff;color:#141821;border:0;border-radius:999px;padding:9px 17px;font:inherit;font-size:14px;font-weight:800;cursor:pointer;box-shadow:0 6px 20px rgba(0,0,0,.35);z-index:2}"+
+    ".vunmute[hidden]{display:none}"+
+    ".vmodal .vcap{color:#fff;font-weight:700;font-size:15px;text-align:center;opacity:.92}"+
+    ".vmodal .vx{position:absolute;top:-52px;right:0;display:inline-flex;align-items:center;gap:7px;background:#fff;color:#141821;border:0;border-radius:999px;padding:9px 17px;font:inherit;font-size:14px;font-weight:800;cursor:pointer;box-shadow:0 6px 20px rgba(0,0,0,.35);z-index:2}"+
+    ".vmodal .vx:hover{filter:brightness(.95)}.vmodal .vx:active{transform:scale(.97)}"+
+    "@media(max-width:600px){.vmodal{padding:16px}.vmodal .vx{top:-44px;padding:8px 15px}.vmodal video{max-height:68vh}}"+
+    ".catin{display:flex;align-items:center;gap:12px;flex-wrap:wrap}"+
+    ".cpills{display:flex;gap:8px;flex-wrap:wrap;min-width:0}"+
+    ".catsearch{margin-left:auto;display:flex;align-items:center;gap:7px;background:#fff;border:1px solid #e2e6ec;border-radius:22px;padding:7px 14px;color:#8a93a0}"+
+    ".catsearch:focus-within{border-color:var(--a,#141821);color:var(--a,#141821)}"+
+    ".catsearch input{border:0;outline:0;font:inherit;font-size:13.5px;min-width:150px;width:170px;background:transparent;color:#141821}"+
+    ".subgrp{margin-top:6px}"+
+    ".subhd{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:#7a8493;margin:26px 2px 14px}"+
+    ".subhd:after{content:'';flex:1;height:1px;background:#eceff3}"+
+    ".subgrp:first-child .subhd{margin-top:8px}"+
+    ".subn{flex:none;background:#f0f2f6;color:#8a93a0;border-radius:20px;padding:2px 9px;font-size:11px;letter-spacing:.02em}"+
+    ".noresults{text-align:center;color:#8a93a0;font-size:15px;padding:60px 20px}"+
+    "@media(max-width:640px){.catsearch{margin-left:0;width:100%}.catsearch input{width:100%;flex:1}}";
+    document.head.appendChild(_b);}
+  var benBand='<section class="benefits"><div class="w benin">'+
+    '<div class="bengrid">'+
+      '<div class="bcell"><b>58%</b><span>expect <strong>product, service, and quality to be higher</strong> when delivered by <strong>uniformed staff</strong>.</span></div>'+
+      '<div class="bcell"><b>65%</b><span>say employees in uniforms give them a <strong>more positive perception</strong> of a company.</span></div>'+
+      '<div class="bcell"><b>77%</b><span>of workers feel a uniform gives them a <strong>sense of pride</strong> in wearing the <strong>company brand</strong>.</span></div>'+
+    '</div>'+
+  '</div></section>';
+  var recN=(essKeysAll().length||recKeysAll().length);
+  var _pk=picksOf();
+  /* A DEMO KIT SHOWS A CTA ONLY IF IT CONFIGURES ONE. Steven, 2026-09-11: "remove the CTA and
+     cta form from the demo website. there will be no CTA / form on the demo site."
+     Keyed on the kit's own `cta` rather than on `demo`, because four kits carry demo=true --
+     /demo plus the branded-apparel, office-apparel and office-hivis-apparel landing pages, which
+     are lead-generation surfaces and still want theirs. Dropping `cta`/`cta_form` from a kit's
+     config now removes every CTA surface on that kit, and putting them back restores it, with no
+     code change either way. The label used to fall back to "Get your store — free", so deleting
+     the config alone would have left a button behind. */
+  var demo=!!CFG.demo,cta=CFG.cta||{},hasCta=demo&&!!(cta.label||CFG.cta_form);
+  var heroCta = demo
+    ? (hasCta
+        ? ('<button class="reccta" id="leadOpen1">'+esc(cta.label||'Get your store — free')+' →</button>'+(cta.phone?'<div class="herophone">or call <b>'+esc(cta.phone)+'</b></div>':''))
+        : '')
+    : (
+      /* The hero is the most valuable space on the page, so it should carry the offer that actually
+         unblocks a company-wide order. Nobody signs off 200 shirts they have never touched -- the
+         in-person samples answer that, and "add our top picks" does not.
+
+         Two deliberate choices. First, the offer is explained, not just named: "we come to you" is
+         an unfamiliar proposition and a bare button would be ignored, so the unit states what
+         happens in one line. Second, top picks is demoted rather than deleted -- a visitor sent
+         here to pick their gear still needs the fast path, and a shortlist built first makes the
+         sample request far more useful to the rep who packs the bag. */
+      /* One concept only. Curated recommendations used to get their own page section AND a hero
+         button AND an "or start with the essentials" line -- three surfaces competing with the
+         catalogue for the same job. They are now simply a starter List in the list picker, so the
+         hero carries the one offer that actually unblocks a company-wide order. */
+      (SHARED
+        ? sharedStripHtml()
+        : ('<div class="herooffer">'+
+             '<span class="hoic" aria-hidden="true">\u270B</span>'+
+             '<span class="hotx"><b>Feel it before you commit</b>'+
+               '<i>We bring the actual garments to your workplace \u2014 fabric, fit and colours side by side. No obligation.</i></span>'+
+             '<button type="button" class="reccta hobtn" data-samp="">See &amp; feel it first <span class="ar">\u2192</span></button>'+
+           '</div>')));
+  var html=''+
+   railHtml()+
+   tbarHtml()+
+   /* Same reasoning as the shots: the flex row is declared inline so a late stylesheet cannot
+      leave the strip stacked under the headline at full width. */
+   '<section class="hero"><div class="w heroin heroflex" style="display:flex;align-items:center;'+
+     'gap:32px;justify-content:space-between;flex-wrap:wrap">'+
+     '<div class="herotx" style="flex:1 1 320px;min-width:0">'+
+       '<h1>'+esc(poss(CFG.client))+" team store</h1>"+
+       '<p class="herosub">'+(demo?'This is a live sample. Every item shows exactly where your logo goes — swap in your brand and it becomes your team’s store. Live pricing, exact quote, no obligation.':'Branded apparel for your team, with your logo already applied. Get a recommendation, or browse the catalogue and build an itemized quote for approval.')+'</p>'+
+       /* ENTERPRISE HERO (2026-10-13: "the page is way too busy ... looks salesy"). Two actions, no more: the
+          advisor's front door and the catalogue. Proof is one quiet line under them. */
+       (demo?'':'<div class="heroadv"><button type="button" class="heroadvb" id="heroAdv">Get a recommendation</button><button type="button" class="herobrw" id="heroBrowse">Browse the catalogue</button></div>')+
+       homeProofHtml()+
+       /* 4imprint opens every category with a named person ("David with 4imprint, 11 years"). The
+          person who actually answers these stores is Steven, so say so, with the number that reaches
+          him -- and give the two ways forward, not six claims. */
+       /* ONE QUESTION, in the hero (2026-10-09 11:15). The three-step box, the RFQ button and two
+          separate ways to reach Steven became one question and one quiet human line. */
+       /* HOW IT WORKS, restored (Steven, 2026-10-09 13:15: "you removed the 3 step how it works section
+          with rfq that has messaging for enterprise and made it super clear how it works we should keep
+          that"). Three steps, the program shortcut, the RFQ upload, and the person who answers. */
+     '</div>'+
+     heroShotsHtml()+
+   '</div>'+
+   /* how ordering works: one calm row across the page, under the hero (kept, per Steven 2026-10-09) */
+   (demo||!trustOn()?'':('<div class="w hnrow">'+heroNextHtml()+'</div>'))+
+   '</section>'+
+   /* The value strip is gone. It stacked three more claims directly beneath a hero that already
+      carries three trust chips AND the sample offer -- six competing assertions above the fold, which
+      reads as sales noise to an enterprise buyer rather than reassurance. Two of the three were weak
+      on their own merits: "competitive pricing, guaranteed" repeats the price-match line already in
+      the cart, and "3,400+ impressions per shirt" is promo-industry trivia that has nothing to do
+      with outfitting staff. Removing the band makes the in-person offer the unambiguous focal point
+      and lifts the catalogue up the page. */
+   /* THE PROGRAM ADVISOR leads the page (2026-10-09): the one place a buyer goes from "who are we
+      dressing" to a priced, per-role program. The pre-approved programs follow as the shortcut. */
+   /* THE CATEGORIES LEAD (2026-10-09 11:47): one choice -- what are you shopping for -- and every apparel
+      category behind it opens with its own advisor. The pre-approved programs follow for buyers who want a
+      whole kit in one tap. */
+   catTilesHtml()+
+   '<div id="recohero"></div>'+
+   /* The studio itself renders here but is hidden until `?view=gifts` -- see setGiftView(). What
+      the homepage shows is the one-line strip, directly under the programmes. */
+   giftsSectionHtml()+
+   /* the gifts banner left the home page (2026-10-13): gifts stay one tap away on the rail */
+   /* No empty band: on a demo kit with no CTA this strip has nothing to hold, and an empty
+      bordered section between the programs and the catalogue reads as a broken page. */
+   ((heroCta&&(demo||SHARED))?('<section class="offerstrip"><div class="w">'+heroCta+'</div></section>'):'')+
+   '<div class="navwrap" id="navwrap">'+
+     '<div class="fscrim" id="fscrim"></div>'+
+     '<div class="fpanel" id="fpanel" role="dialog" aria-label="Filter products">'+
+       '<div class="fphd">Filter<button type="button" class="fpx" id="fpx" aria-label="Close">&times;</button></div>'+
+       '<div class="fpbody"></div>'+
+       '<div class="fpfoot"><button type="button" class="fclear" id="fclear">Clear all</button>'+
+         '<button type="button" class="fdone" id="fdone">Show results</button></div>'+
+     '</div>'+
+     '<div class="filterbar" id="filterbar"><div class="ctabsrow">'+
+       '<div class="ctabs" id="ctabs"></div>'+
+       '<button class="fsbtn" id="searchToggle" aria-label="Search products"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></button></div>'+
+       '<div class="fsrow"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="#8a93a0" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>'+
+         '<input id="kitSearch" type="search" placeholder="Search all '+ALLKEYS.length+' products…" aria-label="Search products" autocomplete="off">'+
+         '<button class="fsx" id="searchClose" aria-label="Close search">Cancel</button></div>'+
+     '</div>'+
+     '<div class="subbar">'+
+       '<div class="subrow"><div class="subchips" id="subchips"></div>'+
+         '<button type="button" class="sharev" id="sharev" aria-label="Share this view">'+
+           '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" '+
+           'stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+
+           '<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>'+
+           '<path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg><span>Share</span></button>'+
+         '<button type="button" class="fbtn" id="fbtn" aria-expanded="false">Filters<i id="fcount"></i></button></div>'+
+       '<div class="fpills" id="fpills"></div>'+
+       '</div>'+
+   '</div>'+
+   /* WARMTH AND BUDGET ARE NOT "FILTERS", THEY ARE THE DECISION. Steven, 2026-09-18: the jacket
+      section "still giving customers headaches". Both bars used to live inside the collapsed
+      Filters panel -- so the category guidance said "Use the Warmth filter to narrow to one" while
+      pointing at a control the customer could not see. Measured on the live page: 11.8 screens of
+      scroll on desktop, 25.6 on a phone, and every narrowing tool hidden behind a button. They now
+      sit in the open, directly above the grid, where the choice is actually made. Fit, colour and
+      sort stay in the panel: those refine a choice, they do not make it. */
+   '<main class="w"><div class="gridhd" id="gridhd"></div><div id="xpert"></div>'+
+     /* ALL FILTERS IN THE OPEN. Steven, 2026-10-06: "filters hiding on desktop / mobile. A lot of
+        the people selecting the items is female like a office admin ... they can not easily find the
+        filters." Fit, colour and sort sat behind a small "Filters" button in a header strip that
+        scrolls away; only budget was visible. Now every facet is one card directly above the grid,
+        with Fit as a segmented switch -- the Ladies' option is the first thing an admin choosing for
+        a mixed team needs -- and a floating Filters button follows her down the page. */
+     '<div class="inbar" id="inbar">'+
+       '<div class="inrow1"><div class="fitbar" id="fitbar"></div><div class="fitbar sortbar" id="sortbar"></div></div>'+
+       '<div class="fitbar colbar" id="colbar"></div>'+
+       '<div class="fitbar colbar" id="warmbar"></div>'+
+       '<div class="fitbar colbar" id="bandbar"></div>'+
+     '</div>'+
+     '<div class="grid" id="grid"></div>'+
+     '<div class="noresults" id="noResults" style="display:none">No products match your search. Try another term.</div></main>'+
+   /* THE BOTTOM, CALMED (2026-10-07). Was: open FAQ -> ROI stats essay -> "Why Just Deals" essay ->
+      a ~3,000px photo wall -> footer, ~400 words after the buyer had already seen the product. Now:
+      one row of real work (expandable), the home-advantage band that closes, the FAQ as questions only. */
+   /* the photo wall and the stats band left the home page (2026-10-13): an enterprise buyer reads them as
+      advertising. Proof lives in one line under the hero and in the footer. */
+   ((C.feed&&CFG.demo)?('<section class="social"><div class="w"><div class="sochd"><h2 class="seclbl">Recent work from our shop floor</h2>'+
+     '<button type="button" class="socmore" id="socMore">See more of our work</button></div>'+
+     '<div class="socclip" id="socClip"><behold-widget feed-id="'+esc(C.feed)+'"></behold-widget></div></div></section>'):'')+
+   (CFG.demo?homeBandHtml():'')+
+   (CFG.demo||!trustOn()?'':faqHtml())+
+   '<footer><div class="w">Just Deals Promotions'+(trustOn()?(' · '+(isUS()?'Family-owned since ':'Canadian since ')+JDP_TRUST.since+' · '+JDP_ADDR):'')+
+     '<br>Prepared for '+esc(CFG.client)+' · Concept visuals on representative product photography · Pricing confirmed by formal quote.</div></footer>'+
+   '<div class="ov" id="ov"></div>'+
+   '<div class="vmodal" id="vmodal"></div>'+
+   '<div class="sheet" id="sheet"></div>'+
+   '<aside class="cart" id="cart"></aside>'+
+   (hasCta?('<div class="demobar"><div class="demobarin w"><span class="demotxt"><b>Like the look?</b> Get this store with <b>your</b> logo — free, no obligation.</span><button class="demobtn" id="leadOpen2">'+esc(cta.label||'Get your store — free')+'</button></div></div>'):'')+
+   (hasCta?'<div class="lead" id="lead"></div>':'')+
+   '<div class="lead samp" id="samp"></div>'+
+   /* Share lives HERE, not only in the cart drawer. Buried behind "add items -> open kit -> scroll
+      the footer" it was invisible: the person it is built for could not find it on his own store.
+      The bar appears the moment the kit has something in it, which is exactly when sharing starts to
+      mean anything, and it is the one piece of chrome always in reach on a phone. */
+   '<div class="cbar" id="cbar"><div class="cbarin w"><div class="cbarL"><span class="n" id="cbarN">0</span> <span id="cbarNL">items</span></div>'+
+     '<button class="cbarshare" id="cbarShare" aria-label="Send this board to your team" title="Send this board to your team">'+
+       '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" '+
+       'stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/>'+
+       '<circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg><span>Share</span></button>'+
+     '<button class="cbarbtn" id="openCart2">View quote <span class="p" id="cbarP"></span> <span class="ar">→</span></button></div></div>'+
+   '<div class="toast" id="toast"><span class="tk">✓</span><span class="tm" id="toastM">Added</span><button class="tview" id="toastView">View quote →</button></div>';
+  document.getElementById('app').innerHTML=html;
+  var _oc=document.getElementById('openCart');
+  if(_oc)_oc.addEventListener('click',function(){openBoard();});
+  var cbs=document.getElementById('cbarShare');if(cbs)cbs.addEventListener('click',shareList);
+  document.getElementById('openCart2').addEventListener('click',function(){openQuote('bar');});
+  wireRail();
+  wireExplore();
+  /* Paint the shortlist band on FIRST RENDER, not only after a successful board fetch.
+     renderRecoHero() was called from inside syncBoardsFromServer()'s success path, and that
+     path returns early when a store has no boards on the server -- which is nearly every
+     store. So the one surface that needed a fallback was the one surface the fallback could
+     never reach. The fetch still repaints it afterwards when real boards do arrive. */
+  try{renderRecoHero();}catch(e){}
+  /* Same reasoning as the band above: paint on first render. Wrapped because a gift line whose
+     product has been retired from the catalogue must never take the whole storefront down. */
+  try{renderGifts();}catch(e){}
+  var _ge=document.getElementById('gfEntry');
+  if(_ge)_ge.addEventListener('click',function(){jdpTrack('gift_open',{src:'banner'});setGiftView(true);});
+  try{wireMkt();}catch(e){}
+  setTimeout(function(){try{mktHint();}catch(e){}},2500);
+  var _tg=document.getElementById('tbGifts');
+  if(_tg)_tg.addEventListener('click',function(){jdpTrack('gift_open',{src:'topbar'});
+    try{closeBoards();closeBoard();closeProgram();closeAll();}catch(e){}setGiftView(true);});
+  var _gb=document.getElementById('gfBack');
+  if(_gb)_gb.addEventListener('click',function(){setGiftView(false);});
+  /* Categories now lives in the persistent bar, so the scroll-revealed chip strip is retired
+     outright rather than swapped between states. One control, always in the same place. */
+  var _tc=document.getElementById('tbCats');
+  if(_tc)_tc.addEventListener('click',function(e){e.stopPropagation();toggleCatMenu();});
+  var _tb=document.getElementById('tbBoards');
+  if(_tb)_tb.addEventListener('click',function(){jdpTrack('quote_open',{src:'header'});openQuote('header');});
+  document.addEventListener('click',function(e){
+    var m=document.getElementById('catmenu');
+    if(m&&m.classList.contains('on')&&!m.contains(e.target))toggleCatMenu(false);});
+  document.querySelectorAll('.cmrow').forEach(function(b){
+    b.addEventListener('click',function(){toggleCatMenu(false);});});
+  document.getElementById('ov').addEventListener('click',closeAll);
+  // The delegated click handler was only ever attached when a product sheet first opened, because
+  // that is the one place that needed it. The hero's sample-visit CTA is on the page before any
+  // sheet exists, so on a fresh load the button did nothing at all. Attach it at boot; the _DELEG
+  // guard keeps it to a single listener.
+  wireDelegates();
+  var ar=document.getElementById('addRec');if(ar)ar.addEventListener('click',addRecommended);
+  var shr=document.getElementById('shReview');if(shr)shr.addEventListener('click',openCart);
+  if(curateOn())markCurCards();
+  try{wireHomeBand();}catch(e){}
+  /* Any "see our gift bags" door in the catalogue opens the gift page on that lane. Delegated, once,
+     because the grid header re-renders on every filter change. */
+  if(!window.__jdpGoGifts){window.__jdpGoGifts=1;document.addEventListener('click',function(e){
+    var b=e.target&&e.target.closest&&e.target.closest('[data-gogifts]');if(!b)return;
+    e.preventDefault();GV.type=b.getAttribute('data-gogifts')||'all';GV.band='all';
+    jdpTrack('gift_lane',{t:GV.type,src:'aisle'});setGiftView(true);});}
+  var wc=document.getElementById('whyCta');if(wc)wc.addEventListener('click',function(){
+    if(cartCount()>0){openBoard();}else{VIEW.sub='all';renderGrid();scrollToResults();}});
+  // "Shop the collection" hero tiles -> jump into a category (and reveal their images, which sit outside #grid).
+  document.querySelectorAll('.sccard').forEach(function(b){b.addEventListener('click',function(){setCat(b.dataset.cat,true);});});
+  document.querySelectorAll('.scpic .g,.kpic .g').forEach(function(im){if(im.complete)im.classList.add('ld');else im.addEventListener('load',function(){im.classList.add('ld');});});
+  // world lifestyle banners -> jump straight to that world's first category (no extra toggle layer)
+  document.querySelectorAll('.audbanner').forEach(function(b){b.addEventListener('click',function(){var a=audOf(b.dataset.world);var cs=a?a.cats.filter(function(c){return CATS.indexOf(c)>=0;}):[];if(cs.length)setCat(cs[0],true);});});
+  // FILTERED BROWSE: category tabs + subcategory chips + search (one category at a time).
+  renderCtabs();
+  wireFilters();renderFilterUI();
+  var st=document.getElementById('searchToggle');if(st)st.addEventListener('click',openSearch);
+  var sc=document.getElementById('searchClose');if(sc)sc.addEventListener('click',closeSearch);
+  var si=document.getElementById('kitSearch');
+  if(si){si.addEventListener('input',function(){VIEW.q=si.value;renderGrid();
+    clearTimeout(QURLT);QURLT=setTimeout(syncViewUrl,450);});
+    si.addEventListener('keydown',function(e){if(e.key==='Escape')closeSearch();});}
+  setCat(VIEW.cat,false);       // initial focused render
+  document.addEventListener('keydown',function(e){if(e.key==='Escape'){if(mediaOpen())closeMedia();else{var _sh=document.getElementById('sheet'),_ct=document.getElementById('cart');var _top=(_sh&&_sh.classList.contains('on'))||(_ct&&_ct.classList.contains('on'));if(!_top&&quoteOpen())closeQuote();else if(!_top&&programOpen())closeProgram();else closeAll();}}});
+  if(C.feed&&!document.getElementById('beholdjs')){var bs=document.createElement('script');bs.id='beholdjs';bs.type='module';bs.src='https://w.behold.so/widget.js';document.head.appendChild(bs);}
+  var tv=document.getElementById('toastView');
+  if(tv)tv.addEventListener('click',function(){
+    document.getElementById('toast').classList.remove('on');openQuote('toast');});
+  ['leadOpen1','leadOpen2'].forEach(function(id){var b=document.getElementById(id);if(b)b.addEventListener('click',openLead);});
+}
+// Generic/demo store: a conversion-focused lead modal. When a published Airtable form URL is configured
+// (CFG.cta_form), it embeds that form (submissions land straight in Airtable). Otherwise it shows a
+// clear contact fallback so the CTA always works.
+function openLead(){
+  var cta=CFG.cta||{},form=CFG.cta_form,el=document.getElementById('lead');
+  /* Nothing configured, nothing to open. The container is not rendered in that case either, so
+     this is belt and braces against a stale handler on a kit whose CTA was removed. */
+  if(!el||!(cta.label||cta.href||form))return;
+  var inner;
+  if(form){
+    // Embedded Airtable form carries its own title/fields — keep our chrome minimal so it's the focus.
+    el.classList.add('embed');
+    inner='<button class="shx" id="leadX" aria-label="Close">✕</button>'+
+      '<div class="leadhd"><span class="eyb">Free · no obligation</span> Get your own branded store</div>'+
+      '<iframe class="leadform" src="'+esc(form)+'" frameborder="0"></iframe>';
+  } else {
+    el.classList.remove('embed');
+    inner='<button class="shx" id="leadX" aria-label="Close">✕</button><div class="leadb">'+
+      '<div class="eyb">Free · no obligation</div><h2>Get your own branded store</h2>'+
+      '<p class="leadsub">Tell us about your team and we’ll build a store like this — your logo, your colours, your gear — and with <b>live pricing</b> and an exact quote — no obligation.</p>'+
+      '<ul class="leadben"><li>Your logo on real gear</li><li>Your team’s colours &amp; sizes</li><li>Live pricing · no minimum beyond 12 pcs</li></ul>'+
+      '<a class="leadbtn" href="'+esc(cta.href||'#')+'">Email us to start →</a>'+(cta.phone?'<div class="leadphone">or call <b>'+esc(cta.phone)+'</b></div>':'')+'</div>';
+  }
+  el.innerHTML=inner;
+  document.getElementById('leadX').addEventListener('click',closeAll);
+  document.getElementById('ov').classList.add('on');
+  document.getElementById('lead').classList.add('on');
+  document.body.style.overflow='hidden';
+}
+var TT;
+function toast(msg){var t=document.getElementById('toast'),m=document.getElementById('toastM');if(!t)return;if(m)m.textContent=msg||'Added to your board';t.classList.add('on');clearTimeout(TT);TT=setTimeout(function(){t.classList.remove('on');},3600);}
+
+/* ---------- item customiser (one clean screen) ---------- */
+var SH={key:null,colour:null,face:'front',D:{},qty:12,showExtra:false,fit:'mens'};
+var METHOD_OPTS=[
+  {m:'embroidery',c:1,lab:'Embroidery',sub:'Stitched in thread — premium & long-lasting. Best on polos, jackets & vests.'},
+  {m:'screen',c:1,lab:'Screen print — 1 colour',sub:'Your logo printed in one solid ink — best value on tees & hi-vis.'},
+  {m:'screen',c:2,lab:'Screen print — 2 colour',sub:'Printed in two inks — a little more of your logo’s detail.'}
+];
+var METHOD_OPTS_US=[
+  {m:'embroidery',c:1,lab:'Embroidery',sub:'Stitched in thread — premium & long-lasting. Best on polos, jackets & vests.'},
+  {m:'heat_transfer',c:1,lab:'Heat transfer',sub:'Full-colour, high-definition transfer — best for detailed logos & performance fabrics.'},
+  {m:'patch',c:1,lab:'Faux leather patch',sub:'A laser-etched faux leather or suede patch — a premium, tactile finish.'}
+];
+function methodOpts(){return isUS()?METHOD_OPTS_US:METHOD_OPTS;}
+var MENS_SIZES=['S','M','L','XL','2XL','3XL'],WOMENS_SIZES=['XS','S','M','L','XL','2XL'];
+var ALLSIZES=['XS','S','M','L','XL','2XL','3XL','4XL','5XL','6XL'];
+/* ---- NOT EVERY GARMENT IS SIZED S-3XL -------------------------------------------------------
+   Work trousers run 30-44 at the waist and a coverall runs 38-52 at the chest. A fixed alpha run
+   asks a buyer how many "2XL work pants" they need, takes the answer, and quotes a size the maker
+   does not make -- a wrong order wearing the costume of a filled-in form. So any catalogue item may
+   declare its OWN run in `sizes`; everything without one keeps the alpha default, which is all 489
+   items that were on the store before workwear arrived. */
+/* THE MAKER'S OWN RUN, PER CUT (Steven, 2026-10-08: the Women's Orbiter "has XS option. maybe
+   others have the same."). Measured across Stormtech: men's runs to 5XL and often 6XL, several start
+   at XS, women's mostly XS-3XL -- the generic S-3XL / XS-2XL defaults hid every one of those sizes.
+   `wsizes` is the women's run; `sizes` the men's/unisex one. Defaults only when a style declares none. */
+function itemSizes(it,fit){
+  if(fit==='womens'&&it&&it.wsizes&&it.wsizes.length)return it.wsizes;
+  if(it&&it.sizes&&it.sizes.length)return it.sizes;
+  return (fit==='womens')?WOMENS_SIZES:MENS_SIZES;
+}
+function numericRun(szs){return !!(szs&&szs.length&&/^\d+$/.test(String(szs[0])));}
+/* PAIRED and DRESS sizes too (2026-10-08): Ground Force traffic vests are made in pairs -- XXS/XS, S/M,
+   L/XL, 2XL/3XL, 4XL/5XL -- and Red Kap's women's shorts in 4-22. Separate S and M boxes for a vest cut
+   S/M would quote a size the maker does not make. */
+function sizeOk(s){return /^(?:XXS|XS|S|M|L|XL|[2-6]XL|\d{1,2})(?:\/(?:XXS|XS|S|M|L|XL|[2-6]XL))?$/.test(String(s));}
+function sheetSizes(){return itemSizes(BYKEY[bkey(SH.key)],SH.fit);}
+function sizeTotal(sz){sz=sz||SH.sizes||{};var t=0;for(var k in sz){t+=parseInt(sz[k],10)||0;}return t;}
+function effQty(){var t=sizeTotal();return t>0?t:(SH.baseQty||0);}
+// The next price tier above q (or null). Used to nudge orders up to the next volume break.
+function nextTier(q){var t=CFG.pricing.cols||[];for(var i=0;i<t.length;i++){if(q<t[i])return t[i];}return null;}
+function savingsNudge(key,decos,q){var nt=nextTier(q);if(!nt)return null;var a=unitPrice(key,decos,q),b=unitPrice(key,decos,nt);var pct=a>0?Math.round((1-b/a)*100):0;if(pct<=0)return null;return {need:nt-q,tier:nt,pct:pct};}
+/* Ordered smallest-first in the item's OWN run, then -- deliberately -- anything left over. A size
+   outside the expected run is still stock the buyer typed and is paying for, so it goes on the end
+   of the quote rather than off it. Silently dropping a line from a summary that feeds an invoice is
+   the one failure here that costs money. */
+function sizesSummary(c,it){
+  if(!c||!c.sizes)return '';
+  /* alpha runs order by the full scale, so a women's XS lands first even when the men's run starts at S */
+  var own=(it&&it.sizes&&it.sizes.length)?it.sizes:null;
+  var order=(own&&(numericRun(own)||own.some(function(z){return String(z).indexOf('/')>0;})))?own:ALLSIZES,seen={},out=[];
+  order.forEach(function(s){if(c.sizes[s]){seen[s]=1;out.push(s+' '+c.sizes[s]);}});
+  Object.keys(c.sizes).forEach(function(s){if(!seen[s]&&c.sizes[s])out.push(s+' '+c.sizes[s]);});
+  return out.join(' · ');
+}
+/* ---- Share a product or a gift set --------------------------------------------------------
+   Steven: "What if I want to share a specific kit / product to a client." The deep link already
+   existed -- ?item=<key> is how the gift-set contents links work -- but there was no way for a
+   human to GET one. It was plumbing with no tap on it.
+
+   The link carries the COLOUR as well as the item, so a rep who sends "the Coastline in Cardinal
+   Red" gets a recipient looking at Cardinal Red, not at whatever the store would have defaulted to.
+   On a phone this opens the real OS share sheet (WhatsApp, Messages, email); everywhere else it
+   copies, with a toast so the click is never silent. */
+function shareUrlFor(key,colour){
+  var base=location.origin+location.pathname;
+  return base+'?item='+encodeURIComponent(key)+(colour?('&c='+encodeURIComponent(colour)):'');
+}
+function currentSheetColour(key){
+  if(SH&&SH.key===key&&SH.colour)return SH.colour;
+  var vm=(CFG.items||{})[key];
+  return (vm&&vm.colour)||((BYKEY[key]&&(BYKEY[key].cols||[])[0]||{}).name)||'';
+}
+/* NOTE: there used to be a SECOND toast() here that built a bare #jdptoast div. Function
+   declarations hoist, so this later one silently overrode the designed toast above -- meaning the
+   real component (tick, message, and a "View list \u2192" button) had never once rendered. Customers
+   were getting a plain text pill and, worse, losing the one-tap route to their kit right after
+   adding something. Removed; the designed toast is the only toast. */
+function copyLink(url,msg){
+  var done=function(){toast(msg||'Link copied — opens straight to this item');};
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(url).then(done,function(){legacyCopy(url,done);});
+  }else legacyCopy(url,done);
+}
+function legacyCopy(url,done){
+  // Older Safari and any non-secure context: a throwaway field is the only reliable path.
+  try{var ta=document.createElement('textarea');ta.value=url;ta.setAttribute('readonly','');
+    ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();
+    ta.setSelectionRange(0,99999);document.execCommand('copy');document.body.removeChild(ta);done();}
+  catch(e){prompt('Copy this link:',url);}
+}
+/* A single copy button was not enough. Steven: "the sharing experience is terrible. optimize so we
+   boost co workers sharing product links with each other." Two things were wrong with it:
+
+     1. Nothing was VISIBLE. You clicked, a toast said "copied", and you had to trust it. People do
+        not forward a link they have not seen, and there was no way to check it before pasting.
+     2. Copy was the only route. The realistic ways a colleague passes a product around are a chat
+        paste and an email — and email deserves to arrive written, not blank.
+
+   So Share now opens a small panel showing the actual URL with a Copy button beside it, plus Email
+   (subject and body pre-written with the product, colour, price and link) and, where the OS can do
+   it, the native share sheet. The link is selectable text, so even if every button failed a person
+   could still read it off the screen and send it. */
+/* Vendor box descriptions carry fitment jargon meant for the warehouse -- "SMALL JOURNAL GIFT BOX
+   TUMBLER CUTOUT". A buyer only needs to know a gift box is included, so trim everything after the
+   word "box". */
+function boxName(desc){
+  var d=String(desc||'gift box').toLowerCase().replace(/\s+/g,' ').trim();
+  var m=d.match(/^(.*?\bbox)\b/);
+  return (m?m[1]:d).trim()||'gift box';
+}
+/* ---- Fabric, presented like a spec sheet rather than a sticker ------------------------------
+   Fabric used to be a beige pill with a thread emoji, borrowed from the CSA safety-badge style, and
+   it appeared ONLY on the grid tile -- the product sheet, where a buyer actually decides, said
+   nothing about what the garment is made of. For a polo programme that is the single most asked
+   question after price.
+
+   The composition is now drawn as a proportional bar. A buyer reads "mostly cotton with a little
+   stretch" from the shape before reading a single number, and the numbers are the maker's own
+   published percentages, not a description we wrote. Weight and construction sit beside it as plain
+   spec rows, and genuine published finishes appear as small tags. */
+var FIBRE_COLS={
+  cotton:'#D9C7A7','organic cotton':'#D9C7A7','certified cotton':'#D9C7A7','ringspun cotton':'#D9C7A7',
+  polyester:'#8794A5','recycled polyester':'#6F9E9B',rpet:'#6F9E9B',
+  spandex:'#B08BBF',elastane:'#B08BBF',lycra:'#B08BBF',
+  nylon:'#6E8CA0',polyamide:'#6E8CA0',
+  wool:'#B9A38C',merino:'#B9A38C',
+  rayon:'#9FB49A',viscose:'#9FB49A',modal:'#9FB49A',bamboo:'#9FB49A',tencel:'#9FB49A',
+  linen:'#CBBFA0',acrylic:'#A8A2B8'
+};
+var FIBRE_KEYS=Object.keys(FIBRE_COLS).sort(function(a,b){return b.length-a.length;});
+function fibreColour(name){
+  // Longest key first: "recycled polyester" contains "polyester", and insertion order would hand
+  // recycled content the plain-polyester grey.
+  var n=String(name||'').toLowerCase().trim();
+  if(FIBRE_COLS[n])return FIBRE_COLS[n];
+  for(var i=0;i<FIBRE_KEYS.length;i++)if(n.indexOf(FIBRE_KEYS[i])>=0)return FIBRE_COLS[FIBRE_KEYS[i]];
+  return '#BFC5CC';
+}
+/* Accepts the structured `fab` built from maker spec tables, and falls back to parsing the older
+   plain string so nothing goes blank while the data is still being filled in. */
+/* `fab` COMES IN TWO SHAPES and only one of them used to render. The rich form is an object --
+   {mix:[["Recycled Polyester",75],...], weight:"320 gsm", knit:"..."} -- and that is what the
+   fabric panel was written against. But several items carry `fab` as a plain sentence instead
+   ("96% polyester · 4% spandex softshell bonded to micro fleece · 320 gsm"), and for those the
+   panel found no mix, fell through to `item.fabric` (a different field nothing sets) and rendered
+   NOTHING. Caught while adding the five outerwear styles on 2026-09-15: the catalogue held the
+   right composition and the sheet showed no fabric at all, and the same was quietly true of the
+   Cyclone jacket and the four tees added earlier.
+   A string `fab` is now parsed for its percentages and kept as the fallback sentence, so both
+   shapes render and neither has to be migrated. */
+function fabStr(item){
+  var f=item&&item.fab;
+  return (typeof f==='string')?f:(item&&item.fabric)||'';
+}
+function fabMix(item){
+  if(item.fab&&item.fab.mix&&item.fab.mix.length)return item.fab.mix;
+  var s=fabStr(item);if(!s)return [];
+  var out=[],re=/(\d{1,3})\s*%\s*([A-Za-z][A-Za-z\/\- ]{2,28})/g,m;
+  while((m=re.exec(s))){out.push([m[2].replace(/\s+$/,''),parseInt(m[1],10)]);}
+  return out;
+}
+function fabLine(item){
+  var mix=fabMix(item);
+  if(mix.length)return mix.map(function(p){return p[1]+'% '+p[0];}).join(' · ');
+  return fabStr(item);
+}
+// The card line. Weight rides along with the fibre content because heft is the difference a buyer
+// can't see in a photo: an 8.3 oz cotton-rich polo and a 4.1 oz performance piqu\u00e9 photograph
+// identically and wear nothing alike. One unit only -- gsm when the maker gives it -- so the line
+// stays short enough for a card.
+function fabCardLine(item){
+  /* Drinkware reuses this spec-line slot. A card that reads "Easy Breezy / Drinkware / $9.50" tells
+     a buyer nothing about what the product IS -- half our drinkware is named "Shot Caller" or
+     "Daydreamer". Capacity, material and insulation are the three facts a buyer actually compares,
+     so they belong on the card, not three clicks deep. */
+  var d=dwSpecLine(item);if(d)return d;
+  var l=fabLine(item);if(!l)return '';
+  var w=(item.fab&&typeof item.fab==='object'&&item.fab.weight)?String(item.fab.weight).split(' \u00b7 ')[0]:'';
+  return w?(l+' \u00b7 '+w):l;
+}
+/* Every one of the 234 promo items carries a supplier quantity-break table (median 17.2% deep,
+   max 18.6%), and the card threw all of it away -- while the apparel card beside it advertised
+   its break on a .mvol line. Volume is the mechanic the entire pricing model runs on, so hiding
+   it on half the catalogue was a straight conversion loss. Mirrors the apparel markup exactly,
+   so it needs no new CSS. */
+function promoVolLine(item){
+  var t=item.tiers;if(!t||t.length<2)return '';
+  var lo=t[0],hi=t[t.length-1];
+  if(!(hi.p<lo.p))return '';
+  var u=(item.unit==='dozen')?'dozen':'pc',up=(item.unit==='dozen')?'dozen':'pcs';
+  return '<div class="mvol">at '+lo.q+' '+up+' · <b>'+money(hi.p)+'</b>/'+u+' at '+hi.q+'+</div>';
+}
+function dwSpecLine(item){
+  if(!item||!item.dwtype)return '';
+  var bits=[];
+  if(item.dwoz)bits.push(item.dwoz+' oz');
+  if(item.dwmat)bits.push(item.dwmat);
+  if(item.dwins)bits.push('Insulated');
+  return bits.join(' \u00b7 ');
+}
+function fabricHtml(item){
+  var f=(item.fab&&typeof item.fab==='object')?item.fab:{},mix=fabMix(item),fs=fabStr(item);
+  if(!mix.length&&!f.weight&&!f.knit&&!(f.finishes&&f.finishes.length)&&!fs)return '';
+  var bar='',leg='';
+  if(mix.length){
+    var tot=0;mix.forEach(function(p){tot+=p[1];});
+    if(tot<=0)tot=100;
+    bar='<div class="fbar" role="img" aria-label="'+esc(fabLine(item))+'">'+mix.map(function(p){
+      return '<span style="width:'+(100*p[1]/tot).toFixed(2)+'%;background:'+fibreColour(p[0])+'"></span>';
+    }).join('')+'</div>';
+    leg='<div class="fleg">'+mix.map(function(p){
+      return '<span><i style="background:'+fibreColour(p[0])+'"></i><b>'+p[1]+'%</b> '+esc(p[0])+'</span>';
+    }).join('')+'</div>';
+  }
+  var rows='';
+  if(!mix.length&&fs)rows+='<div class="frw"><span>Fabric</span><b>'+esc(fs)+'</b></div>';
+  if(f.weight)rows+='<div class="frw"><span>Weight</span><b>'+esc(f.weight)+'</b></div>';
+  if(f.knit)rows+='<div class="frw"><span>Construction</span><b>'+esc(f.knit)+'</b></div>';
+  if(f.note)rows+='<div class="frw"><span>Also</span><b>'+esc(f.note)+'</b></div>';
+  var tags=(f.finishes&&f.finishes.length)?('<div class="ftags">'+f.finishes.map(function(t){
+    return '<span>'+esc(t)+'</span>';}).join('')+'</div>'):'';
+  return '<div class="fabblk"><div class="fabhd">Fabric &amp; construction</div>'+bar+leg+rows+tags+
+    '<div class="fabsrc">As published by the maker</div></div>';
+}
+function shareMenuHtml(key){
+  var it=BYKEY[key];if(!it)return '';
+  var colour=currentSheetColour(key),url=shareUrlFor(key,colour);
+  return '<div class="shmenu" id="shmenu">'+
+    '<div class="shmt">Share this item</div>'+
+    '<div class="shmrow"><input class="shmurl" id="shmurl" readonly value="'+esc(url)+'">'+
+      '<button class="shmcopy" data-copy="'+esc(url)+'">Copy</button></div>'+
+    '<div class="shmacts">'+
+      '<button class="shma" data-email="'+esc(key)+'">'+
+        '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" '+
+        'stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="4.5" width="19" height="15" rx="2"/>'+
+        '<path d="M3 6l9 6 9-6"/></svg>Email it</button>'+
+      (navigator.share?('<button class="shma" data-native="'+esc(key)+'">'+
+        '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" '+
+        'stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M8 8l4-4 4 4"/>'+
+        '<path d="M4 14v4a2 2 0 002 2h12a2 2 0 002-2v-4"/></svg>More…</button>'):'')+
+    '</div>'+
+    '<div class="shmnote">Opens straight to this item'+(colour?(' in '+esc(colour)):'')+'.</div>'+
+  '</div>';
+}
+function shareEmail(key){
+  var it=BYKEY[key];if(!it)return;
+  var colour=currentSheetColour(key),url=shareUrlFor(key,colour);
+  var price=(it.layer==='promo')?money(it.price_cad):money(it.blank||it.price_cad||0);
+  var subj=it.name+' — '+(CFG.client||'team store');
+  var body=['Have a look at this one:','',it.name+(colour?(' — '+colour):''),
+            price+' per '+(it.unit==='dozen'?'dozen':'pc')+(it.moq?(' · minimum '+it.moq):''),
+            '',url,'','Logo and final pricing are confirmed on the quote — no obligation.'].join('\n');
+  location.href='mailto:?subject='+encodeURIComponent(subj)+'&body='+encodeURIComponent(body);
+}
+function closeShareMenu(){
+  var m=document.getElementById('shmenu');if(m&&m.parentNode)m.parentNode.removeChild(m);
+  document.removeEventListener('click',_shOutside,true);
+}
+function _shOutside(e){
+  var m=document.getElementById('shmenu');
+  if(m&&!m.contains(e.target)&&!(e.target.closest&&e.target.closest('[data-share]')))closeShareMenu();
+}
+function openShareMenu(key,btn){
+  closeShareMenu();
+  var wrap=btn.parentNode;
+  if(wrap&&getComputedStyle(wrap).position==='static')wrap.style.position='relative';
+  btn.insertAdjacentHTML('afterend',shareMenuHtml(key));
+  var m=document.getElementById('shmenu');if(!m)return;
+  var inp=document.getElementById('shmurl');
+  if(inp){inp.addEventListener('click',function(){inp.select();});}
+  m.querySelectorAll('[data-copy]').forEach(function(b){b.addEventListener('click',function(e){
+    e.preventDefault();e.stopPropagation();copyLink(b.dataset.copy);b.textContent='Copied';
+    setTimeout(function(){b.textContent='Copy';},1800);});});
+  m.querySelectorAll('[data-email]').forEach(function(b){b.addEventListener('click',function(e){
+    e.preventDefault();e.stopPropagation();shareEmail(b.dataset.email);closeShareMenu();});});
+  m.querySelectorAll('[data-native]').forEach(function(b){b.addEventListener('click',function(e){
+    e.preventDefault();e.stopPropagation();closeShareMenu();nativeShare(b.dataset.native);});});
+  setTimeout(function(){document.addEventListener('click',_shOutside,true);},0);
+}
+function nativeShare(key){
+  var it=BYKEY[key];if(!it)return;
+  var colour=currentSheetColour(key),url=shareUrlFor(key,colour);
+  var title=it.name+(colour?(' — '+colour):'');
+  try{
+    var p=navigator.share({title:title,text:title+' · '+(CFG.client||'our team store'),url:url});
+    if(p&&p.catch)p.catch(function(err){
+      if(err&&err.name==='AbortError')return;      // the user closed the share sheet: respect it
+      copyLink(url);});
+  }catch(e){copyLink(url);}
+}
+function shareItem(key){
+  var it=BYKEY[key];if(!it)return;
+  var colour=currentSheetColour(key),url=shareUrlFor(key,colour);
+  var title=it.name+(colour?(' — '+colour):'');
+  var text=title+' · '+(CFG.client||'our team store');
+  /* The OS share sheet is right on a phone and wrong on a desktop: Chrome on Windows exposes
+     navigator.share but frequently rejects it, and the first version swallowed that rejection, so
+     the button did nothing at all. Native is now used only where there is a touch pointer, and ANY
+     failure other than the user deliberately cancelling falls through to copying. A share control
+     must never be able to do nothing. */
+  var touch=!!(window.matchMedia&&window.matchMedia('(pointer:coarse)').matches);
+  var canNative=!!navigator.share&&touch&&(!navigator.canShare||navigator.canShare({url:url}));
+  if(canNative){
+    try{
+      var p=navigator.share({title:title,text:text,url:url});
+      if(p&&p.catch)p.catch(function(err){
+        if(err&&err.name==='AbortError')return;      // the user closed the share sheet: respect it
+        copyLink(url);
+      });
+    }catch(e){copyLink(url);}
+    return;
+  }
+  copyLink(url);
+}
+function shareBtnHtml(key){
+  return '<button class="shshare" data-share="'+esc(key)+'" aria-label="Share this item" title="Share this item">'+
+    '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" '+
+    'stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/>'+
+    '<circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg><span>Share</span></button>';
+}
+/* DELEGATION, not per-element binding. Both product sheets rebuild their innerHTML whenever the
+   buyer changes colour, so every handler attached to a button inside them dies on the next render.
+   Re-binding after each render works only as long as every future render path remembers to do it --
+   and the colour swatch path did not, which is exactly why Share stopped responding after clicking a
+   colour. One listener on the document, matched with closest(), cannot be lost that way. */
+function onShareClick(b){
+  // On a phone the OS sheet IS the best experience, so go straight there. On a desktop, where
+  // there is room and the paste target is Slack/Teams/Outlook, show the panel.
+  var touch=!!(window.matchMedia&&window.matchMedia('(pointer:coarse)').matches);
+  if(touch&&navigator.share){nativeShare(b.getAttribute('data-share'));return;}
+  if(document.getElementById('shmenu')){closeShareMenu();return;}
+  openShareMenu(b.getAttribute('data-share'),b);
+}
+var _DELEG=false;
+/* ---- "See & feel it first" -------------------------------------------------------------------
+   Nobody signs off 200 shirts they have never touched. The blocker on a company-wide order is not
+   price and not choice -- it is that gsm and a photograph cannot tell you how a collar sits or how
+   heavy a fleece really is. So the ask is not "book a meeting" (a cost to the buyer); it is "we'll
+   bring these to you" (a service to the buyer), and it carries the shortlist they have already
+   built rather than making them describe it again.
+
+   It appears at the three moments doubt actually peaks: reading the fabric spec, looking at a full
+   kit before requesting a quote, and hesitating at the final step. Copy claims nothing we have not
+   been told to claim -- no cost, no timeframe, no coverage area. */
+var SAMPKEYS=null;
+function sampShortlist(){
+  if(SAMPKEYS&&SAMPKEYS.length)return SAMPKEYS.slice();
+  var ck=Object.keys(CART).map(bkey);
+  return ck.length?ck:(SHEETKEY?[SHEETKEY]:[]);
+}
+function sampCtaHtml(key){
+  return '<button type="button" class="svcta" data-samp="'+esc(key||'')+'">'+
+    '<span class="svic" aria-hidden="true">\u270B</span>'+
+    '<span class="svtx"><b>Not sure how it feels?</b>'+
+    '<i>We\u2019ll bring samples to you \u2014 try it on, compare the fabrics, then decide.</i></span>'+
+    '<span class="svgo" aria-hidden="true">\u2192</span></button>';
+}
+function openSampleVisit(key){
+  SAMPKEYS=key?[key]:null;
+  var el=document.getElementById('samp');if(!el)return;
+  var keys=sampShortlist();
+  var saved={};try{saved=JSON.parse(localStorage.getItem('jdpkit_contact')||'{}');}catch(e){}
+  var list=keys.length
+    ? '<ul class="svlist">'+keys.map(function(k){var it=BYKEY[k];if(!it)return '';
+        var c=((CART[k]||CART[k+'#w'])||{}).colour||(SH&&SH.key===k?SH.colour:'')||'';
+        return '<li><span>'+esc(it.name)+'</span>'+(c?'<i>'+esc(c)+'</i>':'')+'</li>';}).join('')+'</ul>'
+    : '<p class="svnone">Add a few pieces to your board and we\u2019ll bring those \u2014 or just tell us below what you want to see.</p>';
+  el.innerHTML='<button class="shx" id="sampX" aria-label="Close">\u2715</button><div class="leadb">'+
+    '<div class="eyb">No obligation</div><h2>See &amp; feel it in person</h2>'+
+    '<p class="leadsub">We\u2019ll come to your workplace with the actual garments so your team can '+
+      'handle the fabric, check the fit and compare options side by side before you commit to a '+
+      'company-wide order.</p>'+
+    '<div class="svhd">What we\u2019ll bring'+(keys.length?' <i>'+keys.length+' item'+(keys.length===1?'':'s')+'</i>':'')+'</div>'+
+    list+
+    '<div class="coform svform">'+
+      '<input id="svName" placeholder="Your name" autocomplete="name" value="'+esc(saved.name||'')+'">'+
+      '<input id="svEmail" type="email" inputmode="email" placeholder="Email" autocomplete="email" value="'+esc(saved.email||'')+'">'+
+      '<input id="svCompany" placeholder="Company / team" autocomplete="organization" value="'+esc(saved.company||CFG.client||'')+'">'+
+      '<input id="svWhere" placeholder="Where are you? City or address" autocomplete="street-address">'+
+      '<textarea id="svNote" placeholder="Anything that helps \u2014 sizes to bring, how many people, best days/times\u2026"></textarea>'+
+    '</div>'+
+    '<button class="leadbtn" id="svSend">Request a sample visit \u2192</button>'+
+    '<div class="cktrust svtrust"><span>No payment now</span><span>No obligation</span></div></div>';
+  document.getElementById('ov').classList.add('on');
+  el.classList.add('on');document.body.style.overflow='hidden';
+  var x=document.getElementById('sampX');if(x)x.addEventListener('click',closeSampleVisit);
+  var b=document.getElementById('svSend');if(b)b.addEventListener('click',submitSampleVisit);
+}
+function closeSampleVisit(){
+  var el=document.getElementById('samp');if(el)el.classList.remove('on');
+  SAMPKEYS=null;
+  if(!document.querySelector('.sheet.on')&&!document.querySelector('.cart.on')){
+    document.getElementById('ov').classList.remove('on');document.body.style.overflow='';}
+}
+function sampVals(){return {
+  name:((document.getElementById('svName')||{}).value||'').trim(),
+  email:((document.getElementById('svEmail')||{}).value||'').trim(),
+  company:((document.getElementById('svCompany')||{}).value||'').trim(),
+  where:((document.getElementById('svWhere')||{}).value||'').trim(),
+  note:((document.getElementById('svNote')||{}).value||'').trim()};}
+function sampText(c){
+  var lines=['SAMPLE VISIT REQUEST \u2014 '+CFG.client,''];
+  lines.push('From:');
+  if(c.name)lines.push('  '+c.name);
+  if(c.email)lines.push('  '+c.email);
+  if(c.company)lines.push('  '+c.company);
+  if(c.where)lines.push('  Location: '+c.where);
+  lines.push('');
+  var keys=sampShortlist();
+  if(keys.length){lines.push('Wants to see in person:');
+    keys.forEach(function(k){var it=BYKEY[k];if(!it)return;
+      var c2=((CART[k]||CART[k+'#w'])||{}).colour||'';
+      lines.push('  \u2022 '+it.name+(it.sku?(' ('+it.sku+')'):'')+(c2?(' \u2014 '+c2):'')+
+        (it.msku?('  [item '+it.msku+']'):''));});
+    lines.push('');}
+  if(c.note){lines.push('Notes:');lines.push('  '+c.note);lines.push('');}
+  lines.push('Store: '+location.href.split('#')[0].split('?')[0]);
+  return lines.join('\n');
+}
+function submitSampleVisit(){
+  var c=sampVals();
+  if(!c.email||c.email.indexOf('@')<1){var e=document.getElementById('svEmail');
+    if(e){e.classList.add('err');e.focus();}toast('Add your email so we can get back to you');return;}
+  persistContact(c);
+  var body=sampText(c);
+  var subj='Sample visit request \u2014 '+(c.company||CFG.client)+(c.name?' \u2014 '+c.name:'');
+  var btn=document.getElementById('svSend');
+  if(btn){btn.disabled=true;btn.dataset.lbl=btn.innerHTML;btn.innerHTML='Sending\u2026';}
+  var payload={name:c.name||'(not given)',email:c.email,company:c.company||CFG.client||'',
+    location:c.where||'(not given)',_subject:subj,_template:'table',_captcha:'false',
+    request:body,store_link:location.href.split('#')[0].split('?')[0]};
+  var done=false,fell=false;
+  function fail(){if(done||fell)return;fell=true;
+    if(btn){btn.disabled=false;btn.innerHTML=btn.dataset.lbl||'Request a sample visit';}
+    clipCopy(body);
+    window.location.href='mailto:'+JDP_EMAIL+'?subject='+encodeURIComponent(subj)+'&body='+encodeURIComponent(body);}
+  var to=setTimeout(fail,9000);
+  fetch('https://formsubmit.co/ajax/'+JDP_EMAIL,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(payload)})
+    .then(function(r){return r.json().catch(function(){return {};});})
+    .then(function(j){clearTimeout(to);if(fell)return;done=true;
+      if(j&&String(j.success)==='true'){sampSuccess(c);}else{fail();}})
+    .catch(function(){clearTimeout(to);fail();});
+}
+function sampSuccess(c){
+  var first=c.name?c.name.split(' ')[0]:'';
+  if(/^[A-Za-z]\.$/.test(first))first=c.name;   /* "J. Smith", not "J." */
+  first=first?esc(first):'';
+  var el=document.getElementById('samp');if(!el)return;
+  el.innerHTML='<button class="shx" id="sampX" aria-label="Close">\u2715</button>'+
+    '<div class="cosent"><div class="csent-ic">\u2713</div>'+
+    '<h3>Request sent'+(first?(', '+first):'')+'</h3>'+
+    '<p>We\u2019ve got your board and where you are. We\u2019ll be in touch to arrange a time to bring the samples over.</p>'+
+    '<button class="checkout" id="sampDone">Keep browsing</button></div>';
+  var x=document.getElementById('sampX');if(x)x.addEventListener('click',closeSampleVisit);
+  var d=document.getElementById('sampDone');if(d)d.addEventListener('click',closeSampleVisit);
+}
+function wireDelegates(){
+  if(_DELEG)return;_DELEG=true;
+  document.addEventListener('click',function(e){
+    if(!e.target||!e.target.closest)return;
+    var sb=e.target.closest('[data-share]');
+    if(sb){e.preventDefault();e.stopPropagation();onShareClick(sb);return;}
+    var bk=e.target.closest('[data-back]');
+    if(bk){e.preventDefault();e.stopPropagation();
+      var k=bk.getAttribute('data-back');FROMKEY='';openSheet(k);return;}
+    var ct=e.target.closest('[data-curk]');
+    if(ct){e.preventDefault();e.stopPropagation();curToggle(ct.getAttribute('data-curk'));return;}
+    var sv=e.target.closest('[data-samp]');
+    if(sv){e.preventDefault();e.stopPropagation();
+      openSampleVisit(sv.getAttribute('data-samp')||'');return;}
+    var it=e.target.closest('.pinc a[data-item]');
+    if(it){e.preventDefault();e.stopPropagation();
+      openSheet(it.getAttribute('data-item'),null,it.getAttribute('data-from')||'');return;}
+  });
+}
+function wireShare(root){wireDelegates();}
+/* Opening a component from a gift set used to be a one-way door: the sheet was replaced and the
+   only route back was to close it and hunt for the kit again. FROMKEY remembers the set you came
+   from so the component sheet can offer a labelled way back, and clicking it returns you to the
+   kit rather than to a blank page. */
+var FROMKEY='';
+function backChipHtml(){
+  if(!FROMKEY||!BYKEY[FROMKEY])return '';
+  return '<button class="shback" data-back="'+esc(FROMKEY)+'">'+
+    '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" '+
+    'stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>'+
+    'Back to '+esc(BYKEY[FROMKEY].name)+'</button>';
+}
+function wireBack(root){wireDelegates();}
+function openSheet(key,wantCol,fromKey){
+  jdpTrack('sheet',{k:key});
+  // Accepts a CART key (so the kit's edit pencil reopens that exact fit) or a plain product key.
+  var _ck=key;key=bkey(key);
+  FROMKEY=(fromKey&&fromKey!==key)?fromKey:'';
+  SHEETKEY=key;
+  var item=BYKEY[key],vm=vmOf(key),ex=CART[_ck]||null,exmap={};
+  // A shared link carries the colour the sender was looking at, so the recipient sees the same thing.
+  // A shared link may name a colour that only exists in the ladies' cut, so check both sets.
+  if(item&&wantCol&&!hasCol(item.cols,wantCol)&&!hasCol(item.wcols,wantCol))wantCol=null;
+  if(item&&item.layer==='promo'){   // promotional products: clean photo + colour + quantity + decoration
+    SH={key:key,promo:true,gi:0,colour:wantCol||(ex&&ex.colour)||(item.cols[0]||{}).name,
+        qty:(ex&&ex.qty)||item.moq||1,mi:(ex&&ex.mi)||0,locs:(ex&&ex.locs)||1};
+    renderSheet();
+    wireShare(document.getElementById('sheet'));wireBack(document.getElementById('sheet'));
+  document.getElementById('ov').classList.add('on');document.getElementById('sheet').classList.add('on');
+    document.body.style.overflow='hidden';return;
+  }
+  if(ex&&ex.decos){ex.decos.forEach(function(d){exmap[d.pl]=d;});}
+  // Size breakdown is the ONLY quantity control. baseQty preserves the count of an item that was
+  // quick-started without a size split (e.g. the recommended kit) so reopening it doesn't lose it.
+  var exfit=(ex&&ex.fit)||fitOf(item);
+  // Follow a shared link's colour into the cut that actually has it: a rep who sends the ladies'
+  // Valor Blue must not land the recipient on the men's default. Without this the whole ?c= half of
+  // every share link was dead for apparel -- only promo items ever read it.
+  if(wantCol&&!hasCol(curColsOf(item,exfit),wantCol)){
+    var _oth=(exfit==='womens')?'mens':'womens';
+    if(hasCol(curColsOf(item,_oth),wantCol))exfit=_oth;
+  }
+  SH={key:key,colour:wantCol||(ex&&ex.colour)||BCOL[key+'|'+exfit]||vm.colour,face:'front',gimg:null,D:{},showExtra:false,sizes:{},fit:exfit,baseQty:ex?(ex.sizes?0:(ex.qty||moq())):moq()};
+  // if the saved colour isn't in the active fit's colour set, fall back to that set's first colour
+  var _cc=curColsOf(item,SH.fit);if(!colInList(_cc,SH.colour)||colInList(_cc,SH.colour).name!==SH.colour)SH.colour=_cc[0].name;
+  sheetSizes().forEach(function(s){SH.sizes[s]=(ex&&ex.sizes&&ex.sizes[s])||0;});
+  var logoPlaces=(item.places||[]).filter(function(p){return p.logo;}),primaryId=(logoPlaces[0]||{}).id;
+  logoPlaces.forEach(function(p){
+    // METHOD comes from the catalogue standard, never from the kit config. Reading vm.decos here is
+    // what left the hi-vis tee drawing a screen print and the rain jacket a heat transfer while the
+    // spec beside them said embroidery -- the mockup and the quote disagreeing on the same screen.
+    /* THE WHOLE RECOMMENDED SETUP, not just its primary placement. recDecos() describes ONE
+       placement, so for a second placement `_sd` came back empty and the method fell through to
+       the KIT viewmodel -- which the fleet sync stamps `embroidery` on every position. A board line
+       carrying a screen-printed back therefore reopened as an EMBROIDERED back: the 5-Point vest
+       went from $29.50 to $48.00 on reopen, because embroidery on a back panel carries a 2.5x
+       multiple. Same failure as the quick-add one, one layer further in. */
+    var _sd=(defaultDecos(key)||[]).filter(function(x){return x.pl===p.id;})[0]||{};
+    var _kd=(vm.decos||[]).filter(function(x){return x.pl===p.id;})[0]||{};
+    var rd={pl:p.id,on:!!_sd.on,method:_sd.method||_kd.method,colours:_sd.colours||1,
+            lg:_kd.lg||_sd.lg,ink:_kd.ink||'auto'};
+    var use=exmap[p.id];
+    var on = p.id===primaryId ? true : (ex?!!use:!!rd.on);
+    // A kit saved in the browser BEFORE standardisation can still hold an old method (screen, heat
+    // transfer). The store no longer offers that choice, so the standard wins over the saved value --
+    // otherwise a returning customer would keep being quoted a setup we no longer run.
+    SH.D[p.id]={on:on, lg:(use&&use.lg)||rd.lg||(CFG.logos[0]||{}).id,
+                ink:(use&&use.ink)||rd.ink||'auto', method:rd.method||'embroidery',
+                colours:(use&&use.colours)||presetInks(rd.method,rd.colours)};
+    if(p.id!==primaryId && on)SH.showExtra=true;});
+  /* Open on the recommended configuration, but ONLY for a garment not already on the board -- a
+     returning buyer's own choices must never be overwritten by ours. */
+  if(!ex){var _dcid=stdCfgId(key);
+    if(_dcid){try{applyConfig(_dcid);
+      Object.keys(SH.D).forEach(function(pl){if(SH.D[pl].on&&pl!==primaryId)SH.showExtra=true;});
+    }catch(e){}}}
+  renderSheet();
+  document.getElementById('ov').classList.add('on');
+  document.getElementById('sheet').classList.add('on');
+  document.body.style.overflow='hidden';
+}
+/* ---- PRICED LOGO CONFIGURATIONS -------------------------------------------------------------
+   Steven, 2026-09-07: "we should have the most popular design / logo placement configurations for
+   each item category ... it should not be overwhelming. we should show price for each
+   configuration ... so that we can price customers and build invoices super fast".
+
+   Deliberately a SHORT curated list per category, not a matrix. Step 3 was made read-only earlier
+   precisely because a free per-placement finish menu let a customer reach a state the quote never
+   matched; a fixed set of complete, named, priced setups fixes that without going back to a matrix.
+
+   Popularity ranking comes from placement research (2026-09-07). No published industry figures on
+   single vs multi-placement ordering exist, so "Most popular" reflects revealed preference --
+   decorator guides that list left chest first and label it "most common", and B2B configurators
+   that default to it -- not an invented statistic.
+   Sizes and methods follow that research: chest 3-3.5" on shirts / 4" on outerwear, sleeve 2.5",
+   full back 10-12" screen printed, hi-vis back yoke <=10"x2" above the upper reflective stripe. */
+function itemCategory(it){
+  var n=String((it&&it.name)||'').toLowerCase(),layer=(it&&it.layer)||'';
+  /* GARMENT FIRST, layer as the fallback. `layer:'field'` means "the workwear range", NOT "hi-vis"
+     -- the workwear added 2026-09-08 put 13 work pants, coveralls, work shirts and a belt in that
+     layer, and treating them as hi-vis offered a coverall a back-yoke card reading "above the
+     reflective tape" for tape it does not have, and offered a leather belt an embroidered left
+     chest. Anything genuinely hi-vis still reaches 'hivis' below, from its CSA rating or its name.
+     Verified item-by-item against the whole catalogue: no product that used to classify one way
+     classifies differently now except the 13 this rule is for. */
+  /* HI-VIS WINS OVER THE GARMENT TYPE. Hi-Vis Rain Pants are hi-vis first and trousers second. */
+  if(it&&it.csa)return 'hivis';
+  /* ENHANCED VISIBILITY IS NOT HI-VIS. A reflective-taped softshell with no CSA rating (`enh`) must never be
+     treated as PPE -- the advisors would otherwise offer it to site crews who need certified hi-vis. */
+  if(!(it&&it.enh)&&/hi-?vis|high.visibility|\btraffic\b|reflective|enhanced visibility|safety vest|tear-?away/.test(n))return 'hivis';
+  if(/\bbelt\b/.test(n))return 'belt';
+  if(/coverall|bib overall|boilersuit/.test(n))return 'coverall';
+  /* PLURAL "shorts" ONLY. `\bshorts?\b` also matches the "Short" in "Short-Sleeve", because the
+     hyphen is a word boundary -- it reclassified 22 shirts, polos and tees as trousers. Found by
+     diffing the classifier's answer for every catalogue item against the previous one, which is the
+     only way a change like this shows itself. */
+  if(/\bshorts\b/.test(n))return 'shorts';
+  if(/\bpants?\b|\btrousers?\b|\bjeans?\b|dungaree/.test(n))return 'pant';
+  /* A plain industrial work shirt is not hi-vis. It used to classify as one purely because it sits
+     in the field layer, so it was offered a back-yoke print described as sitting "above the
+     reflective tape" -- on a shirt with no tape. It gets its own set instead. */
+  if(/work shirt|shop shirt|crew shirt|industrial .*shirt|\bmimix\b/.test(n))return 'workshirt';
+  if(/beanie|toque|watch hat|\bcap\b|\bhat\b|trucker|snapback|visor/.test(n))return 'cap';
+  if(/backpack|duffel|tote|\bbag\b|cooler|pack\b/.test(n)||layer==='bags')return 'bag';
+  if(/\bpolo\b|sport shirt|knit shirt|piqu/.test(n))return 'polo';
+  if(/work shirt|woven|snap-front|button|twill shirt|flannel|plaid shirt/.test(n))return 'woven';
+  /* ANCHOR "tshirt". Unanchored, it matches the substring inside "swea|tshirt" -- so EVERY
+     sweatshirt in the catalogue classified as a tee and was offered the tee decoration set
+     (screen print, chest + full back) instead of the fleece set. Silent since the classifier was
+     written; found while changing the tee default, because the change would have swept up 30-odd
+     crewnecks and quarter-zips with it. */
+  if(/\btee\b|\bt-?shirts?\b/.test(n))return 'tee';
+  /* A FLEECE VEST IS A VEST (2026-10-14): it has no sleeves, so it must never be offered a sleeve badge. */
+  if(/\bvest\b/.test(n)&&!/hood/.test(n))return 'vest';
+  if(/hood|crewneck|sweatshirt|quarter|1\/4-zip|half-zip|pullover|fleece|midlayer/.test(n))return 'fleece';
+  if(/\bvest\b/.test(n))return 'vest';
+  if(/jacket|parka|shell|softshell|shacket|puffer|\bcoat\b|rain|3-in-1|6-in-1/.test(n))return 'outer';
+  if(layer==='field')return 'hivis';         // legacy field styles keep exactly the class they had
+  return 'other';
+}
+/* ===== DECORATION, SIMPLIFIED (Steven, 2026-10-08) =================================================
+   "decorations options are not enterprise ready. it is way too confusing now. identify the most popular
+   decoration types, simplify, forget about heat transfer in canada pricing."
+   What the trade actually sells, by garment: an EMBROIDERED LEFT-CHEST LOGO on polos, shirts, jackets,
+   vests, fleece, caps and bags; a SCREEN-PRINTED chest on tees; and, as the one common add-on, a BACK
+   print (crews) or the WEARER'S NAME (managed uniforms) -- plus the sleeve badge Steven asked for on
+   jackets and fleece. So every garment now offers at most THREE setups, the most popular first and
+   pre-selected, each a plain sentence. DTF / heat transfer is gone from Canadian stores; the ink-count
+   picker is gone too -- prints are priced at the logo's own colour count, confirmed from the artwork. */
+var CFG_SHIRT=[
+  {id:'lc',  name:'{P} logo',     sub:'One embroidered logo. What most programs order.',            tag:'Most popular',
+   spots:[{pl:'PRIMARY',method:'embroidery'}]},
+  {id:'lcn', name:'Logo + employee name', sub:'Logo on the left chest, the wearer\u2019s name on the right.',
+   spots:[{pl:'PRIMARY',method:'embroidery'},{pl:'rchest',method:'embroidery'}]}
+];
+/* A work shirt and a coverall are a UNIFORM, so the company name across the back yoke is a normal
+   ask -- it is how a crew is identified across a yard from behind. The polo/dress-shirt set has no
+   back option (nobody prints across the back of a client-facing polo) and the hi-vis set describes
+   the back print in terms of reflective tape these garments do not have. Hence a third set. */
+/* POLOS GET A BACK (Steven, 2026-10-08: "chest + back for polo"). The shared shirt set had no back
+   option on the reasoning that nobody prints across a client-facing polo -- but event staff, crews and
+   anyone working a floor are read from behind. A polo's back is a performance knit, so the back mark is
+   a full-colour DTF transfer (light, flexible, no stitching through thin fabric); the chest stays
+   embroidered. The DTF chest card is for detailed or many-colour logos stitching cannot hold. */
+var CFG_POLO=[CFG_SHIRT[0],
+  {id:'cb',  name:'Chest + back', sub:'Embroidered chest, your logo printed across the upper back \u2014 for staff seen from behind.',
+   spots:[{pl:'PRIMARY',method:'embroidery'},{pl:'back',method:'screen',colours:1}]},
+  CFG_SHIRT[1]];
+var CFG_WORKSHIRT=[CFG_SHIRT[0],
+  {id:'lcb', name:'Logo + name across the back',
+   sub:'Logo on the chest, company name printed across the back \u2014 how a crew is recognised from behind.',
+   spots:[{pl:'PRIMARY',method:'embroidery'},{pl:'backyoke',method:'screen',colours:1}]},
+  CFG_SHIRT[1]];
+/* THE HI-VIS VEST, per Steven 2026-09-08: "the 5-Point Tear-Away Vest is typically the vest we
+   recommend. the logo embroidered is actually on the left chest reflective tape. the most popular
+   option is the left chest + name on the back."
+   So the two-mark setup is the DEFAULT here, not an upsell — and the copy says the mark goes ON the
+   tape, because a buyer looking at a vest covered in reflective stripes reasonably wonders where a
+   logo could possibly go. That is the question the card has to answer. */
+var CFG_HIVIS_VEST=[
+  {id:'lcb',  name:'{P} + name across the back', tag:'Most popular',
+   sub:'Logo embroidered onto the left-chest reflective tape, company name printed across the back — how a crew is identified from either side.',
+   spots:[{pl:'PRIMARY',method:'embroidery'},{pl:'backyoke',method:'screen',colours:1}]},
+  {id:'lc',   name:'{P} only',
+   sub:'One embroidered logo on the left-chest reflective tape. The simplest vest program.',
+   spots:[{pl:'PRIMARY',method:'embroidery'}]},
+  {id:'crew', name:'{P} + employee name + company on the back',
+   sub:'Logo left chest, the wearer\u2019s name on the right chest, company across the back. Managed uniforms.',
+   spots:[{pl:'PRIMARY',method:'embroidery'},{pl:'rchest',method:'embroidery'},{pl:'backyoke',method:'screen',colours:1}]}
+];
+/* THE HI-VIS TEE, per Steven 2026-09-08: "hi-vis t shirt logo placement is Front + Back ·
+   Recommended and another option is Front Only."
+   Front + back is the default because a traffic shirt is read from behind as often as from the
+   front. The third card exists because he also said to assess whether other configurations make
+   sense: on a managed crew the wearer's name on the right chest is the one addition that gets
+   asked for, and it costs a second embroidery run rather than a second screen. */
+var CFG_HIVIS_TEE=[
+  {id:'fb', name:'Front + back', tag:'Recommended',
+   sub:'Screen printed on the front and across the back, clear of the reflective tape. What most traffic-shirt programs order.',
+   spots:[{pl:'PRIMARY',method:'screen',colours:1},{pl:'backyoke',method:'screen',colours:1}]},
+  {id:'fo', name:'Front only',
+   sub:'One screen print on the front. The lowest-cost way to get the crew into branded hi-vis.',
+   spots:[{pl:'PRIMARY',method:'screen',colours:1}]},
+  {id:'fbn', name:'Front + back + employee name',
+   sub:'Front and back prints, plus the wearer\u2019s name embroidered on the right chest.',
+   spots:[{pl:'PRIMARY',method:'screen',colours:1},{pl:'backyoke',method:'screen',colours:1},{pl:'rchest',method:'embroidery'}]}
+];
+/* SWEATSHIRTS GET SCREEN PRINT. Steven, 2026-09-16: "hoodies need a option for screen printing!"
+   Hoodies classify as `fleece`, whose presets were embroidery-only on the chest -- screen print
+   appeared solely as the BACK half of "chest + full back", so a customer wanting a printed hoodie
+   had no way to ask for one.
+
+   `fleece` is too broad to fix in place. It holds 44 items: 26 knit sweatshirts, where screen print
+   is the norm, and 18 that must NOT offer it -- insulated parkas, canvas bombers, quilted and
+   soft-knit fleece jackets. Six of those parkas and bombers reach the group only through the words
+   "Detachable Hood", so matching /hood/ alone would put a screen print on an insulated parka. Hence
+   the exclusion list, and hence a separate preset set rather than an edit to `fleece`.
+
+   No FULL-FRONT print preset: none of the 26 carries a centre-front placement (tees do, sweatshirts
+   do not), and a preset naming a place an item lacks is silently dropped. Inventing cx/cy/wf for a
+   big front print would paint the logo in the wrong spot on 26 garments, so the print goes where we
+   have tuned geometry -- left chest and full back.
+
+   Embroidery keeps "Most popular" and stays first: it is the current default for these garments and
+   there is no evidence to reassign the tag, so this ADDS the option rather than re-ranking them. */
+var CFG_SWEAT=[
+  {id:'lc',   name:'{P} logo',  sub:'One embroidered logo. What most corporate programs order.', tag:'Most popular',
+   spots:[{pl:'PRIMARY',method:'embroidery'}]},
+  {id:'sp',   name:'{P} print', sub:'Printed instead of stitched \u2014 what most crew and shop hoodies order, and better value as the run grows.',
+   spots:[{pl:'PRIMARY',method:'screen',colours:1}]},
+  /* Steven, 2026-10-07: "embroidering on the sleeve should be a option for jackets and fleece" -- and a
+     hoodie is fleece. His two explicit asks (screen print, sleeve) outrank a back-print card here. */
+  {id:'lcs',  name:'Logo + sleeve badge', sub:'A small second mark on the left sleeve.',
+   spots:[{pl:'PRIMARY',method:'embroidery'},{pl:'sleeve',method:'embroidery'}]}
+];
+var SWEATSHIRT_RE=/hood|crewneck|sweatshirt/;
+var NOT_SWEATSHIRT_RE=/parka|bomber|\bjacket\b|quilted|insulated|3-in-1|6-in-1|shacket|\bvest\b|\bcoat\b|softshell|shell\b/;
+var CONFIGS={
+  polo:CFG_POLO, woven:CFG_SHIRT, workshirt:CFG_WORKSHIRT, coverall:CFG_WORKSHIRT,
+  hivisvest:CFG_HIVIS_VEST, hivistee:CFG_HIVIS_TEE, sweat:CFG_SWEAT,
+  /* Steven, 2026-09-08: "Tees default and most popular is left chest print." The print carried
+     "Best value" while the EMBROIDERY carried "Most popular" -- backwards for a tee, and the tag
+     does real work here because it is the row a buyer picks without reading the other two. */
+  tee:[
+    {id:'sp', name:'{P} print',  sub:'Screen printed — what most tee programs order, and the best value.', tag:'Most popular',
+     spots:[{pl:'PRIMARY',method:'screen',colours:1}]},
+    {id:'fb', name:'Chest + full back', sub:'Small logo on the chest, large print across the back.',
+     spots:[{pl:'PRIMARY',method:'screen',colours:1},{pl:'back',method:'screen',colours:1}]},
+    {id:'lc', name:'{P} logo',   sub:'Embroidered instead — a heavier stitched finish that matches your polo and jacket program.',
+     spots:[{pl:'PRIMARY',method:'embroidery'}]}
+  ],
+  fleece:[
+    {id:'lc',  name:'{P} logo',     sub:'One embroidered logo. What most programs order.',            tag:'Most popular',
+     spots:[{pl:'PRIMARY',method:'embroidery'}]},
+    {id:'fb',  name:'Chest + full back',   sub:'Embroidered chest, large screen print across the back.',
+     spots:[{pl:'PRIMARY',method:'embroidery'},{pl:'back',method:'screen',colours:1}]},
+    {id:'lcs', name:'Logo + sleeve badge', sub:'A second mark on the left sleeve.',
+     spots:[{pl:'PRIMARY',method:'embroidery'},{pl:'sleeve',method:'embroidery'}]}
+  ],
+  outer:[
+    {id:'lc',  name:'{P} logo',   sub:'One embroidered logo, 4" wide. The standard on outerwear.',    tag:'Most popular',
+     spots:[{pl:'PRIMARY',method:'embroidery'}]},
+    {id:'fb',  name:'Chest + full back', sub:'Adds a large back mark — crew recognition at distance.',
+     spots:[{pl:'PRIMARY',method:'embroidery'},{pl:'back',method:'screen',colours:1}]},
+    /* Steven, 2026-10-07: "embroidering on the sleeve should be a option for jackets and fleece". */
+    {id:'lcs', name:'Logo + sleeve badge', sub:'A second embroidered mark on the left sleeve — a department, division or flag.',
+     spots:[{pl:'PRIMARY',method:'embroidery'},{pl:'sleeve',method:'embroidery'}]}
+  ],
+  vest:[
+    {id:'lc',  name:'{P} logo', sub:'One embroidered logo. What most programs order.',                tag:'Most popular',
+     spots:[{pl:'PRIMARY',method:'embroidery'}]},
+    {id:'lcn', name:'Logo + name',     sub:'Logo left chest, employee name on the right.',
+     spots:[{pl:'PRIMARY',method:'embroidery'},{pl:'rchest',method:'embroidery'}]}
+  ],
+  cap:[
+    {id:'fr',  name:'{P} embroidery',   sub:'Your logo on the front panel. Height is the limit, not width.', tag:'Most popular',
+     spots:[{pl:'PRIMARY',method:'embroidery'}]},
+    {id:'frs', name:'Front + side panel', sub:'Adds a small second mark on the side — year, division, initials.',
+     spots:[{pl:'PRIMARY',method:'embroidery'},{pl:'side',method:'embroidery'}]}
+  ],
+  hivis:[
+    {id:'lc',   name:'{P} logo',   sub:'Embroidered — thread is never mistaken for reflective tape.', tag:'Most popular',
+     spots:[{pl:'PRIMARY',method:'embroidery'}]},
+    {id:'by',   name:'Logo + name on back', sub:'Company name screen printed across the back yoke, above the reflective tape.',
+     spots:[{pl:'PRIMARY',method:'embroidery'},{pl:'backyoke',method:'screen',colours:1}]},
+    {id:'crew', name:'Full crew ID',      sub:'Logo, employee name, and company name across the back.',
+     spots:[{pl:'PRIMARY',method:'embroidery'},{pl:'rchest',method:'embroidery'},{pl:'backyoke',method:'screen',colours:1}]}
+  ],
+  bag:[
+    {id:'fr',  name:'{P} logo',    sub:'Embroidered on the upper front panel.',                      tag:'Most popular',
+     spots:[{pl:'PRIMARY',method:'embroidery'}]},
+    {id:'frp', name:'Larger front print',  sub:'Screen printed and bigger — for event and giveaway bags.',
+     spots:[{pl:'PRIMARY',method:'screen',colours:1}]}
+  ],
+  other:[
+    {id:'lc', name:'Standard logo', sub:'Our standard setup for this product.', tag:'Most popular',
+     spots:[{pl:'PRIMARY',method:'embroidery'}]}
+  ]
+};
+/* Only offer a configuration whose every position actually exists on THIS item. A polo with no
+   sleeve position simply does not show the sleeve option, rather than showing one that prices at
+   zero because unitPrice() silently ignores decos on placements the garment does not have. */
+/* DECORATION CONFIGS NEED A FINER GRAIN THAN itemCategory. `hivis` covers a mesh vest, a traffic
+   tee, a crewneck and a winter parka, and Steven's recommended setups for the vest and the tee are
+   different from each other. Refining itemCategory itself would ripple into the seasonal ordering,
+   the browse aisles and the board slots for no benefit, so the split lives here and nowhere else. */
+function configKey(it){
+  var c=itemCategory(it),n=String((it&&it.name)||'').toLowerCase();
+  if(c==='hivis'){
+    if(/\bvest\b/.test(n))return 'hivisvest';
+    if(/\btee\b|\bt-?shirts?\b/.test(n))return 'hivistee';
+  }
+  /* a knit sweatshirt can be screen printed; a parka with a detachable hood cannot */
+  if(c==='fleece'&&SWEATSHIRT_RE.test(n)&&!NOT_SWEATSHIRT_RE.test(n))return 'sweat';
+  return c;
+}
+/* US decoration setups: the same cards, with screen print replaced by Stormtech's heat transfer, and
+   a faux leather patch offered on outerwear, fleece, vests and bags. */
+var US_CFG_TEXT={
+  sp:{name:'{P} heat transfer',sub:'A full-colour heat transfer — crisp detail on performance fabrics and the best value on tees.'},
+  spfb:{name:'Chest + back heat transfer',sub:'Full-colour heat transfers front and back — small mark on the chest, large one across the shoulders.'},
+  fb:{sub:'Embroidered chest, large full-colour heat transfer across the back.'},
+  fo:{sub:'One full-colour heat transfer on the front.'},
+  frp:{name:'Larger front heat transfer',sub:'A bigger full-colour heat transfer — for event and giveaway bags.'},
+  cb:{sub:'Embroidered logo on the chest, full-colour heat transfer across the upper back — for staff seen from behind.'},
+  dtf:{name:'{P} heat transfer',sub:'A full-colour heat transfer instead of stitching — every colour and fine detail of your logo.'}
+};
+var US_PATCH_CATS={outer:1,fleece:1,sweat:1,vest:1,bag:1};
+function usConfigs(list,ck){
+  var out=list.map(function(c){
+    var t=US_CFG_TEXT[c.id]||{},n=JSON.parse(JSON.stringify(c));
+    n.spots=n.spots.map(function(sp){sp.method=usMethod(sp.method);if(sp.method!=='screen')delete sp.colours;return sp;});
+    if(c.spots.some(function(sp){return sp.method==='screen';})){if(t.name)n.name=t.name;if(t.sub)n.sub=t.sub;}
+    else if(t.sub&&(c.id==='fb'||c.id==='cb'||c.id==='dtf')){n.sub=t.sub;if(t.name)n.name=t.name;}
+    return n;});
+  /* screen print becomes heat transfer in the US, so a "print" card and the DTF card can end up as the
+     same setup -- keep the first, never show the buyer two identical choices */
+  var seen={};out=out.filter(function(c){var sig=JSON.stringify(c.spots);if(seen[sig])return false;seen[sig]=1;return true;});
+  if(US_PATCH_CATS[ck])out=out.slice(0,2).concat([{id:'pt',name:'Faux leather patch',
+    sub:'A laser-etched faux leather or suede patch in place of embroidery — a premium, tactile finish.',
+    spots:[{pl:'PRIMARY',method:'patch'}]}]);
+  return out.slice(0,3);
+}
+function configsFor(key){
+  var it=BYKEY[key];if(!it)return [];
+  var prim=(stdOf(key)||{}).pl||((it.places||[]).filter(function(p){return p.logo;})[0]||{}).id;
+  if(!prim)return [];
+  var avail={};(it.places||[]).forEach(function(p){if(p.logo)avail[p.id]=p;});
+  var list=CONFIGS[configKey(it)]||CONFIGS.other;
+  if(isUS())list=usConfigs(list,configKey(it));
+  return list.map(function(c){
+    var ok=true;
+    var decos=c.spots.map(function(s){
+      var pl=(s.pl==='PRIMARY')?prim:s.pl;
+      if(!avail[pl])ok=false;
+      return {pl:pl,method:s.method,colours:presetInks(s.method,s.colours)};
+    });
+    if(!ok)return null;
+    /* {P} resolves to the item's OWN label for its primary position, so a beanie reads "Front
+       panel logo" and a traffic tee "Centre chest logo" -- never a card title that contradicts the
+       position printed directly beneath it. */
+    var plab=(avail[prim]&&avail[prim].label)||'Logo';
+    return {id:c.id,name:String(c.name).replace('{P}',plab),sub:c.sub,tag:c.tag,decos:decos};
+  }).filter(Boolean);
+}
+function configDecos(cfg){
+  var lg=(CFG.logos&&CFG.logos[0]&&CFG.logos[0].id)||null;
+  /* Price every card at the ink count the customer has actually CHOSEN, not the preset's default.
+     Without this the selected card kept quoting the 1-ink price while the footer and the Add
+     button showed the 4-ink one — two prices for the same thing on the same screen.
+     PER LOCATION. This used to take the highest ink count anywhere on the garment and apply it to
+     every screen placement, which is the same collapse that made a 4-colour front with a 2-colour
+     back impossible to quote. A card's placement inherits the customer's choice for THAT location
+     when they have made one, and the preset otherwise. */
+  return cfg.decos.map(function(d){
+    var live=(SH.D||{})[d.pl];
+    var n=(d.method==='screen'&&live&&live.on&&live.method==='screen'&&live.colours)
+      ? Math.max(1,parseInt(live.colours,10)||1)
+      : presetInks(d.method,d.colours);
+    /* Likewise the artwork: a location the customer pointed at the wordmark should price and
+       preview with the wordmark, not silently revert to the primary mark. */
+    var art=(live&&live.on&&live.lg)||lg;
+    return {pl:d.pl,on:true,lg:art,ink:'auto',method:d.method,colours:n};});
+}
+function configPrice(cfg){return unitPrice(SH.key,configDecos(cfg),effQty()||moq());}
+/* ---- THE RECOMMENDED SETUP IS THE DEFAULT, EVERYWHERE ----------------------------------------
+   `std` describes ONE placement, which was fine while every recommendation was a single left
+   chest. Steven's recommended setups for hi-vis are two marks ("left chest + name on the back",
+   "front + back"), and a two-mark recommendation cannot be expressed in `std`.
+   Without this, the card tagged "Most popular" would be a paid upgrade off a cheaper default: the
+   grid would price one mark, the sheet would open on one mark, and the thing we actually recommend
+   would sit below it with a "+$2.50" next to it. So an item may name its default configuration in
+   `stdcfg`, and the grid price, the sheet's opening state, a quick-add and the board all read it
+   from HERE. One function, so they cannot drift apart. */
+function cfgDecosPure(cfg){
+  /* Deliberately does NOT consult SH: configDecos() reads the open sheet's live ink count, which is
+     correct inside a sheet and wrong on a grid card, where SH belongs to whatever was opened last. */
+  var lg=(CFG.logos&&CFG.logos[0]&&CFG.logos[0].id)||null;
+  return cfg.decos.map(function(d){
+    return {pl:d.pl,on:true,lg:lg,ink:'auto',method:mth(d.method),colours:presetInks(mth(d.method),d.colours)};});
+}
+function stdCfgId(key){var it=BYKEY[bkey(key)]||{};return it.stdcfg||null;}
+function stdCfgOf(key){
+  var id=stdCfgId(key);if(!id)return null;
+  return configsFor(bkey(key)).filter(function(c){return c.id===id;})[0]||null;
+}
+function defaultDecos(key){
+  var c=stdCfgOf(key);
+  return c?cfgDecosPure(c):recDecos(bkey(key));
+}
+/* What the card, the board and the quote CALL the default decoration. `std.label` still wins when
+   there is no stdcfg, so nothing changes for the 480-odd items that have one mark. */
+/* THE LABEL HAS TO DESCRIBE WHAT THEY ACTUALLY CONFIGURED.
+   defaultDecoLabel() returns the friendly standard wording for the item's recommended setup, and
+   the board preferred it whenever one existed -- so a line a customer had changed to a 4-colour
+   front and a 2-colour back still read as the standard left-chest setup. Steven's whole complaint
+   was that this quote could not be produced; producing it and then mislabelling it on the sheet he
+   sends is the same failure one step later.
+   So: the standard wording while the line IS the standard, and the actual placements, methods,
+   ink counts and marks the moment it is not. */
+function decoLabelFor(ck){
+  var key=bkey(ck),it=BYKEY[key]||{},c=(CART[ck]||{});
+  var cur=realDecos(it,c.decos),std=realDecos(it,defaultDecos(key));
+  var same=cur.length===std.length&&std.every(function(a){
+    return cur.some(function(b){
+      return b.pl===a.pl&&(b.method||'')===(a.method||'')&&
+             (b.colours||1)===(a.colours||1)&&(b.lg||null)===(a.lg||null);});});
+  return same?(defaultDecoLabel(key)||decoSummary(it,c)):decoSummary(it,c);
+}
+function defaultDecoLabel(key){
+  key=bkey(key);var it=BYKEY[key]||{};
+  var c=stdCfgOf(key);
+  if(c)return configWhere(c,it);
+  return (it.std&&it.std.label)||'';
+}
+/* Which configuration the sheet is currently in — matched on the exact set of live positions and
+   their methods, so a hand-restored cart line lights up the right card or none of them. */
+function activeConfigId(){
+  var live=Object.keys(SH.D).filter(function(pl){return SH.D[pl].on;}).sort();
+  var cfgs=configsFor(SH.key);
+  for(var i=0;i<cfgs.length;i++){
+    var want=cfgs[i].decos.map(function(d){return d.pl;}).sort();
+    if(want.length!==live.length||want.join('|')!==live.join('|'))continue;
+    /* Match on POSITIONS and METHODS only. Ink count used to be part of this comparison, which was
+       right while it was baked into the preset — but it now has its own control, so picking 4 inks
+       made no preset match and the card the customer had chosen silently lost its selected state
+       while still being the live configuration. Ink count is an independent dimension now. */
+    var same=cfgs[i].decos.every(function(d){
+      var s=SH.D[d.pl];
+      return s&&s.method===d.method;});
+    if(same)return cfgs[i].id;
+  }
+  return null;
+}
+function applyConfig(id){
+  var cfg=configsFor(SH.key).filter(function(c){return c.id===id;})[0];if(!cfg)return;
+  /* Carry a deliberate ink choice across a configuration change. If the customer has set 3 inks
+     and then switches from "left chest print" to "chest + full back", they meant 3 inks on the new
+     setup too — resetting to the preset's 1 would quietly undo a decision they had already made
+     and priced. Only fall back to the preset's count when no screen ink has been chosen yet.
+     THIS MUST RUN BEFORE the off-loop below: the first version read s.on AFTER everything had been
+     switched off, so it never found anything and always reset to 1. */
+  var keepInk=0;
+  Object.keys(SH.D).forEach(function(pl){
+    var s=SH.D[pl];
+    if(s&&s.on&&s.method==='screen'&&(s.colours||1)>1)keepInk=Math.max(keepInk,s.colours||1);});
+  Object.keys(SH.D).forEach(function(pl){SH.D[pl].on=false;});
+  cfg.decos.forEach(function(d){
+    if(!SH.D[d.pl])SH.D[d.pl]={lg:(CFG.logos&&CFG.logos[0]&&CFG.logos[0].id)||null,ink:'auto'};
+    SH.D[d.pl].on=true;SH.D[d.pl].method=d.method;
+    SH.D[d.pl].colours=(d.method==='screen'&&keepInk)?keepInk:presetInks(d.method,d.colours);
+    if(!SH.D[d.pl].lg)SH.D[d.pl].lg=(CFG.logos&&CFG.logos[0]&&CFG.logos[0].id)||null;
+    if(!SH.D[d.pl].ink)SH.D[d.pl].ink='auto';});
+}
+/* Plain-language description of where the marks go, built from the item's own labels. */
+function configWhere(cfg,it){
+  return cfg.decos.map(function(d){
+    var p=placeOf(it,d.pl),lab=(p&&p.label)||d.pl;
+    var sz=(p&&p.size)?(' '+p.size):'';
+    var m=(d.method==='screen')?('screen print'+((d.colours||1)>1?(' '+d.colours+'-colour'):'')):
+          (d.method==='heat_transfer'?(isUS()?'heat transfer':'DTF heat transfer'):(d.method==='patch'?'faux leather patch':'embroidery'));
+    return lab+sz+' · '+m;
+  }).join('   •   ');
+}
+/* ---- INK COUNT for screen print ------------------------------------------------------------
+   Steven, 2026-09-07: a screen print can be 1, 2, 3 or sometimes 4 inks depending on whether the
+   customer wants their logo's original colours, and sometimes they deliberately want one ink even
+   on a multi-colour mark. It changes cost in TWO places, and the second one is the big one:
+     - the run charge per piece  (0.75 / 1.00 / 1.25 / 1.50 of our cost, marked up by quantity)
+     - the SCREENS: one burned per ink per location, $45 each. Four inks is $180 of screens
+       against $45 for one, which at 24 pieces dwarfs the run-charge difference.
+   So this control shows both numbers and does not fabricate an "all-in per piece" — screens are
+   charged once and shared across the whole order, so dividing them into one line's unit price
+   would be a number that changes as the rest of the board changes.
+   It renders ONLY when the chosen configuration actually contains a screen print, which is what
+   keeps the setup from becoming a matrix: one contextual control, not four more preset cards. */
+function activeScreenPls(){
+  return Object.keys(SH.D).filter(function(pl){
+    var d=SH.D[pl];return d&&d.on&&d.method==='screen';});
+}
+/* INK COUNT PER PRINT LOCATION, NOT PER GARMENT. Steven, 2026-09-10: "Tees chest + back has 2
+   logos and those logos could be different. for instance we are quoting someone 4 color screen
+   print front and 2 color screen print back and the company website will not give us a price for
+   this."
+
+   He is right, and the cause was one line in the handler: picking an ink count wrote it to EVERY
+   screen placement, so a front-and-back tee could only ever be 1/1, 2/2, 3/3 or 4/4. The quote he
+   was trying to build was not expressible. Everything underneath already worked per placement --
+   decoCost() reads d.colours, setupBreakdown() bills each screen separately, decoSummary() prints
+   each one's count -- so the fix is to stop collapsing the choice on the way in.
+
+   Each location gets its own row. With a single print location this renders exactly as before, so
+   the ordinary left-chest tee is untouched. Every chip prices the WHOLE garment with that option
+   applied to this location and every other location left alone, which means the selected chip in
+   each row always matches the footer -- a buyer can check the number rather than trust it. */
+/* Prints are priced at the logo's own colour count (brandInks, read from the client's artwork) -- no
+   picker to fiddle with. One line says so; multi-logo stores still choose which mark goes where. */
+function printNoteHtml(){
+  var pls=activeScreenPls();if(!pls.length)return '';
+  var n=Math.max(1,parseInt((SH.D[pls[0]]||{}).colours,10)||1);
+  var art=((CFG.logos||[]).length>1)?pls.map(function(pl){return artPickerHtml(pl);}).join(''):'';
+  return '<div class="prnote"><b>Printed in your logo\u2019s '+n+' colour'+(n===1?'':'s')+'</b>'+
+    '<span>One-time screens: '+money0(screenSetupFor(n)*pls.length)+'. We confirm the colours from your artwork.</span></div>'+art;
+}
+function inkPickerHtml(){
+  var pls=activeScreenPls();if(!pls.length)return '';
+  var q=effQty()||moq(),it=BYKEY[SH.key];
+  var many=pls.length>1,multi=((CFG.logos||[]).length>1);
+  var blocks=pls.map(function(pl){
+    var cur=Math.max(1,parseInt(SH.D[pl].colours,10)||1);
+    var p=placeOf(it,pl);
+    var chips=[1,2,3,4].map(function(n){
+      var decos=sheetDecos().map(function(d){
+        return (d.pl===pl&&d.on&&d.method==='screen')
+          ? {pl:d.pl,on:true,lg:d.lg,ink:d.ink,method:'screen',colours:n} : d;});
+      return '<button type="button" class="inkc'+(n===cur?' on':'')+'" data-ink="'+n+'"'+
+        ' data-inkpl="'+esc(pl)+'" aria-pressed="'+(n===cur?'true':'false')+'">'+
+        '<span class="inkn">'+n+'</span>'+
+        '<span class="inkl">'+(n===1?'ink':'inks')+'</span>'+
+        '<span class="inkp">'+money(unitPrice(SH.key,decos,q))+'<i>/pc</i></span>'+
+        '<span class="inks">'+money0(screenSetupFor(n))+' screens</span>'+
+        (n===1?'<span class="inkt">Best value</span>':'')+
+        '</button>';
+    }).join('');
+    return '<div class="inkloc">'+
+      ((many||multi)?('<div class="inklh"><b>'+esc(p?p.label:pl)+'</b>'+
+        ((p&&p.size)?('<i>'+esc(p.size)+'</i>'):'')+'</div>'):'')+
+      '<div class="inkrow" role="group" aria-label="Ink colours'+(p?(' for '+esc(p.label)):'')+'">'+
+        chips+'</div>'+
+      artPickerHtml(pl)+
+    '</div>';
+  }).join('');
+  return '<div class="inkwrap">'+
+    '<div class="inkhd"><b>Ink colours'+(multi?' &amp; artwork':'')+'</b>'+
+      '<i>'+pls.length+' print location'+(many?'s':'')+
+      (many?' · set each one separately':' · one screen per ink')+'</i></div>'+
+    blocks+
+    '<div class="inkfoot">One ink is the best value and reads strongest on hi-vis. More inks bring '+
+    'the print closer to your logo’s original colours. Screens are a one-time charge, shared '+
+    'across your whole order — we confirm the exact ink count from your artwork on your quote.'+
+    '</div></div>';
+}
+/* WHICH MARK GOES HERE. Only shown when the kit actually carries more than one, so a single-logo
+   store sees no extra control. The per-placement `lg` was already respected by overlayHtml() and
+   billed separately by setupBreakdown() -- there was simply no way to set it. Choosing a different
+   mark resets that location's ink to `auto` so the contrast rule re-decides for the new artwork
+   rather than keeping a choice made about a different shape. */
+function artPickerHtml(pl){
+  var logos=(CFG.logos||[]);
+  if(logos.length<2||!SH.D[pl]||!SH.D[pl].on)return '';
+  var cur=SH.D[pl].lg||logos[0].id;
+  var chips=logos.map(function(L){
+    var nm=logoLabel(L);
+    return '<button type="button" class="artc'+(L.id===cur?' on':'')+'"'+
+      ' data-art="'+esc(L.id)+'" data-artpl="'+esc(pl)+'"'+
+      ' role="radio" aria-checked="'+(L.id===cur?'true':'false')+'" title="'+esc(nm)+'">'+
+      '<span class="artt"><img src="'+kurl((L.inks&&(L.inks.brand||L.inks.dark))||'')+'" alt=""'+
+        ' loading="lazy" decoding="async"></span>'+
+      '<span class="artn">'+esc(nm)+'</span></button>';
+  }).join('');
+  return '<div class="artrow" role="radiogroup" aria-label="Artwork for this location">'+
+    '<span class="artk">Artwork</span>'+chips+'</div>';
+}
+function configCardsHtml(){
+  var cfgs=configsFor(SH.key);if(cfgs.length<2)return '';
+  var it=BYKEY[SH.key],act=activeConfigId();
+  var base=configPrice(cfgs[0]);
+  var cards=cfgs.map(function(c){
+    var p=configPrice(c),d=p-base;
+    return '<button type="button" class="cfgc'+(c.id===act?' on':'')+'" data-cfg="'+esc(c.id)+'">'+
+      '<span class="cfgtick" aria-hidden="true"></span>'+
+      '<span class="cfgb">'+
+        '<span class="cfgn">'+esc(c.name)+(c.tag?('<i class="cfgtag">'+esc(c.tag)+'</i>'):'')+'</span>'+
+        '<span class="cfgs">'+esc(c.sub||'')+'</span>'+
+        '<span class="cfgw">'+esc(configWhere(c,it))+'</span>'+
+      '</span>'+
+      '<span class="cfgp"><b>'+money(p)+'</b><i>/pc</i>'+
+        /* Screen print costs less than embroidery, so some non-default setups are genuinely
+           CHEAPER -- a bag's larger front print runs under its embroidered logo. Show that as a
+           saving, not as a negative surcharge. */
+        (Math.abs(d)<0.005?'<em class="inc">included</em>'
+          :(d>0?('<em>+'+money(d)+'</em>'):('<em class="save">'+money(-d)+' less</em>')))+
+      '</span></button>';
+  }).join('');
+  /* THE COMPLIANCE NOTE HAS TO MATCH THE GARMENT IN FRONT OF THE BUYER. One blanket sentence said
+     "nothing is placed over the reflective tape" and "back marks sit on the yoke, above the upper
+     stripe" for every hi-vis item -- and both halves are wrong for the two products Steven
+     specified on 2026-09-08. On a tear-away vest the logo is embroidered ONTO the left-chest tape;
+     that is where it goes and there is nowhere else on a vest for it. On a traffic shirt the back
+     print is Loc D, the panel BELOW the tapes, not the yoke above them. A compliance claim that
+     contradicts the placement printed two lines above it is worse than no note. */
+  var _ck=configKey(it),note='';
+  if(_ck==='hivisvest'){
+    note='<div class="cfgnote">CSA / ANSI: on a vest the left-chest logo is embroidered onto the '+
+      'reflective tape \u2014 that is the standard placement and it does not reduce the certified '+
+      'area. Back marks sit in the centre-back panel, clear of the stripes.</div>';
+  }else if(_ck==='hivistee'){
+    note='<div class="cfgnote">CSA / ANSI: prints sit in the panels between the tapes, so the '+
+      'reflective area is untouched. The back mark goes below the upper stripe, in the '+
+      'centre-back panel.</div>';
+  }else if(itemCategory(it)==='hivis'){
+    note='<div class="cfgnote">CSA / ANSI: nothing is placed over the reflective tape, and total '+
+      'decoration stays inside the certified area. We confirm the exact placement on your proof.</div>';
+  }
+  /* Only the part .shnote does not already say. .shnote lives further down the same panel and
+     already covers "prices are per piece, decorated, setup shows once" -- printing that twice in
+     two paragraphs a few pixels apart just made both look like boilerplate. */
+  return '<div class="cfgwrap">'+cards+'</div>'+printNoteHtml()+note+
+    '<div class="cfgfoot">Something different in mind? Add it to your quote notes.</div>';
+}
+function sheetDecos(){return Object.keys(SH.D).map(function(pl){var d=SH.D[pl];return {pl:pl,on:d.on,lg:d.lg,ink:d.ink,method:d.method,colours:d.colours};});}
+function decoIsSel(pl,opt){var d=SH.D[pl];if(!d||!d.on||d.method!==opt.m)return false;return opt.m!=='screen'||(d.colours||1)===opt.c;}
+// Per-piece price if placement `pl` used decoration `opt` (holding every other placement as-is).
+function priceIf(pl,opt,on){
+  var decos=sheetDecos().map(function(d){return d.pl===pl?{pl:pl,on:on,lg:d.lg,ink:'auto',method:opt.m,colours:opt.c}:d;});
+  return unitPrice(SH.key,decos,effQty());   // ALWAYS price at the current quantity — keeps finish prices in sync with the size step + footer
+}
+// Our recommended decoration for a placement (from the build) — used to guide the customer.
+function recFor(pl){var d=recDecos(SH.key).filter(function(x){return x.pl===pl;})[0];return d?{m:mth(d.method||'embroidery'),c:d.colours||1}:{m:'embroidery',c:1};}
+function isRec(pl,opt){var r=recFor(pl);return opt.m===r.m&&(opt.m!=='screen'||opt.c===(r.c||1));}
+// A "choose one" finish group for a location (Uber-Eats style radio rows). The recommended finish is
+// tagged so an unsure customer has clear guidance; each row explains the method in plain language.
+function finishGroup(pl,primary){
+  var rows='';
+  // Finish options are shown as a price DELTA against a fixed baseline (not competing absolute /pc numbers,
+  // which is what confused customers vs the size step). Baseline: primary spot = its recommended finish;
+  // extra spots = "no logo" (so adding one reads as a clear "+$x/pc"). The live absolute price stays in the footer.
+  var recm=recFor(pl);
+  var base= primary ? priceIf(pl,{m:recm.m,c:recm.c},true)
+    : (function(){var offD=sheetDecos().map(function(x){return x.pl===pl?{pl:pl,on:false,lg:x.lg,ink:x.ink,method:x.method,colours:x.colours}:x;});return unitPrice(SH.key,offD,effQty());})();
+  function tag(u){var d=Math.round((u-base)*100)/100;return Math.abs(d)<0.005
+    ?'<span class="fp inc">Included</span>'
+    :'<span class="fp">'+(d>0?'+':'−')+money(Math.abs(d))+'<i>/pc</i></span>';}
+  if(!primary){var off=!SH.D[pl].on;
+    rows+='<button class="frow'+(off?' on':'')+'" data-pl="'+pl+'" data-off="1"><span class="fr"></span>'+
+      '<span class="ft"><b>No logo here</b></span><span class="fp inc">Included</span></button>';}
+  methodOpts().forEach(function(opt){var sel=decoIsSel(pl,opt),u=priceIf(pl,opt,true),rec=isRec(pl,opt);
+    rows+='<button class="frow'+(sel?' on':'')+'" data-pl="'+pl+'" data-m="'+opt.m+'" data-c="'+opt.c+'">'+
+      '<span class="fr"></span><span class="ft"><b>'+opt.lab+(rec?' <span class="frec">★ Recommended</span>':'')+'</b><span>'+opt.sub+'</span></span>'+
+      tag(u)+'</button>';});
+  return rows;
+}
+// Photo gallery for the detail sheet — every product photo (angles/model). First thumb = current colour.
+function galleryStrip(item){
+  var gal=item.gallery||[];if(!gal.length)return '';
+  var cur=colInList(curColsOf(item,SH.fit),SH.colour);
+  var t=['<button class="shgthumb'+(SH.gimg?'':' on')+'" data-img="" style="background-image:url('+gurl(cur.front)+')" aria-label="Main colour view"></button>'];
+  gal.forEach(function(g){t.push('<button class="shgthumb'+(SH.gimg===g?' on':'')+'" data-img="'+esc(g)+'" style="background-image:url('+gurl(g)+')" aria-label="Product photo"></button>');});
+  return '<div class="shgal">'+t.join('')+'</div>';
+}
+// PROMO sheet — simple & honest. Debco is flat End-Quantity Pricing, so we anchor on ONE per-piece price
+// (same at any qty), show the logo setup as a clear one-time line, and give a plain cost summary. No
+// gamified "savings tiers" (the only qty effect is setup spreading) — just an easy, trustworthy decision.
+function renderPromoSheet(){
+  var item=BYKEY[SH.key];
+  // The hero photo has to follow the SELECTED colour. Deriving it from `gallery` (or cols[0]) meant every
+  // colour showed the supplier's default shot, so clicking a swatch re-rendered the sheet but the picture
+  // never changed — it read as a broken store. Selected colour first, then any extra angles as thumbs.
+  var selc=colInList(item.cols||[],SH.colour)||(item.cols||[])[0]||{};
+  var gal=(selc.front?[selc.front]:[]).concat((item.gallery||[]).filter(function(g){return g&&g!==selc.front;}));
+  if(!gal.length)gal=(item.gallery&&item.gallery.length)?item.gallery.slice():[];
+  var gi=Math.min(SH.gi||0,gal.length-1);
+  var q=promoQuote(item,SH);
+  var min=q.min, methods=q.methods, isDQ=q.decoquote, unitP=(q.unit==='dozen'?'dozen':'pc');
+  var thumbs=gal.length>1?('<div class="pthumbs">'+gal.map(function(g,i){return '<button class="pthumb'+(i===gi?' on':'')+'" data-i="'+i+'" style="background-image:url('+gurl(g)+')" aria-label="Photo '+(i+1)+'"></button>';}).join('')+'</div>'):'';
+  var cols=(item.cols||[]).map(function(c){return '<button class="pcol'+(c.name===SH.colour?' on':'')+'" data-col="'+esc(c.name)+'" title="'+esc(c.name)+'"><span style="background:'+(c.rgb||'#ccc')+'"></span></button>';}).join('');
+  var priceSub,logoGrp,picksHtml,sumHtml,footHtml,step=(min>=48?48:(min>=24?24:12));
+  if(isDQ){
+    var multi=(q.tiers&&q.tiers.length>1);
+    priceSub='<div class="pprice-sub">'+(multi?'Order more, pay less per '+unitP:'Your price per '+unitP)+' · your logo included</div>';
+    /* What's in the box. A gift set is bought on its CONTENTS, so list them and link each one.
+       PACKAGING IS NOT A PRODUCT. The P-series gift box was previously listed as the first row of
+       every set, where it was the one entry that could not be clicked -- Steven read that, quite
+       reasonably, as "the first item in the kit is not clickable". A box has no product page, so it
+       is now credited on its own line underneath instead of sitting in a list of things you can
+       open. Every row that remains is clickable. */
+    var incHtml='',_pkg=/\b(gift box|giftbox|magnetic box|crate|packaging|mailer box)\b/i;
+    if(item.includes&&item.includes.length){
+      var real=item.includes.filter(function(x){
+        return !(_pkg.test(x.desc||'')||/^P\d/i.test(x.sku||''));});
+      var boxes=item.includes.filter(function(x){
+        return _pkg.test(x.desc||'')||/^P\d/i.test(x.sku||'');});
+      if(real.length){
+        incHtml='<div class="pgrp"><div class="pgl">Gift set includes</div><ul class="pinc">'+real.map(function(x){
+          var hit=null;for(var k in BYKEY){if((BYKEY[k].msku||'').toUpperCase()===String(x.sku||'').toUpperCase()){hit=k;break;}}
+          var txt=esc(x.desc||x.sku||'');
+          return '<li>'+(hit?('<a href="?item='+encodeURIComponent(hit)+'" data-item="'+esc(hit)+'" data-from="'+esc(SHEETKEY)+'">'+txt+'</a>'):txt)+
+                 (x.sku?(' <small>'+esc(x.sku)+'</small>'):'')+'</li>';}).join('')+'</ul>'+
+          (boxes.length?('<div class="pboxnote">Presented in a '+esc(boxName(boxes[0].desc))+'</div>'):'')+
+          '</div>';}}
+    logoGrp=incHtml+'<div class="pgrp"><div class="pgl">Your logo</div><div class="qlogo"><span class="pinci">✓</span> Add your logo — your branding is already included in this price.</div></div>';
+    var tq=(q.tiers&&q.tiers.length)?q.tiers.map(function(t){return t.q;}):promoTiers(min);
+    // Show the BREAK RANGE, not just its opening number: the vendor's own table reads "6 - 47" then
+    // "48+", and a bare "6" next to a bare "48" makes a buyer guess where one price stops and the next
+    // starts. Last tier is open-ended.
+    picksHtml='<div class="ptiers">'+tq.map(function(t,ti){
+      var lbl=(ti<tq.length-1)?(t+'\u2013'+(tq[ti+1]-1)):(t+'+');
+      return '<button class="ptier'+(t===q.qty?' on':'')+'" data-q="'+t+'"><b>'+lbl+'</b><span>'+money(tierPrice(item,t))+'/'+unitP+'</span></button>';}).join('')+'</div>';
+    /* NO SETUP ROW ON THIS PATH. Spector & Co list prices include their default branding and JDP
+       charges the Spector price as published, so promoQuote() correctly returns setup:0. This
+       summary used to ignore that and add item.setup straight from the catalogue -- 205 of the
+       234 promo items carry one ($40-$270), so the sheet showed e.g. 25 x $26.50 = $662.50 then
+       "+$120 one-time setup" and an "Estimated total" of $782.50, while the Add-to-board button
+       directly beneath it said $662.50. Two totals, 18% apart, on one screen -- and it sat two
+       lines above our own "Your logo: included in the price". The stored setup figure is kept in
+       the data because it is real for UPGRADE decoration methods; it just is not charged here. */
+    sumHtml='<div class="psum"><div class="psrow"><span>'+q.qty+' '+unitP+' × '+money(q.perPiece)+'</span><span>'+money(q.goods)+'</span></div>'+
+      '<div class="psrow"><span>Your logo</span><span>included in the price</span></div>'+
+      '<div class="psrow pstot"><span>Estimated total</span><span>'+money(q.goods)+'</span></div></div>';
+    footHtml='<div class="pfrow"><span>'+q.qty+' '+unitP+' · '+money(q.perPiece)+'/'+unitP+'</span><b>'+money(q.goods)+'</b></div>'+
+      '<button class="shaddbtn" id="shAdd"><span>'+(CART[SH.key]?'Update board':'Add to board')+'</span><span class="p">'+money(q.goods)+'</span></button>'+
+      '<div class="shtrust">Minimum '+min+' '+unitP+' · your logo included in this price</div>';
+  }else{
+    var meth=methods.map(function(m,i){var up=m.r>0?('<small>+'+money(m.r)+'/pc</small>'):'<small>included</small>';
+      return '<button class="pmeth'+(i===q.mi?' on':'')+'" data-mi="'+i+'">'+esc(m.n)+' '+up+'</button>';}).join('');
+    var locBtns='<button class="ploc'+(q.locs===1?' on':'')+'" data-loc="1">1 spot <small>included</small></button>'+
+      '<button class="ploc'+(q.locs===2?' on':'')+'" data-loc="2">2 spots <small>+'+money(item.addl_loc||0.75)+'/pc</small></button>';
+    priceSub='<div class="pprice-sub">'+(q.run>0?esc(q.method.n):esc(q.method.n)+' · included')+(q.locs>1?' · 2 spots':'')+' · same price at any quantity</div>';
+    logoGrp='<div class="pgrp"><div class="pgl">Your logo <i>1-colour included</i></div><div class="pmeths">'+meth+'</div><div class="plocs">'+locBtns+'</div></div>';
+    picksHtml='<div class="ppicks">'+promoTiers(min).map(function(t){return '<button class="ppick'+(t===q.qty?' on':'')+'" data-q="'+t+'">'+t+'</button>';}).join('')+'</div>';
+    sumHtml='<div class="psum"><div class="psrow"><span>'+q.qty+' pcs × '+money(q.perPiece)+'</span><span>'+money(q.goods+q.decoRun)+'</span></div>'+
+      '<div class="psrow"><span>One-time logo setup'+(q.locs>1?' · 2 spots':'')+'</span><span>'+money(q.setup)+'</span></div>'+
+      '<div class="psrow pstot"><span>Estimated total</span><span>'+money(q.total)+' <em>≈'+money(q.allIn)+'/pc</em></span></div></div>';
+    footHtml='<div class="pfrow"><span>'+q.qty+' pcs · '+money(q.perPiece)+'/pc + '+money(q.setup)+' setup</span><b>'+money(q.total)+'</b></div>'+
+      '<button class="shaddbtn" id="shAdd"><span>'+(CART[SH.key]?'Update board':'Add to board')+'</span><span class="p">'+money(q.total)+'</span></button>'+
+      '<div class="shtrust">Minimum '+min+' pcs · no payment now</div>';
+  }
+  document.getElementById('sheet').innerHTML=
+    '<button class="shx" id="shx" aria-label="Close">✕</button>'+backChipHtml()+
+    '<div class="shscroll">'+
+      '<div class="shimg"><div class="shstage"><img id="pmain" class="g" src="'+gurl(gal[gi])+'" alt="'+esc(item.name)+'"></div>'+thumbs+'</div>'+
+      '<div class="shb">'+
+        '<h2>'+esc(item.name)+'</h2>'+
+        '<div class="shsku">'+esc(item.brand||'')+(item.layer==='promo'?'':' · item '+esc(item.msku||item.sku))+
+          shareBtnHtml(SHEETKEY)+'</div>'+
+        '<div class="pprice"><b>'+money(q.perPiece)+'</b><span>per '+unitP+'</span></div>'+
+        priceSub+
+        (item.desc?'<p class="shblurb">'+esc(item.desc)+'</p>':'')+
+        (cols?'<div class="pgrp"><div class="pgl">Colour<i>'+esc(SH.colour||'')+'</i></div><div class="pcols">'+cols+'</div></div>':'')+
+        logoGrp+
+        '<div class="pgrp"><div class="pgl">How many?<i>minimum '+min+' '+unitP+'</i></div>'+picksHtml+
+          '<div class="qty pqty"><button data-d="-'+step+'" aria-label="Fewer">–</button><input id="pqin" class="szin" type="number" inputmode="numeric" value="'+q.qty+'" min="'+min+'"><button data-d="'+step+'" aria-label="More">+</button></div></div>'+
+        sumHtml+
+        '<div class="pinc"><span class="pinci">✓</span> Exact quote confirmed before anything is made · no payment now.</div>'+
+      '</div></div>'+
+    '<div class="shfoot">'+footHtml+'</div>';
+  var sh=document.getElementById('sheet');
+  // Re-render replaces this markup, so the sheet chrome must be re-bound every time, not just
+  // on open: clicking a colour swatch calls the renderer again and left Share and Back dead.
+  // The panel is dismissed too, since the link it was showing is for the previous colour.
+  closeShareMenu();wireShare(sh);wireBack(sh);
+  document.getElementById('shx').addEventListener('click',closeAll);
+  sh.querySelectorAll('.pthumb').forEach(function(b){b.addEventListener('click',function(){SH.gi=+b.dataset.i;var mi=document.getElementById('pmain');if(mi)mi.src=gurl(gal[SH.gi]);sh.querySelectorAll('.pthumb').forEach(function(x){x.classList.toggle('on',x===b);});});});
+  sh.querySelectorAll('.pcol').forEach(function(b){b.addEventListener('click',function(){SH.colour=b.dataset.col;SH.gi=0;renderPromoSheet();});});
+  // Jump straight from a gift set to any component it contains, in place, with no page reload.
+  // contents links are handled by the delegated listener in wireDelegates()
+  sh.querySelectorAll('.pmeth').forEach(function(b){b.addEventListener('click',function(){SH.mi=+b.dataset.mi;renderPromoSheet();});});
+  sh.querySelectorAll('.ploc').forEach(function(b){b.addEventListener('click',function(){SH.locs=+b.dataset.loc;renderPromoSheet();});});
+  sh.querySelectorAll('.ppick').forEach(function(b){b.addEventListener('click',function(){SH.qty=+b.dataset.q;renderPromoSheet();});});
+  sh.querySelectorAll('.pqty button').forEach(function(b){b.addEventListener('click',function(){var cur=parseInt(document.getElementById('pqin').value,10)||min;SH.qty=Math.max(min,cur+parseInt(b.dataset.d,10));renderPromoSheet();});});
+  var qin=document.getElementById('pqin');if(qin)qin.addEventListener('change',function(){SH.qty=Math.max(min,parseInt(qin.value,10)||min);renderPromoSheet();});
+  document.getElementById('shAdd').addEventListener('click',function(){var was=!!CART[SH.key];CART[SH.key]={qty:q.qty,colour:SH.colour,mi:SH.mi,locs:SH.locs,promo:true};saveCart();closeAll();refreshCartUI();syncBoardIfOpen();toast((was?'Updated · ':'Added · ')+item.name);});
+}
+function pdpSizesHtml(it){
+  if(!it||oneSize(it))return '';
+  var rng=function(a){return a&&a.length?(a.length>2&&!numericRun(a)?(a[0]+'\u2013'+a[a.length-1]):a.join(', ')):'';};
+  var m=itemSizes(it,'mens'),w=hasLadies(it)?itemSizes(it,'womens'):null;
+  return '<div class="pdpsz"><b>Available sizes</b><span>'+(w?('Men\u2019s '+esc(rng(m))+' \u00b7 Women\u2019s '+esc(rng(w))):esc(rng(m)))+'</span></div>';
+}
+function renderSheet(){
+  var item=BYKEY[SH.key];
+  if(item&&item.layer==='promo'){var _ps=document.getElementById('sheet');if(_ps)_ps.classList.remove('pdpw');return renderPromoSheet();}
+  if(!document.getElementById('jdpStepCss')){var _st=document.createElement('style');_st.id='jdpStepCss';_st.textContent=
+    ".step{margin-top:22px;padding-top:20px;border-top:1px solid #eee}"+
+    ".shb .step:first-of-type{border-top:0;margin-top:4px;padding-top:0}"+
+    ".steph{display:flex;align-items:center;gap:10px;margin-bottom:13px}"+
+    ".stepn{flex:none;width:26px;height:26px;border-radius:50%;background:var(--a,#E0801A);color:#fff;font-weight:800;font-size:14px;display:flex;align-items:center;justify-content:center}"+
+    ".stept{font-weight:800;font-size:16px;color:#141414;flex:1}"+
+    ".steph i{font-style:normal;color:#8a8a8a;font-size:13px;font-weight:600}"+
+    ".pthead{font-size:12px;color:#8a8a8a;margin:16px 0 8px;font-weight:600}"+
+    ".shprice{display:flex;align-items:center;justify-content:space-between;padding:2px 2px 10px;font-size:14px;color:#555}"+
+    ".shprice b{color:#141414;font-size:18px;font-weight:800}"+
+    ".shprice.under,.shprice.under b{color:#c0392b}"+
+    ".shnote{margin:22px 2px 2px;font-size:11.5px;line-height:1.6;color:#9a9a9a}"+
+    ".shfrom{margin:7px 0 4px;font-size:14px;color:#666;font-weight:600;display:flex;align-items:baseline;flex-wrap:wrap;gap:0 6px}.shfrom b{color:#141414;font-size:17px;font-weight:800}.shfrom small{color:#8a8a8a;font-weight:600}.shfrom i{font-style:normal;color:#666;font-weight:700}.shfrom .shvol{font-size:12.5px;font-weight:700;color:#0a7d3c;background:#e8f7ee;border-radius:999px;padding:3px 9px}"+
+    ".fp.inc{color:#2e7d32;font-weight:700}"+
+    ".fittog{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:14px 0 2px}"+
+    ".fitl{font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#8a8a8a;margin-right:2px}"+
+    ".fitb{border:1.5px solid #e2e6ec;background:#fff;color:#141414;border-radius:22px;padding:8px 18px;font:inherit;font-weight:700;font-size:13.5px;cursor:pointer}"+
+    ".fitb.on{border-color:var(--a,#141821);background:var(--a,#141821);color:#fff}"+
+    ".fitnote{flex-basis:100%;font-size:11.5px;color:#8a8a8a;margin-top:4px}"+
+    ".fitbadge{display:inline-block;background:var(--a,#141821);color:#fff;border-radius:5px;padding:1px 7px;font-size:10.5px;font-weight:800;letter-spacing:.02em;vertical-align:middle}"+
+    ".unitag{border:1.5px solid var(--a,#141821);color:var(--a,#141821);border-radius:22px;padding:7px 16px;font-weight:800;font-size:13px;letter-spacing:.03em}";
+    document.head.appendChild(_st);}
+  var cols=curColsOf(item,SH.fit);
+  var curPlaces=(SH.fit==='womens'&&item.wplaces&&item.wplaces.length)?item.wplaces:item.places;
+  var o=overlayHtml(item,{decos:sheetDecos()},SH.colour,SH.face,cols,curPlaces);var hasBack=o.hasBack;
+  var chips=cols.map(function(c){return '<button class="cchip'+(c.name===SH.colour?' on':'')+'" data-col="'+esc(c.name)+'" style="background-image:url('+gurl(c.front)+')" title="'+esc(c.name)+'"></button>';}).join('');
+  var fitTog=hasLadies(item)?('<div class="fittog"><span class="fitl">Fit</span>'+
+    '<button class="fitb'+(SH.fit==='mens'?' on':'')+'" data-fit="mens">Men’s</button>'+
+    '<button class="fitb'+(SH.fit==='womens'?' on':'')+'" data-fit="womens">Women’s</button>'+
+    (SH.fit==='womens'&&!(item.wcols&&item.wcols.length)?'<span class="fitnote">Ladies’ cut confirmed with your quote</span>':'')+
+    /* Both cuts are separate kit lines now, and companies usually want both. Saying the other one is
+       already in there removes the "did I just overwrite it?" doubt, and nudges the second add. */
+    (function(){var other=ckey(SH.key,SH.fit==='womens'?'mens':'womens');var o=CART[other];
+      return o?('<span class="fitboth">\u2713 '+(SH.fit==='womens'?'Men\u2019s':'Women\u2019s')+
+        ' cut already in your board \u2014 '+(o.qty||0)+' pcs</span>'):'';})()+
+    '</div>'):(item.unisex?'<div class="fittog"><span class="fitl">Fit</span><span class="unitag">Unisex</span><span class="fitnote">One unisex cut — fits everyone</span></div>':'');
+  var faceTog=hasBack?'<div class="ftog"><button class="pchip'+(SH.face==='front'?' on':'')+'" data-face="front">Front</button><button class="pchip'+(SH.face==='back'?' on':'')+'" data-face="back">Back</button></div>':'';
+  var logoPlaces=(item.places||[]).filter(function(p){return p.logo;});
+  var primary=logoPlaces[0],extras=logoPlaces.slice(1);
+  // Read-only: this is the setup that is mocked up, quoted AND produced. Offering a finish menu and
+  // optional extra spots meant the customer could leave the sheet in a state the quote never matched,
+  // and made every order a bespoke production setup. Anything beyond the standard is a quoted
+  // exception now, requested in the notes -- which is where variation belongs.
+  var _st=stdOf(SH.key);
+  /* Step 3 is the priced configuration chooser when this item has more than one offerable setup,
+     and falls back to the old read-only standard display when it has exactly one (caps with no
+     side panel, items with a single position). Either way the customer cannot invent a setup we
+     do not run -- which is what made this read-only in the first place. */
+  var _cfgCards=configCardsHtml();
+  var primaryHtml=_cfgCards
+    ? ('<section class="step" id="shLogo"><div class="steph"><span class="stepn">2</span><span class="stept">Your logo</span>'+
+        '<i>choose a setup</i></div>'+_cfgCards+sysHtml(item)+'</section>')
+    : (_st&&_st.method)
+    ? ('<section class="step" id="shLogo"><div class="steph"><span class="stepn">2</span><span class="stept">Your logo</span>'+
+        '<i>included</i></div><div class="decostd">'+
+        '<span class="dsic" aria-hidden="true">\u25C6</span>'+
+        '<span class="dstx"><b>'+esc(_st.loc)+'</b><i>Embroidered \u00b7 '+esc(_st.size)+' \u00b7 included in the price</i></span>'+
+        '</div>'+sysHtml(item)+'<div class="decofoot">Our standard setup for this product. The image above is a '+
+        'visual guide, not an exact production rendering. Your logo, placement and size are confirmed '+
+        'on your quote. Need another location? Add it in the notes and we\u2019ll price it.</div></section>')
+    : (hasDecoPlace(item)?'':'<section class="step" id="shLogo"><div class="steph"><span class="stepn">2</span><span class="stept">Your logo</span></div>'+
+        '<div class="decofoot">This piece is supplied blank. Tell us in the notes if you\u2019d like it decorated and we\u2019ll quote it.</div></section>');
+  var extraHtml='';
+  var decos=sheetDecos();
+  var q=effQty(),tiers=CFG.pricing.cols||[12],topcol=tiers[tiers.length-1];
+  var unit=unitPrice(SH.key,decos,q||moq()),line=unit*q;
+  var ptable=tiers.map(function(t,i){var u=unitPrice(SH.key,decos,t);
+    var on=q>=t&&(i===tiers.length-1||q<tiers[i+1]);
+    return '<div class="pt'+(on?' on':'')+'"><span>'+t+'+ pcs</span><b>'+money(u)+'</b><i>/pc</i></div>';}).join('');
+  var nud=savingsNudge(SH.key,decos,q||moq());
+  var nudHtml=nud?('<div class="nudge">💡 Add '+nud.need+' more to reach the '+nud.tier+'+ price — <b>save '+nud.pct+'% per piece</b></div>'):'';
+  // Quantity = a size breakdown, always (the ONLY quantity control — no confusing total-vs-sizes choice).
+  var under=q<moq();
+  var grid=sheetSizes().map(function(s){return '<div class="szrow"><span class="szl">'+s+'</span>'+
+    '<div class="qty sm szqty"><button data-sz="'+s+'" data-d="-1" aria-label="Less '+s+'">–</button><input class="szin" data-sz="'+s+'" type="number" inputmode="numeric" value="'+(SH.sizes[s]||0)+'" min="0"><button data-sz="'+s+'" data-d="1" aria-label="More '+s+'">+</button></div></div>';}).join('');
+  var totHint = under ? (' <span>· add '+(moq()-q)+' more to reach the '+moq()+' minimum</span>')
+    : (sizeTotal()===0&&SH.baseQty>0 ? ' <span>· set your split below (optional)</span>' : '');
+  /* ONE NUMBER FIRST, THE SPLIT IF YOU HAVE IT (2026-10-08). The quantity step was six size steppers --
+     a wall of decisions before the buyer had settled the logo -- for a split most enterprise buyers do
+     not have yet and can set on the quote. So: one quantity box with quick picks at the price breaks,
+     and "Split by size" opens the maker's own run for anyone who does know. */
+  var szOn=sizeTotal()>0,szOpen=SH.szOpen||szOn;
+  var quick=[moq(),24].concat(tiers.slice(1)).filter(function(v,i,a){return a.indexOf(v)===i;}).sort(function(a,b){return a-b;});
+  var qtyGrp='<section class="step" id="shQty"><div class="steph"><span class="stepn">3</span><span class="stept">How many?</span><i>'+moq()+' minimum</i></div>'+
+    '<div class="pqrow"><div class="qty pq"><button type="button" id="pqm" aria-label="Fewer">–</button>'+
+      '<input id="pqin" type="number" inputmode="numeric" min="1" value="'+q+'" aria-label="Quantity"'+(szOn?' title="Total of your size split"':'')+'>'+
+      '<button type="button" id="pqp" aria-label="More">+</button></div>'+
+      '<div class="pqchips">'+quick.map(function(v){return '<button type="button" class="pqc'+(q===v?' on':'')+'" data-pq="'+v+'">'+v+'</button>';}).join('')+'</div></div>'+
+    (under?'<div class="sztot under">Add '+(moq()-q)+' more to reach the '+moq()+'-piece minimum</div>':'')+nudHtml+
+    '<button type="button" class="pqsz'+(szOpen?' on':'')+'" id="pqSz" aria-expanded="'+(szOpen?'true':'false')+'">'+
+      (szOn?'Your size split · '+esc(sizesSummary({sizes:SH.sizes},item)):'Split by size <i>optional — or set sizes on your quote</i>')+'<span aria-hidden="true">'+(szOpen?'▴':'▾')+'</span></button>'+
+    (szOpen?('<div class="pqszbox"><div class="szgrid">'+grid+'</div>'+spreadReuseHtml()+
+      '<div class="sztot'+(under?' under':'')+'">Total <b>'+q+' pcs</b>'+totHint+'</div></div>'):'')+
+    '</section>';
+  var canAdd=q>=moq();
+  // Preserve the customiser's scroll position across re-renders so tapping a finish / size doesn't jump.
+  var _prev=document.querySelector('#sheet .shscroll'),_top=_prev?_prev.scrollTop:0;
+  var fromP=unitPrice(SH.key,decos,topcol);
+  var step1='<section class="step"><div class="steph"><span class="stepn">1</span><span class="stept">Select a colour</span><i>'+esc(SH.colour)+'</i></div><div class="cchips">'+chips+'</div></section>';
+  var priceClar=canAdd
+    ? '<div class="shprice"><span>'+q+' pcs × '+money(unit)+'/pc</span><b>'+money(line)+' total</b></div>'
+    : '<div class="shprice under"><span>Minimum '+moq()+' pieces</span><b>add '+(moq()-q)+' more</b></div>';
+  /* The media row used to sit between the hero photo and the product NAME, so a buyer met "See it
+     worn" and "Watch video" before they knew what they were looking at, or what it cost. Identify
+     the product first, then offer the deeper media. */
+  var mediaRow=(item.scenic||item.video)?('<div class="shmedia">'+
+    (item.scenic?'<button class="shworn" id="shworn" aria-label="See it worn"><img src="'+gurl(item.scenic)+'" alt="" loading="lazy"><span class="swt"><b>See it worn</b><i>real in-the-field photo</i></span><span class="swgo">\u2192</span></button>':'')+
+    (item.video?'<button class="vwatch" id="vwatch"><svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>Watch video<span class="vwdur"></span></button>':'')+
+  '</div>'):'';
+  document.getElementById('sheet').classList.add('pdpw');
+  document.getElementById('sheet').innerHTML=
+    '<button class="shx" id="shx" aria-label="Close">✕</button>'+backChipHtml()+
+    '<div class="shscroll"><div class="pdp"><div class="pdpL">'+
+      '<div class="shimg" id="shimg"><div class="shstage"><img class="g" src="'+(SH.gimg?gurl(SH.gimg):o.g)+'" alt="">'+(SH.gimg?'':o.lg)+'</div>'+faceTog+'</div>'+
+      galleryStrip(item)+mediaRow+'</div>'+
+      '<div class="shb pdpR"><h2>'+esc(item.name)+'</h2><div class="shsku">'+esc(item.sku)+(hasLadies(item)?(SH.fit==='womens'?' · Ladies’':' · Men’s'):(item.unisex?' · Unisex':''))+(item.layer==='field'&&item.csa?' · CSA hi-vis':'')+shareBtnHtml(SHEETKEY)+'</div>'+
+      '<div class="shfrom"><b>'+money(unit)+'</b> <small>/pc</small> <i>at '+(q||moq())+' pcs</i>'+(hasDecoPlace(item)?'':' · blank')+
+        (fromP<unit?('<span class="shvol">'+money(fromP)+'/pc at '+topcol+'+</span>'):'')+'</div>'+
+      /* What that price includes, BEFORE the blurb -- it used to live in step 3, below colour and
+         sizes, so a buyer read a price and had to scroll past two decisions to learn what it was
+         for. Built from the same `decos` the price above was computed from, so it follows every
+         change they make; "Change" goes straight to the logo step. */
+      /* the price ladder belongs next to the price, not three steps down */
+      '<div class="pladder"><div class="plh">Price per piece · your logo included</div><div class="ptable">'+ptable+'</div></div>'+
+      (item.layer==='promo'?'':('<div class="shinc">'+incHtml(item,decos,'sheet')+
+        (hasDecoPlace(item)?'<button type="button" class="shincgo" id="shIncGo">Change<span aria-hidden="true"> \u2193</span></button>':'')+
+      '</div>'))+
+      fitTog+step1+primaryHtml+extraHtml+qtyGrp+
+      trustPromiseHtml('sheet')+
+    '</div></div>'+
+    /* DETAILS, BELOW THE DECISION. Description, fabric, the size run, samples and alternatives are
+       all worth having -- after the buyer can see colour, logo and quantity, not before them. */
+    '<div class="pdpD"><h3 class="pdph">Product details</h3>'+
+      (item.blurb?'<p class="shblurb">'+esc(item.blurb)+'</p>':'')+
+      pdpSizesHtml(item)+fabricHtml(item)+sampCtaHtml(SH.key)+altHtml(SH.key)+
+      '<div class="shnote">'+(hasDecoPlace(item)?'Prices are per piece, decorated — your logo is included. One-time setup shows once on your quote. ':'Prices are per piece (blank garment — no decoration on this item). ')+'Exact quote confirmed in writing before anything runs.</div>'+
+    '</div></div>'+
+    '<div class="shfoot">'+priceClar+
+      /* ONE TAP FROM A PRODUCT TO A REQUEST. Live funnel, 2026-09-25: 21 product opens, 0 adds.
+         "Add to board" asked a buyer to adopt our concept of a board before they could ask a
+         question. The primary action is now the thing they came for -- a free mockup and price for
+         THIS piece -- and the board is the secondary "keep browsing" path. Same add, same line,
+         then straight into the request instead of back to the grid. */
+      (canAdd
+        ? ('<button class="shaddbtn" id="shAdd"><span>'+(CART[ckey(SH.key,SH.fit)]&&!isTemplate(ALID)?'Update in my quote':'Add to my quote')+'</span><span class="p">'+money(line)+'</span></button>')
+        : '<button class="shaddbtn" id="shAdd" disabled><span>Add '+moq()+'+ pieces</span><span class="p">'+money(line)+'</span></button>')+
+      (trustOn()?('<div class="shtrust">'+trustRatingHtml('mini')+' · itemized quote · no payment now</div>')
+                :'<div class="shtrust">✓ Live pricing · exact quote · no obligation · no payment now</div>')+'</div>';
+  var sh=document.getElementById('sheet');
+  // Re-render replaces this markup, so the sheet chrome must be re-bound every time, not just
+  // on open: clicking a colour swatch calls the renderer again and left Share and Back dead.
+  // The panel is dismissed too, since the link it was showing is for the previous colour.
+  closeShareMenu();wireShare(sh);wireBack(sh);
+  document.getElementById('shx').addEventListener('click',closeAll);
+  var vw=document.getElementById('vwatch');if(vw){vw.addEventListener('click',function(){openVideo(item.video,item.name);});
+    stampVideoDuration(item.video,'vwatch');}
+  var sw=document.getElementById('shworn');if(sw)sw.addEventListener('click',function(){openScenic(gurl(item.scenic),item.name);});
+  wireAlts(sh);
+  var ig=document.getElementById('shIncGo');if(ig)ig.addEventListener('click',function(){
+    var t=document.getElementById('shLogo');if(!t)return;
+    t.scrollIntoView({behavior:'smooth',block:'start'});
+    t.classList.remove('flash');void t.offsetWidth;t.classList.add('flash');});
+  sh.querySelectorAll('.cchip').forEach(function(b){b.addEventListener('click',function(){SH.colour=b.dataset.col;SH.gimg=null;swapPreview();renderSheet();});});
+  sh.querySelectorAll('[data-cfg]').forEach(function(b){b.addEventListener('click',function(){
+    applyConfig(b.dataset.cfg);renderSheet();});});
+  sh.querySelectorAll('[data-ink]').forEach(function(b){b.addEventListener('click',function(){
+    var n=Math.max(1,parseInt(b.dataset.ink,10)||1),pl=b.dataset.inkpl;
+    /* ONE location, not all of them -- this line is the whole bug Steven reported. The fallback
+       covers a chip rendered without a location, which no longer happens but would otherwise
+       silently do nothing. */
+    if(pl&&SH.D[pl])SH.D[pl].colours=n;
+    else activeScreenPls().forEach(function(p){SH.D[p].colours=n;});
+    renderSheet();});});
+  sh.querySelectorAll('[data-art]').forEach(function(b){b.addEventListener('click',function(){
+    var pl=b.dataset.artpl;if(!pl||!SH.D[pl])return;
+    SH.D[pl].lg=b.dataset.art;SH.D[pl].ink='auto';
+    swapPreview();renderSheet();});});
+  sh.querySelectorAll('.shgthumb').forEach(function(b){b.addEventListener('click',function(){SH.gimg=b.dataset.img||null;renderSheet();
+    var st=document.querySelector('#sheet .shscroll');if(st)st.scrollTop=0;});});
+  sh.querySelectorAll('[data-face]').forEach(function(b){b.addEventListener('click',function(){SH.face=b.dataset.face;renderSheet();});});
+  sh.querySelectorAll('[data-fit]').forEach(function(b){b.addEventListener('click',function(){
+    if(SH.fit===b.dataset.fit)return;SH.fit=b.dataset.fit;
+    var cc=curColsOf(item,SH.fit);var cur=colInList(cc,SH.colour);if(!cur||cur.name!==SH.colour)SH.colour=cc[0].name;
+    var keep=SH.sizes||{};SH.sizes={};sheetSizes().forEach(function(s){SH.sizes[s]=keep[s]||0;});
+    swapPreview();renderSheet();});});
+  var as=document.getElementById('addSpot');if(as)as.addEventListener('click',function(){SH.showExtra=true;renderSheet();});
+  sh.querySelectorAll('.frow').forEach(function(b){b.addEventListener('click',function(){var pl=b.dataset.pl;
+    if(b.dataset.off){SH.D[pl].on=false;}
+    else{var chg=!SH.D[pl].on||SH.D[pl].method!==b.dataset.m;SH.D[pl].on=true;SH.D[pl].method=b.dataset.m;SH.D[pl].colours=parseInt(b.dataset.c,10)||1;if(chg)SH.D[pl].ink='auto';
+      var p=placeOf(item,pl);if(p&&(p.face||'front')!==SH.face&&hasBack)SH.face=p.face||'front';}
+    swapPreview();renderSheet();});});
+  var pqSet=function(n){n=Math.max(1,Math.min(100000,parseInt(n,10)||0));
+    if(sizeTotal()>0&&n!==sizeTotal()){sheetSizes().forEach(function(z){SH.sizes[z]=0;});SH.szOpen=false;toast('Size split cleared \u2014 set it again here or on your quote');}
+    SH.baseQty=n;renderSheet();};
+  var pqin=document.getElementById('pqin');
+  if(pqin){pqin.addEventListener('change',function(){pqSet(pqin.value);});
+    pqin.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();pqin.blur();}});}
+  var pqm=document.getElementById('pqm'),pqp=document.getElementById('pqp');
+  if(pqm)pqm.addEventListener('click',function(){pqSet(effQty()-1);});
+  if(pqp)pqp.addEventListener('click',function(){pqSet(effQty()+1);});
+  sh.querySelectorAll('[data-pq]').forEach(function(b){b.addEventListener('click',function(){jdpTrack('sheet_qty',{n:+b.dataset.pq});pqSet(b.dataset.pq);});});
+  var pqs=document.getElementById('pqSz');
+  if(pqs)pqs.addEventListener('click',function(){SH.szOpen=(sizeTotal()>0)?true:!SH.szOpen;if(SH.szOpen)jdpTrack('sheet_sizes_open');renderSheet();});
+  sh.querySelectorAll('.szqty button').forEach(function(b){b.addEventListener('click',function(){var s=b.dataset.sz,d=parseInt(b.dataset.d,10);SH.sizes[s]=Math.max(0,(parseInt(SH.sizes[s],10)||0)+d);renderSheet();});});
+  var _sr=document.getElementById('spreadre');if(_sr)_sr.addEventListener('click',applySpread);
+  sh.querySelectorAll('.szin').forEach(function(inp){inp.addEventListener('change',function(e){SH.sizes[e.target.dataset.sz]=Math.max(0,parseInt(e.target.value,10)||0);renderSheet();});});
+  document.getElementById('shAdd').addEventListener('click',addFromSheet);
+  var shq=document.getElementById('shQuote');
+  if(shq)shq.addEventListener('click',function(){SH_QUOTE=true;jdpTrack('sheet_quote',{k:SH.key});addFromSheet();});
+  var _n=document.querySelector('#sheet .shscroll');if(_n)_n.scrollTop=_top;
+}
+/* ---------- reuse the size split -------------------------------------------------------------
+   The size grid IS the quantity control, so every product in a program asks for the same breakdown
+   again: a 6-piece program for one 24-person crew means entering the same six numbers six times --
+   36 inputs to describe one headcount. That is the single biggest piece of repeated work left in the
+   flow, and it lands right before "add to kit", the click the whole store exists to produce.
+   So we remember the last split and offer it in one tap. It appears ONLY on an item with no sizes
+   entered yet, so it never argues with someone who has already started typing, and it maps onto the
+   sizes the current fit actually offers (womens runs XS-2XL, mens S-3XL). */
+function saveSpread(sz,fit,name){
+  try{localStorage.setItem('jdp_spread',JSON.stringify({sz:sz,fit:fit,name:name}));}catch(e){}}
+function lastSpread(){
+  try{var s=JSON.parse(localStorage.getItem('jdp_spread')||'null');
+    return (s&&s.sz&&Object.keys(s.sz).length)?s:null;}catch(e){return null;}}
+function spreadFor(sp){
+  var out={},n=0;
+  sheetSizes().forEach(function(s){var v=parseInt(sp.sz[s],10)||0;if(v){out[s]=v;n+=v;}});
+  return {sizes:out,total:n};}
+function spreadReuseHtml(){
+  var sp=lastSpread();if(!sp||sizeTotal()>0)return '';
+  var m=spreadFor(sp);if(!m.total)return '';
+  var txt=Object.keys(m.sizes).map(function(s){return s+' '+m.sizes[s];}).join(' \u00b7 ');
+  return '<button type="button" class="spreadre" id="spreadre">'+
+    '<b>\u21ba Same split as '+esc(sp.name||'your last item')+'</b>'+
+    '<i>'+esc(txt)+' \u00b7 '+m.total+' pcs</i></button>';}
+function applySpread(){
+  var sp=lastSpread();if(!sp)return;
+  var m=spreadFor(sp);
+  sheetSizes().forEach(function(s){SH.sizes[s]=m.sizes[s]||0;});
+  renderSheet();}
+function swapPreview(){var im=document.getElementById('shimg');if(im){im.classList.add('sw');setTimeout(function(){im.classList.remove('sw');},220);}}
+
+/* ---- KEEP THEM MOVING (2026-09-25) -----------------------------------------------------------
+   Two 4imprint patterns for the moment a buyer hesitates or has just said yes.
+   1. Alternatives on the product itself -- 4imprint's "More Upscale / Lower Price" tabs. A buyer who
+      likes the look but not the price, or wants something a step up, is shown the nearest options in
+      the SAME aisle instead of going back to the grid (or leaving). Nearest first: the cheaper list
+      starts just under this price, the premium list just above it.
+   2. After adding: "Added to Cart! -- Go To Checkout / Keep Shopping". Ours was a toast that faded
+      in 3.6 seconds. The panel now stays until dismissed and leads with the store's real offer --
+      a free mockup and exact quote -- one tap from the request form. */
+function altHome(it){try{var c=classify(it);return (BUCKETS[c.mega]||{})[c.sub]?{mega:c.mega,sub:c.sub}:null;}catch(e){return null;}}
+function altLists(key){
+  var it=BYKEY[key];if(!it||it.layer==='promo')return null;
+  var home=altHome(it);if(!home)return null;
+  var me=sxPrice(key),pool=(BUCKETS[home.mega][home.sub]||[]).filter(function(k){
+    var o=BYKEY[k];return k!==key&&o&&o.layer!=='promo';});
+  var withP=pool.map(function(k){return {k:k,p:sxPrice(k)};});
+  var lower=withP.filter(function(x){return x.p<me-0.49;}).sort(function(a,b){return b.p-a.p;}).slice(0,4);
+  var upper=withP.filter(function(x){return x.p>me+0.49;}).sort(function(a,b){return a.p-b.p;}).slice(0,4);
+  if(!lower.length&&!upper.length)return null;
+  return {home:home,me:me,lower:lower,upper:upper};
+}
+function altTile(x){
+  var it=BYKEY[x.k],c=(it.cols||[])[0]||{};
+  return '<button type="button" class="alt" data-altk="'+esc(x.k)+'">'+
+    '<span class="altim">'+(c.front?'<img src="'+gurl(c.front)+'" alt="" loading="lazy">':'')+'</span>'+
+    '<span class="altn">'+esc(it.name)+'</span><span class="altb">'+esc(it.brand||it.sku||'')+'</span>'+
+    '<span class="altp">'+money(x.p)+'<i>/pc at '+moq()+'</i></span></button>';
+}
+function altHtml(key){
+  var L=altLists(key);if(!L)return '';
+  var tabs=[];
+  if(L.lower.length)tabs.push({id:'lo',lab:'Lower price',rows:L.lower});
+  if(L.upper.length)tabs.push({id:'hi',lab:'More premium',rows:L.upper});
+  return '<section class="alts" id="alts"><div class="altsh"><b>Compare in '+esc(L.home.sub)+'</b>'+
+    '<div class="alttabs" role="tablist">'+tabs.map(function(t,i){
+      return '<button type="button" role="tab" class="alttab'+(i===0?' on':'')+'" data-altt="'+t.id+'">'+t.lab+' <i>'+t.rows.length+'</i></button>';}).join('')+
+    '</div></div>'+tabs.map(function(t,i){
+      return '<div class="altrow" data-altp="'+t.id+'"'+(i===0?'':' hidden')+'>'+t.rows.map(altTile).join('')+'</div>';}).join('')+
+    '</section>';
+}
+function wireAlts(root){
+  var s=root.querySelector('#alts');if(!s)return;
+  s.querySelectorAll('[data-altt]').forEach(function(b){b.addEventListener('click',function(){
+    s.querySelectorAll('[data-altt]').forEach(function(x){x.classList.toggle('on',x===b);});
+    s.querySelectorAll('[data-altp]').forEach(function(p){p.hidden=p.dataset.altp!==b.dataset.altt;});});});
+  s.querySelectorAll('[data-altk]').forEach(function(b){b.addEventListener('click',function(){
+    jdpTrack('alt',{k:b.dataset.altk});openSheet(b.dataset.altk);});});
+}
+/* the "added" panel */
+function addedPanel(key,was,colName,fit){
+  var it=BYKEY[key];if(!it)return;
+  var el=document.getElementById('addedp');
+  if(!el){el=document.createElement('div');el.id='addedp';el.className='addedp';el.setAttribute('role','status');document.body.appendChild(el);}
+  /* the colour they chose, in the cut they chose -- not the product's first colourway */
+  var cs=(fit==='womens'&&it.wcols&&it.wcols.length)?it.wcols:(it.cols||[]);
+  var c=colInList(cs,colName)||cs[0]||{},n=cartCount(),sub=cartSubtotal();
+  el.innerHTML='<button type="button" class="adx" id="adX" aria-label="Close">✕</button>'+
+    '<div class="adtop"><span class="adim">'+(c.front?'<img src="'+gurl(c.front)+'" alt="">':'')+'</span>'+
+    '<span class="adtx"><b>✓ '+(was?'Updated in':'Added to')+' your quote</b><i>'+esc(it.name)+'</i>'+
+      '<i>'+n+' style'+(n===1?'':'s')+' · est. '+money0(sub)+'</i></span></div>'+
+    '<button type="button" class="adgo" id="adGo">View my quote →</button>'+
+    '<div class="adsec"><button type="button" id="adKeep">Keep adding items</button></div>'+
+    (trustOn()?'<div class="adtr">No payment now · a real person replies in '+JDP_TRUST.reply+'</div>':'');
+  el.classList.add('on');
+  var close=function(){el.classList.remove('on');};
+  document.getElementById('adX').onclick=close;document.getElementById('adKeep').onclick=close;
+  document.getElementById('adGo').onclick=function(){close();jdpTrack('added_go');openQuote('added');};
+}
+function addFromSheet(){
+  var q=effQty();
+  if(q<moq()){toast('Add at least '+moq()+' pieces');return;}
+  jdpTrack('add',{k:SH.key,n:q});
+  toQuoteList();var _moved=ensureWritable();
+  var _ck=ckey(SH.key,SH.fit);
+  var was=!!CART[_ck],decos=[];
+  Object.keys(SH.D).forEach(function(pl){var d=SH.D[pl];if(d.on)decos.push({pl:pl,lg:d.lg,ink:d.ink,method:d.method,colours:d.colours||1,on:true});});
+  var entry={qty:q,colour:SH.colour,decos:decos,fit:SH.fit};
+  var sz={};sheetSizes().forEach(function(s){if(SH.sizes[s])sz[s]=SH.sizes[s];});
+  if(Object.keys(sz).length)entry.sizes=sz;   // else keep the plain qty (a quick-started item reopened & saved as-is)
+  if(Object.keys(sz).length)saveSpread(sz,SH.fit,BYKEY[SH.key].name);
+  CART[_ck]=entry;
+  saveCart();var _k=SH.key,_col=SH.colour,_fit=SH.fit;closeAll();refreshCartUI();syncBoardIfOpen();
+  if(SH_QUOTE){SH_QUOTE=false;openCart();openCheckout();return;}
+  addedPanel(_k,was,_col,_fit);
+}
+var SH_QUOTE=false;
+/* METHOD COMES FROM THE CATALOGUE STANDARD, NEVER FROM THE KIT VIEWMODEL -- the same rule
+   openSheet() already follows. The kit's stored viewmodel is written by the fleet sync, which
+   stamps `embroidery` on everything; the catalogue's `std` is the decoration we actually
+   produce and quote. They agreed until tees moved to a screen-printed default on 2026-09-08,
+   and then a quick-add put an EMBROIDERED tee on the board at $13.50 while the product sheet
+   for the same tee said screen-printed at $11.00. Two prices for one garment, on one screen. */
+function recCartDecos(key){key=bkey(key);
+  /* An item naming a default configuration books THAT, not the single-placement standard. */
+  var _dc=stdCfgOf(key);
+  if(_dc)return realDecos(BYKEY[key],cfgDecosPure(_dc));
+  var _st=stdOf(key),_m=(_st&&_st.method)?mth(_st.method):null;
+  var vm=vmOf(key),decos=realDecos(BYKEY[key],vm.decos).map(function(d){return {pl:d.pl,lg:d.lg,ink:d.ink||'auto',method:((_st&&d.pl===_st.pl&&_m)?_m:mth(d.method||'embroidery')),colours:d.colours||1,on:true};});
+  if(!decos.length){var p=(BYKEY[key].places||[]).filter(function(x){return x.logo;})[0];if(p)decos=[{pl:p.id,lg:(CFG.logos[0]||{}).id,ink:'auto',method:(recDecos(key)[0]||{}).method||'embroidery',colours:1,on:true}];}
+  return decos;
+}
+/* ---- ONE QUOTE (2026-10-06) ------------------------------------------------------------------------
+   Steven: "editing the program and browsing + adding to get a quote is all very confusing."
+   The store ran two models at once -- Pinterest "boards" (a heart that asked which board, a header
+   reading "My board · 0", "View list") and the formal quote -- and opening a program silently made the
+   program template the active list, so anything added afterwards landed somewhere else and a program
+   plus individual items could never meet in one quote. Now there is ONE quote: the buyer's own list.
+   Programs add into it (any number of them), every card adds into it in one tap, and it is edited on
+   the quote itself. Boards still exist behind the rail for anyone who used them. */
+function quoteListId(){if(!LISTS)loadLists();return (ALID&&LISTS[ALID]&&!isTemplate(ALID))?ALID:personalListId();}
+function toQuoteList(){var id=quoteListId();if(ALID!==id)switchList(id);return id;}
+/* ONE OF EACH MEANS ONE OF EACH (2026-10-08). A program promises "one of each, per person" and its page
+   prices it that way -- $335 x 40 = $13,400 -- but the quote then scaled the vest and the jacket to 70%
+   and 60% of headcount and showed $10,644. Two totals for one decision is the fastest way to lose an
+   approver. Lines that came from a program carry `prog` and are sized at one per person; items added
+   one at a time keep the outer-layer estimate. */
+/* a program-advisor line carries its own per-person ratio (3 polos each for 8 office staff across a team
+   of 53 is 24/53), so a new headcount scales the program instead of flattening it to one-of-everything */
+function hcFactorOf(it,c){return (c&&c.paf)?c.paf:((c&&c.prog)?1:hcFactor(it));}
+function hcQty(it,n,c){n=n||getHC();return n?Math.max(moq(),Math.round(n*hcFactorOf(it,c))):moq();}
+/* Size ONE line from the headcount (qty by garment type, size split) -- used when a line arrives, so a
+   later program never overwrites quantities the buyer already edited on the quote. */
+function sizeLineFromHC(ck,n){
+  var c=CART[ck],it=BYKEY[bkey(ck)];if(!c||!it)return;
+  if(it.layer==='promo'){c.qty=Math.max(it.moq||1,c.qty||0);return;}
+  var q=hcQty(it,n,c);
+  if(n&&!oneSize(it)){c.sizes=spreadSizes(q,c.fit,it);c.qty=sizeSum(c.sizes);}else{delete c.sizes;c.qty=q;}
+  delete c.szset;
+}
+function addToQuoteQuick(key){
+  var it=BYKEY[key];if(!it)return;toQuoteList();
+  if(it.layer==='promo'){quickAdd(key);}
+  else{var vm=vmOf(key),ex=CART[key];
+    var q=hcQty(it),e={qty:q,colour:(ex&&ex.colour)||browseColour(key,it)||vm.colour,decos:recCartDecos(key)};
+    if(getHC()&&!oneSize(it)){e.sizes=spreadSizes(q,'mens',it);e.qty=sizeSum(e.sizes);}
+    CART[key]=e;saveCart();refreshCartUI();syncBoardIfOpen();}
+  jdpTrack('add',{k:key,src:'card'});
+  toast('Added to your quote · '+it.name);
+}
+function quickAdd(key){
+  if(!BYKEY[key])return;var it=BYKEY[key],vm=vmOf(key),ex=CART[key];
+  if(it.layer==='promo'){CART[key]={qty:(ex&&ex.qty)||it.moq||1,colour:(ex&&ex.colour)||(it.cols[0]||{}).name,mi:(ex&&ex.mi)||0,locs:(ex&&ex.locs)||1,promo:true};saveCart();refreshCartUI();toast('Added · '+it.name);return;}
+  var _moved=ensureWritable();
+  if(_moved)ex=CART[key];                       // different list -- re-read any existing line
+  CART[key]={qty:(ex&&ex.qty)||moq(),colour:(ex&&ex.colour)||vm.colour,decos:recCartDecos(key)};
+  saveCart();refreshCartUI();syncBoardIfOpen();
+  if(_moved){toast('Added to '+activeName()+' \u2014 the JDP starter list stays as a template');return;}
+  // First item ever: say what the kit is FOR. After that, stay out of the way.
+  var taught=false;try{taught=!!localStorage.getItem('jdp_taught_share');}catch(e){}
+  if(!taught&&cartCount()===1){
+    try{localStorage.setItem('jdp_taught_share','1');}catch(e){}
+    /* This teaching toast fired on the very first save and never said WHERE the item went, which
+       is the one moment a buyer has no mental model yet. Name the board first, teach second. */
+    toast('Added to '+activeName()+' \u2014 build it up, then Share it with your team');
+  }else{
+    // Name the destination on every save. When there is only one list this reads naturally; when
+    // there are several it is the difference between confidence and "where did that go?".
+    toast(listIds().length>1?('Added to '+activeName()+' \u00b7 '+BYKEY[key].name)
+                            :('Added \u00b7 '+BYKEY[key].name));}
+}
+// The curated "top picks" set = items flagged rec across every category (not the whole catalogue — a
+// full dump overwhelms and inflates the quote). Falls back to the first few office items if none flagged.
+/* The curated starter set. `rec` marks ~23 products as a strong pick WITHIN their category, which
+   is right for a badge and wrong for a "start here" button: adding 23 items is not a starting point,
+   it is the whole store. `ess` is an explicit, ordered nine -- everyday tops, layers, then the
+   onboarding pieces -- so the button offers advice instead of a bulk action. */
+/* ---- Per-store shortlist ---------------------------------------------------------------------
+   After a site visit the buyer has already told us what they want. Making them re-find those pieces
+   in a 489-item catalogue is the single most wasteful thing this store can do -- and the generic
+   "9 essentials" is the wrong answer for someone who has named their own.
+
+   So the store adapts to where the relationship actually is. No shortlist: lead with the samples
+   offer. Shortlist present: lead with THEIR list, and drop the samples offer to secondary, because
+   the visit already happened. Nothing here is invented -- the list, who picked it and the per-item
+   reason all come from the kit's own config, and the section simply does not render without one. */
+/* ---- A list the CUSTOMER built, shared as a link ---------------------------------------------
+   The shortlist workflow had a hole in the middle. A per-store list needed a site visit; the global
+   list solved Steven's effort by making the list generic -- which threw away the personalisation
+   that made the feature worth having. Both versions assumed WE curate FOR the customer.
+
+   But the person who decides a company's program is the champion inside that company, and they are
+   already building exactly that list in their kit. So: let them send it. One link, no login, no
+   token, no involvement from us. Their team opens it and lands on a six-item store instead of a
+   489-item catalogue, and the champion gets the ownership that makes a program stick.
+
+   The link carries key, quantity and colour, and every field is re-validated on the way in -- an
+   edited or truncated URL degrades to fewer items, never to a broken store. */
+var SHARED=null;
+/* ---------- the shared link must carry what the sender actually chose -------------------------
+   It did not. The format was key~qty~colour, with no FIT -- and the colour was then validated
+   against BYKEY[k].cols, the mens run only. Colours are fit-aware (curColsOf returns item.wcols for
+   womens), so a womens colour was not found, was blanked, and silently fell back to cols[0] -- the
+   FIRST colour in the list. Sender picks womens Team Red, recipient opens Anthracite, nothing says a
+   word. 20 items in the catalogue have womens colours absent from their mens run.
+   Sizes were not carried either, so the recipient re-typed the split the sender had already entered.
+   Decoration deliberately still regenerates from the standard setup: there is exactly ONE
+   standardised decoration per product now, so it reproduces the sender's choice without bloating
+   the URL. Trailing empty fields are trimmed, and a 3-field legacy link still decodes. */
+function encSizes(sz){if(!sz)return '';var o=[];
+  for(var s in sz){if(sz[s]>0)o.push(s+'-'+sz[s]);}return o.join('.');}
+function decSizes(str){var out={},n=0;
+  String(str||'').split('.').forEach(function(p){var m=p.split('-');if(m.length!==2)return;
+    var v=parseInt(m[1],10);
+    if(!sizeOk(m[0])||!(v>0)||v>100000)return;out[m[0]]=v;n++;});
+  return n?out:null;}
+function sizeSum(sz){var t=0;for(var s in (sz||{}))t+=(parseInt(sz[s],10)||0);return t;}
+function encodeList(){
+  var parts=[];
+  Object.keys(CART).forEach(function(k){
+    var c=CART[k];if(!BYKEY[bkey(k)])return;
+    var f=[bkey(k),(c.qty||moq()),(c.colour||''),(c.fit==='womens'?'w':''),encSizes(c.sizes),
+           noteClean(c.note)];
+    while(f.length>3&&!f[f.length-1])f.pop();      // keep links short; older readers ignore extras
+    parts.push(f.join('~'));});
+  return parts.join('|');
+}
+function decodeList(str){
+  var out=[];
+  String(str||'').split('|').forEach(function(chunk){
+    var bits=chunk.split('~'),k=bits[0];
+    if(!k||!BYKEY[k])return;                                   // unknown/renamed product: drop it
+    var fit=(bits[3]==='w')?'womens':'mens';
+    // Dedupe on product AND fit -- the same polo in both cuts is two legitimate lines.
+    if(out.some(function(x){return x.k===k&&x.fit===fit;}))return;
+    var q=parseInt(bits[1],10);if(!(q>0)||q>100000)q=moq();
+    var sizes=decSizes(bits[4]);
+    if(sizes)q=sizeSum(sizes)||q;                  // the split IS the quantity
+    var col=bits[2]||'';
+    // Validate against the run the sender was actually looking at, not always the mens list.
+    var cols=curColsOf(BYKEY[k],fit)||[];
+    var lost='';
+    if(col&&!cols.some(function(c){return c.name===col;})){lost=col;col='';}
+    out.push({k:k,qty:q,colour:col||((cols[0]||{}).name||''),fit:fit,sizes:sizes,lost:lost,
+              note:noteClean(bits[5])});});
+  return out;
+}
+/* Query strings legitimately encode a space as EITHER %20 or +, and mail clients, link shorteners
+   and chat apps rewrite between them freely. decodeURIComponent does NOT treat + as a space, so a
+   board called "Autumn rollout" arrived as "Autumn+rollout" -- and far worse, a colour like
+   "Campus Orange" would arrive as "Campus+Orange", fail the colour check, and silently fall back to
+   the first colour in the run. That is the exact wrong-colour bug from before, reachable through a
+   different door. Normalise + to %20 before decoding every shared parameter. */
+function qdec(s){try{return decodeURIComponent(String(s).replace(/\+/g,'%20'));}catch(e){
+  try{return decodeURIComponent(s);}catch(e2){return '';}}}
+function readSharedList(){
+  var m=location.search.match(/[?&]list=([^&#]+)/);if(!m)return null;
+  var items;try{items=decodeList(qdec(m[1]));}catch(e){return null;}
+  if(!items.length)return null;
+  var f=location.search.match(/[?&]from=([^&#]+)/),from='';
+  from=f?qdec(f[1]).slice(0,40):'';
+  var bn=location.search.match(/[?&]b=([^&#]+)/),bname='';
+  bname=bn?qdec(bn[1]).slice(0,40):'';
+  return {items:items,from:from,bname:bname};
+}
+/* ---------- LIVE BOARDS -------------------------------------------------------------------------
+   A board is now one document on the server, not a per-browser cache. localStorage is kept as the
+   local mirror so the store is instant and still works with no network -- the server is the shared
+   truth, the browser is the fast copy. Every network call is fire-and-forget: nothing in the UI ever
+   waits on it. */
+
+/* ---- FUNNEL EVENTS (2026-09-25) --------------------------------------------------------------
+   The stores recorded nothing, so no one could say where buyers leave. One anonymous beacon per
+   step to kits/_api/events.php: no name, no email, no IP kept; a random id per tab. sendBeacon is
+   fire-and-forget, so this can never slow a buyer down or break a page if the endpoint is down. */
+var JDP_SID=null,JDP_KIT=null,JDP_LASTQ='';
+function jdpKit(){if(JDP_KIT==null){var m=location.pathname.match(/\/kits\/([a-z0-9][a-z0-9_\-]*)/i);JDP_KIT=m?m[1].toLowerCase():'';}return JDP_KIT;}
+function jdpSid(){
+  if(JDP_SID)return JDP_SID;
+  try{JDP_SID=sessionStorage.getItem('jdp_sid');}catch(e){}
+  if(!JDP_SID){JDP_SID=Math.random().toString(36).slice(2,12)+Date.now().toString(36);
+    try{sessionStorage.setItem('jdp_sid',JDP_SID);}catch(e){}}
+  return JDP_SID;
+}
+function jdpTrack(e,x){
+  try{
+    if(!jdpKit()||CFG&&CFG.notrack)return;
+    var p={kit:jdpKit(),e:e,sid:jdpSid()};if(x)for(var k in x)p[k]=x[k];
+    if(jdpStaff())p.i=1;                                 // our own visits never score as a lead
+    var body=JSON.stringify(p),url=apiBase()+'/events.php';
+    if(navigator.sendBeacon){navigator.sendBeacon(url,new Blob([body],{type:'text/plain'}));}
+    else{fetch(url,{method:'POST',body:body,keepalive:true,headers:{'Content-Type':'text/plain'}}).catch(function(){});}
+  }catch(err){}
+}
+/* Staff traffic (Steven, 2026-10-14 leads dashboard): a browser that has opened kits/_dash/ (same origin) or any store
+   with ?jdpstaff=1 is flagged, so our own clicking around never shows up as a hot lead. ?jdpstaff=0 clears it. */
+var JDP_STAFF=null;
+function jdpStaff(){
+  if(JDP_STAFF!==null)return JDP_STAFF;
+  try{var m=/[?&]jdpstaff=([01])/.exec(location.search);
+    if(m){if(m[1]==='1')localStorage.setItem('jdp_internal','1');else localStorage.removeItem('jdp_internal');}
+    JDP_STAFF=localStorage.getItem('jdp_internal')==='1';}catch(e){JDP_STAFF=false;}
+  return JDP_STAFF;
+}
+function jdpViewCtx(){
+  var o={};try{var r=document.referrer||'';if(r&&r.indexOf(location.host)<0)o.ref=r.replace(/^[a-z]+:\/\//i,'').split('/')[0];}catch(e){}
+  try{o.m=(window.matchMedia&&matchMedia('(max-width: 760px)').matches)?1:0;}catch(e){}
+  try{var u=/[?&]utm_source=([a-z0-9_\-]+)/i.exec(location.search);if(u)o.src=u[1].toLowerCase();}catch(e){}
+  return o;
+}
+/* A search is logged once the buyer has stopped typing or pressed Enter -- not per keystroke. */
+function jdpTrackSearch(q){
+  q=String(q||'').trim();if(q.length<2||q===JDP_LASTQ)return;JDP_LASTQ=q;
+  var n=0;try{n=sxResultsFor(q).keys.length;}catch(e){}
+  jdpTrack(n?'search':'search0',{q:q,n:n});if(n)return;
+}
+function apiBase(){return String((CFG&&CFG.catalog_base)||CATALOG_BASE).replace('_catalog','_api');}
+function boardsApi(){return apiBase()+'/boards.php';}
+function bslug(s){return String(s||'').toLowerCase()
+  .replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,60);}
+var SYNC='';
+function markSync(state){
+  SYNC=state;
+  var el=document.getElementById('bsync');if(!el)return;
+  var m={saving:['Saving\u2026','sv'],saved:['Saved','ok'],
+         merged:['Updated from another device','ok'],
+         offline:['Saved on this device only','off']}[state]||['','' ];
+  el.textContent=m[0];el.className='bsync '+m[1];
+}
+var _pushT=null;
+function pushBoardSoon(){
+  if(!LISTS||!LISTS[ALID]||isTemplate(ALID))return;   // our starter template is not a customer board
+  markSync('saving');
+  clearTimeout(_pushT);_pushT=setTimeout(pushBoardNow,1100);
+}
+function pushBoardNow(){
+  var L=LISTS&&LISTS[ALID];if(!L||isTemplate(ALID))return;
+  var b=L.slug||mslug(L.name);if(!b)return;
+  /* a frozen quote copy is written once, by quoteSnapshot(); edits made on it stay on this device */
+  if(/^(us-)?q-/.test(b)){markSync('saved');return;}
+  /* NEVER push an empty board we have never synced. The slug comes from the list NAME, and every
+     visitor's default list is called "My board" -> "my-board", so on a given kit all visitors
+     collide on one server board. A fresh visitor's empty list therefore used to overwrite a saved
+     one (eddy-group/my-board reached rev 23 with items:[]). The server now refuses an unrev'd
+     write, but there is no reason to even send this one: it has nothing to save and everything
+     to lose. */
+  var _n=L.items?Object.keys(L.items).length:0;
+  if(!L.rev&&!_n){markSync('saved');return;}
+  /* An empty push over a board the server holds WITH contents is how a board gets wiped. The old
+     guard only covered a board that had never synced (`!L.rev`) -- which is exactly the case dif
+     was not in: it had a rev, so its empty pushes sailed through. Emptying a board is still
+     allowed, but only when the customer actually did it: `_cleared` is set by the remove path. */
+  if(_n===0&&L.rev&&!L._cleared){markSync('saved');return;}
+  L.slug=b;
+  L.items=asItems(L.items);              // an array here would serialise as [] and wipe the board
+  if(LISTS[ALID]===L)CART=L.items;
+  var who='';try{who=(JSON.parse(localStorage.getItem('jdpkit_contact')||'{}').name||'');}catch(e){}
+  var body={kit:SLUG,b:b,name:L.name,items:L.items,by:who};
+  // the server refuses an empty write over a board with contents unless the customer did it
+  if(_n===0&&L._cleared)body.clear=1;
+  if(L.rev)body.rev=L.rev;
+  fetch(boardsApi(),{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(body)})
+    .then(function(r){return r.json();})
+    .then(function(j){
+      if(j&&j.ok){L.rev=j.rev;L.slug=j.b;L._cleared=0;persistLists();markSync('saved');return;}
+      /* Someone edited the same board elsewhere. Adopt their version rather than clobbering a
+         colleague -- the whole point of a shared document.
+         MERGE, do not replace. Replacing was safe while only a rev MISMATCH could land here, but
+         the server now also rejects a write that names no rev at all, so a first-time visitor who
+         had genuinely picked things would have had their picks deleted by the very fix that stops
+         boards being wiped. Server entries win on conflict; anything only we hold is added and
+         pushed back with the correct rev, once. */
+      if(j&&j.error==='stale'&&j.board){
+        var srv=asItems(j.board.items),mine=asItems(L.items),merged={},addedLocal=0;
+        Object.keys(srv).forEach(function(k){merged[k]=srv[k];});
+        Object.keys(mine).forEach(function(k){if(!(k in merged)){merged[k]=mine[k];addedLocal++;}});
+        L.items=merged;L.rev=j.board.rev;L.name=j.board.name||L.name;
+        if(LISTS[ALID]===L)CART=L.items;
+        persistLists();syncBoardIfOpen();refreshCartUI();
+        markSync(addedLocal?'saving':'merged');
+        if(addedLocal&&!L._remerged){L._remerged=1;pushBoardNow();}
+        else{L._remerged=0;}
+        return;}
+      markSync('offline');
+    })
+    .catch(function(){markSync('offline');});
+}
+function pullBoard(b){
+  return fetch(boardsApi()+'?kit='+encodeURIComponent(SLUG)+'&b='+encodeURIComponent(b),
+      {cache:'no-store'})
+    .then(function(r){return r.ok?r.json():null;})
+    .then(function(j){return (j&&j.ok&&j.board)?j.board:null;})
+    .catch(function(){return null;});
+}
+/* Resolve a server board slug to a local list id.
+   MUST be re-called INSIDE the async callback that creates a board. openSharedBoard(?b=) and
+   syncBoardsFromServer() both run on page load; each scanned LISTS, then awaited a fetch, then
+   created a list. Both scans ran before either write, so both found nothing and both minted one --
+   opening a shared link showed the SAME board twice, with the customer editing whichever tab they
+   happened to click. Re-resolving at creation time closes the window, because creation itself is
+   synchronous. */
+function listIdForSlug(b,allowNameMatch){
+  if(!LISTS)loadLists();
+  for(var k in LISTS){if(LISTS[k].slug===b)return k;}
+  if(allowNameMatch){
+    /* A never-synced local board whose name resolves to this slug IS this board. */
+    for(var k2 in LISTS){
+      var L2=LISTS[k2];
+      if(!L2.slug&&!isTemplate(k2)&&bslug(L2.name||'')===b)return k2;
+    }
+  }
+  return null;
+}
+/* Opening ?b=<slug>: adopt the server's copy as a real local board, then show it. */
+function openSharedBoard(b){
+  return pullBoard(b).then(function(sb){
+    if(!sb)return false;
+    var id=listIdForSlug(b,true);
+    if(!id){id=newListId();LISTS[id]={name:sb.name||b,items:{},updated:Date.now()};}
+    LISTS[id].name=sb.name||LISTS[id].name;
+    LISTS[id].items=asItems(sb.items);
+    LISTS[id].slug=b;LISTS[id].rev=sb.rev||0;LISTS[id].updated=Date.now();if(sb.by)LISTS[id].by=sb.by;
+    ALID=id;CART=LISTS[id].items;persistLists();
+    refreshCartUI();
+    return true;
+  });
+}
+function shareListUrl(){
+  /* A board id only exists in the browser that made it, so ?board=<id> was never shareable -- which
+     is why copying the address bar handed people a dead link. This URL carries the board's NAME and
+     its full contents, so it works on any device, and it is what now sits in the address bar while a
+     board is open. Copying what you are looking at finally does the right thing. */
+  /* Short and PERMANENT. The board lives on the server now, so the link no longer carries the
+     products -- it stays identical as the board changes, which is what makes it safe to email to an
+     account before the board is finished. */
+  var L=LISTS&&LISTS[ALID];
+  var b=(L&&L.slug)||mslug(activeName());
+  return location.origin+location.pathname+'?b='+encodeURIComponent(b);
+}
+/* Sharing a list is the strongest buying signal this store produces, and until now it was invisible
+   to us -- the list lived in one browser and we only ever learned about it if that person went on to
+   request a quote. So a share also pings JDP with the list AND a curator link that opens this store
+   pre-loaded with it, one tap from becoming the store's permanent front page. That is what makes the
+   selection actually persist for the whole company instead of one device.
+   Fired once per distinct list per browser, so re-sharing the same list never spams the inbox. */
+function notifyShared(url){
+  var sig='';try{sig=localStorage.getItem('jdp_shared_sig')||'';}catch(e){}
+  var now=encodeList();
+  if(sig===now)return;
+  try{localStorage.setItem('jdp_shared_sig',now);}catch(e){}
+  var lines=[CFG.client+' \u2014 a list was shared from their store',''];
+  Object.keys(CART).forEach(function(k){
+    var it=BYKEY[bkey(k)];if(!it)return;var c=CART[k];
+    lines.push('  \u2022 '+it.name+(it.sku?(' ('+it.sku+')'):'')+
+      ((c.fit==='womens')?' [Women\u2019s]':'')+' \u2014 '+(c.colour||'')+' \u00d7 '+(c.qty||moq()));});
+  lines.push('');
+  lines.push('Open their list:  '+url);
+  lines.push('Pin it to this store (opens curator mode, ready to publish):');
+  lines.push('  '+location.origin+location.pathname+'?curate=1&list='+encodeURIComponent(now));
+  var c2={};try{c2=JSON.parse(localStorage.getItem('jdpkit_contact')||'{}');}catch(e){}
+  fetch('https://formsubmit.co/ajax/'+JDP_EMAIL,{method:'POST',
+    headers:{'Content-Type':'application/json','Accept':'application/json'},
+    body:JSON.stringify({_subject:'List shared \u2014 '+(c2.company||CFG.client),
+      _template:'table',_captcha:'false',
+      name:c2.name||'(not given)',email:c2.email||'(not given)',
+      company:c2.company||CFG.client||'',store:CFG.client||'',
+      list:lines.join('\n')})}).catch(function(){});
+}
+/* A toast saying "copied" is unverifiable, and if the browser refuses the clipboard write the user is
+   left with nothing at all. Show the actual URL, selectable, with a Copy button that reports success
+   -- so sharing works even when the clipboard API does not. */
+function openSharePanel(){
+  if(!Object.keys(CART).length){toast('Add a few pieces first');return;}
+  pushBoardNow();                       // make sure the server has it before the link is handed out
+  var url=shareListUrl();
+  notifyShared(url);
+  var el=document.getElementById('sharepanel');
+  if(!el){el=document.createElement('div');el.id='sharepanel';el.className='bpickov';document.body.appendChild(el);}
+  var touch=false;try{touch=!!(navigator.share&&matchMedia('(hover:none)').matches);}catch(e){}
+  el.innerHTML='<div class="bpick sharep"><div class="bpickhd">Share \u201c'+esc(activeName())+'\u201d'+
+      '<button type="button" class="bpx" id="spX" aria-label="Close">\u2715</button></div>'+
+    '<p class="spnote">Anyone with this link sees this board exactly as it is \u2014 same colours, '+
+      'sizes and quantities. Works on any phone or computer.</p>'+
+    '<input class="spurl" id="spUrl" readonly value="'+esc(url)+'">'+
+    '<div class="spacts">'+
+      '<button type="button" class="bcta" id="spCopy">Copy link</button>'+
+      (touch?'<button type="button" class="bghost" id="spNative">Share\u2026</button>':'')+
+      '<a class="bghost spmail" target="_blank" rel="noopener noreferrer" href="'+
+        esc('mailto:?subject='+encodeURIComponent(CFG.client+' \u2014 '+activeName())+
+        '&body='+encodeURIComponent(url))+'">Email it</a>'+
+    '</div></div>';
+  el.classList.add('on');
+  el.onclick=function(e){if(e.target===el)el.classList.remove('on');};
+  var x=document.getElementById('spX');if(x)x.addEventListener('click',function(){el.classList.remove('on');});
+  var inp=document.getElementById('spUrl');
+  if(inp)inp.addEventListener('click',function(){inp.select();});
+  var cp=document.getElementById('spCopy');
+  if(cp)cp.addEventListener('click',function(){
+    var done=false;
+    try{if(inp){inp.select();done=document.execCommand('copy');}}catch(e){}
+    if(!done)clipCopy(url);
+    cp.textContent='\u2713 Copied';
+    setTimeout(function(){cp.textContent='Copy link';},2200);});
+  var nb=document.getElementById('spNative');
+  if(nb)nb.addEventListener('click',function(){
+    try{navigator.share({title:CFG.client+' \u2014 '+activeName(),url:url});}catch(e){clipCopy(url);}});
+}
+function shareList(){
+  if(!Object.keys(CART).length){toast('Add a few pieces first');return;}
+  var url=shareListUrl();
+  notifyShared(url);
+  var txt='Here is our team gear board — open it and everything is ready to order.';
+  if(navigator.share&&matchMedia('(hover:none)').matches){
+    navigator.share({title:CFG.client+' — team gear list',text:txt,url:url})
+      .catch(function(e){if(!e||e.name!=='AbortError'){clipCopy(url);toast('Link copied — send it to your team');}});
+    return;
+  }
+  clipCopy(url);toast('Link copied — send it to your team');
+}
+/* A curated list should not need a click to be received. The recipient used to land with an EMPTY
+   kit -- "0 in your list" on the mobile bar -- while the list sat on screen behind two different
+   buttons that called the same function. So we apply it on arrival. Never clobbers a kit the
+   recipient already built, and is guarded by a signature so a refresh never re-adds something they
+   deliberately removed. */
+var SHAPPLIED=0;
+function sharedSig(){return SHARED?SHARED.items.map(function(x){
+  return x.k+'~'+x.qty+'~'+x.colour+'~'+x.fit;}).join('|'):'';}
+function autoApplyShared(){
+  if(!SHARED)return;
+  var sig=sharedSig(),prev='';
+  try{prev=localStorage.getItem('jdp_applied_sig')||'';}catch(e){}
+  if(prev===sig)return;
+  // A shared list arrives as its OWN List -- it never merges into whatever the recipient was
+  // building, and it persists alongside their own lists exactly like every other one.
+  var items={};
+  SHARED.items.forEach(function(x){
+    if(!BYKEY[x.k])return;
+    var entry={qty:x.qty,colour:x.colour,decos:recCartDecos(x.k),fit:x.fit};
+    if(x.sizes)entry.sizes=x.sizes;
+    if(x.note)entry.note=x.note;
+    items[ckey(x.k,x.fit)]=entry;});
+  var added=Object.keys(items).length;
+  if(!added)return;
+  if(!LISTS)loadLists();
+  var id=newListId();
+  LISTS[id]={name:(SHARED.bname||(SHARED.from?(SHARED.from+'\u2019s board'):'Shared board')),
+             items:items,updated:Date.now()};
+  ALID=id;CART=items;persistLists();
+  try{localStorage.setItem('jdp_applied_sig',sig);}catch(e){}
+  /* The list is now SAVED against this store, so the long ?list=... URL has done its job. Strip it,
+     so the address bar, a reload and a bookmark are all just the store's own clean URL. */
+  try{if(window.history&&history.replaceState)history.replaceState({},'',location.pathname);}catch(e){}
+  SHAPPLIED=added;
+}
+function sharedStripHtml(){
+  var n=SHARED.items.length,who=SHARED.from||'';
+  // They are free to add and remove -- so state what is actually in the kit, not what was sent.
+  var still=SHARED.items.filter(function(x){return CART[ckey(x.k,x.fit)];}).length;
+  var lost=SHARED.items.filter(function(x){return x.lost;});
+  var sub=cartSubtotal();
+  return '<div class="herooffer pkoffer">'+
+      '<span class="hoic" aria-hidden="true">\u2713</span>'+
+      '<span class="hotx"><b>'+(still<n
+          ? (still+' of '+(who?(esc(who)+'\u2019s '):'')+n+' pieces are in your board')
+          : (who?(esc(who)+'\u2019s '+n+' piece'+(n===1?' is':'s are')+' in your board')
+               :(n+' piece'+(n===1?'':'s')+' \u2014 already in your board')))+'</b>'+
+        '<i>'+(still<n
+          ? 'You\u2019ve changed the list \u2014 that\u2019s fine, add or remove anything you like. '
+          : ('Colours, sizes and quantities exactly as '+(who?esc(who):'they')+' set them. '))+
+        'Review and get your exact quote \u2014 nothing is ordered yet.</i></span>'+
+      '<button type="button" class="reccta hobtn" id="shReview">Review kit'+
+        (sub?(' \u00b7 '+money(sub)):'')+' <span class="ar">\u2192</span></button>'+
+    '</div>'+
+    (lost.length?('<div class="shlost">'+lost.map(function(x){
+        return esc(BYKEY[x.k].name)+' in '+esc(x.lost);}).join(', ')+
+      ' \u2014 no longer available in that colour, so the closest one is shown. '+
+      'Say the word on your quote and we\u2019ll source it.</div>'):'')+
+    '<button type="button" class="herosecond" data-samp="">Or see &amp; feel them in person first '+
+      '<span>we bring samples to you</span></button>';
+}
+function picksOf(){
+  /* Store-level list wins; otherwise the GLOBAL list from the shared catalogue. That fallback is
+     what removes the site visit from the loop -- one write to catalog.json curates all 376 stores at
+     once, and the catalogue is fetched with cache:'no-cache', so it goes live without a version bump. */
+  if(SHARED){
+    return {by:SHARED.from,note:'',shared:true,
+            keys:SHARED.items.map(function(x){return {k:x.k,why:''};})};
+  }
+  var p=CFG.picks||(CAT&&CAT.picks)||null;if(!p)return null;
+  var keys=(p.keys||p.items||[]).map(function(x){
+    return (typeof x==='string')?{k:x,why:''}:{k:x.k||x.key,why:x.why||''};
+  }).filter(function(x){return x.k&&BYKEY[x.k];});
+  if(!keys.length)return null;
+  return {by:p.by||'',note:p.note||'',keys:keys};
+}
+function picksTitle(p){
+  if(p.shared)return p.by?(esc(p.by)+' shared this list with you'):'A list was shared with you';
+  return p.by?('The gear you picked out with '+esc(p.by)):'The gear you shortlisted';
+}
+function addPicks(){
+  var p=picksOf();if(!p)return;
+  var n=0;
+  // A shared link carries the sender's quantities and colours -- restore those, not our defaults,
+  // or the recipient has to redo the work the sender already did.
+  var det={};if(SHARED)SHARED.items.forEach(function(x){det[x.k]=x;});
+  p.keys.forEach(function(x){
+    if(CART[x.k])return;
+    var d=det[x.k];
+    CART[x.k]={qty:(d&&d.qty)||moq(),colour:(d&&d.colour)||vmOf(x.k).colour,decos:recCartDecos(x.k)};
+    n++;});
+  saveCart();refreshCartUI();openBoard();
+  toast(n?('Added '+n+' piece'+(n===1?'':'s')+' from your shortlist'):'Your shortlist is already in your board');
+}
+/* ---- Curator mode ----------------------------------------------------------------------------
+   Steven was the bottleneck: every shortlist change meant describing a store and a list of products
+   to someone else and waiting. This lets him build the list by clicking the actual products, in the
+   actual store, and publish it himself -- globally for every store, or to one store when a site
+   visit genuinely produced a bespoke list.
+
+   Gated hard behind ?curate=1. A shopper never sees any of it. Publishing needs a GitHub token,
+   entered once and kept in this browser only; without one the tray still works and hands over the
+   JSON to paste, so the mode is never a dead end. */
+var CURATE=false,CPICKS=[];
+function curateOn(){return CURATE;}
+function ghToken(){try{return localStorage.getItem('jdp_gh_token')||'';}catch(e){return '';}}
+function setGhToken(t){try{t?localStorage.setItem('jdp_gh_token',t):localStorage.removeItem('jdp_gh_token');}catch(e){}}
+function curateInit(){
+  if(!/[?&]curate=1/.test(location.search))return;
+  CURATE=true;
+  var cur=picksOf();
+  CPICKS=cur?cur.keys.map(function(x){return {k:x.k,why:x.why||''};}):[];
+  CBASE=curKeys().join('|');
+  document.body.classList.add('curating');
+  var bar=document.createElement('div');bar.className='curbar';bar.id='curbar';
+  document.body.appendChild(bar);
+  renderCurBar();
+}
+function curHas(k){for(var i=0;i<CPICKS.length;i++)if(CPICKS[i].k===k)return i;return -1;}
+function curToggle(k){
+  var i=curHas(k);
+  if(i>=0)CPICKS.splice(i,1); else CPICKS.push({k:k,why:''});
+  renderCurBar();markCurCards();
+}
+function curMove(k,d){
+  var i=curHas(k);if(i<0)return;var j=i+d;if(j<0||j>=CPICKS.length)return;
+  var t=CPICKS[i];CPICKS[i]=CPICKS[j];CPICKS[j]=t;renderCurBar();
+}
+function markCurCards(){
+  document.querySelectorAll('.mcard').forEach(function(c){
+    var on=curHas(c.dataset.key)>=0;
+    c.classList.toggle('curon',on);
+    var b=c.querySelector('.curtog');if(b)b.textContent=on?'\u2713 On the list':'+ Shortlist';});
+}
+function curPayload(){
+  return {by:(document.getElementById('curBy')||{}).value||'',
+          note:(document.getElementById('curNote')||{}).value||'',
+          keys:CPICKS.filter(function(x){return BYKEY[x.k];})};
+}
+function renderCurBar(){
+  var el=document.getElementById('curbar');if(!el)return;
+  var rows=CPICKS.map(function(x,i){
+    var it=BYKEY[x.k]||{};
+    return '<div class="currow"><span class="curn">'+(i+1)+'</span>'+
+      '<span class="curnm">'+esc(it.name||x.k)+'</span>'+
+      '<input class="curwhy" data-k="'+esc(x.k)+'" placeholder="why this one (optional)" value="'+esc(x.why||'')+'">'+
+      '<button type="button" class="curbtn" data-up="'+esc(x.k)+'" aria-label="Move up">\u2191</button>'+
+      '<button type="button" class="curbtn" data-down="'+esc(x.k)+'" aria-label="Move down">\u2193</button>'+
+      '<button type="button" class="curbtn rm" data-rmk="'+esc(x.k)+'" aria-label="Remove">\u2715</button></div>';}).join('');
+  var cur=picksOf();
+  el.innerHTML='<div class="curin">'+
+    '<div class="curhd"><b>Curator mode</b><span>'+CPICKS.length+' selected'+
+      (CPICKS.length?(' \u00b7 '+CPICKS.filter(function(x){return (x.why||'').trim();}).length+
+        '/'+CPICKS.length+' with a reason'):'')+
+      (curDirty()?' \u00b7 unpublished':'')+'</span>'+
+      '<button type="button" class="curx" id="curExit">Exit</button></div>'+
+    (CPICKS.length?('<div class="currows">'+rows+'</div>'):'<div class="curempty">Tap <b>+ Shortlist</b> on any product to build the list.</div>')+
+    '<div class="curwhich">'+
+      (picksSource()==='store'
+        ? 'This store has its <b>own</b> list \u2014 it overrides the global one here.'
+        : picksSource()==='global'
+        ? 'Showing the <b>global</b> list (this store has none of its own).'
+        : 'No shortlist published yet.')+
+      '<span class="curtok">Token: <b>'+(ghToken()?'saved':'not saved')+'</b>'+
+        '<button type="button" class="curbtn" id="curTok">'+(ghToken()?'Replace':'Add')+'</button>'+
+        (ghToken()?'<button type="button" class="curbtn rm" id="curTokX">Clear</button>':'')+
+      '</span></div>'+
+    '<div class="curmeta">'+
+      '<input id="curBy" placeholder="Picked out with… (optional name)" value="'+esc((cur&&cur.by)||'')+'">'+
+      '<input id="curNote" placeholder="One line of context (optional)" value="'+esc((cur&&cur.note)||'')+'">'+
+    '</div>'+
+    '<div class="curacts">'+
+      '<button type="button" class="curpub" id="curPubAll">Publish to <b>all stores</b>'+
+        curDelta('all')+'</button>'+
+      '<button type="button" class="curpub alt" id="curPubOne">This store only'+
+        curDelta('one')+'</button>'+
+      '<button type="button" class="curpub warn" id="curClear">Clear list</button>'+
+      '<span class="curstat" id="curStat"></span>'+
+    '</div></div>';
+  el.querySelectorAll('[data-up]').forEach(function(b){b.addEventListener('click',function(){curMove(b.dataset.up,-1);});});
+  el.querySelectorAll('[data-down]').forEach(function(b){b.addEventListener('click',function(){curMove(b.dataset.down,1);});});
+  el.querySelectorAll('[data-rmk]').forEach(function(b){b.addEventListener('click',function(){curToggle(b.dataset.rmk);});});
+  el.querySelectorAll('.curwhy').forEach(function(inp){inp.addEventListener('input',function(){
+    var i=curHas(inp.dataset.k);if(i>=0)CPICKS[i].why=inp.value;});});
+  var ctk=document.getElementById('curTok');
+  if(ctk)ctk.addEventListener('click',function(){
+    var t=window.prompt('Paste a GitHub token (fine-grained, jdp-kits-deploy only, Contents read/write). '+
+      'Stored in this browser only.');
+    if(t&&t.trim()){setGhToken(t.trim());curStat('Token saved in this browser');renderCurBar();}});
+  var ctx=document.getElementById('curTokX');
+  if(ctx)ctx.addEventListener('click',function(){setGhToken('');curStat('Token cleared');renderCurBar();});
+  document.getElementById('curExit').addEventListener('click',function(){
+    if(curDirty()&&!window.confirm('This list has changes you have not published. Leave anyway?'))return;
+    location.href=location.pathname;});
+  document.getElementById('curPubAll').addEventListener('click',function(){curPublish('all');});
+  document.getElementById('curPubOne').addEventListener('click',function(){curPublish('one');});
+  document.getElementById('curClear').addEventListener('click',function(){CPICKS=[];renderCurBar();markCurCards();});
+}
+function curStat(msg,bad){
+  var s2=document.getElementById('curStat');if(!s2)return;
+  s2.textContent=msg;s2.className='curstat'+(bad?' bad':'');
+}
+function ghApi(method,path,body){
+  var tok=ghToken();
+  return fetch('https://api.github.com/repos/steven12h-1994/jdp-kits-deploy/'+path,{
+    method:method,headers:{'Authorization':'Bearer '+tok,'Accept':'application/vnd.github+json'},
+    body:body?JSON.stringify(body):undefined
+  }).then(function(r){return r.json().then(function(j){return {ok:r.ok,status:r.status,body:j};});});
+}
+/* Base64 over UTF-8. The old escape()/unescape() pair is deprecated AND easy to get subtly wrong;
+   the catalogue is full of characters like é and · , so a bad round-trip here would corrupt the
+   shared product data for every store the moment someone publishes. */
+function b64(str){
+  var bytes=new TextEncoder().encode(str),bin='';
+  for(var i=0;i<bytes.length;i++)bin+=String.fromCharCode(bytes[i]);
+  return btoa(bin);
+}
+function unb64(str){
+  var bin=atob(String(str).replace(/\s/g,'')),bytes=new Uint8Array(bin.length);
+  for(var i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
+  return new TextDecoder().decode(bytes);
+}
+/* What is actually LIVE, so the curator can see what a publish will change.
+   CPICKS is seeded from picksOf(), which prefers a store's OWN list over the global one. That means
+   "publish to all" may be comparing against a completely different list than the one on screen --
+   so the diff is always computed against the scope being published, never against what was loaded. */
+var CBASE='';
+function nameOf(k){return (BYKEY[k]||{}).name||k;}
+function picksSource(){
+  if(CFG&&CFG.picks)return 'store';
+  if(CAT&&CAT.picks)return 'global';
+  return 'none';}
+function livePicks(scope){
+  var p=(scope==='one')?((CFG&&CFG.picks)||null):((CAT&&CAT.picks)||null);
+  if(!p)return [];
+  return (p.keys||p.items||[]).map(function(x){
+    return (typeof x==='string')?x:(x.k||x.key);}).filter(Boolean);}
+function curKeys(){return CPICKS.map(function(x){return x.k;});}
+function curDiff(scope){
+  var live=livePicks(scope),now=curKeys();
+  return {live:live,now:now,
+    added:now.filter(function(k){return live.indexOf(k)<0;}),
+    removed:live.filter(function(k){return now.indexOf(k)<0;}),
+    reordered:live.length===now.length&&live.join('|')!==now.join('|')};}
+function curDirty(){return curKeys().join('|')!==CBASE;}
+function curDelta(scope){
+  var d=curDiff(scope);
+  if(!d.added.length&&!d.removed.length)return d.reordered?' (reordered)':'';
+  return ' ('+(d.added.length?'+'+d.added.length:'')+
+         (d.added.length&&d.removed.length?' ':'')+
+         (d.removed.length?'\u2212'+d.removed.length:'')+')';}
+/* Every publish here is a write to live customer-facing pages, and the fleet-wide one touches every
+   store at once. It used to fire on a single click with NO confirmation -- and worse, an EMPTY list
+   was explicitly allowed through for scope 'all', so one stray click silently deleted the global
+   shortlist from all 378 stores. Both are now gated, and the destructive case is named plainly. */
+function curConfirm(scope){
+  var d=curDiff(scope),n=CPICKS.length;
+  var lines=[];
+  if(d.added.length)lines.push('ADDING: '+d.added.map(nameOf).join(', '));
+  if(d.removed.length)lines.push('REMOVING: '+d.removed.map(nameOf).join(', '));
+  if(scope==='all'){
+    if(!n)return window.confirm('REMOVE the global shortlist from EVERY store?\n\n'+
+      'No store without its own list will recommend anything until you publish a new one.');
+    return window.confirm('Publish these '+n+' piece'+(n===1?'':'s')+' as the shortlist for EVERY store.\n\n'+
+      (lines.length?lines.join('\n')+'\n\n':'')+'This changes live customer-facing pages. Continue?');
+  }
+  if(!n)return window.confirm('Remove this store\u2019s own shortlist?\n\n'+
+    'It will fall back to the global list.');
+  return true;   // one store, easily reverted -- no need to nag
+}
+function curPublish(scope){
+  var p=curPayload();
+  if(!p.keys.length&&scope==='one'&&picksSource()!=='store'){
+    curStat('Nothing selected \u2014 and this store has no own list to remove',1);return;}
+  if(!curConfirm(scope)){curStat('Cancelled');return;}
+  var tok=ghToken();
+  if(!tok){
+    tok=window.prompt('Paste your GitHub token to publish (stored in this browser only)');
+    if(!tok){curStat('Publish needs a token \u2014 or copy the JSON below',1);
+      clipCopy(JSON.stringify(p,null,1));curStat('Copied the list to your clipboard instead');return;}
+    setGhToken(tok.trim());
+  }
+  curStat('Publishing\u2026');
+  var path=(scope==='all')?'contents/kits/_catalog/catalog.json'
+                          :'contents/kits/'+SLUG+'/index.html';
+  ghApi('GET',path+'?ref=main').then(function(r){
+    if(!r.ok){throw new Error('read failed ('+r.status+')');}
+    var sha=r.body.sha,txt=unb64(r.body.content),out;
+    if(scope==='all'){
+      var cat=JSON.parse(txt);
+      if(p.keys.length)cat.picks=p; else delete cat.picks;
+      out=JSON.stringify(cat);
+    }else{
+      var m=txt.match(/(<script id="?jdpcfg"?[^>]*>)([\s\S]*?)(<\/script>)/);
+      if(!m)throw new Error('no config block in this store');
+      var cfg=JSON.parse(m[2]);
+      if(p.keys.length)cfg.picks=p; else delete cfg.picks;
+      out=txt.slice(0,txt.indexOf(m[2]))+JSON.stringify(cfg)+txt.slice(txt.indexOf(m[2])+m[2].length);
+    }
+    return ghApi('PUT',path,{message:'picks: '+(scope==='all'?'global shortlist':SLUG+' shortlist')+
+      ' ('+p.keys.length+' items)',content:b64(out),sha:sha,branch:'main'});
+  }).then(function(r){
+    if(!r.ok)throw new Error('write failed ('+r.status+')');
+    curStat('Written \u2014 verifying\u2026');
+    // "The PUT returned 200" is not the same as "the file says what I meant". Read it back.
+    return ghApi('GET',path+'?ref=main&cb='+Date.now());
+  }).then(function(r2){
+    var got=null;
+    try{
+      var txt=unb64(r2.body.content);
+      if(scope==='all'){got=(JSON.parse(txt).picks||{}).keys||[];}
+      else{var m2=txt.match(/(<script id="?jdpcfg"?[^>]*>)([\s\S]*?)(<\/script>)/);
+           got=((m2?JSON.parse(m2[2]):{}).picks||{}).keys||[];}
+    }catch(e){got=null;}
+    var want=p.keys.map(function(x){return x.k;}).join('|');
+    var have=got?got.map(function(x){return x.k||x;}).join('|'):null;
+    if(have===want){
+      CBASE=curKeys().join('|');
+      curStat((scope==='all'?'Verified for every store':'Verified for this store')+
+        ' \u2014 live on the site within ~5 min');
+      renderCurBar();
+    }else{
+      curStat('Write reported success but the read-back does not match \u2014 do not rely on it yet',1);
+    }
+  }).catch(function(e){
+    if(/401|403/.test(String(e.message)))setGhToken('');
+    curStat(String(e.message||e),1);});
+}
+function curToggleHtml(key){
+  if(!CURATE)return '';
+  return '<button type="button" class="curtog" data-curk="'+esc(key)+'">+ Shortlist</button>';
+}
+/* RETIRED. Curated recommendations are a starter List now (see loadLists), not a page section.
+   Kept as a no-op rather than deleted so a future edit cannot accidentally revive the competing
+   surface by re-adding a call site. */
+function picksSectionHtml(){
+  return '';
+  /* eslint-disable no-unreachable */
+  var p=picksOf();if(!p)return '';
+  var cards=p.keys.map(function(x){
+    var why=x.why?('<div class="pkwhy">'+esc(x.why)+'</div>'):'';
+    return '<div class="pkwrap">'+menuCard(x.k)+why+'</div>';}).join('');
+  return '<section class="picks"><div class="w picksin">'+
+    '<div class="pkhd"><div><div class="eyb">Your shortlist</div>'+
+      '<h2>'+picksTitle(p)+'</h2>'+
+      (p.note?('<p class="pknote">'+esc(p.note)+'</p>'):'')+'</div>'+
+      '<button type="button" class="pkadd" id="addPicks">Add all '+p.keys.length+
+        ' <span>to my list</span></button></div>'+
+    '<div class="menu pkmenu" id="pkgrid">'+cards+'</div></div></section>';
+}
+function essKeysAll(){
+  var out=[];
+  for(var k in BYKEY){if(BYKEY[k]&&BYKEY[k].ess)out.push(k);}
+  out.sort(function(a,b){return (BYKEY[a].ess||99)-(BYKEY[b].ess||99);});
+  return out;
+}
+function recKeysAll(){var order=CFG.order||{},cats=['office','field','premium','bags'],out=[];
+  cats.forEach(function(c){(order[c]||[]).forEach(function(k){if(BYKEY[k]&&BYKEY[k].rec&&out.indexOf(k)<0)out.push(k);});});
+  if(!out.length)out=(order.office||[]).filter(function(k){return BYKEY[k];}).slice(0,4);
+  return out;}
+function addRecommended(){
+  var keys=essKeysAll(),n=0;
+  if(!keys.length)keys=recKeysAll();
+  keys.forEach(function(k){if(CART[k]||!BYKEY[k])return;
+    CART[k]={qty:moq(),colour:vmOf(k).colour,decos:recCartDecos(k)};n++;});
+  saveCart();refreshCartUI();openBoard();
+  toast(n?('Added '+n+' essential'+(n===1?'':'s')+' to '+activeName()):(activeName()+' already has the essentials'));
+}
+
+/* ---------- cart ---------- */
+function cartCount(){return Object.keys(CART).length;}
+function cartSubtotal(){var t=0;Object.keys(CART).forEach(function(k){var it=BYKEY[bkey(k)];if(!it)return;var c=CART[k];
+  if(it.layer==='promo'){var q=promoQuote(it,c);t+=q.goods+q.decoRun;}   // product + decoration (setup shown separately)
+  else t+=unitPrice(k,c.decos,tierQty(k))*c.qty;});return t;}
+function setupBreakdown(){var r=CFG.rates||{},s=isUS()?SETUP_US:(r.setup||{}),seen={},out=[];
+  Object.keys(CART).forEach(function(k){var it=BYKEY[bkey(k)];if(!it)return;realDecos(it,CART[k].decos).forEach(function(d){
+    var key=setupKey(d,it);if(seen[key])return;seen[key]=1;
+    var L=logoOf(d.lg),p=placeOf(it,d.pl),plab=p?p.label:d.pl,lname=(L&&L.label)||'Logo',amt,lab;
+    if(d.method==='screen'){var c=d.colours||1;amt=(s.screen||0)*c;lab=lname+' · '+plab+' · screen ('+c+'-colour)';}
+    else if(d.method==='heat_transfer'){amt=s.heat_transfer||0;lab=lname+' · '+plab+' · heat-transfer artwork';}
+    else if(d.method==='patch'){amt=s.patch||0;lab=lname+' · '+plab+' · patch setup';}
+    else if(!isUS()&&isSmallMark(d,it)){amt=(s.embroidery_small!=null)?s.embroidery_small:SMALL_SETUP;lab=lname+' · '+plab+' · small-mark digitizing';}
+    else{amt=s.embroidery||0;lab=lname+' · '+plab+' · embroidery digitizing';}
+    out.push({label:lab,amount:Math.round(amt*100)/100});});});
+  Object.keys(CART).forEach(function(k){var it=BYKEY[bkey(k)];if(!it||it.layer!=='promo')return;var q=promoQuote(it,CART[k]);
+    if(q.setup>0)out.push({label:it.name+' · '+q.method.n+(q.locs>1?' · '+q.locs+' locations':'')+' setup',amount:q.setup});});
+  return out;}
+function cartSetup(){return Math.round(setupBreakdown().reduce(function(t,x){return t+x.amount;},0)*100)/100;}
+function fitLabel(c){return (c&&c.fit==='womens')?'Women’s':'';}
+function fitTag(it,c){if(c&&c.fit==='womens')return 'Women’s';if(it&&it.unisex)return 'Unisex';return '';}
+function fitSku(it,c){return (c&&c.fit==='womens'&&it&&it.wsku)?it.wsku:((it&&it.msku)||'');}
+/* Names the MARK too, but only when it is worth saying: a kit with several marks where this
+   location does not use the primary one. On a single-logo store this is unchanged, and on a
+   multi-logo store it is the difference between "Centre back · Screen print 2C" and knowing the
+   back carries the wordmark rather than the full lockup. */
+function decoSummary(it,c){
+  var logos=(typeof CFG!=='undefined'&&CFG.logos)||[],prime=(logos[0]||{}).id;
+  return (c.decos||[]).map(function(d){
+    var p=placeOf(it,d.pl),m=mlabOf(d.method);
+    /* "4C" was printer's shorthand on a customer-facing line; say it the way the row above it does. */
+    if(d.method==='screen'){var _n=d.colours||1;m+=' · '+_n+' colour'+(_n===1?'':'s');}
+    var art=(logos.length>1&&d.lg&&d.lg!==prime)?(' · '+logoLabel(logoOf(d.lg))):'';
+    return (p?p.label:d.pl)+' · '+m+art;
+  }).join('  ·  ')||'left chest';
+}
+function refreshCartUI(){
+  var n=cartCount(),sub=cartSubtotal();
+  var cn=document.getElementById('cartN');if(cn){cn.textContent=n;cn.classList.toggle('has',n>0);}
+  // The single most common confusion was "which list did that just go into?". Name it, always.
+  /* Removing the header removed the one place that named the active board, so on Explore there was
+     nothing telling you where a heart would land. The bar's Boards button now carries it. */
+  var tbl=document.getElementById('tbBoardsLbl');
+  var _qid=quoteListId(),_qn=listLen(_qid);
+  if(tbl){tbl.textContent=(_qn&&_qid===ALID)?('Quote \u00b7 '+money0(cartSubtotal())):'Quote';}
+  var tqn=document.getElementById('tbQN');if(tqn){tqn.textContent=_qn||'';tqn.style.display=_qn?'':'none';}
+  var rn=document.getElementById('railN');
+  if(rn){var bn=listIds().length;rn.textContent=bn>1?bn:'';rn.style.display=bn>1?'':'none';}
+  var cl=document.getElementById('cartLbl');
+  if(cl){var nm=activeName();cl.textContent=nm.length>17?(nm.slice(0,16)+'\u2026'):nm;}
+  var bar=document.getElementById('cbar');if(bar)bar.classList.toggle('on',n>0&&!CFG.demo);
+  document.documentElement.classList.toggle('hascart',n>0);
+  var bn=document.getElementById('cbarN');if(bn)bn.textContent=n;var bnl=document.getElementById('cbarNL');if(bnl)bnl.textContent=n===1?'item':'items';
+  var bp=document.getElementById('cbarP');if(bp)bp.textContent=money0(sub);
+  document.querySelectorAll('.mcard').forEach(function(card){var k=card.dataset.key;
+    var qn=cartQtyOf(k),on=qn>0;card.classList.toggle('inkit',on);
+    var b=card.querySelector('.madd');
+    if(b){b.classList.toggle('has',on);
+      b.innerHTML=on?('<span class="mqk">✓</span><b>'+qn+'</b>'):'<span class="mqk">+</span><span class="mqt">Quote</span>';
+      b.setAttribute('aria-label',on?(qn+' in your board'):'Save to my board');}});
+}
+function openCart(){renderCart();document.getElementById('ov').classList.add('on');document.getElementById('cart').classList.add('on');document.body.style.overflow='hidden';}
+function cartLineHtml(k){var it=BYKEY[bkey(k)];if(!it)return '';var c=CART[k];
+  // With both cuts in the kit the two lines are otherwise near-identical, so label the mens one too.
+  var _both=!!(CART[bkey(k)]&&CART[bkey(k)+'#w']);
+    if(it.layer==='promo'){var pq=promoQuote(it,c);var pcol=colInList(it.cols,c.colour)||it.cols[0]||{};
+      var pline=pq.goods+pq.decoRun;var uP=(pq.unit==='dozen'?'dozen':'pc');
+      var psub2=pq.decoquote?(esc(c.colour||'')+' · logo included'):(esc(c.colour||'')+' · '+esc(pq.method.n)+(pq.locs>1?' · 2 spots':'')+' · +'+money(pq.setup)+' setup');
+      return '<div class="ci" data-key="'+k+'"><div class="t" style="background-image:url('+gurl(pcol.front)+')"></div>'+
+        '<div class="d"><h4>'+esc(it.name)+'</h4><div class="sub">'+psub2+'</div>'+
+        '<div class="row"><button class="editln" data-edit="'+k+'">'+pq.qty+' '+uP+' · '+money(pq.perPiece)+'/'+uP+' ✎</button><div class="lp">'+money(pline)+'</div></div></div>'+
+        '<button class="rm" data-rm="'+k+'" aria-label="Remove">✕</button></div>';}
+    var col=colInList(curColsOf(it,c.fit),c.colour);
+    var unit=unitPrice(k,c.decos,tierQty(k));var szsum=sizesSummary(c,it);var nud=savingsNudge(k,c.decos,tierQty(k));
+    var _ftl=(_both&&c.fit!=='womens')?'Men\u2019s':fitTag(it,c);
+    var fitb=_ftl?'<span class="fitbadge">'+esc(_ftl)+'</span> ':'';
+    var ctrl='<button class="editln" data-edit="'+k+'">'+c.qty+' pcs · '+(c.sizes?'by size':'add sizes')+' ✎</button>';
+    return '<div class="ci" data-key="'+k+'"><div class="t" style="background-image:url('+gurl(col.front)+')"></div>'+
+      '<div class="d"><h4>'+esc(it.name)+'</h4><div class="sub">'+fitb+esc(c.colour)+' · '+esc(decoSummary(it,c))+(szsum?'<br><span class="szln">Sizes: '+esc(szsum)+'</span>':'')+'</div>'+
+      (nud?'<div class="cinudge">＋'+nud.need+' to reach '+nud.tier+'+ · save '+nud.pct+'%</div>':'')+
+      '<div class="row">'+ctrl+'<div class="lp">'+money(unit*c.qty)+'</div></div></div>'+
+      '<button class="rm" data-rm="'+k+'" aria-label="Remove">✕</button></div>';}
+/* ---------- BOARDS: the presentation surface ---------------------------------------------------
+   A list in a narrow side panel is a receipt. What actually gets shown to an enterprise buyer is a
+   BOARD -- Pinterest's model, which Steven is right about: large product imagery, the detail that
+   matters beside each piece, and a note the buyer's own team can read. So the board opens full
+   screen, reuses every existing pricing/quote path, and each board is deep-linkable.
+   The side panel is kept ONLY for the quote steps, which already work. */
+function boardUrl(id){return location.origin+location.pathname+'?board='+encodeURIComponent(id||ALID);}
+/* 320, not 160. A curated shortlist ships with a written reason per item -- why this piece, for
+   this company -- and a real reason does not fit in 160 characters. The cap was applied on SAVE, so
+   merely focusing and blurring a note truncated it mid-sentence, destroying the argument the board
+   exists to make. Keep a cap (public write endpoint) but size it for the job. */
+var NOTE_MAX=320;
+function noteClean(s){return String(s||'').replace(/[~|]/g,' ').replace(/\s+/g,' ').trim().slice(0,NOTE_MAX);}
+function setNote(ck,v){
+  if(!CART[ck])return;
+  var t=noteClean(v);
+  if(t)CART[ck].note=t;else delete CART[ck].note;
+  saveCart();}
+function boardTotals(){
+  var n=0;Object.keys(CART).forEach(function(k){
+    var it=BYKEY[bkey(k)];if(!it)return;
+    n+=(it.layer==='promo')?promoQuote(it,CART[k]).qty:(CART[k].qty||0);});
+  return {pieces:n,lines:Object.keys(CART).length,sub:cartSubtotal(),setup:cartSetup()};}
+/* ---------- size entry, ON the board -----------------------------------------------------------
+   Headcount is decided on the board -- that is the surface someone reviews with their team. But
+   changing it meant tapping Edit, waiting for the product sheet, adjusting, then re-saving to the
+   list: four steps to change one number. So the size split is editable in place, it writes on every
+   keystroke, and the line total, piece count and board estimate update live.
+   Deliberately NOT re-rendering the card on input -- that would blow away focus mid-typing. The few
+   affected numbers are patched in place instead. */
+function sizesForFit(fit,it){return itemSizes(it,fit);}
+/* ---- ONE NUMBER INSTEAD OF A HUNDRED --------------------------------------------------------
+   An 18-line board asks for a six-cell size split on every style: 108 boxes, demanded BEFORE the
+   buyer has a price they trust. That is the wall the whole flow hits. Nobody fills in 108 boxes to
+   find out what something costs, so boards sat at "0 of 18 styles sized" and never reached a quote.
+   So ask the only question the buyer can actually answer off the top of their head -- how many
+   people -- and estimate the rest. Every number stays editable, and it is labelled an estimate,
+   because a size curve is a starting point and not a fact about their team. */
+var SIZE_CURVE={
+  mens:   {S:0.08, M:0.20, L:0.28, XL:0.24, '2XL':0.14, '3XL':0.06},
+  womens: {XS:0.05, S:0.18, M:0.27, L:0.25, XL:0.16, '2XL':0.09}
+};
+/* The tails a full maker's run adds. Thin on purpose: an estimate for 40 people should not put two
+   of them in 5XL -- the buyer types the real number. */
+var SIZE_TAIL={mens:{XS:0.02,'4XL':0.015,'5XL':0.008,'6XL':0.004},womens:{'3XL':0.03,'4XL':0.01}};
+/* Not everyone gets a parka. Scaling every line to full headcount produces a total that frightens
+   people off a shortlist they were otherwise ready to send. */
+function hcFactor(it){
+  var n=(it&&it.name||'').toLowerCase();
+  if(/backpack|duffel|tote|\bbag\b|cooler/.test(n))return 0.35;
+  /* A hi-vis safety vest is not premium outerwear -- it is the thing EVERY person on the floor
+     needs, so it must not be scaled down with the parkas. */
+  if(/tear-?away|traffic vest|safety vest|hi-vis/.test(n))return 1;
+  if(/parka|3-in-1|6-in-1|freezer|\bshell\b|softshell|shacket|puffer|\bcoat\b|rain/.test(n))return 0.6;
+  if(/\bjacket\b|\bvest\b/.test(n))return 0.7;
+  return 1;                                        // tees, polos, layers, workshirts, headwear
+}
+/* Headwear and bags do not come in S-3XL. The board was already rendering a six-cell size grid on a
+   toque and a duffel, which is odd on its own; filling it with estimated numbers would have made it
+   look plainly broken. One size means one quantity box. */
+function oneSize(it){
+  return /beanie|toque|watch hat|\bcap\b|trucker|snapback|snap back|\bhat\b|backpack|duffel|tote|\bbag\b|cooler/i
+    .test((it&&it.name)||'');
+}
+/* ONE HEADCOUNT per store: it describes the buyer's team, not a list. Per-list counts meant each
+   program and the quote each remembered a different number (2026-10-06, one-quote flow). */
+function hcKey(){return 'jdphc_'+SLUG;}
+function getHC(){var v=0;try{v=parseInt(localStorage.getItem(hcKey())||'0',10)||0;}catch(e){}return v;}
+function setHC(n){try{localStorage.setItem(hcKey(),String(n||0));}catch(e){}}
+/* Spread `total` across a size curve without losing or inventing pieces: floor everything, then
+   hand the remainder to the biggest buckets first so the parts always add back to the whole. */
+/* A numeric run has no alpha curve to look up and the runs differ per garment (waist 30-44,
+   coverall chest 38-52), so weight it as a bell centred just below the middle of whatever run the
+   item declares. Same shape as the alpha curve -- one fat middle, thin tails -- expressed so it
+   works for any run length instead of needing a hand-written table per garment. */
+function numericCurve(szs){
+  var n=szs.length,mid=(n-1)*0.45,sd=Math.max(1,n/3.2),w=[],tot=0,out={},i,d;
+  for(i=0;i<n;i++){d=(i-mid)/sd;w[i]=Math.exp(-0.5*d*d);tot+=w[i];}
+  for(i=0;i<n;i++)out[szs[i]]=w[i]/tot;
+  return out;
+}
+function curveFor(it,fit){
+  var fk=fit==='womens'?'womens':'mens',base=SIZE_CURVE[fk],tail=SIZE_TAIL[fk];
+  var szs=(fk==='womens'&&it&&it.wsizes&&it.wsizes.length)?it.wsizes:((it&&it.sizes)||null);
+  if(!(szs&&szs.length))return base;
+  if(numericRun(szs))return numericCurve(szs);
+  /* An item declaring an alpha SUBSET -- a vest that starts at M, a belt that stops at XL -- keeps
+     the shape of the standard curve renormalised over the sizes it actually stocks, so the pieces
+     that would have gone to S land on M instead of vanishing out of the headcount. */
+  var out={},tot=0;
+  /* a paired size carries the weight of both halves: S/M is the S share plus the M share */
+  var wt=function(z){return base[z]||tail[z]||(z==='XXS'?0.005:0.01);};
+  szs.forEach(function(s){var v=String(s).indexOf('/')>0?String(s).split('/').reduce(function(a,z){return a+wt(z);},0):wt(s);out[s]=v;tot+=v;});
+  szs.forEach(function(s){out[s]=out[s]/tot;});
+  return out;
+}
+function spreadSizes(total,fit,it){
+  var curve=curveFor(it,fit),out={},keys=Object.keys(curve),acc=0,i;
+  for(i=0;i<keys.length;i++){var v=Math.floor(total*curve[keys[i]]);out[keys[i]]=v;acc+=v;}
+  var left=total-acc;
+  var order=keys.slice().sort(function(a,b){return curve[b]-curve[a];});
+  i=0;while(left>0){out[order[i%order.length]]+=1;left--;i++;}
+  for(i=0;i<keys.length;i++)if(!out[keys[i]])delete out[keys[i]];
+  return out;
+}
+var KEPT_SIZES=0;
+function applyHeadcount(n){
+  KEPT_SIZES=0;
+  n=Math.max(1,Math.min(100000,parseInt(n,10)||0));
+  if(!n)return 0;
+  var touched=0;
+  /* A garment on the board in BOTH cuts is still one garment per person. Giving each cut the full
+     headcount ordered 80 polos for a team of 40. Split it across the two cuts -- an even split is a
+     guess, which is exactly why every box stays editable. */
+  var paired={};
+  Object.keys(CART).forEach(function(ck){
+    var b=bkey(ck);
+    if(CART[b]&&CART[b+'#w'])paired[b]=2;
+  });
+  Object.keys(CART).forEach(function(ck){
+    var it=BYKEY[bkey(ck)];if(!it)return;
+    var c=CART[ck];
+    if(it.layer==='promo'){                        // promo has its own quantity model, no size grid
+      c.qty=Math.max(it.moq||n,n);touched++;return;
+    }
+    /* sizes the buyer typed are a fact about their team, not an estimate: a new headcount never
+       overwrites them */
+    if(c.szset){KEPT_SIZES++;return;}
+    var share=c.paf?1:(paired[bkey(ck)]||1);   // a program line's ratio is already per cut
+    var target=Math.max(moq(),Math.round(n*hcFactorOf(it,c)/share));
+    if(oneSize(it)){delete c.sizes;c.qty=target;}   // a toque has no size split to estimate
+    else{c.sizes=spreadSizes(target,c.fit,it);c.qty=sizeSum(c.sizes);}
+    touched++;
+  });
+  setHC(n);saveCart();
+  return touched;
+}
+/* SEE THE COLOUR AND CHANGE IT WITHOUT LEAVING THE BOARD. Steven, 2026-09-10: "on a board I want
+   the customer to be able to see and select colors much more easily."
+
+   The board showed a 6px dot and a colour name, and changing it meant pressing Edit -- which opens
+   the entire product sheet on top of the board. So the decision a buyer is most likely to revisit
+   while reviewing what they are about to send was the most expensive one on the card to make.
+
+   Every colourway in the run is now a control on the card itself: hovering previews it on the
+   mockup, clicking commits it. Both go through bPaintColour(), which is also what the caption and
+   the selected ring read from -- one path, so the photo, the logo's ink and the words underneath it
+   cannot drift apart. (They have before: the board once rendered an acid-green polo captioned
+   "Navy".)
+
+   Nothing here recomputes price, because colour does not move it -- so the card repaints in place
+   and the buyer keeps their scroll position while flicking through eighteen colours. */
+function bColourRowHtml(ck){
+  var it=BYKEY[bkey(ck)];if(!it)return '';
+  var c=CART[ck];if(!c)return '';
+  var cols=(it.layer==='promo')?(it.cols||[]):curColsOf(it,c.fit);
+  if(!cols||cols.length<2)return '';             // a single colourway is a fact, not a choice
+  var cur=(colInList(cols,c.colour)||cols[0]||{}).name||'';
+  var CAP=12;                                    // beyond this the row becomes a wall; the rest
+  var hidden=0;                                  // stay one tap away behind "+N more"
+  var sw=cols.map(function(cc,i){
+    var nm=cc.name||'';
+    var on=nm===cur;
+    /* THE SELECTED SWATCH IS NEVER THE HIDDEN ONE. Caught in the preview render: a board line
+       saved in the eighteenth of twenty-two colourways showed a header naming that colour above a
+       row of twelve swatches with no ring on any of them -- the selection was folded into "+10
+       more". Whatever else the cap does, the current choice has to be on screen. */
+    var xtra=(i>=CAP&&!on);
+    if(xtra)hidden++;
+    return '<button type="button" class="bsw'+(on?' on':'')+(xtra?' xtra':'')+'"'+
+      ' role="radio" aria-checked="'+(on?'true':'false')+'" tabindex="'+(on?'0':'-1')+'"'+
+      ' data-bcol="'+esc(nm)+'" data-bswk="'+esc(ck)+'"'+
+      /* Sizing inline as well as in store.css: the two files can land a mirror cycle apart, and an
+         unstyled <button> holding one empty <i> collapses to nothing -- a row of invisible
+         swatches. Same reason the hero's preview tiles carry theirs. */
+      ' style="width:30px;height:30px;border-radius:999px;flex:none;background:'+
+        esc(cc.rgb||'#cccccc')+'"'+
+      ' title="'+esc(nm)+'" aria-label="'+esc(nm)+'"><i aria-hidden="true"></i></button>';
+  }).join('');
+  return '<div class="bcols" data-bcolsk="'+esc(ck)+'">'+
+    '<div class="bcolhd"><span class="bcolk">Colour</span>'+
+      '<b class="bcolnow">'+esc(cur)+'</b>'+
+      '<span class="bcoln">'+cols.length+' to choose from</span></div>'+
+    '<div class="bswr" role="radiogroup" aria-label="Colour for '+esc(it.name)+'" '+
+      'style="display:flex;flex-wrap:wrap;gap:8px">'+sw+
+      (hidden?('<button type="button" class="bswmore" data-bmore="'+esc(ck)+'">+'+
+        hidden+' more</button>'):'')+
+    '</div></div>';
+}
+/* Repaint one board card in a colour. `commit` distinguishes a hover preview (photo and caption
+   only, so it never looks like it saved something) from a real choice (persisted, ring moved). */
+function bPaintColour(ck,colour,commit){
+  var it=BYKEY[bkey(ck)];if(!it)return;
+  var c=CART[ck];if(!c)return;
+  var card=document.querySelector('.bcard[data-bk="'+ck+'"]');if(!card)return;
+  var cols=(it.layer==='promo')?(it.cols||[]):curColsOf(it,c.fit);
+  var col=colInList(cols,colour)||cols[0]||{};
+  var nm=col.name||'';
+  if(commit){c.colour=nm;saveCart();}
+  var st=card.querySelector('.bstage');
+  if(st&&it.layer!=='promo'){
+    /* The logo is re-composited, not just re-positioned: autoInkFor picks a different ink for a
+       black garment than for a white one, so swapping the photo alone would leave white thread
+       sitting on a white polo. */
+    var pl=(c.fit==='womens'&&it.wplaces&&it.wplaces.length)?it.wplaces:it.places;
+    var oo=null;try{oo=overlayHtml(it,{decos:(c.decos||[])},nm,'front',cols,pl);}catch(e){oo=null;}
+    if(oo){
+      var im=st.querySelector('img.g');if(im){im.src=oo.g;im.classList.add('ld');}
+      var old=st.querySelectorAll('img.l');for(var i=0;i<old.length;i++)old[i].remove();
+      if(oo.lg)st.insertAdjacentHTML('beforeend',oo.lg);
+    }
+  }else{
+    var bi=card.querySelector('.bimg');if(bi&&col.front)bi.src=gurl(col.front);
+  }
+  var now=card.querySelector('.bcolnow');if(now)now.textContent=nm;
+  var dot=card.querySelector('.bdot');if(dot&&col.rgb)dot.style.background=col.rgb;
+  var mc=card.querySelector('.bmetacol');if(mc)mc.textContent=nm;
+  if(commit)card.querySelectorAll('.bsw').forEach(function(b){
+    var on=b.getAttribute('data-bcol')===nm;
+    b.classList.toggle('on',on);
+    b.setAttribute('aria-checked',on?'true':'false');
+    b.tabIndex=on?0:-1;                          // roving tabindex: one stop per row, not eighteen
+  });
+}
+function bSizeRowHtml(ck){
+  var c=CART[ck];if(!c)return '';
+  var it=BYKEY[bkey(ck)];
+  if(!it||it.layer==='promo')return '';          // promo carries its own quantity model
+  if(oneSize(it)){
+    /* One quantity box, because there is no size to choose. Showing S-3XL on a toque made the board
+       look like it had been generated rather than assembled. */
+    var q1=c.qty||0;
+    return '<div class="bszed one'+(q1?'':' need')+'" data-szblk="'+esc(ck)+'">'+
+      '<div class="bszhd"><span>'+(q1?'Quantity':'How many?')+'</span>'+
+        '<i data-sztot="'+esc(ck)+'">'+q1+' pcs</i></div>'+
+      '<div class="bszcells one"><label class="bszc'+(q1?' on':'')+'"><span>One size</span>'+
+      '<input type="number" inputmode="numeric" min="0" step="1" placeholder="0" '+
+      'value="'+(q1?q1:'')+'" data-szk="'+esc(ck)+'" data-szs="__one" '+
+      'aria-label="Quantity"></label></div>'+
+      '<div class="bszmoq" data-szmoq="'+esc(ck)+'"></div></div>';
+  }
+  var szs=sizesForFit(c.fit,it),tot=sizeSum(c.sizes)||c.qty||0;
+  var unsized=sizeSum(c.sizes)===0;
+  /* A grid of boxes each reading "0" looks like DATA, not like a form -- which is why nobody typed
+     in it. Three changes make the action unmistakable: an empty box instead of a zero (an empty
+     field invites input, a zero looks like an answer), an explicit instruction on any style still
+     needing sizes, and an accent tint on the whole block until it is filled. */
+  return '<div class="bszed'+(unsized?' need':'')+'" data-szblk="'+esc(ck)+'">'+
+    '<div class="bszhd"><span>'+(unsized?'Enter quantity by size':'Quantity by size')+'</span>'+
+      '<i data-sztot="'+esc(ck)+'">'+tot+' pcs</i></div>'+
+    (unsized?'<div class="bszask">Tap a box and type how many you need</div>':'')+
+    '<div class="bszcells">'+szs.map(function(s){
+        var v=(c.sizes&&c.sizes[s])||0;
+        return '<label class="bszc'+(v?' on':'')+'"><span>'+esc(s)+'</span>'+
+          '<input type="number" inputmode="numeric" min="0" step="1" placeholder="0" '+
+          'value="'+(v?v:'')+'" '+
+          'data-szk="'+esc(ck)+'" data-szs="'+esc(s)+'" aria-label="'+esc(s)+' quantity"></label>';
+      }).join('')+'</div>'+
+    /* A quick-added line carries a quantity but no split, so every cell reads 0 while the line says
+       "12 pcs" -- which looks like a bug. Say plainly that the total is set and the split is
+       optional, instead of leaving the two numbers contradicting each other. */
+    (function(){
+      var split=sizeSum(c.sizes);
+      var comb=tierQty(ck)-(c.qty||0)+tot;          // per style, across both cuts (as pricing counts it)
+      if(tot>0&&comb<moq())
+        return '<div class="bszmoq on" data-szmoq="'+esc(ck)+'">Add '+(moq()-comb)+
+          ' more to reach the '+moq()+'-piece minimum</div>';
+      if(!split&&tot>0)
+        return '<div class="bszmoq soft on" data-szmoq="'+esc(ck)+'">'+tot+
+          ' pcs total \u2014 add your split above whenever you know it</div>';
+      return '<div class="bszmoq" data-szmoq="'+esc(ck)+'"></div>';
+    })()+
+    '</div>';
+}
+function bSetSize(ck,size,val){
+  var c=CART[ck];if(!c)return;
+  var n=Math.max(0,Math.min(100000,parseInt(val,10)||0));
+  if(size==='__one'){delete c.sizes;c.qty=n;saveCart();bRefreshLine(ck);return;}
+  c.sizes=c.sizes||{};
+  if(n)c.sizes[size]=n;else delete c.sizes[size];
+  if(!Object.keys(c.sizes).length)delete c.sizes;
+  var tot=sizeSum(c.sizes);
+  if(tot>0)c.qty=tot;                            // the split IS the quantity
+  saveCart();
+  bRefreshLine(ck);
+}
+function bRefreshLine(ck){
+  var c=CART[ck];if(!c)return;
+  var q=sizeSum(c.sizes)||c.qty||0;
+  var unit=unitPrice(ck,c.decos,tierQty(ck)),line=unit*q;
+  var t=document.querySelector('[data-sztot="'+ck+'"]');
+  if(t)t.textContent=q+' pcs';
+  var card=document.querySelector('.bcard[data-bk="'+ck+'"]');
+  if(card){
+    var pb=card.querySelector('.bprice b');if(pb)pb.textContent=money(line);
+    var ps=card.querySelector('.bprice span');
+    if(ps)ps.textContent=q+' pcs \u00b7 '+money(unit)+'/pc';
+  }
+  /* Drop the prompt the moment they enter anything, and bring it back if they clear it. */
+  var blk=document.querySelector('[data-szblk="'+ck+'"]');
+  if(blk){
+    var need=sizeSum(c.sizes)===0;
+    blk.classList.toggle('need',need);
+    var hd=blk.querySelector('.bszhd span');
+    if(hd)hd.textContent=need?'Enter quantity by size':'Quantity by size';
+    var ask=blk.querySelector('.bszask');
+    if(need&&!ask){var d=document.createElement('div');d.className='bszask';
+      d.textContent='Tap a box and type how many you need';
+      blk.insertBefore(d,blk.querySelector('.bszcells'));}
+    else if(!need&&ask)ask.remove();
+  }
+  var mo=document.querySelector('[data-szmoq="'+ck+'"]');
+  if(mo){
+    /* the minimum is per STYLE across both cuts -- the same count pricing uses (tierQty) -- so 8 men's +
+       4 women's of one quarter-zip is a valid 12, not two short lines */
+    var need=moq()-tierQty(ck),split=sizeSum(c.sizes);
+    if(q>0&&need>0){mo.textContent='Add '+need+' more to reach the '+moq()+'-piece minimum';
+      mo.className='bszmoq on';}
+    else if(!split&&q>0){mo.textContent=q+' pcs total \u2014 add your split above whenever you know it';
+      mo.className='bszmoq soft on';}
+    else{mo.textContent='';mo.className='bszmoq';}
+  }
+  refreshProposal();
+  var hd=document.querySelector('.bsum');
+  if(hd){var tt=boardTotals();
+    hd.textContent=tt.lines+' item'+(tt.lines===1?'':'s')+' \u00b7 '+tt.pieces+
+      ' pieces \u00b7 est. '+money(tt.sub)+(tt.setup>0?(' + '+money(tt.setup)+' setup'):'');}
+  refreshCartUI();
+}
+function boardCardHtml(ck){
+  var it=BYKEY[bkey(ck)];if(!it)return '';
+  var c=CART[ck];
+  var isPromo=it.layer==='promo';
+  var cols=isPromo?(it.cols||[]):curColsOf(it,c.fit);
+  var col=colInList(cols,c.colour)||cols[0]||{};
+  /* colInList falls back to cols[0] when the requested colour is not in this run, so c.colour and
+     the photo can disagree -- the preview rendered an acid-green polo captioned "Navy". A board is
+     shown to a buyer, so the caption is taken from the colour we ACTUALLY rendered, never from the
+     requested one, and a genuine mismatch is surfaced rather than hidden. */
+  var cname=(col&&col.name)||c.colour||'';
+  var cmiss=(c.colour&&col&&col.name&&col.name!==c.colour)?c.colour:'';
+  var q,line,unit,_tq=0;
+  if(isPromo){var pq=promoQuote(it,c);q=pq.qty;line=pq.goods+pq.decoRun;unit=pq.perPiece;}
+  else{q=c.qty||0;_tq=tierQty(ck);unit=unitPrice(ck,c.decos,_tq);line=unit*q;}
+  var both=!!(CART[bkey(ck)]&&CART[bkey(ck)+'#w']);
+  var ftl=(both&&c.fit!=='womens')?'Men\u2019s':fitTag(it,c);
+  var szs=sizesSummary(c,it);
+  // Prefer the STANDARDISED decoration label from the catalogue -- it is what actually gets
+  // produced and quoted, which is the language a board shown to a buyer should be in.
+  /* Spector publishes a price with the branding already in it, so there is no decoration line to
+     describe -- but "logo included in the price" is the single most persuasive fact about a gift,
+     where the buyer is mentally comparing against a retail shelf. Worth the words. */
+  var deco=isPromo?(it.decoquote?'Logo included in the price':''):decoLabelFor(ck);
+  /* THE BOARD IS THE THING SENT TO THE ACCOUNT. It was rendering the bare supplier photo, so a
+     buyer opened a page of unbranded garments -- the single most important thing to show is their
+     own logo on the gear, composited at the exact placement that will be produced. overlayHtml
+     returns the garment plus the positioned logo layer; promo items have no placement model and
+     keep the plain photo. */
+  var _o=null;
+  if(!isPromo){
+    var _pl=(c.fit==='womens'&&it.wplaces&&it.wplaces.length)?it.wplaces:it.places;
+    try{_o=overlayHtml(it,{decos:(c.decos||[])},c.colour,'front',cols,_pl);}catch(e){_o=null;}
+  }
+  var _crow=bColourRowHtml(ck);
+  var _stage=_o
+    ? ('<div class="bstage"><img class="g" src="'+_o.g+'" alt="'+esc(it.name)+
+       '" loading="lazy" decoding="async">'+_o.lg+'</div>')
+    : ('<img class="bimg" src="'+gurl(col.front)+'" alt="'+esc(it.name)+'" loading="lazy">');
+  return '<article class="bcard" data-bk="'+esc(ck)+'">'+
+    '<div class="bimgwrap">'+_stage+
+      (ftl?'<span class="bfit">'+esc(ftl)+'</span>':'')+'</div>'+
+    '<div class="bbody">'+
+      '<h3 class="bname">'+esc(it.name)+'</h3>'+
+      /* The swatch row states the colour in bigger type right below, so repeating it here would
+         be the same fact twice on one card. When there is only one colourway there is no row, and
+         the meta line carries it as before. */
+      (function(){
+        var bits=[];
+        if(!_crow&&cname)bits.push((col.rgb?('<span class="bdot" style="background:'+
+          esc(col.rgb)+'"></span>'):'')+'<span class="bmetacol">'+esc(cname)+'</span>');
+        /* Apparel lines show their decoration as the same where+how row the grid card uses, built
+           from THIS line's own decos -- so a line the buyer changed to a back print says so, and a
+           blank says blank. Promo keeps its one-line "logo included in the price". */
+        if(deco&&isPromo)bits.push('<span>'+esc(deco)+'</span>');
+        return bits.length?('<div class="bmeta">'+
+          bits.join('<span class="bsep">\u00b7</span>')+'</div>'):'';
+      })()+
+      (isPromo?'':incHtml(it,c.decos||[],'board'))+
+      (cmiss?('<div class="bmiss">'+esc(cmiss)+' is no longer available \u2014 showing '+
+        esc(cname)+'. Tell us on the quote and we\u2019ll source it.</div>'):'')+
+      /* WHY THIS PIECE. Steven, 2026-09-08: "improve the recommendation suggestions to truly WOW
+         the customer especially with the notes."
+         A shortlist without reasons is just a list -- the buyer cannot tell what we know about
+         their trade from a row that says "Vault Pullover Hoodie, Ash Grey, $38.00". The reason is
+         the whole value of having picked it for them, so it sits directly under the name where it
+         is read before the price. Only rendered when the board actually carries one; a board the
+         customer built themselves shows nothing here rather than an empty label. */
+      (c.why?('<div class="bwhy"><span class="bwhyk">Why this one</span>'+esc(c.why)+'</div>'):'')+
+      /* Colour then quantity: the two things the buyer configures, next to each other. */
+      _crow+
+      bSizeRowHtml(ck)+
+      /* When both cuts of a garment are on the board they share one volume tier, so the men's line
+         can be 40 pieces yet priced at a 240-piece rate. Without saying so, the number looks wrong
+         -- state the basis explicitly rather than leaving the buyer to reconcile it. */
+      '<div class="bprice"><b>'+money(line)+'</b>'+
+        '<span>'+q+' pcs \u00b7 '+money(unit)+'/pc</span></div>'+
+      /* The buyer's whole question is "what does another 50 pieces cost me". Show the ladder with
+         their current tier marked, rather than a single number they have to take on trust. */
+      (function(){
+        if(isPromo)return '';
+        var cols=(CFG.pricing&&CFG.pricing.cols)||[12,48,144];
+        var here=-1;
+        for(var i=0;i<cols.length;i++){if(_tq>=cols[i])here=i;}
+        var rows=cols.map(function(t,i){
+          var u=unitPrice(ck,c.decos,t);
+          return '<span class="btr'+(i===here?' on':'')+'"><i>'+t+'+</i><b>'+money(u)+'</b></span>';
+        }).join('');
+        return '<div class="btiers">'+rows+'</div>'+
+          ((_tq>q)?('<div class="btier">Tier set by '+_tq+' pcs of this garment across both cuts</div>'):'');
+      })()+
+      '<label class="bnote"><span>Your note</span>'+
+        '<textarea data-note="'+esc(ck)+'" rows="2" maxlength="'+NOTE_MAX+'" '+
+        /* Renamed away from "Why this piece": that is now OUR block's heading directly above,
+           and two fields inviting the same sentence is how a form stops being answered. */
+        'placeholder="Sizing, deadlines, who it\u2019s for \u2014 anything we should know\u2026">'+
+        esc(c.note||'')+'</textarea></label>'+
+      '<div class="bacts">'+
+        '<button type="button" class="bbtn" data-bedit="'+esc(ck)+'">Edit</button>'+
+        '<button type="button" class="bbtn bbtnrm" data-brm="'+esc(ck)+'">Remove</button>'+
+      '</div>'+
+    '</div></article>';
+}
+/* ---------- the board as a proposal ------------------------------------------------------------
+   This page goes to accounts worth six figures, and the next step is explicit: the buyer enters
+   quantities and sizes, then we issue a proforma invoice. So the board has to do three things a
+   grid of cards does not -- present the money with confidence, make it obvious what still needs
+   filling in, and name the actual next step. */
+function boardSizing(){
+  var total=0,sized=0,missing=[];
+  Object.keys(CART).forEach(function(ck){
+    var it=BYKEY[bkey(ck)];if(!it||it.layer==='promo')return;
+    total++;
+    /* A one-size item is SIZED as soon as it has a quantity -- there is no split to give. Counting
+       it as outstanding left a fully-filled board stuck on "4 still to go" and refusing to unlock
+       the proforma, which is the whole point of the step. */
+    var done=oneSize(it)?((CART[ck].qty||0)>0):(sizeSum(CART[ck].sizes)>0);
+    if(done)sized++; else missing.push(ck);});
+  return {total:total,sized:sized,missing:missing};
+}
+/* The proposal block holds no inputs, so it can be re-rendered wholesale on every keystroke without
+   disturbing the size cell being typed into -- which is why the rest of the card is patched in place
+   but this is not. Without it the summary froze at "0 of 3 styles sized" while the buyer filled the
+   grid in, and the CTA never unlocked. */
+function refreshProposal(){
+  var host=document.querySelector('#board .bprop');
+  if(!host)return;
+  var tmp=document.createElement('div');
+  tmp.innerHTML=boardSummaryHtml();
+  var fresh=tmp.firstChild;
+  host.parentNode.replaceChild(fresh,host);
+  wireProposal();
+  markSync(SYNC||'saved');
+}
+function wireProposal(){
+  var el=document.getElementById('board');if(!el)return;
+  var bf=document.getElementById('bFinish');
+  if(bf)bf.addEventListener('click',function(){
+    var s=boardSizing();if(!s.missing.length)return;
+    var card=el.querySelector('.bcard[data-bk="'+s.missing[0]+'"]');
+    if(card){card.scrollIntoView({behavior:'smooth',block:'center'});
+      card.classList.add('needsize');
+      setTimeout(function(){var i=card.querySelector('.bszc input');
+        if(i){i.focus();try{i.select();}catch(e){}}},420);
+      setTimeout(function(){card.classList.remove('needsize');},2600);}});
+  var bq=document.getElementById('bQuote');
+  if(bq)bq.addEventListener('click',function(){
+    jdpTrack('board_quote',{n:cartCount()});
+    closeBoard();
+    document.getElementById('ov').classList.add('on');
+    document.getElementById('cart').classList.add('on');
+    document.body.style.overflow='hidden';
+    openCheckout();
+    /* say, on the request itself, that sizes are to follow -- so the rep knows to ask */
+    var nt=document.getElementById('coNote');
+    if(nt&&!nt.value)nt.value='Sizes to confirm'+(getHC()?(' \u2014 about '+getHC()+' people'):'')+'. ';});
+  var bp=document.getElementById('bProforma');
+  if(bp)bp.addEventListener('click',function(){
+    closeBoard();
+    document.getElementById('ov').classList.add('on');
+    document.getElementById('cart').classList.add('on');
+    document.body.style.overflow='hidden';
+    openCheckout();});
+}
+function boardSummaryHtml(){
+  var t=boardTotals(),s=boardSizing();
+  var allIn=t.sub+t.setup;
+  var ready=s.total>0&&s.missing.length===0;
+  return '<section class="bprop">'+
+    '<div class="bpgrid">'+
+      '<div class="bpcell"><i>Pieces</i><b>'+t.pieces+'</b></div>'+
+      '<div class="bpcell"><i>Styles</i><b>'+t.lines+'</b></div>'+
+      '<div class="bpcell"><i>Apparel</i><b>'+money(t.sub)+'</b></div>'+
+      (t.setup>0?'<div class="bpcell"><i>One-time setup</i><b>'+money(t.setup)+'</b></div>':'')+
+      '<div class="bpcell tot"><i>Estimated total</i><b>'+money(allIn)+'</b></div>'+
+    '</div>'+
+    /* The one question a buyer can answer without opening a spreadsheet. */
+    (function(){
+      var hc=getHC(),anySized=s.sized>0;
+      if(hc&&anySized)
+        return '<div class="bphc done"><span class="bphctick">\u2713</span>'+
+          '<span class="bphctx"><b>Sized for '+hc+' people</b>'+
+          '<i>Every box below is an estimate from a typical size split \u2014 change anything that is off.</i></span>'+
+          '<button type="button" class="bphcre" id="bHCre">Change</button></div>';
+      return '<div class="bphc"><div class="bphcq"><b>How many people are you outfitting?</b>'+
+        '<i>Give us one number and we will estimate the size split on every style, so you are not '+
+        'filling in a grid to find out what this costs.</i></div>'+
+        '<div class="bphcin"><input id="bHC" type="number" inputmode="numeric" min="1" '+
+        'placeholder="e.g. 40"'+(hc?(' value="'+hc+'"'):'')+' aria-label="Number of people">'+
+        '<button type="button" class="bphcgo" id="bHCgo">Estimate sizes <span class="ar">\u2192</span></button>'+
+        '</div></div>';
+    })()+
+    '<div class="bpnext">'+
+      '<div class="bpstep">'+
+        '<span class="bpsn'+(ready?' done':'')+'">'+(ready?'\u2713':'1')+'</span>'+
+        '<span class="bpst"><b>Quantities &amp; sizes</b>'+
+          '<i>'+(ready
+            ? ('All '+s.total+' style'+(s.total===1?'':'s')+' sized')
+            : (s.sized+' of '+s.total+' styles sized \u2014 '+s.missing.length+' still to go'))+'</i></span>'+
+      '</div>'+
+      '<div class="bpstep"><span class="bpsn">2</span>'+
+        '<span class="bpst"><b>Proforma invoice</b>'+
+          '<i>Issued against these quantities. Nothing is ordered until you approve it.</i></span></div>'+
+      /* THE QUOTE IS NEVER LOCKED BEHIND SIZES. Measured on the live funnel, 2026-09-25: 10 board
+         opens and 0 checkouts in a day, because the only button on a program board was "Request
+         proforma invoice" and it stayed disabled ("6 styles need sizes") until every style was
+         sized. The "Get my exact quote" button existed -- inside the side drawer, off-screen. A
+         buyer who opened the program from an email could see $3,741 and could not ask for a price.
+         JDP's own proposal process asks for "picks + rough headcount"; sizes are settled in the
+         quote. So the quote is always one tap away, and sizing is the optional precision step. */
+      (ready
+        ? '<button type="button" class="bpcta" id="bProforma">Request proforma invoice <span class="ar">\u2192</span></button>'
+        : ('<button type="button" class="bpcta" id="bQuote">Get my formal quote <span class="ar">\u2192</span></button>'+
+           '<button type="button" class="bpsizes" id="bFinish">Sizes can wait \u2014 or add them now ('+s.missing.length+
+             ' style'+(s.missing.length===1?'':'s')+') <span class="ar">\u2193</span></button>'))+
+    '</div></section>';
+}
+function renderBoard(){
+  var el=document.getElementById('board');if(!el)return;
+  var t=boardTotals();
+  var ids=listIds();
+  var chips=ids.map(function(id){
+    return '<button type="button" class="bchip'+(id===ALID?' on':'')+'" data-bsw="'+esc(id)+'">'+
+      esc(listName(id))+' <i>'+listLen(id)+'</i>'+(isTemplate(id)?('<em>'+(((LISTS||{})[id]||{}).prog?'program':'template')+'</em>'):'')+'</button>';}).join('');
+  var cards=Object.keys(CART).map(boardCardHtml).join('');
+  var tmpl=isTemplate(ALID)?('<div class="btmpl"><b>This is our starter template.</b> Anything you save '+
+      'goes to your own board \u2014 this one stays as it is.'+
+      '<button type="button" class="tmplcopy" id="bTmplCopy">Copy these '+t.lines+' into my board</button></div>'):'';
+  /* A MENU, NOT A BUNDLE. The gifts board lists six occasions and the header totals them --
+     "6 items · 160 pieces · est. $8,055" -- which is the cost of buying every occasion at once and
+     is not what anyone does. The card that opened this board said "from $24 per person", so
+     without a line here the two numbers look like a contradiction and the sticker shock lands on
+     the most price-sensitive purchase in the store. Say what the list is. */
+  var pickNote=((LISTS[ALID]||{}).basis==='pick')
+    ? ('<div class="bpick"><b>A menu, not a bundle.</b> Pick the occasions you are buying for and '+
+       'remove the rest \u2014 the total above assumes all '+t.lines+'. Each line is priced at its '+
+       'own minimum, and the logo is already included in that price.</div>')
+    : '';
+  el.innerHTML='<div class="bwrap">'+
+    '<header class="bhd"><div class="bhdin">'+
+      '<div class="bhdL">'+
+        '<div class="beyb">'+esc(CFG.client)+' \u00b7 board</div>'+
+        '<h1 class="btitle edit" id="bTitle" title="Click to rename" '+
+          'role="button" tabindex="0">'+esc(activeName())+'</h1>'+
+        '<div class="bsync" id="bsync"></div>'+
+        '<div class="bsum">'+(t.lines?(t.lines+' item'+(t.lines===1?'':'s')+' \u00b7 '+t.pieces+
+          ' pieces \u00b7 est. '+money(t.sub)+(t.setup>0?(' + '+money(t.setup)+' setup'):'')):'Nothing saved yet')+'</div>'+
+        /* Whoever this link is forwarded to arrives with no context. Three facts, stated once. */
+      '</div>'+
+      '<div class="bhdR">'+
+        '<button type="button" class="bghost" id="bAll">\u2039 All boards</button>'+
+        '<button type="button" class="bghost" id="bMore">+ Add more gear</button>'+
+
+        '<button type="button" class="bghost bshare" id="bShare">Share board \u2197</button>'+
+        (t.lines?'<button type="button" class="bghost" id="bPrint">Print / PDF</button>':'')+
+        '<button type="button" class="bx" id="bClose" aria-label="Close">\u2715</button>'+
+      '</div>'+
+    '</div>'+
+    '<div class="bchips">'+chips+'</div></header>'+
+    tmpl+
+    pickNote+
+    (t.lines?boardSummaryHtml():'')+
+    (t.lines?('<div class="bgrid">'+cards+'</div>')
+      :('<div class="bempty"><b>This board is empty</b><span>Tap the heart on any product to save it here.</span>'+
+        ((starterId()&&starterId()!==ALID)?('<button type="button" class="bcta" data-bsw="'+esc(starterId())+'">'+
+          'Open our starter board \u00b7 '+listLen(starterId())+' pieces</button>'):'')+'</div>'))+
+    /* Destructive action, kept deliberately away from the four primary ones in the header. */
+    '<div class="bfoot"><button type="button" class="bdel" id="bDel">Delete this board</button></div>'+
+    '</div>';
+  wireBoard();
+}
+function wireBoard(){
+  var el=document.getElementById('board');if(!el)return;
+  el.querySelectorAll('[data-bsw]').forEach(function(b){b.addEventListener('click',function(){
+    switchList(b.dataset.bsw);renderBoard();});});
+  /* Only the small Edit button opened a product; clicking the garment, its name or its price -- the
+     obvious targets -- did nothing at all. The whole card is now the target, minus the controls
+     that live on it. */
+  el.querySelectorAll('.bcard').forEach(function(card){
+    card.addEventListener('click',function(e){
+      if(e.target.closest('button,input,textarea,label,a,select'))return;
+      openSheet(card.dataset.bk);});});
+  el.querySelectorAll('[data-szk]').forEach(function(inp){
+    var apply=function(){
+      bSetSize(inp.dataset.szk,inp.dataset.szs,inp.value);
+      var cell=inp.parentNode;
+      if(cell&&cell.classList)cell.classList.toggle('on',(parseInt(inp.value,10)||0)>0);};
+    inp.addEventListener('input',apply);
+    inp.addEventListener('change',apply);
+    // Select-on-focus: tapping a cell that reads 0 and typing 8 should give 8, not 08.
+    inp.addEventListener('focus',function(){try{inp.select();}catch(e){}});});
+  (function(){
+    var go=document.getElementById('bHCgo'),inp=document.getElementById('bHC');
+    var run=function(){
+      var n=parseInt(inp&&inp.value,10)||0;
+      if(n<1){if(inp)inp.focus();toast('Tell us how many people and we will do the rest');return;}
+      var t=applyHeadcount(n);
+      pushBoardSoon();renderBoard();
+      toast('Sized '+t+' styles for '+n+' people \u2014 adjust anything that is off');
+    };
+    if(go)go.addEventListener('click',run);
+    if(inp)inp.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();run();}});
+    var re=document.getElementById('bHCre');
+    if(re)re.addEventListener('click',function(){
+      setHC(0);renderBoard();
+      var i2=document.getElementById('bHC');if(i2)i2.focus();});
+  })();
+  el.querySelectorAll('[data-note]').forEach(function(t){
+    var save=function(){setNote(t.dataset.note,t.value);};
+    /* Grow to fit. A curated board is READ before it is edited: a fixed 2-row box hid the second
+       half of every recommendation behind an invisible scrollbar, so the reasoning that justifies
+       the pick never reached the person deciding. */
+    var grow=function(){t.style.height='auto';var h=t.scrollHeight;if(h>0)t.style.height=(h+2)+'px';};
+    t.addEventListener('change',save);t.addEventListener('blur',save);
+    t.addEventListener('input',grow);
+    grow();if(window.requestAnimationFrame)requestAnimationFrame(grow);});
+  el.querySelectorAll('[data-bedit]').forEach(function(b){b.addEventListener('click',function(){
+    /* The board STAYS OPEN underneath. It used to be closed first because the product sheet sits at
+       z-index 70 and the board at 1400, so the sheet would have opened behind it -- which meant
+       closing the sheet dumped you on Explore instead of back on the board you were editing. The
+       sheet is now layered above the board and the board is simply revealed again. */
+    openSheet(b.dataset.bedit);});});
+  el.querySelectorAll('[data-brm]').forEach(function(b){b.addEventListener('click',function(){
+    delete CART[b.dataset.brm];markCleared();saveCart();refreshCartUI();renderBoard();});});
+  /* Colour, chosen on the card. Pointer and keyboard both land on bPaintColour(): hover/focus
+     previews, click commits, leaving restores whatever is actually saved -- so a buyer who runs the
+     mouse across the row and walks away is left looking at their own choice, not the last one they
+     grazed. */
+  el.querySelectorAll('.bsw').forEach(function(b){
+    var ck=b.getAttribute('data-bswk'),nm=b.getAttribute('data-bcol');
+    var back=function(){var c=CART[ck];if(c)bPaintColour(ck,c.colour,false);};
+    b.addEventListener('click',function(e){e.stopPropagation();bPaintColour(ck,nm,true);});
+    b.addEventListener('mouseenter',function(){bPaintColour(ck,nm,false);});
+    b.addEventListener('focus',function(){bPaintColour(ck,nm,false);});
+    b.addEventListener('mouseleave',back);
+    b.addEventListener('blur',back);
+    b.addEventListener('keydown',function(e){
+      var d=(e.key==='ArrowRight'||e.key==='ArrowDown')?1:
+            ((e.key==='ArrowLeft'||e.key==='ArrowUp')?-1:0);
+      if(!d)return;
+      e.preventDefault();
+      var row=b.closest('.bswr');if(!row)return;
+      // only the swatches actually on screen -- arrowing into a hidden one strands the focus ring
+      var all=[].slice.call(row.querySelectorAll('.bsw')).filter(function(x){
+        return x.offsetParent!==null;});
+      var i=all.indexOf(b);if(i<0)return;
+      var nx=all[(i+d+all.length)%all.length];
+      if(nx){nx.tabIndex=0;nx.focus();}
+    });
+  });
+  el.querySelectorAll('[data-bmore]').forEach(function(b){b.addEventListener('click',function(e){
+    e.stopPropagation();
+    var box=b.closest('.bcols');if(box)box.classList.add('all');
+    b.remove();});});
+  /* On a phone the swatch row scrolls sideways, so open it with the chosen colour already in
+     view. scrollLeft rather than scrollIntoView(): the latter also scrolls the nearest vertical
+     ancestor, which on a board of twelve cards jerks the whole panel to the last one. */
+  el.querySelectorAll('.bswr').forEach(function(row){
+    var on=row.querySelector('.bsw.on');
+    if(!on||row.scrollWidth<=row.clientWidth+2)return;
+    row.scrollLeft=Math.max(0,on.offsetLeft-(row.clientWidth-on.offsetWidth)/2);
+  });
+  var x=document.getElementById('bClose');if(x)x.addEventListener('click',closeBoard);
+  var ba=document.getElementById('bAll');if(ba)ba.addEventListener('click',function(){
+    closeBoard();openBoards();});
+  /* The board is a review surface; the natural next move is "add another piece". Without this you
+     have to close the board and find your way back to the catalogue yourself. */
+  wireProposal();
+  var bd=document.getElementById('bDel');
+  if(bd)bd.addEventListener('click',function(){
+    var nm=activeName(),n=listLen(ALID),last=listIds().length<2;
+    if(!window.confirm('Delete \u201c'+nm+'\u201d'+
+        (n?(' and the '+n+' item'+(n===1?'':'s')+' in it'):'')+'?\n\nThis cannot be undone.'))return;
+    /* Local removal alone was pointless: syncBoardsFromServer() pulled the board straight back on
+       the next reconcile. Delete server-side FIRST, and only then locally -- and wait for it, so the
+       boards index cannot re-list what we just removed. */
+    var sl=(LISTS[ALID]||{}).slug;
+    var finish=function(){
+      deleteList(ALID);refreshCartUI();
+      if(last){renderBoard();toast('\u201c'+nm+'\u201d emptied');}
+      else{closeBoard();openBoards();toast('\u201c'+nm+'\u201d deleted');}};
+    if(sl){
+      fetch(boardsApi()+'?kit='+encodeURIComponent(SLUG)+'&b='+encodeURIComponent(sl)+'&delete=1',
+        {method:'POST'}).then(finish,finish);
+    }else finish();});
+  var bm=document.getElementById('bMore');if(bm)bm.addEventListener('click',function(){
+    closeBoard();closeBoards();setRail('explore');
+    var g=document.getElementById('gridhd')||document.getElementById('grid');
+    if(g)g.scrollIntoView({behavior:'smooth',block:'start'});});
+  var bt=document.getElementById('bTitle');
+  if(bt){var ren=function(){
+      var n=window.prompt('Rename this board',activeName());
+      if(n===null)return;renameList(ALID,n);renderBoard();refreshCartUI();
+      try{if(history.replaceState)history.replaceState({},'',shareListUrl());}catch(e){}};
+    bt.addEventListener('click',ren);
+    bt.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();ren();}});}
+  var sh=document.getElementById('bShare');if(sh)sh.addEventListener('click',openSharePanel);
+  var pr=document.getElementById('bPrint');
+  if(pr)pr.addEventListener('click',function(){try{window.print();}catch(e){}});
+  var tc=document.getElementById('bTmplCopy');
+  if(tc)tc.addEventListener('click',function(){copyStarterToMine();renderBoard();});
+}
+function openBoard(id){
+  jdpTrack('board');
+  /* A board id is local to the browser that made it. openBoard used to write ?board=<id> into the
+     address bar, so copying that URL -- the obvious thing to do -- handed someone a link that
+     resolves to nothing on their machine, or worse, silently showed them their OWN board under the
+     sender's board name. The address bar is left clean and the Share button (which encodes the
+     actual contents) is the one way to hand a board to someone. */
+  if(id&&(!LISTS||!LISTS[id])){openBoards();toast('That board isn\u2019t on this device \u2014 here are your boards');return;}
+  if(id&&LISTS&&LISTS[id])switchList(id);
+  var el=document.getElementById('board');
+  if(!el){el=document.createElement('div');el.id='board';el.className='boardov';document.body.appendChild(el);}
+  renderBoard();
+  el.classList.add('on');document.body.style.overflow='hidden';
+  setRail('boards');
+  // So copying the address bar shares the board -- the thing everyone tries first.
+  try{if(history.replaceState&&Object.keys(CART).length)
+    history.replaceState({},'',shareListUrl());}catch(e){}
+}
+function closeBoard(){
+  var el=document.getElementById('board');if(el)el.classList.remove('on');
+  document.body.style.overflow='';
+  try{if(history.replaceState)history.replaceState({},'',location.pathname);}catch(e){}
+}
+/* Pinterest's actual gesture: choose the board. Shown only when there is a real choice -- with one
+   personal board a picker would be pure friction, so it saves straight away. */
+function openSavePicker(key){
+  var personal=listIds().filter(function(id){return !isTemplate(id);});
+  if(personal.length<2){quickAdd(key);return;}
+  var el=document.getElementById('bpick');
+  if(!el){el=document.createElement('div');el.id='bpick';el.className='bpickov';document.body.appendChild(el);}
+  el.innerHTML='<div class="bpick"><div class="bpickhd">Save to board'+
+      '<button type="button" class="bpx" id="bpX" aria-label="Close">\u2715</button></div>'+
+    personal.map(function(id){
+      return '<button type="button" class="bprow" data-bpid="'+esc(id)+'">'+
+        '<span>'+esc(listName(id))+'</span><i>'+listLen(id)+'</i></button>';}).join('')+
+    '<button type="button" class="bprow new" id="bpNew">+ New board</button></div>';
+  el.classList.add('on');
+  el.onclick=function(e){if(e.target===el)el.classList.remove('on');};
+  var x=document.getElementById('bpX');if(x)x.addEventListener('click',function(){el.classList.remove('on');});
+  el.querySelectorAll('[data-bpid]').forEach(function(b){b.addEventListener('click',function(){
+    switchList(b.dataset.bpid);quickAdd(key);el.classList.remove('on');});});
+  var nn=document.getElementById('bpNew');
+  if(nn)nn.addEventListener('click',function(){
+    var n=window.prompt('Name this board','Board '+(listIds().length+1));
+    if(n===null)return;newList(n);quickAdd(key);el.classList.remove('on');});
+}
+/* ---------- EXPLORE / YOUR BOARDS: the two things this store does -------------------------------
+   The store had accumulated a header of brand + cart + hero + trust chips + category panel + fit bar
+   + colour bar + search + sub-chips + filters, all above the first product. Steven's reference is
+   Pinterest, and its whole information architecture is two destinations in a quiet icon rail:
+   Explore, and Your boards. Everything else is subordinate to those.
+   So: a fixed rail on desktop, a bottom tab bar on phones, and a real BOARDS INDEX -- board cards
+   with a collage of their own product photography, the way Pinterest shows a board. */
+function boardValue(id){
+  var L=(LISTS||{})[id];if(!L)return {pieces:0,sub:0};
+  var items=L.items||{},pieces=0,sub=0;
+  Object.keys(items).forEach(function(ck){
+    var it=BYKEY[bkey(ck)];if(!it)return;
+    var c=items[ck];
+    if(it.layer==='promo'){var q=promoQuote(it,c);pieces+=q.qty;sub+=q.goods+q.decoRun;}
+    else{var qq=c.qty||0;pieces+=qq;sub+=unitPrice(ck,c.decos,tierQty(ck))*qq;}});
+  return {pieces:pieces,sub:sub};
+}
+/* The card previews used to be 26px squares of a bare supplier photo — postage stamps that proved
+   nothing. These render the garment WITH this client's mark at the placement we would produce, the
+   same overlayHtml the grid and the hero use, so the first thing a visitor sees on the front door of
+   their store is their own logo on their own gear. */
+function boardPreviews(id,n){
+  var L=(LISTS||{})[id];if(!L)return [];
+  var out=[];
+  Object.keys(L.items||{}).slice(0,n||4).forEach(function(ck){
+    var it=BYKEY[bkey(ck)];if(!it)return;
+    var c=L.items[ck];
+    try{
+      var cols=(it.layer==='promo')?(it.cols||[]):curColsOf(it,c.fit);
+      var o=overlayHtml(it,{decos:(c.decos&&c.decos.length)?c.decos:defaultDecos(ck)},
+                        c.colour,'front',cols,it.places);
+      out.push(o);
+    }catch(e){}
+  });
+  return out;
+}
+function boardThumbs(id,n){
+  var L=(LISTS||{})[id];if(!L)return [];
+  var out=[];
+  Object.keys(L.items||{}).slice(0,n||4).forEach(function(ck){
+    var it=BYKEY[bkey(ck)];if(!it)return;
+    var c=L.items[ck];
+    var cols=(it.layer==='promo')?(it.cols||[]):curColsOf(it,c.fit);
+    var col=colInList(cols,c.colour)||cols[0]||{};
+    if(col.front)out.push(gurl(col.front));});
+  return out;
+}
+function boardTileHtml(id){
+  /* Pinterest's board thumbnail is ONE large tile plus two small -- exactly three cells. Emitting a
+     fourth into a 2fr+1fr / 1fr+1fr grid created an implicit third row and collapsed the first three
+     cells to 22px, 9px and 9px while the fourth took the whole large slot. Three cells, placed
+     explicitly by nth-child, cannot do that. */
+  var t=boardValue(id),th=boardThumbs(id,3),n=listLen(id);
+  var cells='';
+  for(var i=0;i<3;i++){
+    cells+=th[i]?('<div class="btc"><img src="'+th[i]+'" alt="" loading="lazy"></div>')
+                :'<div class="btc empty"></div>';}
+  return '<button type="button" class="btile" data-bopen="'+esc(id)+'">'+
+    '<div class="btcollage'+(th.length?'':' blank')+'">'+cells+
+      (isTemplate(id)?('<span class="bttag">'+(((LISTS||{})[id]||{}).prog?'Program':'Template')+'</span>'):'')+'</div>'+
+    '<div class="btmeta"><b>'+esc(listName(id))+'</b>'+
+      '<span>'+n+' item'+(n===1?'':'s')+(t.pieces?(' \u00b7 '+t.pieces+' pcs'):'')+
+      (t.sub?(' \u00b7 est. '+money(t.sub)):'')+'</span></div></button>';
+}
+function renderBoardsIndex(){
+  var el=document.getElementById('boards');if(!el)return;
+  if(!LISTS)loadLists();
+  var ids=listIds();
+  el.innerHTML='<div class="bwrap">'+
+    '<header class="bhd"><div class="bhdin">'+
+      '<div class="bhdL"><div class="beyb">'+esc(CFG.client)+'</div>'+
+        '<h1 class="btitle">Your boards</h1>'+
+        '<div class="bsum">'+ids.length+' board'+(ids.length===1?'':'s')+
+          ' \u00b7 saved on this device</div></div>'+
+      '<div class="bhdR">'+
+        '<button type="button" class="bcta" id="biNew">+ Create board</button>'+
+        '<button type="button" class="bx" id="biClose" aria-label="Close">\u2715</button>'+
+      '</div></div></header>'+
+    '<div class="btiles">'+ids.map(boardTileHtml).join('')+
+      '<button type="button" class="btile new" id="biNew2">'+
+        '<div class="btcollage blank"><span class="btplus">+</span></div>'+
+        '<div class="btmeta"><b>Create a board</b><span>Group gear by team, site or season</span></div>'+
+      '</button></div></div>';
+  el.querySelectorAll('[data-bopen]').forEach(function(b){b.addEventListener('click',function(){
+    closeBoards();var _L=(LISTS||{})[b.dataset.bopen];if(_L&&_L.prog)openProgram(b.dataset.bopen);else openBoard(b.dataset.bopen);});});
+  ['biNew','biNew2'].forEach(function(idb){
+    var e=document.getElementById(idb);
+    if(e)e.addEventListener('click',function(){
+      var nm=window.prompt('Name this board','Board '+(listIds().length+1));
+      if(nm===null)return;newList(nm);refreshCartUI();closeBoards();openBoard(ALID);});});
+  var x=document.getElementById('biClose');if(x)x.addEventListener('click',closeBoards);
+}
+function openBoards(){
+  // Opening the index is exactly when a stale list is most visible -- reconcile, then re-render.
+  syncBoardsFromServer().then(function(changed){if(changed)renderBoardsIndex();});
+  var el=document.getElementById('boards');
+  if(!el){el=document.createElement('div');el.id='boards';el.className='boardov';document.body.appendChild(el);}
+  renderBoardsIndex();
+  el.classList.add('on');document.body.style.overflow='hidden';
+  setRail('boards');
+}
+function closeBoards(){
+  var el=document.getElementById('boards');if(el)el.classList.remove('on');
+  document.body.style.overflow='';setRail('explore');
+}
+function setRail(which){
+  document.querySelectorAll('.railb').forEach(function(b){
+    b.classList.toggle('on',b.dataset.rail===which);});
+}
+function railIcon(n){
+  var p={
+    explore:'<circle cx="12" cy="12" r="9"/><path d="M14.5 9.5l-2 5-5 2 2-5z"/>',
+    advisor:'<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/>',
+    boards:'<rect x="3" y="4" width="7.5" height="16" rx="1.6"/><rect x="13.5" y="4" width="7.5" height="7" rx="1.6"/><rect x="13.5" y="13" width="7.5" height="7" rx="1.6"/>',
+    share:'<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/>',
+    quote:'<path d="M4 4h11l5 5v11H4z"/><path d="M14 4v5h5M8 13h8M8 17h5"/>',
+    gifts:'<rect x="3" y="8" width="18" height="13" rx="1.6"/><path d="M3 12h18M12 8v13"/>'+
+      '<path d="M12 8S10.5 4 8 4a2.2 2.2 0 0 0 0 4.4zM12 8s1.5-4 4-4a2.2 2.2 0 0 1 0 4.4z"/>'
+  }[n]||'';
+  return '<svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" '+
+    'stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">'+p+'</svg>';
+}
+function railHtml(){
+  return '<nav class="rail" id="rail" aria-label="Store sections">'+
+    '<button type="button" class="railb on" data-rail="explore">'+railIcon('explore')+
+      '<span>Explore</span></button>'+
+    '<button type="button" class="railb railadv" data-rail="advisor">'+railIcon('advisor')+
+      '<span>Advisor</span></button>'+
+    '<button type="button" class="railb" data-rail="boards">'+railIcon('boards')+
+      '<span>Boards</span><i class="railn" id="railN"></i></button>'+
+    '<button type="button" class="railb" data-rail="share">'+railIcon('share')+
+      '<span>Share</span></button>'+
+    '<button type="button" class="railb" data-rail="gifts">'+railIcon('gifts')+
+      '<span>Gifts</span></button>'+
+    '<button type="button" class="railb" data-rail="quote">'+railIcon('quote')+
+      '<span>Quote</span></button>'+
+    '</nav>';
+}
+/* Home = the store's front page, exactly as a first-time visitor lands on it: no board, no sheet,
+   no gift view, no search, top of the page, and a clean address bar. */
+function goHome(){
+  try{closeBoards();}catch(e){}try{closeBoard();}catch(e){}try{closeProgram();}catch(e){}try{closeQuote();}catch(e){}try{closeAll();}catch(e){}
+  try{setGiftView(false);}catch(e){}
+  try{if(typeof sxDropHide==='function')sxDropHide();}catch(e){}
+  var ts=document.getElementById('topSearch');
+  if(ts&&ts.value){ts.value='';try{ts.dispatchEvent(new Event('input',{bubbles:true}));}catch(e){}}
+  if(VIEW.q){VIEW.q='';try{renderGrid();}catch(e){}}
+  try{history.replaceState(null,'',location.pathname);}catch(e){}
+  window.scrollTo({top:0,behavior:'smooth'});setRail('explore');
+}
+function wireHome(){
+  var h=document.getElementById('tbHome');if(!h||h.dataset.w)return;h.dataset.w='1';
+  h.addEventListener('click',function(e){
+    if(e.metaKey||e.ctrlKey||e.shiftKey||e.button===1)return;   /* let "open in new tab" work */
+    e.preventDefault();jdpTrack('logo_home');goHome();});
+}
+function wireRail(){
+  wireHome();
+  document.querySelectorAll('.railb').forEach(function(b){
+    b.addEventListener('click',function(){
+      var w=b.dataset.rail;
+      if(w==='explore'){goHome();return;}
+      if(w==='advisor'){try{closeBoards();closeBoard();closeProgram();closeAll();setGiftView(false);}catch(e){}openAdvPicker();return;}
+      if(w==='boards'){closeBoard();closeProgram();openBoards();return;}
+      if(w==='share'){shareList();return;}
+      if(w==='gifts'){jdpTrack('gift_open',{src:'rail'});closeBoards();closeBoard();closeProgram();closeAll();setGiftView(true);return;}
+      if(w==='quote'){closeBoards();closeBoard();closeProgram();openQuote('rail');return;}
+    });});
+}
+/* Pinterest's Explore is one search field and image tiles. Ours had the search collapsed behind a
+   magnifier and categories as a chip strip below a hero, a trust row and a category panel. The
+   search is now always visible at the top; it PROXIES the existing #kitSearch input so every
+   filter, count and no-results path keeps working untouched. */
+/* The header bar is gone, but the client's brand presence should not be. A small mark inside the
+   hero, sitting above the H1 that already names them, gives the store its owner without spending a
+   whole horizontal band on it. Renders nothing when a kit has no logo asset, rather than a gap. */
+function heroMarkHtml(cls){
+  var L=(CFG.logos&&CFG.logos[0])||null;
+  /* DARK first, deliberately. The bar and hero are light, and inks.brand is whatever the brand's
+     own mark is -- for Mowi that is a white/light lockup, which rendered nearly invisible on cream
+     and read as a broken image. A mark must contrast with what it sits on. */
+  var f=L&&L.inks&&(L.inks.dark||L.inks.brand||L.inks.full);
+  if(!f)return '';
+  /* INLINE size limits, deliberately duplicating the stylesheet.
+     Steven opened the store and got a 1150px-tall logo filling the whole viewport with the bar
+     rendered as plain text. The deployed CSS was byte-correct; the host had served a captcha HTML
+     page (HTTP 202, 209 bytes) in place of store.css, so the page rendered against a stylesheet
+     that never arrived. A ?v= pin cannot help with that -- it busts caches, it does not make the
+     file exist. A logo is the one element whose natural size is catastrophic when unstyled, so its
+     constraint lives on the element itself and survives with zero CSS. */
+  var big=(cls==='tbmark')?[30,120]:[40,190];
+  if(!f)return '';
+  return '<img class="'+(cls||'heromark')+'" src="'+kurl(f)+'" alt="'+esc(CFG.client||'')+'" '+
+    'height="'+big[0]+'" style="max-height:'+big[0]+'px;max-width:'+big[1]+
+    'px;width:auto;height:auto;object-fit:contain" '+
+    'onerror="this.style.display=\'none\'">';
+}
+/* 4imprint's scrolling behaviour is one slim persistent bar: mark, Categories, a search field, and
+   the account/cart. No chip strips, no sub-rows floating mid-page. Ours previously had .navwrap
+   sticky at top:60px -- pinned to a header that no longer exists, so it hovered in mid-air over the
+   products, which is the "floating navigation" Steven is describing. This bar replaces the separate
+   search section AND the scroll-revealed chip bar, and Categories carries what the chips did. */
+function catMenuHtml(){
+  var cats=(typeof CATS!=='undefined'&&CATS.length)?CATS:[];
+  if(!cats.length)return '';
+  return '<div class="catmenu" id="catmenu"><div class="cmin">'+cats.map(function(c){
+      var img=catTileImg(c);
+      return '<button type="button" class="cmrow" data-catgo="'+esc(c)+'">'+
+        '<span class="cmimg">'+(img?('<img src="'+img+'" alt="" loading="lazy" '+
+          'style="max-width:40px;max-height:40px;width:auto;height:auto;object-fit:contain">'):'')+'</span>'+
+        '<b>'+esc(shortCat(c))+'</b><i>'+((TOTALS&&TOTALS[c])||0)+'</i></button>';}).join('')+
+    '</div></div>';
+}
+function tbarHtml(){
+  return '<div class="tbar" id="tbar"><div class="tbin">'+
+      /* THE LOGO GOES HOME. Steven, 2026-09-28: "when users click there logo they do not go to home
+         screen!" It was a bare <img>. Every storefront buyer expects the top-left mark to be home. */
+      '<a class="tbhome" id="tbHome" href="'+esc(location.pathname)+'" aria-label="'+esc((CFG.client||'Store')+' \u2014 home')+'">'+
+        heroMarkHtml('tbmark')+'</a>'+
+      '<button type="button" class="tbcats" id="tbCats" aria-expanded="false">'+
+        '<span class="tbbg"><i></i><i></i><i></i></span>Categories</button>'+
+      '<div class="tbsearch">'+
+        '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" '+
+        'stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/>'+
+        '<path d="M21 21l-4.3-4.3"/></svg>'+
+        /* THE FIRST QUESTION A STORE ASKS (Steven, 2026-10-08: "search engine is hidden now and hard to
+           use. Should say 'What can we help you find?' and easy to see"). It was a 292px pale-grey strip
+           between the country pill and a 254px rating block, its placeholder cut off mid-word. Now it is
+           the widest thing in the bar, white with a real edge, with its own Search button -- and "/"
+           jumps to it from anywhere, the shortcut procurement tools have trained people to expect. */
+        '<input id="topSearch" type="search" autocomplete="off" aria-label="What can we help you find?" '+
+        'placeholder="What can we help you find?">'+
+        '<kbd class="tbkbd" aria-hidden="true" title="Press / to search">/</kbd>'+
+        '<button type="button" class="exsx" id="topSearchX" aria-label="Clear">\u2715</button>'+
+        '<button type="button" class="tbsgo" id="topSearchGo" aria-label="Search"><span>Search</span></button>'+
+        '<div class="sxdd" id="sxdd" role="listbox" aria-label="Search suggestions" hidden></div>'+
+      '</div>'+
+      mktPillHtml()+
+      trustBarHtml()+
+      /* GIFTS IN THE TOP BAR -- the second way in, always one glance away (the rail has it too). */
+
+      '<button type="button" class="tbboards tbquote" id="tbBoards" aria-label="Your quote">'+railIcon('quote')+
+        '<span id="tbBoardsLbl">Quote</span><i class="tbqn" id="tbQN"></i></button>'+
+    '</div>'+catMenuHtml()+'</div>';
+}
+function toggleCatMenu(force){
+  var m=document.getElementById('catmenu'),b=document.getElementById('tbCats');
+  if(!m)return;
+  var on=(typeof force==='boolean')?force:!m.classList.contains('on');
+  m.classList.toggle('on',on);
+  if(b)b.setAttribute('aria-expanded',on?'true':'false');
+}
+function topSearchHtml(){
+  return '<section class="exsearch"><div class="w exsin">'+
+    '<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" '+
+    'stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/>'+
+    '<path d="M21 21l-4.3-4.3"/></svg>'+
+    '<input id="topSearch" type="search" autocomplete="off" aria-label="Search products" '+
+    'placeholder="Search '+ALLKEYS.length+' products \u2014 '+(isUS()?'polos, jackets, fleece\u2026':'polos, hi-vis, Carhartt\u2026')+'">'+
+    '<button type="button" class="exsx" id="topSearchX" aria-label="Clear">\u2715</button>'+
+    '</div></section>';
+}
+function catKeysOf(cat){
+  /* BUCKETS[mega] is an object of SUBCATEGORIES -- {polos:[keys], shirts:[keys]} -- not a flat key
+     list. The first version iterated it and collected the sub NAMES, which are not product keys, so
+     every tile resolved no photo and rendered as an empty grey square. Flatten properly. */
+  var b=(typeof BUCKETS!=='undefined')?BUCKETS[cat]:null;
+  if(!b)return [];
+  if(Object.prototype.toString.call(b)==='[object Array]')return b;
+  var out=[];
+  for(var s in b){var arr=b[s];if(arr&&arr.length)out=out.concat(arr);}
+  return out;
+}
+/* A category tile shows its best foot: for Bags that is the duffel Steven listed first, not whichever
+   bag happens to be cheapest. Falls through to the normal rule if the store does not carry it. */
+var CAT_TILE_PREF={bags:['st_nautilus110','st_nautilus70','nk_dh7709']};
+function catTileImg(cat){
+  var keys=(CAT_TILE_PREF[cat]||[]).filter(function(k){return BYKEY[k]&&catKeysOf(cat).indexOf(k)>=0;}).concat(catKeysOf(cat));
+  for(var i=0;i<keys.length;i++){
+    var it=BYKEY[keys[i]];if(!it)continue;
+    var c=(it.cols||[])[0];
+    if(c&&c.front)return gurl(c.front);}
+  return '';
+}
+/* THE RECOMMENDATION HAS TO BE THE FIRST THING THEY SEE.
+   We curate two use-case boards per prospect, and a prospect opening the plain store link used to
+   see "Browse by category" and a product grid with ZERO mention that anything had been prepared for
+   them. The only hint was a "Boards 2" counter in the rail, whose two boards were an EMPTY "My
+   board" and a generic starter list. So the curation only ever landed when someone remembered to
+   send the ?b= link — which does not scale, and wastes the most expensive thing we make.
+   This renders only when the kit actually has curated boards on the server. */
+/* ---- PRE-LOADED PROGRAMS: a shortlist on every store, not just the curated ones ---------------
+   Steven, 2026-09-09: "are they pre loaded shortlist you would have for every company store that
+   would optimize conversions. maybe common relevant use cases?"
+
+   They were not, and that was the gap. The shortlist band renders only when a store has curated
+   boards on the SERVER, and almost none do -- so on nearly every store the most valuable strip on
+   the page was blank and the buyer met a 504-item catalogue with no way in.
+
+   ROLE, NOT TRADE. Classifying the 398 live stores by what the business does gives construction and
+   trades 54, professional and office 39, food and hospitality 34, manufacturing 30, transport 27,
+   mechanical and electrical 25, auto 18 -- and 164 whose trade cannot be read from the name at all.
+   There is no trade field on a kit, so a trade-specific program would be a guess on 40% of the
+   fleet. Every one of those businesses does have the same THREE ROLES though: people on the tools,
+   people in the building, people in front of the client. Role-based is genuinely universal, and it
+   is honest about how it was chosen.
+
+   These are TEMPLATES, never save targets, exactly like the starter list they replace: saving from
+   one redirects into the buyer's own board. And a REAL curated board always wins -- if the store has
+   one on the server, the generated programs step aside completely rather than competing with work
+   somebody actually did for that client. */
+/* THE THREE STANDARD PROGRAMS. Steven picked these item by item on 2026-09-09, so they are EXPLICIT
+   KEYS rather than category slots. That is a deliberate downgrade in cleverness: the slot resolver
+   could fill "a hoodie" from whatever each store happened to carry, but every kit now carries the
+   same 506-item catalogue, so resolving adds nothing and takes away the merchandiser's control. A
+   named list is also auditable -- you can read it against his message and see they match.
+   A key that is not in a given store is skipped, and a program with fewer than three surviving
+   pieces does not render, so a scoped-down store degrades to fewer cards rather than to a gap. */
+/* US PROGRAMS: built from the Stormtech range a US store carries (Stormtech USA has no CSA hi-vis, so
+   the third program is weather rather than site compliance). Steven to confirm the picks. */
+var PROG_SPECS_US=[
+  {id:'crew',name:'Crew Uniform Program',who:'the crew on the tools',
+   sub:'For the crew on the tools: a quarter-zip, a quilted vest and two jackets that carry your logo all year.',
+   items:[
+     {k:'st_treeline',lab:'Quarter-zip',why:'Stormtech’s Treeline performance quarter-zip — the layer a crew lives in from fall to spring, so it is the piece your logo is seen on most. Men’s and ladies’ cuts.'},
+     {k:'st_sierravest',lab:'Quilted vest',col:'Black',why:'Stormtech’s Sierra thermal vest — warmth with the arms free that stays on indoors and goes under a jacket outside. Men’s and ladies’ cuts.'},
+     {k:'st_cascades',lab:'Softshell jacket',col:'Black',why:'Stormtech’s Cascades softshell — wind and light-rain cover for the months a parka is too much. Men’s and ladies’ cuts.'},
+     {k:'st_nautilusjkt',lab:'Insulated jacket',col:'Black',why:'Stormtech’s Nautilus quilted jacket — real winter warmth that still moves. Men’s and ladies’ cuts.'}
+   ]},
+  {id:'premium',name:'Premium · In Front of the Client',who:'the people in front of your clients',
+   sub:'Sales, management and anyone whose first impression is the company’s.',
+   items:[
+     {k:'vest',lab:'Quilted vest',col:'Black',why:'Stormtech’s Nautilus quilted vest — windproof and water-repellent, and the office-program staple because it looks put-together indoors and out. Men’s and ladies’ cuts.'},
+     /* 2026-10-09: Cutter & Buck USA pricing arrived, so the US premium program now matches the Canadian
+        one Steven chose (C&B Traverse quarter-zip + Advantage polo). */
+     {k:'cbc_traverse_qz',lab:'Quarter-zip',col:'Black',why:'Cutter & Buck’s Traverse — a 200 gsm recycled stretch quarter-zip with moisture wicking and UPF 50+. The layer that reads considered, not casual. Men’s and ladies’ cuts.'},
+     {k:'st_cruise',lab:'Softshell jacket',col:'Black',why:'Stormtech’s waterproof Cruise softshell — the client-facing shell, structured and cut to look sharp over a polo. Men’s and ladies’ cuts.'},
+     {k:'cbc_advantage_polo',lab:'Polo',col:'Liberty Navy',why:'Cutter & Buck’s Advantage piqué — cotton, recycled polyester and a little stretch, the polo that still looks pressed at the end of a client day. Men’s and ladies’ cuts.'}
+   ]},
+  {id:'weather',name:'All-Weather Program',who:'the teams who work outside',
+   sub:'From the first wet morning to deep winter — a shell, a softshell, a quilted jacket and a 3-in-1.',
+   items:[
+     {k:'st_axis',lab:'Waterproof shell',col:'Black',why:'Stormtech’s Axis jacket — a waterproof, breathable shell for rain days. Men’s and ladies’ cuts.'},
+     {k:'st_cirrus',lab:'Softshell jacket',col:'Black',why:'Stormtech’s Cirrus bonded softshell — wind cover with stretch for people in and out of vehicles. Men’s and ladies’ cuts.'},
+     {k:'st_stavanger',lab:'Quilted jacket',col:'Black',why:'Stormtech’s Stavanger quilted jacket — built for real cold. Men’s and ladies’ cuts.'},
+     {k:'st_vortex',lab:'3-in-1 parka',col:'Black',why:'Stormtech’s Vortex HD 3-in-1 — a waterproof shell and a zip-out liner, worn three ways; your logo goes on both layers. Men’s and ladies’ cuts.'}
+   ]}
+];
+function progSpecs(){return isUS()?PROG_SPECS_US:PROG_SPECS;}
+var PROG_SPECS=[
+  /* Steven, 2026-10-02: "change the program product selection to these products in this order."
+     Four pieces per program, his order. `col` is the colourway the program opens on where the
+     neutral rule would pick the wrong one for the job (a white polo is a neutral; it is not the
+     premium read of that polo). Every `why` is built from the catalogue's own published facts. */
+  {id:'crew',name:'Crew Uniform Program',
+   who:'the crew on the tools',
+   sub:'For the crew on the tools: a hoodie, a vest and two jackets that carry your logo all year.',
+   items:[
+     {k:'vault',     lab:'Hoodie',
+      why:'The layer a crew lives in from September to May, so it is the piece your logo is seen on most. 280 gsm cotton-polyester fleece in 18 colours — order deeper than you think.'},
+     {k:'chill',     lab:'Puffy vest',
+      why:'Warmth with the arms free — 180 g polyester insulation that stays on indoors and goes under a jacket outside. Men’s and ladies’ cuts.'},
+     {k:'softshell', lab:'Softshell jacket',
+      why:'Lightweight wind and rain cover for the nine months a parka is too much — 8,000 mm water-repellent and windproof, five colours, both cuts.'},
+     {k:'cs_l03170', lab:'Insulated jacket',
+      why:'The same idea for winter: 100 g recycled insulation through the body and 80 g in the sleeves, an 8,000 mm windproof shell and a removable hood.'}
+   ]},
+  {id:'premium',name:'Premium · In Front of the Client',
+   who:'the people in front of your clients',
+   sub:'Sales, management and anyone whose first impression is the company’s.',
+   items:[
+     {k:'vest',               lab:'Quilted vest', col:'Black',
+      why:'Stormtech’s quilted thermal vest — windproof and water-repellent, and the office-program staple because it looks put-together indoors and out. Men’s and ladies’ cuts.'},
+     {k:'cbc_traverse_qz',    lab:'Quarter-zip', col:'Black',
+      why:'A 200 gsm double-knit quarter-zip in 70% recycled polyester with stretch, moisture wicking and UPF 50+. Ten colours, men’s and ladies’ — the layer that reads considered, not casual.'},
+     {k:'st_cruise',          lab:'Softshell jacket', col:'Black',
+      why:'Stormtech’s waterproof Cruise softshell — the client-facing shell, structured and cut to look sharp over a polo. Men’s and ladies’ cuts.'},
+     {k:'cbc_advantage_polo', lab:'Polo', col:'Liberty Navy',
+      why:'Cutter & Buck’s cotton-blend piqué — 52% cotton, 45% recycled polyester, 3% spandex — the polo that still looks pressed at the end of a client day. GRS-certified recycled, OEKO-TEX Standard 100.'}
+   ]},
+  {id:'hivis',name:'CSA Hi-Vis Program',
+   who:'the crews who have to be site-legal',
+   sub:'Site-legal from the first cold morning to deep winter — four pieces, one program.',
+   items:[
+     {k:'hoodie', lab:'Hi-vis hoodie',
+      why:'CSA Z96 Class 2. Compliance and warmth in one layer, so nobody covers their hi-vis with a personal hoodie and stops being compliant.'},
+     {k:'tj2',    lab:'Hi-vis softshell',
+      why:'CSA Z96 Class 2 wind and rain protection that is not a parka — the nine-month jacket.'},
+     {k:'tp1',    lab:'Winter parka',
+      why:'CSA Z96 Class 2 winter parka — the line that stops a crew buying their own coats in January.'},
+     {k:'tt4',    lab:'Hi-vis long sleeve',
+      why:'CSA Z96 Class 1 cotton with the arms covered — for shoulder seasons and any site where sleeves are the rule.'}
+   ]}
+];
+
+/* The slot RESOLVER that used to live here (progPool / progIn / progScore / progPick) is gone.
+   It filled "a hoodie" from whatever a store carried, which mattered when stores had different
+   ranges; every kit now carries the same catalogue and Steven picks the programs item by item, so
+   the resolver had no callers left. It survives in make_boards.js, where it is still used to
+   generate per-client boards out of band. Dead code in a 400 KB engine is a liability, not an
+   option kept open. */
+/* On hi-vis the high-visibility colour IS the product; everywhere else a neutral is what a uniform
+   program is built on. */
+var PROG_NEUTRAL=/^(black|true black|navy|true navy|dark navy|liberty navy|midnight|charcoal|graphite|gunmetal|steel|slate|grey|gray|heather grey|ash grey|elemental grey|white|ivory|stone|khaki|gravel|tan)\b/i;
+var PROG_HIVIS=/^(hi-?vis|fluorescent|safety)\b|\b(orange|yellow|lime)\b/i;
+/* A neutral means NO ACCENT ANYWHERE IN THE NAME. Testing only the first word let "Black/Red" and
+   then "Black Bright Red" through -- both start with black, and both are two-tone garments with a
+   colour flash that has no business being the default on a premium board. So: it must start neutral
+   AND contain no accent word. Stormtech in particular names half its range this way. */
+var PROG_ACCENT=/\b(red|bright|electric|orange|yellow|green|purple|pink|gold|lime|teal|maroon|burgundy|royal|cardinal|crimson|magenta|coral|mint|sapphire|heliconia)\b|\//i;
+function progPlain(n){return !!n&&!PROG_ACCENT.test(n)&&PROG_NEUTRAL.test(n);}
+function progColour(k){
+  var it=BYKEY[k],def=vmOf(k).colour,cols=curColsOf(it,'mens')||it.cols||[],hit;
+  /* A GIFT KEEPS ITS OWN COLOURWAY. The neutral preference below exists so a uniform program
+     never opens on a lime polo -- a crew kit has to read as one coherent set. A gift is chosen
+     for its own appeal, and the supplier's default is the colourway they photograph and
+     merchandise: an evergreen wool throw in October is the point of it, not a defect. */
+  if(it&&it.layer==='promo')return def;
+  if(itemCategory(it)==='hivis'){
+    hit=cols.filter(function(c){return PROG_HIVIS.test(c.name||'');})[0];
+    return hit?hit.name:def;
+  }
+  if(progPlain(def))return def;
+  hit=cols.filter(function(c){return progPlain(c.name);})[0];
+  return hit?hit.name:def;
+}
+/* A program may name its opening colourway. It is used only if this store actually carries it in
+   the men's run; otherwise the neutral rule decides, exactly as before. */
+function progColourFor(k,pref){
+  if(pref){
+    var it=BYKEY[k],cols=(it&&(curColsOf(it,'mens')||it.cols))||[];
+    for(var i=0;i<cols.length;i++)if(cols[i]&&cols[i].name===pref)return pref;
+  }
+  return progColour(k);
+}
+function progBuild(spec){
+  /* Explicit keys, in the order they were chosen. A key the store does not carry is dropped rather
+     than substituted -- a program is a merchandising decision, and quietly swapping in a different
+     garment would misrepresent it. */
+  var rows=[];
+  (spec.items||[]).forEach(function(it){
+    if(!BYKEY[it.k])return;
+    rows.push({k:it.k,lab:it.lab,why:it.why,col:it.col||null});
+  });
+  return rows;
+}
+
+var PROGSEEDED=false;
+/* RETIRE A PROGRAM THAT NO LONGER EXISTS. Programs are seeded into the visitor's own localStorage,
+   so removing one from PROG_SPECS does not remove it from the browsers that already saw it. The
+   employee-gifts programme was live as a fourth board for about forty minutes on 2026-09-14 before
+   Steven asked for gifts to be a separate destination instead -- and it carried two blankets, which
+   he had explicitly ruled out. Anyone who loaded a store in that window would keep both forever.
+   Only untouched templates are removed: `starter` and `prog` mark our own seed, and a board the
+   customer has adopted or renamed is never ours to delete. */
+function retireDeadPrograms(){
+  if(!LISTS)return;
+  var live={};progSpecs().forEach(function(sp){live['prog_'+sp.id]=1;});
+  var hit=false;
+  Object.keys(LISTS).forEach(function(id){
+    var L=LISTS[id];
+    if(!L||!L.prog||!L.starter)return;          // not one of ours, or the customer has taken it on
+    if(live[id])return;                          // still a programme we ship
+    if(L.slug)return;                            // it has been shared or synced -- leave it alone
+    if(ALID===id){ALID=personalListId();CART=(LISTS[ALID]||{}).items||{};}
+    delete LISTS[id];hit=true;
+  });
+  /* PERSIST, or this runs again on every page load and never actually finishes. The first version
+     deleted from the in-memory LISTS and stopped there, so the board came back from localStorage on
+     the next reload -- verified by planting one and refreshing. */
+  if(hit)persistLists();
+}
+function seedPrograms(){
+  /* The flag is set only once seeding can actually happen. It used to be set on the way IN, so a
+     single early call before loadLists() had run would latch it true, seed nothing, and leave the
+     hero permanently empty for that visitor -- the same symptom, from a different direction. */
+  if(PROGSEEDED)return;
+  if(!LISTS)loadLists();
+  if(!LISTS)return;
+  PROGSEEDED=true;
+  try{retireDeadPrograms();}catch(e){}
+  try{
+    progSpecs().forEach(function(spec){
+      var rows=progBuild(spec);
+      if(rows.length<3)return;                 // fewer than three is not a program
+      var items={};
+      rows.forEach(function(r){
+        /* A promo line carries its OWN minimum -- 25 bottles, 35 charging stands -- and the store's
+           12-piece garment minimum is meaningless against it. promoQuote() would raise a short
+           quantity silently at quote time, but the board would have displayed the wrong number
+           until then. */
+        var _it=BYKEY[r.k]||{};
+        var _q=(_it.layer==='promo')?(_it.moq||moq()):moq();
+        items[r.k]={qty:_q,colour:progColourFor(r.k,r.col),decos:recCartDecos(r.k),
+                    why:r.lab+' — '+r.why};});
+      var id='prog_'+spec.id;
+      LISTS[id]={name:spec.name,items:items,updated:0,starter:true,prog:1,
+                 sub:spec.sub,slug:null,basis:spec.basis||'kit',noun:spec.noun||'pieces',
+                 season:spec.season||null,who:spec.who||null};
+    });
+    /* RETIRE THE GENERIC STARTER LIST. "JDP starter list" was one anonymous nine-item pile, and it
+       existed because there was nothing better. There is now: three named programs a buyer can tell
+       apart. Leaving both puts FOUR templates in the board strip and makes the named ones look like
+       more of the same. Only removed if it is untouched -- a customer who edited it keeps it. */
+    var _sid=starterId();
+    if(_sid&&programIds().length){
+      var _L=LISTS[_sid];
+      if(_L.seedn==null||Object.keys(_L.items||{}).length===_L.seedn){
+        if(ALID===_sid)ALID=personalListId();
+        delete LISTS[_sid];
+      }
+    }
+  }catch(e){}
+}
+/* Seeded order, except that a program naming the CURRENT season leads.
+   Corporate gift buying is decided well before it is delivered, so the gifts program surfacing
+   from the start of autumn is the whole point of having it -- a store that first shows it in
+   December has missed the decision. Outside its season it drops back to last, behind the
+   uniform programs that are the store's everyday job. */
+function programIds(){
+  var out=[],now=seasonNow();
+  for(var id in (LISTS||{}))if(LISTS[id]&&LISTS[id].prog)out.push(id);
+  return out.sort(function(a,b){
+    var sa=((LISTS[a].season||[]).indexOf(now)>=0)?0:1,
+        sb=((LISTS[b].season||[]).indexOf(now)>=0)?0:1;
+    if(sa!==sb)return sa-sb;
+    return 0;                                   // otherwise leave the seeded order alone
+  });
+}
+/* A SHORTLIST WE PREPARED, not just any saved board. This used to return every list with a slug --
+   and a slug is assigned to the CUSTOMER'S OWN board the first time it syncs. So a returning
+   visitor who had saved one item saw the three programs disappear and the band announce "We've
+   already picked your shortlist" over their own one-item list. That is the private-vs-normal
+   browser difference Steven hit on 2026-09-09: a private window has no saved board, a normal one
+   does. It is also the worst copy in the store -- claiming credit for the customer's own work.
+   The test is authorship, which we control at both ends: boards published by JDP carry `by`. */
+var JDP_AUTHOR=/just\s*deals/i;
+/* Curated means SOMEONE ELSE MADE THIS FOR THEM: a board published by JDP (`by`), one flagged as
+   curated (`cur`), or one that arrived from the server with no local counterpart (`srv`).
+   The `by` test alone was too narrow -- Steven curates ATTA's board from the store under his own
+   name, so authorship does not read as "Just Deals". `srv` is the honest signal: the board was not
+   built in this browser. The residual edge case is a customer opening their OWN board in a private
+   window, where it arrives as srv and reads as prepared-for-them; that is a cosmetic mislabel on a
+   board that is genuinely theirs, and it is a far smaller error than the one it replaces. */
+/* TWO MORE GATES, both learned from sweeping all 398 stores on 2026-09-09:
+     * AT LEAST THREE PIECES. vastauto carried a one-item board and eddy-group two empty ones; every
+       one of them would have replaced three complete programs with "We've already picked your
+       shortlist" over a single garment. A shortlist of one is not a shortlist. Three is the same
+       floor a program has to clear.
+     * NOT STILL CALLED "My board". That is the name every browser mints by default, so a board
+       wearing it has not been curated for anyone -- whatever else is true of it. */
+function isDefaultBoardName(n){return /^my board$/i.test(String(n||'').trim());}
+function isCuratedList(L){
+  if(!L||!L.slug)return false;
+  if(Object.keys(L.items||{}).length<3)return false;
+  if(isDefaultBoardName(L.name))return false;
+  return !!(L.cur||L.srv||JDP_AUTHOR.test(L.by||''));
+}
+function curatedBoardIds(){
+  var out=[];
+  for(var id in (LISTS||{})){
+    if(!isTemplate(id)&&isCuratedList(LISTS[id]))out.push(id);
+  }
+  out.sort(function(a,b){return listLen(b)-listLen(a);});
+  return out;
+}
+function nwords(n){return ['','One','Two','Three','Four','Five','Six'][n]||String(n);}
+/* One of each, per person, at this store's minimum -- the same basis the board panel prints, so the
+   card and the board it opens can never disagree. Promo lines are skipped: they carry their own
+   quantity model and would distort a per-person figure. */
+/* TWO BASES, because a uniform board and a gift board answer different questions.
+
+   KIT (the default, and unchanged): one of each piece per person, summed. That is the figure a
+   buyer outfitting a crew is trying to reach. Promo lines stay excluded from this sum -- they
+   carry their own quantity model and would distort a per-person garment figure -- which is the
+   behaviour every existing board already prints.
+
+   PICK: one idea per person, chosen by occasion. Summing six gifts describes a purchase nobody
+   makes, so this reports the entry point instead and the card says "from". Promo IS priced here,
+   through promoQuote() rather than unitPrice(): a Spector line's published price already includes
+   its branding, where unitPrice() models a blank plus a decoration we would be charging twice. */
+function boardPerPerson(id){
+  var L=(LISTS||{})[id];if(!L)return 0;
+  var pick=L.basis==='pick',lo=0,t=0;
+  Object.keys(L.items||{}).forEach(function(k){
+    var it=BYKEY[bkey(k)];if(!it)return;
+    var u=0;
+    try{
+      if(it.layer==='promo'){
+        if(!pick)return;                       // kit basis: unchanged, promo is skipped
+        var q=promoQuote(it,L.items[k]||{});
+        u=(q&&q.perPiece)||0;
+      }else{
+        u=unitPrice(k,(L.items[k].decos&&L.items[k].decos.length)?L.items[k].decos:defaultDecos(k),moq());
+      }
+    }catch(e){return;}
+    if(!u)return;
+    t+=u;
+    if(!lo||u<lo)lo=u;
+  });
+  return pick?lo:t;
+}
+/* PREVIEW GATE. Turning generated programs on changes the first screen of 398 live customer stores
+   at once, so it ships dark: ?preview=programs opts a single store in, ?preview=none opts out.
+   Rolling out is one line -- PROG_DEFAULT=true -- and one push. */
+/* LIVE ON EVERY STORE, Steven 2026-09-09: "update all sites with the new boards." Was dark while
+   he reviewed the preview. `?preview=none` still opts a single store out if one ever needs it. */
+var PROG_DEFAULT=true;
+function programsOn(){
+  if(/[?&]preview=programs/.test(location.search))return true;
+  if(/[?&]preview=none/.test(location.search))return false;
+  return PROG_DEFAULT;
+}
+/* ---- THE GIFT PAGE ---------------------------------------------------------------------------
+   Steven, 2026-09-15, revising the first build: "Employee gifts should be min $36 at 12+ pcs. no
+   north face, no nike. I do not like occasion filters it is weird. only apparel and spector kits
+   for gifts. select top kits for employee kits from the spector kits we have."
+
+   So the page is now ONE axis -- budget -- over a hand-picked list of jackets, mid-layers and
+   Spector gift kits. The occasion tabs are gone: they read as a quiz standing between a buyer and
+   the product, and with a curated list this short the budget is the only question that actually
+   narrows anything.
+
+   GIFT_FLOOR is a merchandising rule, not a filter nicety: nothing under $36 a person belongs in a
+   gift programme, so a line that prices below it is dropped even if it is listed here. That keeps
+   the floor true if a vendor cost ever moves.
+
+   The apparel is Steven's own list, in his order. No North Face and no Nike anywhere -- asserted in
+   the harness so neither can drift back in. */
+var GIFT_FLOOR=36;
+var GIFT_BANDS=[
+  {id:'all',lab:'Any budget',  lo:0,   hi:1e9},
+  {id:'b1', lab:'Under $60',   lo:0,   hi:60},
+  {id:'b2', lab:'$60 – $100',  lo:60,  hi:100},
+  {id:'b3', lab:'$100+',       lo:100, hi:1e9}
+];
+/* Curated, and every line carries the reason it is here -- that reason is the buyer guidance. Kit
+   contents are quoted from the catalogue's own `contents` field, never described from memory. */
+var GIFT_PICKS=[
+  /* --- Steven 2026-09-28: "add these products and also add these products to gifts" ------------ */
+  {k:'st_altitude',
+   why:'An ultralight quilted jacket with feather-free thermal polyfill and a water-repellent micro-ripstop shell. Warm without bulk, in black or navy, in men\u2019s and ladies\u2019 cuts.'},
+  {k:'cbc_traverse_qz',
+   why:'A 200 gsm double-knit quarter-zip in recycled polyester with stretch and UPF 50+ \u2014 ten colours, men\u2019s and ladies\u2019 cuts. The polished layer for the office, the course or travel.'},
+  /* --- Carhartt, Steven 2026-09-28: "add the following carhartt to the gifts section" -------------
+     Every line is taken from Carhartt's own product page. */
+  {k:'ch_102208',
+   why:'Carhartt rates it Warmth Level 2 — Warmer: a lightweight Cordura® shell over 100 g insulation, water repellent and windproof. Your logo goes on the right chest, opposite Carhartt\u2019s own patch.'},
+  {k:'ch_102286',
+   why:'The same Rain Defender® shell and 100 g insulation as the jacket, with the arms free. Carhartt builds it to go over a hoodie or under a heavier coat.'},
+  {k:'ch_104277',
+   why:'12 oz washed cotton duck lined with sherpa — with sherpa-lined front pockets and a zip map pocket. The classic Carhartt work vest, with your logo opposite the patch.'},
+  /* --- Bags, Steven 2026-10-07: "bags should also be a big part of gifts section" --------------
+     His own list of popular bags. Every line is taken from the maker's product page -- Stormtech
+     (stormtechperformance.com / stormtech.ca) and Carhartt via SanMar Canada -- never from memory.
+     No Nike here, by his standing gift rule of 2026-09-15; the Nike bags are in the Bags aisle. */
+  {k:'st_nautilus70',
+   why:'70 litres of heavy-duty waterproof fabric that carries as a duffel or a backpack, with a separate zippered boot pocket and an ID sleeve. One size for everyone, so there is nothing to collect.'},
+  {k:'st_nautilus110',
+   why:'The 110-litre Nautilus: waterproof, a duffel and a backpack in one, with four reinforced carry handles and an external boot pocket. The bag for a crew that goes away to site for a week.'},
+  {k:'st_deluge',
+   why:'A 100% waterproof 26-litre backpack with a laptop compartment that fits up to 17″, a reflective back panel and room for a hydration bladder. The commute in any weather.'},
+  {k:'st_saturna24',
+   why:'A roll-top cooler backpack that holds 24 cans in a leak-proof insulated compartment, with padded shoulder straps and back panel. Lunch on site, or the weekend at the lake.'},
+  {k:'st_magellan30',
+   why:'A 30-can cooler in 100% waterproof fabric with a leak-proof removable hard liner, a zipper-free flip lid and a padded shoulder strap. The team barbecue, sorted.'},
+  {k:'st_saltspring',
+   why:'A 16-can cooler bag with a zippered, insulated, leak-proof compartment, carry handles and an adjustable shoulder strap. A compact gift with no sizes to collect.'},
+  {k:'ch_canvasbp',
+   why:'Carhartt’s 21-litre backpack with a 15″ laptop sleeve, padded straps and back panel, and a front pocket with a key fob. The brand people ask for, at its most approachable price.'},
+  {k:'ch_lunch',
+   why:'A seam-sealed Carhartt lunch cooler that holds six 12-oz cans, with an insulated top compartment and a shoulder strap. The one they carry to the job every day.'},
+  {k:'ch_duffel40',
+   why:'A 40-litre Carhartt duffel in water-repellent 500D polyester, with webbing haul handles, an adjustable shoulder strap and a zippered utility pouch included.'},
+  {k:'ch_toolbag',
+   why:'A 14″ Foundry tool bag in 1200D polyester with an interior metal frame that holds it open, six exterior pockets and six interior loops. A gift a tradesperson uses every single day.'},
+  {k:'ch_bpcooler',
+   why:'A seam-sealed Carhartt backpack cooler that holds twenty 12-oz cans, with an insulated top compartment and padded shoulder straps. Lunch for the whole shift, hands-free.'},
+  {k:'ch_bp23',
+   why:'The Foundry 23L in 1200D water-repellent polyester, with a 15″ laptop and tablet sleeve, an air-mesh back panel and a key fob. The everyday Carhartt backpack.'},
+  {k:'ch_bp28',
+   why:'Two main compartments, a 15″ laptop sleeve and a tablet sleeve in 1200D water-repellent polyester, on a Duravax abrasion-resistant base. For the person who carries everything.'},
+  {k:'ch_ripstop25',
+   why:'CORDURA® ripstop with a 15″ laptop sleeve, a hideaway padded waist belt, a fleece-lined eyewear pocket and hydration compatibility. The most technical Carhartt pack we carry.'},
+  {k:'ch_duffel120',
+   why:'Carhartt’s 120-litre Foundry duffel: 1200D heavy-duty polyester, a separate end compartment and a Duravax abrasion-resistant base. For a long rotation or a week away.'},
+  /* --- Spector drinkware, journals and home sets: Steven, 2026-09-25 -------------------------
+     "We need to add the following products and add these to gifts as well." These are Steven's own
+     picks, so they carry `gift:true` in the catalogue and pass the gate below even as single pieces
+     and under the price floor. Every line is taken from Spector's own product description. Three of
+     the singles are the components of the kits beside them, so a buyer can give the piece or the box. */
+  {k:'sp_lf141',
+   why:'A 12 oz insulated recycled-steel tumbler, an aluminium stovetop moka pot and a steel spoon, in a black gift box. The gift for the coffee person — with a minimum of just 16.'},
+  {k:'sp_lf111',
+   why:'A 3-litre black porcelain serving bowl with stainless servers, boxed, in black or black with gold. A gift for the home rather than the desk — for a milestone or a client thank-you.'},
+  {k:'sp_gf142',
+   why:'Two Second Wind insulated steel mugs with acacia wood handles, in a matte black magnetic gift box. A pair, ready to hand over, at a 25-piece minimum.'},
+  {k:'sp_gf977',
+   why:'A soft-cover spiral journal, a Sierra pen and a Golden Hour insulated steel mug, boxed together. The desk set for a whole team — the minimum is 100 pieces.'},
+  {k:'sp_gf969',
+   why:'The Marlowe hard-cover journal, a Sierra pen and a Prime Time stainless steel bottle in one box. A complete desk kit — the minimum is 100 pieces.'},
+  {k:'sp_dw423',
+   why:'An 8.8 oz double-wall vacuum-insulated mug in recycled stainless steel, with an acacia wood handle and a magnetic lid. The mug inside Paired Peaks, on its own.'},
+  {k:'sp_dw422',
+   why:'A 12 oz recycled stainless steel mug, double-wall vacuum insulated with a snug lid, in seven colours. The mug inside The Space Between, on its own.'},
+  {k:'sp_dw802',
+   why:'A 460 ml matte ceramic mug with a metal plate accent and chevron detailing, in a black tuck-in box. The everyday mug that stays on the desk.'},
+  {k:'sp_dw800',
+   why:'A 12 oz ceramic mug with a square metal detail for your logo, in a black tuck-in box — in burgundy, black, bone, evergreen and navy blue.'},
+  {k:'sp_st4864',
+   why:'A 6.1" × 8.5" hard-cover journal: 256 lined FSC-certified pages with a date feature, a ribbon marker and 100 g paper. The journal inside The Desk Reset, on its own.'},
+  {k:'sp_st4863',
+   why:'A 7.5" × 9.75" soft pebbled journal with 160 dated, perforated FSC-certified pages on 100 g paper, in eight colours. A considered thank-you at a smaller budget.'},
+  /* --- Spector kits ---------------------------------------------------------------------------
+     Steven, 2026-09-15: "we do not want luggage tag kits. we want kits that are premium and are in
+     demand! also use some that have bags / backpacks."
+     So the two travel-accessory kits and the five-piece Vanguard set are out -- all three were
+     luggage-tag-and-passport-holder sets -- and six of the eight below are built around a backpack
+     or a duffle, which is the piece that outlasts everything else in a kit and the reason people
+     keep them. Contents are quoted from the catalogue's own `contents` field, never described from
+     memory. All eight carry a minimum a buyer can actually place (15 or 25). */
+  {k:'sp_gf1033',
+   why:'Pouch, journal, pen and bottle, boxed — and the lowest minimum of any kit we carry at 15 pieces. Built for onboarding: one box per new hire, no sizing to collect.'},
+  {k:'sp_gf141',
+   why:'A mug and a candle, boxed. The one here with no bag in it on purpose: no sizing, no dietary restriction, no alcohol, so it goes to the whole payroll without a single awkward conversation.'},
+  {k:'sp_bb194',
+   why:'A backpack with a bottle and a journal-and-pen set. The bag is what makes this work — it is still being carried in three years, long after the notebook is full.'},
+  {k:'sp_bb192',
+   why:'The same three pieces built around a commuter backpack. Our most-asked-for onboarding kit, and the strongest fifty-eight dollars on the page.'},
+  {k:'sp_bb193',
+   why:'A duffle instead of a backpack, with a bottle and a journal-and-pen set. For a crew that travels to site rather than to a desk.'},
+  {k:'sp_bb196',
+   why:'Backpack, bottle, journal and pen — four pieces. The step up when the gift needs to feel like a box rather than an item.'},
+  {k:'sp_bb199',
+   why:'A backpack and a duffle together, and nothing else. Two bags is an unusually confident gift: no filler, and both pieces get used.'},
+  {k:'sp_bb197',
+   why:'Backpack, luggage tracker, journal-and-pen and a tumbler. For the people who actually travel for you — the tracker is the part they mention to someone else.'},
+  /* --- Apparel, Steven's list ------------------------------------------------------------------ */
+  {k:'flux',
+   why:'A quarter-zip sweatshirt in thirteen colours. The entry point into branded apparel as a gift: enough colour choice to match any brand, and a piece people wear on their own time.'},
+  {k:'forge',
+   why:'A heavyweight hoodie in eight colours. Heavier than a promotional blank, which is the whole difference between a gift and a giveaway on a hoodie.'},
+  {k:'vest',
+   why:'Stormtech’s quilted vest — the most-requested piece in any programme, gift or not. Warmth with the arms free, and it stays on indoors, so your logo is visible all day.'},
+  {k:'cb_qzip',
+   why:'Cutter & Buck soft-knit half-zip in eighteen colourways. Reads as considered rather than casual and sits properly under a jacket — the safest smart gift on the list.'},
+  {k:'st_nautilusjkt',
+   why:'A quilted jacket at the price most programmes budget for a fleece. Six colours, and it is the piece a crew will actually choose over their own coat.'},
+  {k:'cb_roamqz',
+   why:'The Roam soft-knit quarter-zip. Cutter & Buck’s finishing on a layer that lives on the back of an office chair — for a team that sees customers.'},
+  {k:'st_avalante',
+   why:'Full-zip fleece, five colours. The default mid-layer for a mixed workforce: nobody has too many, and it suits every build on the team.'},
+  {k:'st_basecampvest',
+   why:'A heavier quilted vest than the Stormtech classic, for a crew working outdoors through the winter rather than walking between buildings.'},
+  {k:'st_narvik',
+   why:'A hybrid jacket — quilted body, stretch panels where you move. The gift for the person who is in and out of a vehicle all day.'},
+  {k:'st_nautilushoody',
+   why:'The Nautilus quilted jacket with a hood, in seven colours. Same piece, one decision made for a crew that works outside.'},
+  {k:'st_tundrashacket',
+   why:'A quilted shacket — the shirt-jacket shape that has replaced the fleece in most offices. Wears as a layer indoors and a jacket outdoors.'},
+  {k:'st_highlandplaid',
+   why:'Sherpa-lined plaid. The gift that does not look like company apparel at all, which is exactly why people wear it at weekends.'},
+  {k:'st_stavanger',
+   why:'A quilted jacket built for real cold, and the point at which a gift starts reading as a serious one. For five or ten years of service.'},
+  {k:'st_bushwick',
+   why:'Quilted, structured, and cut to look right over a shirt. The jacket to give someone whose first impression is the company’s.'},
+  {k:'cbc_evoke_fleece',
+   why:'Honeycomb-textured recycled fleece that reads as a jacket, not a sweatshirt. A ten-year gift that needs no plaque beside it.'},
+  {k:'st_oxide',
+   why:'Sherpa-lined canvas — the workwear jacket people buy for themselves. For a trades crew this is the most wanted thing on the page.'},
+  {k:'st_matrix',
+   why:'A waterproof shell, a zip-out thermal liner, and both together: three jackets on one line, with the mark on the liner too. The top of the range, for a retirement or the client who sent you the year’s biggest job.'},
+  /* --- Added 2026-09-15 with the five styles Steven sent ---------------------------------------- */
+  {k:'cs_l04200',
+   why:'Packs into its own pouch and comes out unwrinkled, with mesh venting under the arms and reflective trim at the collar. The gift for a crew that keeps one in the van all year.'},
+  {k:'st_axis',
+   why:'A waterproof, breathable shell at the price of a fleece. Mesh-lined with an internal media pocket — the most useful sixty-four dollars on this page.'},
+  {k:'st_avalanteqz',
+   why:'Sweater-knit fleece at 320 gsm with a brushed interior and a zippered chest pocket. Heavy enough to feel like a gift and smart enough for a customer visit.'},
+  {k:'cs_l00970',
+   why:'Real down — 550 fill power, 90% down — that still packs into its own pouch. Proper winter warmth without the bulk of a parka.'},
+  {k:'st_stavangervest',
+   why:'Polyfill warmth in a water-repellent shell that packs away, with the arms free. A vest is the piece people keep wearing indoors, which is where your logo gets seen.'},
+  /* --- Added 2026-09-15: the three Stormtech parkas ------------------------------------------- */
+  {k:'st_explorerquilted',
+   why:'A quilted jacket with a hood in three colourways. The most-given winter gift shape there is, and Stormtech filmed it — the card plays the film.'},
+  {k:'st_explorerparka',
+   why:'A full parka at the point where a gift stops being apparel and starts being equipment. For a crew that works outside in January.'},
+  {k:'st_denali',
+   why:'The top of the range: a four-colourway parka for a decade of service, a retirement, or the client who sent you the year’s biggest job.'},
+  /* --- Added 2026-09-22 ------------------------------------------------------------------------
+     Every other jacket on this page is a warm one, so the gift page had nothing to offer between
+     April and October. This is the shoulder-season answer, and at $66 it opens the $60-$100 band
+     from the bottom. */
+  {k:'st_pacificawind',
+   why:'An ultra-lightweight hooded shell at 65 gsm, water repellent, with a mesh-lined back vent. The shoulder-season gift — for the months a parka is too much — in seven colourways, two of them two-tone.'}
+];
+/* Apparel vs ready-boxed kit. The buyer guidance on this page already tells the buyer this is the
+   decision to make first ("kits win for a whole-payroll gift and apparel wins for anyone you want
+   seen in it") -- but until now the page gave them no way to act on it, so the advice dead-ended in
+   a 33-card grid. This is a product-type split, not an occasion filter: it answers "what am I
+   buying", which the copy raises, rather than inventing a reason for the gift. */
+/* BAGS ARE A GIFT TYPE OF THEIR OWN (Steven, 2026-10-07: "bags should also be a big part of gifts
+   section"). A bag answers the same problem a boxed kit does -- no sizes to collect -- but it is one
+   good thing instead of four small ones, and it is the piece people keep carrying. So it gets its own
+   lane, directly after apparel. */
+var GIFT_TYPES=[
+  {id:'all',  lab:'All gifts'},
+  {id:'wear', lab:'Apparel'},
+  {id:'bag',  lab:'Bags & coolers'},
+  {id:'kit',  lab:'Boxed kits'},
+  {id:'keep', lab:'Mugs & journals'}
+];
+/* ---- THE SIX WINNERS (Steven, 2026-10-04) ------------------------------------------------------
+   "A buyer should immediately see the 5–6 gifts you recommend most, instead of having to interpret
+   50 options themselves" and "your strongest differentiator -- apparel -- is not dominant enough."
+   So the page opens on six, five of them apparel, spread across budgets, and one boxed kit for the
+   buyer who cannot collect sizes. Each `lab` names the job the gift does -- a role, never a sales
+   claim -- and the reason shown is the item's own GIFT_PICKS `why`. */
+var GIFT_TOP_US=[
+  {k:'vest',lab:'The safe pick'},{k:'st_avalanteqz',lab:'For client-facing teams'},{k:'st_nautilusjkt',lab:'The everyday jacket'},
+  {k:'st_stavanger',lab:'For service milestones'},{k:'st_oxide',lab:'For the trades'},{k:'st_nautilus70',lab:'No sizes to collect'}
+];
+var GIFT_TOP=[
+  {k:'vest',            lab:'The safe pick'},
+  {k:'cbc_traverse_qz', lab:'For client-facing teams'},
+  {k:'st_nautilusjkt',  lab:'A real jacket under $90'},
+  {k:'st_stavanger',    lab:'For service milestones'},
+  {k:'ch_102286',       lab:'For the trades'},
+  {k:'st_nautilus70',   lab:'No sizes to collect'}
+];
+/* NEAR-DUPLICATES FOLD INTO ONE CARD. "Modern Command, Momentum Mode and Daily Ascent are all $58
+   bag/bottle/journal-style kits. That creates decision friction without adding much real choice."
+   The representative card stays; the others become "Also as" links on it, so nothing is lost and
+   nothing is repeated. Labels describe the actual difference, from the catalogue's own contents
+   and descriptions. */
+var GIFT_VARIANTS={
+  sp_bb192:[{k:'sp_bb194',lab:'a different backpack'},{k:'sp_bb193',lab:'a duffle instead'}],
+  sp_gf969:[{k:'sp_gf977',lab:'a mug instead of the bottle'}],
+  sp_dw423:[{k:'sp_dw422',lab:'12 oz, with a lid'}],
+  sp_dw802:[{k:'sp_dw800',lab:'350 ml, with a metal badge'}],
+  sp_st4864:[{k:'sp_st4863',lab:'soft cover'}]
+};
+function giftVariantKeys(){var o={};Object.keys(GIFT_VARIANTS).forEach(function(r){
+  (GIFT_VARIANTS[r]||[]).forEach(function(v){o[v.k]=r;});});return o;}
+/* Apparel first, then boxed kits, then the small thank-yous -- "journals and mugs appear before your
+   stronger apparel and kit options." Within each, cheapest first. */
+var GIFT_TYPE_ORDER={wear:0,bag:1,kit:2,keep:3};
+/* A kit is a boxed set -- a Spector "Gift Set", or a home set Spector ships in a gift box. A single
+   mug or journal is its own kind of gift, and calling it a "ready-boxed kit" would mislead. */
+function giftType(g){var it=BYKEY[g.k];if(it&&it.layer==='bags')return 'bag';if(!it||it.layer!=='promo')return 'wear';
+  return (it.sku==='Gift Set'||/gift box/i.test(it.pack||''))?'kit':'keep';}
+var GV={band:'all',type:'all'};
+/* THE BAND PRICE MUST BE THE PRICE ON THE CARD -- the store minimum for apparel, and for a Spector
+   kit its own published minimum, where the price already includes the branding. */
+function giftPrice(k){
+  var it=BYKEY[k];if(!it)return 0;
+  try{
+    if(it.layer==='promo'){var q=promoQuote(it,{qty:it.moq||moq()});return (q&&q.perPiece)||0;}
+    return unitPrice(k,defaultDecos(k),moq());
+  }catch(e){return 0;}
+}
+function giftBand(p){
+  for(var i=1;i<GIFT_BANDS.length;i++){var b=GIFT_BANDS[i];if(p>=b.lo&&p<b.hi)return b.id;}
+  return 'b3';
+}
+/* APPAREL AND SPECTOR KITS ONLY, and nothing under the floor. Both are enforced here rather than
+   trusted to the list above, so a vendor cost change or a catalogue edit cannot quietly put a $19
+   cap or a loose drinkware line on the gift page. */
+function giftEligible(it){
+  if(!it)return false;
+  if(['office','premium','bags'].indexOf(it.layer)>=0)return true;     // apparel and bags
+  if(it.layer==='promo'&&it.gift===true)return true;                    // chosen as a gift by Steven
+  return it.layer==='promo'&&it.sku==='Gift Set';                       // a Spector kit, not a single
+}
+function giftPool(){
+  var folded=giftVariantKeys();
+  return GIFT_PICKS.filter(function(g){return giftEligible(BYKEY[g.k])&&!folded[g.k];})
+    .map(function(g){return {k:g.k,why:g.why,p:giftPrice(g.k)};})
+    .filter(function(g){return g.p>=GIFT_FLOOR||(BYKEY[g.k]||{}).gift===true;})
+    .sort(function(a,b){
+      var ta=GIFT_TYPE_ORDER[giftType(a)],tb=GIFT_TYPE_ORDER[giftType(b)];
+      return (ta-tb)||(a.p-b.p);});
+}
+/* The six, resolved against the live pool so a retired or ineligible pick simply drops out. */
+function giftTop(){
+  var by={};giftPool().forEach(function(g){by[g.k]=g;});
+  return (isUS()?GIFT_TOP_US:GIFT_TOP).filter(function(t){return by[t.k];}).map(function(t){
+    var g=by[t.k];return {k:g.k,why:g.why,p:g.p,lab:t.lab};});
+}
+function giftMatches(band,type){
+  if(type===undefined)type=GV.type;
+  return giftPool().filter(function(g){
+    return (band==='all'||giftBand(g.p)===band)&&(type==='all'||giftType(g)===type);});
+}
+/* ---- THE GIFT PAGE, v4: ONE DECISION AT A TIME (Steven, 2026-10-07) ---------------------------
+   "make our bags and gifts section incredible ... for the enterprise buyer. right now it is too
+   confusing and complicated."
+   Measured on the live page before this change: 12,654 px tall, 4,236 words, 59 full product cards,
+   nine filter chips that sat BELOW the six picks, a "How to choose" paragraph, and on every card a
+   fabric line, a warmth chip, a decoration chip and a five-line essay. Everything at once.
+   Now the page asks one thing at a time:
+     1. a three-point promise (logo on it, priced per person, no sizes for bags and kits);
+     2. the controls first -- what you are buying, and the budget per person;
+     3. untouched, it shows ONLY the six picks and one row of four "shop by type" tiles;
+     4. a type shows just that type; a budget narrows whatever is showing;
+     5. one close for the person buying for the whole company: send headcount, budget, date.
+   Cards keep image, name, brand, fit, colours and price; the reason shrinks to its first sentence. */
+var GIFT_LANE_LAB={wear:'Apparel',bag:'Bags & coolers',kit:'Boxed kits',keep:'Mugs & journals'};
+var GIFT_LANE_SUB={wear:'Jackets, vests, quarter-zips and fleece people wear on their own time.',
+                   bag:'Duffels, backpacks and coolers. One size — nothing to collect.',
+                   kit:'Boxed and ready to hand over. No sizes to collect.',
+                   keep:'A smaller thank-you, or alongside a bigger gift.'};
+function giftFirstLine(t){t=String(t||'');var m=t.match(/^[\s\S]*?[.!?](\s|$)/);return (m?m[0]:t).trim();}
+function giftsSectionHtml(){
+  if(!giftPool().length)return '';
+  var chk='<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+  return '<section class="gifts gx" id="gifts"><div class="w">'+
+    '<button type="button" class="gfback" id="gfBack">‹ Back to the store</button>'+
+    '<div class="gfhd">'+
+      '<div class="gfeyb">Employee &amp; client gifts</div>'+
+      '<h2 class="gfh">Gifts people keep</h2>'+
+      '<ul class="gxproof"><li>'+chk+'Your logo on every gift</li><li>'+chk+'Priced per person</li>'+
+        '<li>'+chk+'Bags &amp; kits need no sizes</li></ul>'+
+    '</div>'+
+    '<div class="gxbar"><div class="gftypes" id="gftypes" role="tablist" aria-label="What are you buying"></div>'+
+      '<div class="gfbands" id="gfbands" aria-label="Budget per person"></div></div>'+
+    '<div class="gftop" id="gftop"></div>'+
+    '<div class="gflist" id="gfgrid"></div>'+
+    '<div class="gfnone" id="gfnone"></div>'+
+    '<div class="gxcta"><div class="gxctx"><b>Gifting the whole company?</b>'+
+      '<span>Send the headcount, the budget per person and the date you need them. Steven puts together a formal quote.</span></div>'+
+      '<div class="gxcta2"><button type="button" class="gxbtn" id="gxQuote">Get a gift quote <span aria-hidden="true">→</span></button>'+
+      (trustOn()?trustPhoneHtml('gx','or call'):'')+'</div></div>'+
+  '</div></section>';
+}
+function renderGifts(){
+  var bands=document.getElementById('gfbands');if(!bands)return;
+  var types=document.getElementById('gftypes');
+  /* Each row counts against the OTHER row's current choice, so the numbers describe what a click
+     would actually return. A count that ignored the sibling filter would promise 15 and show 4. */
+  if(types)types.innerHTML=GIFT_TYPES.map(function(t){
+    var n=giftMatches(GV.band,t.id).length;
+    return '<button type="button" role="tab" aria-selected="'+(GV.type===t.id)+'" class="gftype'+(GV.type===t.id?' on':'')+(n?'':' off')+'"'+
+      ' data-gftype="'+esc(t.id)+'"'+(n?'':' disabled')+'>'+esc(t.lab)+'<i>'+n+'</i></button>';
+  }).join('');
+  bands.innerHTML='<span class="gfbl">Per person</span>'+GIFT_BANDS.map(function(b){
+    var n=giftMatches(b.id,GV.type).length;
+    return '<button type="button" class="gfband'+(GV.band===b.id?' on':'')+(n?'':' off')+'"'+
+      ' data-gfband="'+esc(b.id)+'"'+(n?'':' disabled')+'>'+esc(b.lab)+'</button>';
+  }).join('');
+  var hits=giftMatches(GV.band,GV.type);
+  /* The real product card, so a gift gets the same mockup, colour swatches and Add-to-quote as
+     anything else in the store -- one card implementation to maintain. */
+  var item=function(g,lab){
+    var vs=GIFT_VARIANTS[g.k]||[];
+    var also=vs.filter(function(v){return BYKEY[v.k];}).map(function(v){
+      var p=giftPrice(v.k);
+      return '<button type="button" class="gfalt" data-gfalt="'+esc(v.k)+'">'+esc(BYKEY[v.k].name)+
+        ' <i>'+esc(v.lab)+(p?(' · '+money(p)):'')+'</i></button>';}).join('');
+    return '<div class="gfitem'+(lab?' gfpick':'')+'">'+
+      (lab?('<div class="gfpicklab">'+esc(lab)+'</div>'):'')+menuCard(g.k)+
+      '<div class="gfwhy">'+esc(giftFirstLine(g.why))+'</div>'+
+      (also?('<div class="gfalso"><span class="gfwk">Also comes as</span>'+also+'</div>'):'')+'</div>';
+  };
+  var top=document.getElementById('gftop'),pristine=(GV.band==='all'&&GV.type==='all');
+  var six=pristine?giftTop():[],sixK={};six.forEach(function(g){sixK[g.k]=1;});
+  if(top)top.innerHTML=six.length?(
+    '<div class="gftophd"><h3 class="gftoph">Our '+nwords(six.length).toLowerCase()+' picks</h3>'+
+      '<p class="gftops">Start here — one for every kind of team and budget.</p></div>'+
+    '<div class="gfgrid gftopgrid">'+six.map(function(g){return item(g,g.lab);}).join('')+'</div>'):'';
+  var html='';
+  if(pristine){
+    /* SHOP BY TYPE: four doors, not 53 cards. Each tile shows three of its own gifts with this
+       client's logo on them, how many there are, and where the price starts. */
+    var pool=giftPool();
+    var tiles=['wear','bag','kit','keep'].map(function(t){
+      var list=pool.filter(function(g){return giftType(g)===t;});
+      if(!list.length)return '';
+      /* Tile photos show the range, not the three cheapest: for bags that is a duffel, a backpack
+         and a cooler (Steven's lead bags first); elsewhere the first three gifts not already in the six. */
+      var rep=list.filter(function(g){return !sixK[g.k];}).concat(list);
+      if(t==='bag'){var pick=function(re){var h=rep.filter(function(g){return re.test(((BYKEY[g.k]||{}).name||'').toLowerCase());})
+          .sort(function(a,b){var ia=BAG_LEAD.indexOf(a.k),ib=BAG_LEAD.indexOf(b.k);return (ia<0?99:ia)-(ib<0?99:ib);})[0];return h;};
+        rep=[pick(/duffel/),pick(/backpack(?!.*cooler)/),pick(/cooler|lunch/)].filter(Boolean).concat(rep);}
+      var seen={};rep=rep.filter(function(g){if(seen[g.k])return false;seen[g.k]=1;return true;});
+      var th=rep.slice(0,3).map(function(g){
+        var it=BYKEY[g.k],o=null;
+        try{o=it.layer==='promo'?{g:gurl((it.cols[0]||{}).front),lg:''}:overlayHtml(it,vmOf(g.k),browseColour(g.k,it),'front',browseCols(it),browsePlaces(it));}catch(e){o=null;}
+        return o?('<span class="gxth"><img class="g" src="'+o.g+'" alt="" loading="lazy">'+o.lg+'</span>'):'';}).join('');
+      var lo=Math.min.apply(null,list.map(function(g){return g.p;}));
+      return '<button type="button" class="gxlane gxlane-'+t+'" data-gflane="'+t+'">'+
+        '<span class="gxths">'+th+'</span>'+
+        '<span class="gxlt"><b>'+esc(GIFT_LANE_LAB[t])+'</b><i>'+list.length+' gifts · from '+money0(lo)+'</i></span>'+
+        '<span class="gxla" aria-hidden="true">→</span></button>';}).join('');
+    html='<div class="gxlanes"><h3 class="gxlh">Shop by type</h3><div class="gxlrow">'+tiles+'</div></div>';
+  }else if(GV.type==='all'){
+    ['wear','bag','kit','keep'].forEach(function(t){
+      var list=hits.filter(function(g){return giftType(g)===t;});
+      if(!list.length)return;
+      html+='<section class="gfsec gfsec-'+t+'"><div class="gfsechd"><h3>'+esc(GIFT_LANE_LAB[t])+' <span>'+list.length+'</span></h3><p>'+esc(GIFT_LANE_SUB[t])+'</p></div>'+
+        '<div class="gfgrid">'+list.map(function(g){return item(g,'');}).join('')+'</div></section>';
+    });
+  }else{
+    html='<section class="gfsec gfsec-'+GV.type+'"><div class="gfsechd"><h3>'+esc(GIFT_LANE_LAB[GV.type]||'')+' <span>'+hits.length+'</span></h3>'+
+      '<p>'+esc(GIFT_LANE_SUB[GV.type]||'')+'</p></div>'+
+      '<div class="gfgrid">'+hits.map(function(g){return item(g,'');}).join('')+'</div></section>';
+  }
+  document.getElementById('gfgrid').innerHTML=html;
+  document.getElementById('gfnone').innerHTML=hits.length?'':
+    '<div class="gfempty"><b>Nothing at that budget in this type.</b> '+
+    'Widen the budget, or tell us the number you have in mind and we will build to it.</div>';
+  wireCards('gfgrid');
+  if(top&&six.length){wireCards('gftop');wireWornPeek('gftop');}
+  ['gfgrid','gftop'].forEach(function(id){var r=document.getElementById(id);if(!r)return;
+    r.querySelectorAll('[data-gfalt]').forEach(function(b){b.addEventListener('click',function(e){
+      e.stopPropagation();jdpTrack('gift_variant',{k:b.dataset.gfalt});openSheet(b.dataset.gfalt);});});});
+  var gg=document.getElementById('gfgrid');
+  if(gg)gg.querySelectorAll('[data-gflane]').forEach(function(b){b.addEventListener('click',function(){
+    GV.type=b.dataset.gflane;jdpTrack('gift_lane',{t:GV.type,src:'tile'});renderGifts();giftScrollToBar();});});
+  bands.querySelectorAll('[data-gfband]').forEach(function(b){b.addEventListener('click',function(){
+    GV.band=b.dataset.gfband;renderGifts();});});
+  if(types)types.querySelectorAll('[data-gftype]').forEach(function(b){
+    b.addEventListener('click',function(){GV.type=b.dataset.gftype;jdpTrack('gift_lane',{t:GV.type,src:'tab'});renderGifts();});});
+  var q=document.getElementById('gxQuote');
+  if(q&&!q.dataset.w){q.dataset.w='1';q.addEventListener('click',function(){
+    jdpTrack('gift_quote');openSourcing('');
+    var nt=document.getElementById('coNote');if(nt&&!nt.value)nt.value='Gift request — headcount: , budget per person: , needed by: ';});}
+  wireWornPeek('gfgrid');
+}
+/* After a tile is chosen, land the buyer on the controls so the lane they picked is in view. */
+function giftScrollToBar(){
+  var b=document.querySelector('.gxbar');if(!b)return;
+  var tb=document.getElementById('tbar'),off=(tb?tb.offsetHeight:60)+12;
+  window.scrollTo({top:Math.max(0,window.pageYOffset+b.getBoundingClientRect().top-off),behavior:'smooth'});
+}
+
+/* "SEE IT WORN" ON THE CARD, without lying about colour.
+   17 of the 25 apparel gifts now carry a model shot, and on a gift page the photograph is the
+   decision: a person wearing the jacket reads as a gift, a flat lay on white reads as a catalogue
+   SKU. But the model shot is ONE colourway, and every other card in this store keeps its image
+   locked to the swatch the buyer picked -- showing an olive model shot under a Navy label would be
+   the same class of error as the black-and-white logos. So this is a peek, not a replacement: the
+   flat, colour-accurate shot stays the card's image, and the worn shot is revealed on hover, focus
+   or tap and withdrawn afterwards.
+   The pre-peek src is captured and restored verbatim rather than recomputed, so a colour changed
+   mid-peek cannot be clobbered by a stale value. */
+function wornShotFor(item,colourName){
+  var g=(item&&item.gallery)||[];
+  var worn=g.filter(function(u){return String(u).indexOf('worn')>=0;});
+  if(!worn.length)return '';
+  var sl=String(colourName||'').toLowerCase().replace(/[^a-z0-9]+/g,'');
+  if(sl)for(var i=0;i<worn.length;i++)if(String(worn[i]).toLowerCase().indexOf(sl)>=0)return worn[i];
+  return worn[0];
+}
+/* Which colourway is the model actually wearing? Derived from the filename against the item's own
+   colour list, because the five styles fetched per-colourway name their worn files by colour
+   (`st_axis__blacksportred_worn.jpg`) while the backfilled ones are just `__worn1` -- the supplier
+   published one model shot and did not say which colourway it is.
+   This matters: Axis has a model shot only in Black/Sport Red, so a buyer looking at the Navy card
+   would otherwise see a black-and-red jacket and read it as Navy. Where the colour is knowable and
+   differs, the peek says so; where it is not knowable, it claims nothing. */
+function wornColourName(item,file){
+  var f=String(file||'').toLowerCase(),best='';
+  var all=(item.cols||[]).concat(item.wcols||[]);
+  for(var i=0;i<all.length;i++){
+    var sl=String(all[i].name||'').toLowerCase().replace(/[^a-z0-9]+/g,'');
+    if(sl&&f.indexOf(sl)>=0&&sl.length>best.length)best=all[i].name;   // longest match wins
+  }
+  return best;
+}
+function wireWornPeek(rootId){
+  var root=document.getElementById(rootId);if(!root)return;
+  root.querySelectorAll('.gfitem').forEach(function(wrap){
+    var card=wrap.querySelector('.mcard[data-key]');if(!card)return;
+    var key=card.getAttribute('data-key'),it=BYKEY[key];if(!it)return;
+    var stage=card.querySelector('.mstage'),g=stage&&stage.querySelector('img.g');
+    if(!stage||!g)return;
+    if(!wornShotFor(it,''))return;
+    var btn=document.createElement('button');
+    btn.type='button';btn.className='gfpeek';
+    btn.setAttribute('aria-label','See '+(it.name||'this piece')+' worn');
+    btn.innerHTML='<span class="gfpl">See it worn</span>';
+    var cap=document.createElement('span');
+    cap.className='gfpcap';cap.hidden=true;stage.appendChild(cap);
+    var prev='';
+    function on(){
+      /* resolve against the colour showing RIGHT NOW: the five styles fetched with worn shots per
+         colourway name their files by colour, so a Navy card can peek a Navy model shot. */
+      var cur=browseColour(key,it),shot=wornShotFor(it,cur);if(!shot)return;
+      if(!prev)prev=g.getAttribute('src')||'';
+      g.src=gurl(shot);
+      /* name the colourway on the model whenever it is knowable and is NOT the one selected */
+      var shown=wornColourName(it,shot);
+      if(cap){
+        if(shown&&shown!==cur){cap.textContent='Shown in '+shown;cap.hidden=false;}
+        else cap.hidden=true;
+      }
+      /* The logo layer is absolutely positioned from the FLAT photo's tuned cx/cy/wf. Those
+         fractions mean nothing on a model shot, so leaving it on would paint the client's logo
+         floating in mid-air. Hidden for the duration of the peek -- the same reasoning as
+         `norender` above: do not draw a logo we cannot place. */
+      card.classList.add('peeking');
+    }
+    function off(){ if(prev){g.src=prev;prev='';} card.classList.remove('peeking');
+                    if(cap)cap.hidden=true; }
+    btn.addEventListener('mouseenter',on); btn.addEventListener('mouseleave',off);
+    btn.addEventListener('focus',on);      btn.addEventListener('blur',off);
+    btn.addEventListener('click',function(e){          // tap toggles, never opens the sheet
+      e.preventDefault();e.stopPropagation();
+      if(prev)off();else on();
+    });
+    stage.appendChild(btn);
+  });
+}
+
+/* The whole of the homepage's gift presence: one line. Enough to be found, small enough that the
+   catalogue is still the page. */
+/* THE DOOR TO THE GIFT PAGE. Steven, 2026-10-04: "Going to gift section from homepage is not clear
+   and low converting." It was one dark line of small text advertising "from $13 a person" -- the
+   price of a journal, which undercut the whole premium position. Now it is a picture of the actual
+   gifts, with this client's logo on them, a headline, the apparel entry price and a real button. */
+function giftEntryHtml(){
+  var pool=giftPool();if(!pool.length)return '';
+  var wear=pool.filter(function(g){return giftType(g)==='wear';});
+  var lo=(wear[0]||pool[0]).p;
+  /* Three apparel picks and the lead bag: the door shows both halves of what is behind it. */
+  var _gt=giftTop(),_tw=_gt.filter(function(g){return giftType(g)==='wear';}),_tb=_gt.filter(function(g){return giftType(g)==='bag';});
+  var tiles=(_tb.length?_tw.slice(0,3).concat(_tb.slice(0,1)):_tw.slice(0,4)).map(function(g){
+    var it=BYKEY[g.k],o=null;
+    try{o=overlayHtml(it,vmOf(g.k),browseColour(g.k,it),'front',browseCols(it),browsePlaces(it));}catch(e){o=null;}
+    if(!o)return '';
+    return '<span class="gfetile" style="position:relative;display:block;flex:1 1 0;min-width:0;aspect-ratio:1/1;'+
+      'border-radius:12px;overflow:hidden;background:#fff">'+
+      '<img class="g" src="'+o.g+'" alt="" loading="lazy" style="width:100%;height:100%;object-fit:contain;display:block">'+o.lg+'</span>';
+  }).join('');
+  return '<button type="button" class="gfentry gfentry2" id="gfEntry">'+
+    '<span class="gfetx">'+
+      '<span class="gfeeyb">'+railIcon('gifts')+' Employee gifts</span>'+
+      '<b>Gifts your team will actually keep</b>'+
+      '<i>Premium jackets, vests and quarter-zips with your logo — plus bags, coolers'+(isUS()?'':' and boxed kits')+' when you '+
+        'can’t collect sizes. Our six picks are at the top.</i>'+
+      '<span class="gferow"><span class="gfecta">Shop employee gifts <span aria-hidden="true">→</span></span>'+
+        '<span class="gfefrom">Apparel from '+money0(lo)+' a person</span></span>'+
+    '</span>'+
+    (tiles?('<span class="gfetiles" style="display:flex;gap:10px;flex:1 1 0;min-width:0">'+tiles+'</span>'):'')+
+  '</button>';
+}
+/* The view switch. A class on <body> rather than a re-render: the studio is already built and
+   wired, and tearing it down and rebuilding it would lose the buyer's occasion and budget. */
+function setGiftView(on){
+  try{
+    document.body.classList.toggle('giftview',!!on);
+    setRail(on?'gifts':'explore');
+    if(on){try{renderGifts();}catch(e){}}
+    window.scrollTo({top:0,behavior:'auto'});
+    syncViewUrl();
+  }catch(e){}
+}
+function giftViewOn(){
+  try{return document.body.classList.contains('giftview');}catch(e){return false;}
+}
+
+
+/* ---- THE PROGRAM VIEW ---------------------------------------------------------------------------
+   Steven, 2026-10-02: "Our programs are the most clicked but also the most confusing and the worst
+   UI."
+   Measured on the live store before this change: tapping a program card dropped the buyer into the
+   full BOARD EDITOR -- a "starter template" banner, four board chips, a 72-piece $3,741 total, a
+   headcount estimator, a two-step proforma wizard and six editing cards with size grids, notes and
+   Edit/Remove -- all of it above the first garment. That is the tool WE use to assemble a board,
+   shown to someone who only asked to see a program.
+   A program is a proposal. Four pieces, big, with their logo on. A price per person. One question
+   (how many people) and one button. Everything else is one tap away rather than in the way, and the
+   board editor is untouched -- "Change this program" copies the pieces into the buyer's own board,
+   where sizes, notes, add and remove already live. */
+var PV_ID=null,PV_BACK=null,PV_OFF={};
+function pvOff(id){return PV_OFF[id]||(PV_OFF[id]={});}
+function pvOnKeys(id){var off=pvOff(id);return Object.keys(((LISTS||{})[id]||{}).items||{}).filter(function(k){return !off[k];});}
+function programOpen(){var e=document.getElementById('progv');return !!(e&&e.classList.contains('on'));}
+function pvProgId(id){return /^prog_/.test(id||'')?id:'prog_'+id;}
+function pvShort(n){return String(n||'').replace(/\s*·.*$/,'').replace(/ Program$/,'');}
+/* One of each, per person, at the tier the headcount buys. Promo lines are skipped exactly as
+   boardPerPerson() skips them. */
+function pvPerPerson(id,n){
+  var L=(LISTS||{})[id];if(!L)return 0;
+  var t=0,q=Math.max(moq(),n||0);
+  var off=pvOff(id);
+  Object.keys(L.items||{}).forEach(function(ck){
+    var it=BYKEY[bkey(ck)];if(!it||it.layer==='promo'||off[ck])return;
+    var c=L.items[ck]||{};
+    try{t+=unitPrice(ck,(c.decos&&c.decos.length)?c.decos:defaultDecos(ck),q);}catch(e){}
+  });
+  return t;
+}
+function pvSetup(){try{return cartSetup();}catch(e){return 0;}}   /* CART is the open program */
+function pvTabsHtml(cur){
+  var ids=programIds();if(ids.length<2)return '';
+  return '<div class="pvtabs" role="tablist" aria-label="Programs">'+ids.map(function(id){
+    var L=LISTS[id],on=id===cur;
+    return '<button type="button" role="tab" class="pvtab'+(on?' on':'')+'" aria-selected="'+(on?'true':'false')+
+      '" data-pvsw="'+esc(id)+'">'+esc(pvShort(L.name))+'</button>';}).join('')+'</div>';
+}
+function pvCardHtml(ck,n){
+  var it=BYKEY[bkey(ck)];if(!it)return '';
+  var c=CART[ck]||{};
+  var cols=curColsOf(it,c.fit)||it.cols||[];
+  var col=colInList(cols,c.colour)||cols[0]||{};
+  var pl=(c.fit==='womens'&&it.wplaces&&it.wplaces.length)?it.wplaces:it.places;
+  var decos=(c.decos&&c.decos.length)?c.decos:defaultDecos(ck);
+  var o=null;try{o=overlayHtml(it,{decos:decos},col.name,'front',cols,pl);}catch(e){o=null;}
+  var stage=o?('<div class="bstage"><img class="g" src="'+o.g+'" alt="'+esc(it.name)+'" loading="lazy" decoding="async">'+o.lg+'</div>')
+             :('<img class="bimg" src="'+gurl(col.front)+'" alt="'+esc(it.name)+'" loading="lazy">');
+  var tiers=(CFG.pricing&&CFG.pricing.cols)||[12,48,144];
+  var u=tiers.map(function(t){try{return unitPrice(ck,decos,t);}catch(e){return 0;}});
+  var gal=(it.gallery||[]).slice(0,3);
+  var cuts=(it.wcols&&it.wcols.length)?'Men’s & ladies’ cuts':(it.unisex?'Unisex':'');
+  var brand=it.brand||it.sku||'';
+  /* The seeded note is stored as "Label — reason"; the label is the card's own heading here. */
+  var why=String(c.why||'').replace(/^[^—]{0,40}—\s*/,'');
+  var _off=!!pvOff(PV_ID||'')[ck];
+  return '<li class="bcard pvc'+(_off?' pvoff':'')+'" data-bk="'+esc(ck)+'">'+
+    '<span class="pvn" aria-hidden="true">'+n+'</span>'+
+    '<button type="button" class="pvin'+(_off?'':' on')+'" data-pvin="'+esc(ck)+'" aria-pressed="'+(_off?'false':'true')+'">'+(_off?'+ Add to quote':'✓ In quote')+'</button>'+
+    '<div class="bimgwrap pvimg" data-pvopen="'+esc(ck)+'">'+stage+
+      (it.csa?('<span class="pvcsa">'+esc(String(it.csa).split(' · ')[0])+'</span>'):'')+
+      (cuts?('<span class="pvcuts">'+esc(cuts)+'</span>'):'')+'</div>'+
+    '<div class="pvbody">'+
+      (brand?('<div class="pvbrand">'+esc(brand)+'</div>'):'')+
+      '<h3 class="pvname">'+esc(it.name)+'</h3>'+
+      '<div class="pvprice"><b>'+money(u[0])+'</b><span>/pc at '+tiers[0]+'+ · logo included</span>'+
+        '<i>'+tiers.slice(1).map(function(t,i){return money(u[i+1])+' at '+t+'+';}).join(' · ')+'</i></div>'+
+      incHtml(it,decos,'board')+
+      bColourRowHtml(ck)+
+      (why?('<p class="pvwhy">'+esc(why)+'</p>'):'')+
+      (gal.length?('<div class="pvgal">'+gal.map(function(g){
+          return '<button type="button" class="pvgth" data-pvopen="'+esc(ck)+'" style="background-image:url(\''+gurl(g)+
+            '\')" aria-label="See the '+esc(it.name)+' worn"></button>';}).join('')+'</div>'):'')+
+      '<button type="button" class="pvmore" data-pvopen="'+esc(ck)+'">Details, colours &amp; sizes ›</button>'+
+    '</div></li>';
+}
+/* The hero number. With a headcount it is THE total the quote will show -- one of each per person
+   plus the one-time setup -- so the program page and the quote can never disagree. */
+function pvStatHtml(id,n){
+  n=parseInt(n,10)||0;var pp0=pvPerPerson(id,0);
+  if(!n)return '<b>'+money0(pp0)+'</b><span>per person · one of each, logo included</span>';
+  var q=Math.max(moq(),n),pp=pvPerPerson(id,n),setup=pvSetup();
+  return '<b>'+money0(pp*q+setup)+'</b><span>est. total for '+(q>n?(q+' pieces each (minimum)'):(n+' people'))+' · '+money0(pp)+' per person'+(setup>0?' + setup':'')+', logo included</span>';
+}
+function pvEstHtml(id,n){
+  if(n==null)n=getHC();
+  n=parseInt(n,10)||0;
+  var pp0=pvPerPerson(id,0);
+  if(!n)return '<b>'+money0(pp0)+' per person</b><i>one of each at '+moq()+'+ · enter a headcount for a closer number</i>';
+  var q=Math.max(moq(),n),pp=pvPerPerson(id,n),setup=pvSetup();
+  return '<b>'+money0(pp)+' per person</b><i>est. '+money0(pp*q)+(q>n?(' at the '+moq()+'-piece minimum'):(' for '+q+' people'))+
+    (setup>0?(' + '+money0(setup)+' one-time setup'):'')+'</i>';
+}
+function programHtml(id){
+  var L=LISTS[id];if(!L)return '';
+  var ks=Object.keys(L.items||{}),n=getHC(),pp0=pvPerPerson(id,0),T=JDP_TRUST;
+  var cards=ks.map(function(ck,i){return pvCardHtml(ck,i+1);}).join('');
+  /* "mockup &" drops out on a phone so the bar's input and button share one row. */
+  var _non=pvOnKeys(id).length;
+  var cta=function(idb,cls){return '<button type="button" class="pvcta pvadd '+(cls||'')+'" id="'+idb+'"'+(_non?'':' disabled')+'>Add '+_non+' piece'+(_non===1?'':'s')+' <span class="pvl">to my quote </span><span class="ar">→</span></button>';};
+  return '<div class="pvwrap">'+
+    '<header class="pvhd">'+
+      '<button type="button" class="pvback" id="pvBack">‹ Back to the store</button>'+
+      pvTabsHtml(id)+
+      cta('pvQuoteTop','pvhdcta')+
+    '</header>'+
+    /* THE HERO BAND. The number a buyer is looking for and the one thing to do next, in the first
+       screen -- not three scrolls down behind four product cards. */
+    '<section class="pvhero"><div class="pvheroin">'+
+      '<div class="pvherotx">'+
+        '<div class="pveyb">Pre-approved program · '+esc(CFG.client||'your team')+'</div>'+
+        '<h1 class="pvh1">'+esc(L.name)+'</h1>'+
+        (L.sub?('<p class="pvsub">'+esc(L.sub)+'</p>'):'')+
+      '</div>'+
+      '<div class="pvheroact">'+
+        '<div class="pvstat" id="pvStat">'+pvStatHtml(id,n)+'</div>'+
+        '<label class="pvhc2"><span>How many people?</span><input id="pvHC2" type="number" inputmode="numeric" min="1" placeholder="e.g. 40"'+(n?(' value="'+n+'"'):'')+' aria-label="Number of people"></label>'+
+        /* ONE FIELD NEXT TO THE PRICE. 51 program opens, 0 quotes: the button opened a drawer with
+           a second form. Now the email goes in right here and the program goes with it. */
+        cta('pvQuoteHero','pvherocta')+
+        '<div class="pvtrust">Untick anything you don’t need · add more items or another program after · itemized PDF for your approver</div>'+
+      '</div>'+
+    '</div></section>'+
+    '<div class="pvkit"><span>The kit</span><i>'+ks.length+' pieces · priced at the '+moq()+'-piece minimum · prices drop at 48+ and 144+</i></div>'+
+    '<ol class="pvgrid">'+cards+'</ol>'+
+    '<div class="pvfoot">'+
+
+      '<button type="button" class="pvlink" id="pvShare">Share this program ↗</button>'+
+    '</div>'+
+    '<div class="pvbar"><div class="pvbarin">'+
+      '<div class="pvest" id="pvEst">'+pvEstHtml(id,n)+'</div>'+
+      '<label class="pvpeople"><span>How many people?</span>'+
+        '<input id="pvHC" type="number" inputmode="numeric" min="1" placeholder="People, e.g. 25"'+(n?(' value="'+n+'"'):'')+
+        ' aria-label="Number of people"></label>'+
+      cta('pvQuote','')+
+    '</div></div>'+
+  '</div>';
+}
+function programUrl(id){return location.origin+location.pathname+'?program='+String(id).replace(/^prog_/,'')+mktParam('&');}
+/* Copy the ticked pieces (with the colours chosen on the tiles) into the buyer's ONE quote, sized to
+   the headcount, and open the quote. Programs stack: Crew + Hi-Vis becomes one quote. */
+function addProgramToQuote(id,n){
+  var src=(LISTS[id]||{}).items||{},keys=pvOnKeys(id);if(!keys.length)return;
+  var tid=(PV_BACK&&LISTS[PV_BACK]&&!isTemplate(PV_BACK))?PV_BACK:personalListId();
+  keys.forEach(function(ck){try{var e=JSON.parse(JSON.stringify(src[ck]));delete e.why;e.prog=1;LISTS[tid].items[ck]=e;}catch(x){}});
+  ALID=tid;CART=LISTS[tid].items;LISTS[tid].updated=Date.now();persistLists();
+  if(n>0)setHC(n);
+  var hn=n||getHC();keys.forEach(function(ck){try{sizeLineFromHC(ck,hn);}catch(x){}});
+  saveCart();refreshCartUI();PV_BACK=null;
+  var el=document.getElementById('progv');if(el)el.classList.remove('on');PV_ID=null;
+  try{if(/[?&]program=/.test(location.search))history.replaceState({},'',viewUrl());}catch(x){}
+  openQuote('program');
+  toast('Added '+keys.length+' piece'+(keys.length===1?'':'s')+' from '+((LISTS[id]||{}).name||'the program'));
+}
+function openProgram(id){
+  id=pvProgId(id);
+  if(!PV_ID){if(!LISTS)loadLists();PV_BACK=(ALID&&LISTS&&LISTS[ALID]&&!isTemplate(ALID))?ALID:null;}
+  if(!LISTS)loadLists();
+  if(!LISTS||!LISTS[id]){try{seedPrograms();}catch(e){}}
+  if(!LISTS||!LISTS[id]){openBoards();return;}
+  jdpTrack('program',{p:id.replace(/^prog_/,'')});
+  switchList(id);                              /* CART = this program: quote, setup and share read it */
+  PV_ID=id;
+  closeBoard();closeBoards();
+  var el=document.getElementById('progv');
+  if(!el){el=document.createElement('div');el.id='progv';el.className='boardov progov';document.body.appendChild(el);}
+  el.innerHTML=programHtml(id);
+  wireProgram(el,id);
+  el.classList.add('on');el.scrollTop=0;document.body.style.overflow='hidden';
+  try{history.replaceState({},'',programUrl(id));}catch(e){}
+}
+function refreshProgram(){
+  var el=document.getElementById('progv');if(!el||!PV_ID||!LISTS||!LISTS[PV_ID])return;
+  var st=el.scrollTop;
+  if(ALID!==PV_ID)switchList(PV_ID);
+  el.innerHTML=programHtml(PV_ID);wireProgram(el,PV_ID);el.scrollTop=st;
+}
+function closeProgram(){
+  var el=document.getElementById('progv');if(!el||!el.classList.contains('on'))return;
+  el.classList.remove('on');PV_ID=null;
+  /* Leaving a program puts the buyer back on THEIR quote -- the program was only being viewed. */
+  try{if(isTemplate(ALID)){switchList((PV_BACK&&LISTS[PV_BACK])?PV_BACK:personalListId());}}catch(e){}PV_BACK=null;
+  document.body.style.overflow='';
+  try{if(/[?&]program=/.test(location.search))history.replaceState({},'',viewUrl());}catch(e){}
+  setRail('explore');
+}
+function wireProgram(el,id){
+  var back=function(){closeProgram();};
+  ['pvBack'].forEach(function(b){var e=document.getElementById(b);if(e)e.addEventListener('click',back);});
+  el.querySelectorAll('[data-pvsw]').forEach(function(b){b.addEventListener('click',function(){
+    if(b.dataset.pvsw===id)return;jdpTrack('program_switch');openProgram(b.dataset.pvsw);});});
+  el.querySelectorAll('[data-pvopen]').forEach(function(b){b.addEventListener('click',function(e){
+    e.stopPropagation();openSheet(b.dataset.pvopen);});});
+  /* Colour: the same swatch row and painter the board uses, so the mockup is re-composited with
+     the ink that suits the new garment colour, not just re-photographed. */
+  el.querySelectorAll('.bsw').forEach(function(b){
+    var ck=b.getAttribute('data-bswk'),nm=b.getAttribute('data-bcol');
+    var restore=function(){var c=CART[ck];if(c)bPaintColour(ck,c.colour,false);};
+    b.addEventListener('click',function(e){e.stopPropagation();bPaintColour(ck,nm,true);jdpTrack('program_colour');});
+    b.addEventListener('mouseenter',function(){bPaintColour(ck,nm,false);});
+    b.addEventListener('focus',function(){bPaintColour(ck,nm,false);});
+    b.addEventListener('mouseleave',restore);
+    b.addEventListener('blur',restore);
+  });
+  el.querySelectorAll('[data-bmore]').forEach(function(b){b.addEventListener('click',function(e){
+    e.stopPropagation();var box=b.closest('.bcols');if(box)box.classList.add('all');b.remove();});});
+  var hc=document.getElementById('pvHC'),est=document.getElementById('pvEst');
+  var hc2=document.getElementById('pvHC2'),stat=document.getElementById('pvStat');
+  var upd=function(src){var n=parseInt((src||hc).value,10)||0;setHC(n);
+    if(hc&&src&&src!==hc)hc.value=src.value;if(hc2&&src!==hc2)hc2.value=(src||hc).value;
+    if(est)est.innerHTML=pvEstHtml(id,n);if(stat)stat.innerHTML=pvStatHtml(id,n);};
+  if(hc2){hc2.addEventListener('input',function(){upd(hc2);});
+    hc2.addEventListener('change',function(){var n=parseInt(hc2.value,10)||0;if(n>0)jdpTrack('program_people',{n:n,src:'hero'});});
+    hc2.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();var q=document.getElementById('pvQuoteHero');if(q)q.click();}});}
+  if(hc){
+    hc.addEventListener('input',function(){upd(hc);});
+    hc.addEventListener('change',function(){upd();var n=parseInt(hc.value,10)||0;if(n>0)jdpTrack('program_people',{n:n});});
+    hc.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();var q=document.getElementById('pvQuote');if(q)q.click();}});
+  }
+  var quote=function(){
+    var n=parseInt((hc&&hc.value)||(hc2&&hc2.value),10)||0;
+    jdpTrack('program_quote',{p:id.replace(/^prog_/,''),n:n,k:pvOnKeys(id).length});
+    addProgramToQuote(id,n);
+  };
+  el.querySelectorAll('[data-pvin]').forEach(function(b){b.addEventListener('click',function(e){
+    e.stopPropagation();var off=pvOff(id),k=b.dataset.pvin;if(off[k])delete off[k];else off[k]=1;
+    jdpTrack('program_toggle',{p:id.replace(/^prog_/,''),k:k,on:off[k]?0:1});refreshProgram();});});
+  ['pvQuote','pvQuoteTop','pvQuoteHero'].forEach(function(b){var e=document.getElementById(b);if(e)e.addEventListener('click',quote);});
+  var pf=document.getElementById('pvLead');
+  if(pf){var pe=document.getElementById('pvEmail'),pfo=false;
+    pe.addEventListener('focus',function(){if(!pfo){pfo=true;jdpTrack('lead_focus',{src:'program'});}});
+    pe.addEventListener('input',function(){pe.classList.remove('err');});
+    pf.addEventListener('submit',function(e){e.preventDefault();
+      var L=LISTS[id]||{},n=parseInt(hc&&hc.value,10)||0;
+      var items=Object.keys(L.items||{}).map(function(ck){var it=BYKEY[bkey(ck)]||{},c=L.items[ck]||{};
+        return '- '+(it.name||ck)+(c.colour?(' — '+c.colour):'');}).join('\n');
+      quickLead({src:'program',email:pe.value,input:pe,btn:document.getElementById('pvQuoteHero'),people:n,
+        what:'Program: '+(L.name||id)+'\n'+items},
+        function(em){jdpTrack('program_quote',{p:id.replace(/^prog_/,''),n:n,inline:1});pf.outerHTML=leadDoneHtml(em);});});}
+  var ad=document.getElementById('pvAdopt');
+  if(ad)ad.addEventListener('click',function(){jdpTrack('program_adopt');adoptProgram(id);});
+  var sh=document.getElementById('pvShare');
+  if(sh)sh.addEventListener('click',function(){
+    /* A program is the same on every device, so its link is a plain ?program= -- nothing to sync,
+       nothing that can go stale, and it survives being pasted into an email. */
+    var u=programUrl(id);jdpTrack('program_share');
+    var done=function(){toast('Link copied — paste it into an email');};
+    try{
+      if(navigator.share&&matchMedia('(hover:none)').matches){navigator.share({title:(LISTS[id]||{}).name,url:u}).catch(function(){});return;}
+      if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(u).then(done,function(){window.prompt('Copy this link',u);});return;}
+    }catch(e){}
+    window.prompt('Copy this link',u);
+  });
+}
+/* "Change this program": the pieces go into the buyer's own board, where the full editor -- sizes,
+   notes, add and remove -- already exists. The program itself never changes: it is a template, and
+   the next visitor gets it intact. */
+function adoptProgram(id){
+  var src=(LISTS[id]||{}).items||{},tid=personalListId(),n=0;
+  Object.keys(src).forEach(function(ck){
+    if(LISTS[tid].items[ck])return;
+    try{LISTS[tid].items[ck]=JSON.parse(JSON.stringify(src[ck]));n++;}catch(e){}});
+  ALID=tid;CART=LISTS[tid].items;LISTS[tid].updated=Date.now();persistLists();
+  renderCart();refreshCartUI();
+  closeProgram();openBoard(tid);
+  toast(n?('Copied '+n+' piece'+(n===1?'':'s')+' into '+activeName()+' — change anything'):('Already in '+activeName()));
+}
+
+function recoHeroHtml(){
+  /* THE PRE-APPROVED PROGRAMS, ALWAYS. Steven, 2026-09-10: "'We've already picked your shortlist'
+     is a bad idea. I prefer just to show the pre approved programs and allow customers to build
+     there own boards."
+
+     This used to hand the hero over to any board that looked curated, and that switch is what broke
+     stryder-motorfreight. He removed that store's recommended board, but his browser still had its
+     own cached copy -- three items, a slug, flagged `srv` -- so the store went on treating a board
+     that no longer existed as the client's shortlist, showed one stale card instead of three
+     programs, and captioned it with a claim about work nobody had done. A fresh browser saw the
+     programs correctly, which is exactly the private-vs-normal split he reported before.
+
+     Removing the branch removes the whole failure class: there is no state, local or remote, in
+     which the programs can be displaced. Boards the customer builds live in the board strip, which
+     is where he wants them. `curatedBoardIds()` stays -- hideStaleStarter() still uses it. */
+  var ids=[];
+  if(programsOn()){seedPrograms();ids=programIds();}
+  if(!ids.length)return '';
+  var generated=true;
+  var cards=ids.slice(0,3).map(function(id){
+    var L=LISTS[id];
+    /* Inline sizing on the preview tiles: store.css can arrive a mirror cycle behind store.js, and
+       an unstyled tile renders at the photo's natural 1000px. */
+    var th=boardPreviews(id,4).map(function(o){
+      return '<span class="rhpv mstage" style="position:relative;overflow:hidden;flex:1 1 0;'+
+        'min-width:0;aspect-ratio:1/1;border-radius:10px;display:block">'+
+        '<img class="g ld" src="'+o.g+'" alt="" loading="lazy" decoding="async" '+
+        'style="width:100%;height:100%;object-fit:contain;opacity:1">'+o.lg+'</span>';}).join('');
+    /* Column layout, declared inline. Horizontal put four garments in a 26px gutter beside the
+       text; stacked, the previews get the full card width and the card reads like a product. */
+    return '<button type="button" class="rhcard" data-reco="'+esc(id)+'" '+
+      'style="display:flex;flex-direction:column;align-items:stretch;gap:10px;text-align:left;width:100%">'+
+      (th?('<span class="rhpvs" style="display:flex;gap:6px;width:100%">'+th+'</span>'):'')+
+      '<span class="rhtx"><b>'+esc(L.name)+'</b>'+
+        (L.sub?('<span class="rhsubl">'+esc(L.sub)+'</span>'):'')+
+        /* PUT THE NUMBER ON THE CARD. It read "N pieces, priced and ready to change" -- which says
+           a price EXISTS without saying what it is, so the buyer has to click to find out the one
+           thing they actually want to know. Cost per person, one of each at the minimum, is the
+           figure they are trying to reach anyway. */
+        '<i class="rhfoot">'+listLen(id)+' '+esc(L.noun||'pieces')+(function(){
+           var pp=boardPerPerson(id);
+           /* NOT a <b>: `.rhtx b` is display:block for the board name, so a <b> here broke
+              "12 pieces · $665 per person" onto three lines. Inline style as well as a class,
+              because store.css can arrive a mirror cycle after store.js. */
+           /* "from" on a pick-basis board, because the number is the cheapest idea on the list
+              rather than the cost of the list. Saying "$24 per person" flat would understate a
+              buyer who picks the $95 throw. */
+           return pp?(' \u00b7 '+((L.basis==='pick')?'from ':'')+
+             '<span class="rhpp" style="display:inline;font-weight:800;'+
+             'color:var(--ink)">'+money0(pp)+'</span> per person'):'';})()+
+           '<span class="rharrow" style="margin-left:auto;flex:none">\u2192</span></i></span>'+
+      '</button>';}).join('');
+  /* THE HEADING HAS TO BE TRUE. The old alternative -- "Prepared for X / We've already picked your
+     shortlist" -- claimed work somebody had done for that client, and the store could not actually
+     tell whether anyone had. Say plainly what these are: pre-approved programs built by role from
+     this store's own range. It is a strong offer and it costs nothing in trust. */
+  /* COUNT AND CAST BOTH COME FROM THE CARDS. This read "Three programs ... the people on the
+     tools, the people in the building, and the people in front of your clients" as a hard-coded
+     sentence, so adding the gifts program left the page announcing three programs above four
+     cards, with the fourth unmentioned. Both halves are now derived: a store that ever carries a
+     different number of programs describes itself correctly without anyone editing this copy. */
+  var who=ids.slice(0,3).map(function(id){return (LISTS[id]||{}).who;}).filter(Boolean);
+  var whoTxt=who.length>1?(who.slice(0,-1).join(', ')+' and '+who[who.length-1])
+            :(who[0]||'');
+  var hd={lbl:'Built for '+esc(CFG.client||'your team'),
+          h:'Pre-approved programs, ready to send',
+          p:nwords(Math.min(ids.length,3))+' ready-made programs, priced at your minimum. Change any piece.'};
+  return '<section class="recohero'+(generated?' gen':'')+'"><div class="w">'+
+    '<div class="rhlbl">'+hd.lbl+'</div>'+
+    '<h2 class="rhh">'+hd.h+'</h2>'+
+    '<p class="rhsub">'+hd.p+'</p>'+
+    '<div class="rhcards">'+cards+'</div></div></section>';
+}
+
+/* ---- the hero's "who and what next" -------------------------------------------------------------- */
+/* ---- ONE FIELD, IN THE FIRST SCREEN (2026-10-06) ------------------------------------------------
+   Steven: "The company store is low converting. Identify highest leverage ideas and fix!"
+   30 days of funnel data: 765 visits -> 70 opened a product -> 12 reached the quote form -> 0 sent.
+   Meanwhile the homepage, whose hero asks for a work email and nothing else, produced the leads in
+   the inbox. A client store already knows the company, the logo and the range -- the only thing it
+   does not know is who to send the mockup to. So the hero now asks exactly that.
+   quickLead() is the one sender for every short form (hero, program, exit): FormSubmit, the same
+   relay as submitKit(), with a prefilled-email fallback so a lead is never lost. */
+function quickLeadEmail(){var s={};try{s=JSON.parse(localStorage.getItem('jdpkit_contact')||'{}');}catch(e){}return s.email||'';}
+function quickLead(o,ok){
+  var email=(o.email||'').trim();
+  if(!email||email.indexOf('@')<1||email.indexOf('.')<0){if(o.input){o.input.classList.add('err');o.input.focus();}
+    toast('Add your work email so we know where to send it');return false;}
+  persistContact({name:'',email:email,company:CFG.client||''});
+  try{localStorage.setItem('jdp_lead_sent','1');}catch(e){}
+  var lines=['Store: '+(CFG.client||'')+' — '+location.href.split('#')[0].split('?')[0],
+             'Asked from: '+o.src+(o.people?(' · about '+o.people+' people'):'')];
+  if(o.what)lines.push('',o.what);
+  var subj='🏷️ Store lead ('+o.src+') — '+email+' · '+(CFG.client||'');
+  var payload={email:email,company:CFG.client||'',_subject:subj,_template:'table',_captcha:'false',
+    request:lines.join('\n'),kit_link:location.href.split('#')[0].split('?')[0]};
+  var c={name:'',email:email,company:CFG.client||'',note:lines.join('\n')};
+  var done=false,fell=false;
+  function fin(){if(done||fell)return;done=true;jdpTrack('sent',{src:o.src,n:o.people||0});if(ok)ok(email);}
+  function fail(){if(done||fell)return;fell=true;try{mailtoFallback(c,lines.join('\n'),subj);}catch(e){}jdpTrack('sent',{src:o.src+'_mailto'});if(ok)ok(email);}
+  var to=setTimeout(fail,9000);
+  if(o.btn){o.btn.disabled=true;o.btn.dataset.lbl=o.btn.innerHTML;o.btn.innerHTML='Sending…';}
+  fetch('https://formsubmit.co/ajax/'+JDP_EMAIL,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(payload)})
+    .then(function(r){return r.json().catch(function(){return {};});})
+    .then(function(j){clearTimeout(to);if(j&&String(j.success)==='true')fin();else fail();})
+    .catch(function(){clearTimeout(to);fail();});
+  return true;
+}
+function leadDoneHtml(email,more){
+  return '<div class="qldone"><span class="qlok" aria-hidden="true">✓</span><div><b>Sent — Steven will reply to '+esc(email)+
+    '</b><i>Usually within '+esc(JDP_TRUST.reply)+'. No payment, no obligation.'+(more||'')+'</i></div></div>';
+}
+function heroProgramNames(){try{seedPrograms();return programIds().slice(0,3).map(function(id){return LISTS[id].name;});}catch(e){return [];}}
+function heroNextHtml(){
+  var T=JDP_TRUST;
+  var who='<div class="hnwho"><span class="hnav" aria-hidden="true">S</span>'+
+      '<span class="hnwt"><b>Steven</b><i>Just Deals Promotions · replies in '+T.reply+'</i></span>'+
+      trustPhoneHtml('hn')+'</div>';
+  var whoS='<div class="hnwho hnwhos"><span class="hnav" aria-hidden="true">S</span>'+
+      '<span class="hnwts"><b>Steven</b> replies in '+T.reply+'</span>'+trustPhoneHtml('hn')+'</div>';
+  if(CFG.demo)   /* the demo store is the homepage's own catalogue and keeps its own lead flow */
+    return '<div class="hnext">'+who+
+      '<div class="hnbtns"><button type="button" class="hnprim" id="hnPrograms">Start with a ready program <span class="ar">↓</span></button>'+
+      '<button type="button" class="hnsec" id="hnAsk">Just tell us what you need</button></div></div>';
+  return '<div class="hnext">'+
+    /* HOW AN ENTERPRISE ORDER WORKS, in three steps they can see. The offer is the document their
+       approver needs, not a mockup. RFQ upload for buyers who arrive with a spec already written. */
+    '<div class="hnsteps"><div class="hnsh">How ordering works</div>'+
+      '<ol><li><span><b>Choose</b> a ready program, or let the advisor in any category pick for you</span></li><li><span><b>Set</b> how many people</span></li>'+
+        '<li><span><b>Download</b> an itemized quote (PDF) for approval</span></li></ol>'+
+      '<div class="hnbtns"><button type="button" class="hnsec" id="hnPrograms">See ready programs</button>'+
+        '<button type="button" class="hnsec" id="hnRfq">Upload an RFQ or spec</button></div>'+
+      '<div class="hnlsub">No payment · no obligation · confirmed in writing by a real person</div></div>'+
+    whoS+'</div>';
+}
+/* ---- RFQ UPLOAD: for the buyer who arrives with a spec already written ------------------------------
+   Enterprise purchasing often starts from a document -- an RFQ, a spec sheet, last year's order. Let
+   them hand it over in one step instead of rebuilding it item by item in our store. FormSubmit's
+   plain endpoint delivers the file as a real attachment (verified for logo uploads in submitKit). */
+function openRfq(){
+  var saved={};try{saved=JSON.parse(localStorage.getItem('jdpkit_contact')||'{}');}catch(e){}
+  var el=document.createElement('div');el.className='xoff';el.id='rfqm';
+  el.innerHTML='<div class="xbox rfqbox" role="dialog" aria-modal="true" aria-labelledby="rfqh"><button type="button" class="xx" aria-label="Close">✕</button>'+
+    '<h3 id="rfqh">Send us your RFQ or spec</h3><p>Attach the document and we’ll reply with a formal, itemized quote — usually within '+esc(JDP_TRUST.reply)+'.</p>'+
+    '<form class="xform rfqform" id="rfqForm" novalidate>'+
+      '<label class="rfqfile"><span id="rfqLbl">Choose a file — PDF, Word, Excel or CSV</span><input id="rfqFile" type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.png,.jpg,.jpeg"></label>'+
+      '<input id="rfqEmail" type="email" inputmode="email" autocomplete="email" placeholder="Your work email" value="'+esc(saved.email||'')+'">'+
+      '<textarea id="rfqNote" rows="3" placeholder="Deadline, quantities or anything else (optional)"></textarea>'+
+      '<button type="submit" id="rfqGo">Send my RFQ →</button></form></div>';
+  document.body.appendChild(el);requestAnimationFrame(function(){el.classList.add('on');});
+  var close=function(){el.classList.remove('on');setTimeout(function(){if(el.parentNode)el.parentNode.removeChild(el);},250);};
+  el.querySelector('.xx').addEventListener('click',close);el.addEventListener('click',function(e){if(e.target===el)close();});
+  var fi=document.getElementById('rfqFile');fi.addEventListener('change',function(){var f=fi.files&&fi.files[0];
+    document.getElementById('rfqLbl').textContent=f?(f.name+' · '+Math.max(1,Math.round(f.size/1024))+' KB'):'Choose a file — PDF, Word, Excel or CSV';});
+  document.getElementById('rfqForm').addEventListener('submit',function(e){e.preventDefault();
+    var em=document.getElementById('rfqEmail'),email=(em.value||'').trim(),f=fi.files&&fi.files[0],note=(document.getElementById('rfqNote').value||'').trim();
+    if(!email||email.indexOf('@')<1||email.indexOf('.')<0){em.classList.add('err');em.focus();toast('Add your work email');return;}
+    if(!f&&!note){toast('Attach your RFQ, or tell us what you need');return;}
+    persistContact({name:'',email:email,company:CFG.client||''});try{localStorage.setItem('jdp_lead_sent','1');}catch(x){}
+    var btn=document.getElementById('rfqGo');btn.disabled=true;btn.textContent='Sending…';
+    var fd=new FormData();
+    [['email',email],['company',CFG.client||''],['_subject','RFQ — '+(CFG.client||'')+' — '+email],['_template','table'],['_captcha','false'],
+     ['request','RFQ / spec from the '+(CFG.client||'')+' store'+(note?('\n'+note):'')],['kit_link',location.href.split('#')[0].split('?')[0]]].forEach(function(p){fd.append(p[0],p[1]);});
+    if(f)fd.append('attachment',f,f.name);
+    var fin=function(){jdpTrack('sent',{src:'rfq'});var fm=document.getElementById('rfqForm');
+      if(fm)fm.outerHTML=leadDoneHtml(email,' We’ll reply with a formal, itemized quote.');};
+    fetch('https://formsubmit.co/'+JDP_EMAIL,{method:'POST',body:fd,mode:'no-cors'}).then(fin).catch(function(){
+      mailtoFallback({name:'',email:email,company:CFG.client||'',note:note},'RFQ from the '+(CFG.client||'')+' store\n'+note+(f?('\n(attach: '+f.name+')'):''),'RFQ — '+(CFG.client||''));});});
+}
+function wireHeroNext(){
+  var p=document.getElementById('hnPrograms');
+  if(p&&!p.dataset.w){p.dataset.w='1';p.addEventListener('click',function(){
+    jdpTrack('hero_programs');
+    var r=document.getElementById('recohero');if(r)r.scrollIntoView({behavior:'smooth',block:'start'});});}
+  var a=document.getElementById('hnAsk');
+  if(a&&!a.dataset.w){a.dataset.w='1';a.addEventListener('click',function(){
+    jdpTrack('hero_ask');openSourcing('');
+    var h=document.querySelector('#cart .carth h2');if(h&&!cartCount())h.textContent='Tell us what you need';});}
+  var rq=document.getElementById('hnRfq');
+  if(rq&&!rq.dataset.w){rq.dataset.w='1';rq.addEventListener('click',function(){jdpTrack('rfq_open');openRfq();});}
+  var f=document.getElementById('hnLead');
+  if(f&&!f.dataset.w){f.dataset.w='1';
+    var inp=document.getElementById('hnEmail'),fo=false;
+    inp.addEventListener('focus',function(){if(!fo){fo=true;jdpTrack('lead_focus',{src:'hero'});}});
+    inp.addEventListener('input',function(){inp.classList.remove('err');});
+    f.addEventListener('submit',function(e){e.preventDefault();
+      var progs=heroProgramNames();
+      quickLead({src:'hero',email:inp.value,input:inp,btn:document.getElementById('hnLeadGo'),
+        what:'Wants: a formal quote.'+(progs.length?('\nPrograms on their store: '+progs.join(' · ')):'')},
+        function(em){f.outerHTML=leadDoneHtml(em,' Want to add details? Use “Tell us what you need” below.');});});}
+}
+
+/* ---- ALWAYS ONE TAP FROM A PERSON (4imprint's floating "Email / Chat") ------------------------------
+   55 visits and not one contact in a day. A buyer with a question had to find the phone number in the
+   header or the FAQ at the bottom of a long page. This sits in the corner of every page: open it for
+   "send us what you need" or a tap-to-call. Hidden on demo stores (their own lead flow) and while the
+   board bar is showing, so it never stacks on another button. */
+function helpDockHtml(){
+  if(CFG.demo||!trustOn())return '';
+  var T=JDP_TRUST;
+  return '<div class="jhelp" id="jhelp"><div class="jhpan" id="jhPan" hidden>'+
+      '<div class="jhhd"><b>Questions? Talk to a person.</b><i>Steven replies in '+T.reply+'.</i></div>'+
+      '<button type="button" class="jhgo" id="jhAsk">Send us what you need \u2192</button>'+
+      trustPhoneHtml('jh','Call')+
+      '<div class="jhft">Formal quote \u00b7 no payment now</div></div>'+
+    '<button type="button" class="jhbtn" id="jhBtn" aria-expanded="false" aria-controls="jhPan">'+
+      '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg>'+
+      '<span>Questions? Talk to Steven</span></button></div>';
+}
+function wireHelpDock(){
+  var b=document.getElementById('jhBtn'),p=document.getElementById('jhPan');if(!b||b.dataset.w)return;b.dataset.w='1';
+  b.addEventListener('click',function(){var open=p.hidden;p.hidden=!open;b.setAttribute('aria-expanded',open?'true':'false');
+    if(open)jdpTrack('help_open');});
+  document.getElementById('jhAsk').addEventListener('click',function(){p.hidden=true;b.setAttribute('aria-expanded','false');
+    jdpTrack('help_ask');openSourcing('');
+
+    var h=document.querySelector('#cart .carth h2');if(h&&!cartCount())h.textContent='Tell us what you need';});
+  document.addEventListener('mousedown',function(e){if(!p.hidden&&!document.getElementById('jhelp').contains(e.target)){p.hidden=true;b.setAttribute('aria-expanded','false');}});
+}
+/* ---- REAL VISITORS vs LINK SCANNERS ------------------------------------------------------------
+   Outreach links are opened by mail-security scanners before a person ever sees them, and those run
+   the page. 17-36 "views" with no other event on single stores is that signature. `engaged` fires on
+   the first genuine scroll, tap or key, so the funnel can count people rather than robots. */
+(function(){var sent=false;function go(){if(sent)return;sent=true;try{jdpTrack('engaged');}catch(e){}
+  ['scroll','pointerdown','keydown'].forEach(function(t){window.removeEventListener(t,chk,true);});}
+  function chk(e){if(e.type==='scroll'&&(window.pageYOffset||0)<160)return;go();}
+  try{['scroll','pointerdown','keydown'].forEach(function(t){window.addEventListener(t,chk,{passive:true,capture:true});});}catch(e){}})();
+/* ---- ONE LAST, POLITE OFFER (desktop only) ------------------------------------------------------
+   The homepage's exit popup produced leads; the stores had nothing. Shown at most once a week per
+   browser, only on desktop (a mouse leaving through the top of the window), only after 15 seconds,
+   never once this browser has sent a request, never over an open product, board, program or quote. */
+var EXIT_T0=Date.now();
+function exitOK(){
+  if(CFG.demo||!trustOn())return false;
+  try{if(localStorage.getItem('jdp_lead_sent'))return false;
+    var t=+localStorage.getItem('jdp_exit_t')||0;if(Date.now()-t<7*86400000)return false;}catch(e){return false;}
+  if(Date.now()-EXIT_T0<15000)return false;
+  if(['board','boards','progv','sheet','cart','lead','vmodal','qdoc','rfqm'].some(function(i){var e=document.getElementById(i);return e&&e.classList.contains('on');}))return false;
+  return true;
+}
+function showExitOffer(){
+  try{localStorage.setItem('jdp_exit_t',String(Date.now()));}catch(e){}
+  jdpTrack('exit_show');
+  var el=document.createElement('div');el.className='xoff';el.id='xoff';
+  var shots=(typeof heroShots==='function')?heroShots():[];
+  var th=shots.map(function(k){var it=BYKEY[k],o=null;try{o=overlayHtml(it,vmOf(k),browseColour(k,it),'front',browseCols(it),browsePlaces(it));}catch(e){}
+    return o?('<span class="xth" style="position:relative;display:block;width:92px;height:92px;border-radius:12px;overflow:hidden;background:#fff">'+
+      '<img class="g" src="'+o.g+'" alt="" style="width:100%;height:100%;object-fit:contain">'+o.lg+'</span>'):'';}).join('');
+  el.innerHTML='<div class="xbox" role="dialog" aria-modal="true" aria-labelledby="xoffh">'+
+    '<button type="button" class="xx" aria-label="Close">✕</button>'+
+    (th?'<div class="xths">'+th+'</div>':'')+
+    '<h3 id="xoffh">Need a formal quote for approval?</h3>'+
+    '<p>Leave your work email and Steven will send an itemized quote for your team — usually within '+esc(JDP_TRUST.reply)+'. No payment, no obligation.</p>'+
+    '<form class="xform" id="xForm" novalidate><input id="xEmail" type="email" inputmode="email" autocomplete="email" placeholder="Your work email" value="'+esc(quickLeadEmail())+'">'+
+    '<button type="submit" id="xGo">Send me a formal quote →</button></form>'+
+    '<button type="button" class="xno">No thanks, I’m just browsing</button></div>';
+  document.body.appendChild(el);
+  requestAnimationFrame(function(){el.classList.add('on');});
+  var close=function(){el.classList.remove('on');setTimeout(function(){if(el.parentNode)el.parentNode.removeChild(el);},250);};
+  el.querySelector('.xx').addEventListener('click',close);el.querySelector('.xno').addEventListener('click',close);
+  el.addEventListener('click',function(e){if(e.target===el)close();});
+  document.addEventListener('keydown',function k(e){if(e.key==='Escape'){close();document.removeEventListener('keydown',k);}});
+  var f=document.getElementById('xForm'),inp=document.getElementById('xEmail');
+  f.addEventListener('submit',function(e){e.preventDefault();
+    quickLead({src:'exit',email:inp.value,input:inp,btn:document.getElementById('xGo'),what:'Wants: a formal, itemized quote for their team.'},
+      function(em){f.outerHTML=leadDoneHtml(em);var n=el.querySelector('.xno');if(n)n.textContent='Close';});});
+  setTimeout(function(){try{inp.focus();}catch(e){}},300);
+}
+(function(){try{
+  if(!window.matchMedia||!matchMedia('(hover:hover) and (pointer:fine)').matches)return;
+  document.addEventListener('mouseout',function(e){
+    if(e.relatedTarget||e.toElement||e.clientY>8)return;
+    if(document.getElementById('xoff')||!exitOK())return;
+    showExitOffer();});
+}catch(e){}})();
+function renderRecoHero(){
+  var el=document.getElementById('recohero');if(!el)return;
+  /* ONE PATH (2026-10-09 11:15). The recommendation above IS the program now; a second set of ready-made
+     programs beside it was a fourth place to start. They stay as boards (Boards, and "+ Add a program" on
+     the quote). A demo landing page keeps them -- it has no advisor in its hero. */
+  el.innerHTML=recoHeroHtml();
+  el.querySelectorAll('[data-reco]').forEach(function(b){
+    b.addEventListener('click',function(){openProgram(b.dataset.reco);});});
+  wireHeroNext();
+  if(!document.getElementById('jhelp')){var d=document.createElement('div');d.innerHTML=helpDockHtml();
+    if(d.firstChild){document.body.appendChild(d.firstChild);wireHelpDock();}}
+}
+/* ---- THE HERO HAS TO SHOW THEM THEIR OWN GEAR -----------------------------------------------
+   Steven, 2026-09-09: "Make the kits have better UI for a incredible visitor experience!"
+   The hero was 187px of a headline and a paragraph on a flat background -- the single most valuable
+   strip on the page, spent on a sentence. The store's whole proposition is "your logo, on gear your
+   crew will actually wear", and it was ASSERTING that in words directly above a grid that PROVES it
+   in pictures.
+   So the hero now carries three real garments from this store, with this client's mark composited
+   at the exact placement we would produce -- the same overlayHtml the cards use, so nothing here can
+   drift from what gets quoted. No new assets: `heroes` is empty on every kit I checked, and a stock
+   photo would be worth less than their own logo on their own products anyway.
+   CHOSEN for contrast, not for price: one client-facing piece, one hi-vis, one layer, so the first
+   thing a visitor sees says "this store covers my whole company". Falls back silently to nothing if
+   a store cannot fill three, because a lopsided one-photo hero looks broken. */
+function heroShots(){
+  /* A US store carries no hi-vis (Stormtech USA has none), so its middle slot is a fleece layer. */
+  var order=CFG.order||{},want=isUS()?[['polo','woven','tee'],['fleece'],['outer','vest']]:[['polo','woven','tee'],['hivis'],['fleece','outer','vest']],out=[],used={};
+  var pool=[];
+  ['office','premium','field','bags'].forEach(function(L){
+    (order[L]||[]).forEach(function(k){if(BYKEY[k]&&!isCarhartt(k))pool.push(k);});});
+  /* A US store's line-up was built from the Canadian range, so draw from the US range itself:
+     the store's own picks first, then every other Stormtech style. */
+  if(isUS())Object.keys(BYKEY).forEach(function(k){if(pool.indexOf(k)<0&&BYKEY[k].usd)pool.push(k);});
+  want.forEach(function(cats){
+    var best=null;
+    pool.forEach(function(k){
+      if(used[k]||best)return;
+      var it=BYKEY[k];
+      if(cats.indexOf(itemCategory(it))<0)return;
+      if(!hasDecoPlace(it))return;                 // the point is the logo; a blank piece proves nothing
+      if(!(it.rec||k===CFG.feature||isUS()))return;        // only pieces we actually stand behind (the US range is curated already)
+      best=k;});
+    if(best){used[best]=1;out.push(best);}});
+  return out.length===3?out:[];
+}
+function heroShotsHtml(){
+  var ks=heroShots();if(!ks.length)return '';
+  /* SIZING IS INLINE, ON PURPOSE. store.js and store.css ship as separate files and the SiteGround
+     mirror does not always land them in the same cycle -- on 2026-09-09 the JS arrived first and
+     this strip rendered at the photos' natural 1000px, turning a 190px hero into 3427px of giant
+     product shots on a live customer store. Markup that depends on a stylesheet arriving with it is
+     markup that will eventually render naked. The dimensions that keep the page from breaking are
+     therefore carried on the element; the stylesheet only refines the look. */
+  /* FLEXIBLE, not a fixed pixel width. Fixed 132px tiles overflowed a 390px phone -- the third
+     garment was clipped at the edge -- and a viewport measurement taken once at render would go
+     stale the moment someone rotated the device or resized. `flex:1 1 0` with a max-width and an
+     aspect ratio makes the row size itself at every width, with no JavaScript watching. */
+  var box='flex:1 1 0;min-width:0;max-width:132px;aspect-ratio:1/1;position:relative;'+
+          'overflow:hidden;border-radius:14px;display:block';
+  /* min-width:0 IS THE FIX, and it is not optional. A flex item's automatic minimum size is its
+     min-content width, and the min-content of a nowrap row of three 132px tiles is 416px -- so on
+     a 390px phone this container refused to shrink below 416 inside a 335px column and the third
+     garment was sliced off by the body's overflow clip. Every store, every phone, the first thing
+     anyone sees. The tiles were already flexible; it was their container that could not shrink.
+     Inline for the same reason as the rest of this block: the stylesheet can arrive a cycle late,
+     and a hero that clips is not something to leave to chance. */
+  return '<div class="heroshots" aria-hidden="true" style="display:flex;gap:10px;'+
+    'flex:1 1 300px;min-width:0;max-width:436px">'+
+    ks.map(function(k){
+      var it=BYKEY[k],o;
+      try{o=overlayHtml(it,{decos:defaultDecos(k)},progColour(k),'front',browseCols(it),it.places);}
+      catch(e){return '';}
+      return '<span class="heroshot mstage" style="'+box+'">'+
+        '<img class="g ld" src="'+o.g+'" alt="" loading="eager" decoding="async" '+
+        'style="width:100%;height:100%;object-fit:contain;opacity:1">'+o.lg+'</span>';
+    }).join('')+'</div>';
+}
+/* only promise an advisor where one will actually open: the aisle has to carry enough qualifying styles
+   (a US store with three caps has a Headwear aisle but no hat advisor) */
+/* ===== THE BUYER'S INDUSTRY, ASKED ONCE (Steven, 2026-11-09: "using our 12 target ICPs ... optimize every category
+   advisor from first principles"). What the advisors did not know until now is WHO THE COMPANY IS. Every advisor asked
+   "who are you outfitting?" from scratch -- the hardest question, a multi-select -- and none of them knew that an
+   electrical contractor's techs may need flame-resistant clothing, that a snow-removal crew plows at night beside
+   traffic, or that a food plant restricts pockets and buttons. So:
+     1. INDUSTRY ONCE. The first advisor a buyer opens asks one tap: what does the company do (our 12 ICPs). It is
+        stored per store (and can be preset with ?icp= on an outbound link or CFG.icp at build time), shared by every
+        advisor, and shown as an editable chip in "Based on".
+     2. TEAMS CARRY OVER. Each advisor's "who" question opens pre-filled -- first from the groups the buyer already
+        picked in another advisor (drivers in Jackets = "in and out all day" in Shirts), else from the industry's
+        typical teams -- and advGo skips straight past it. Pre-filled is never final: the hint says so, and any tap
+        makes it the buyer's own.
+     3. FR IS A SAFETY GATE, NOT A PREFERENCE. For the four ICPs with arc-flash / flash-fire exposure the advisor asks
+        whether any crew needs FR. If yes, field groups keep their standard pick (labelled "not FR-rated") and the
+        program gains an "FR crews" row that recommends NO synthetic garment -- it explains the rating to buy and
+        routes to the Flame-Resistant aisle or to Steven. Recommending a polyester polo to an electrician is the one
+        mistake an expert never makes.
+     4. EXPERT COMMENTARY BY INDUSTRY. Steven's take opens with one line written for that industry, and "What our team
+        would tell you" carries the industry's real ordering pitfalls (night snow work, GMP rules, uniform laundries).
+     5. A PROGRAM, NOT A PRODUCT. Every result ends with "Complete your <industry> program": the next two or three
+        advisors in the order that industry actually buys, each pre-answered. One advisor becomes a full program --
+        which is both the better buy for the customer and the bigger order. */
+var ICP_OPTS=[
+  {id:'mech',lab:'Mechanical & electrical',sub:'HVAC, electrical, plumbing, fire protection'},
+  {id:'civil',lab:'Heavy civil & aggregates',sub:'Roads, infrastructure, underground'},
+  {id:'mfg',lab:'Manufacturing & processing',sub:'Plants, fabrication, food processing'},
+  {id:'maint',lab:'Industrial maintenance',sub:'Shutdowns, turnarounds, field service'},
+  {id:'wh',lab:'Warehousing & 3PL',sub:'Distribution and fulfillment'},
+  {id:'gc',lab:'General contractor',sub:'Commercial construction & CM'},
+  {id:'energy',lab:'Energy & utilities',sub:'Utilities, environmental field crews'},
+  {id:'land',lab:'Landscaping & snow',sub:'Snow removal, facility maintenance'},
+  {id:'equip',lab:'Equipment dealer & rental',sub:'Sales, rental and service'},
+  {id:'truck',lab:'Trucking & logistics',sub:'Fleets, terminals, drivers'},
+  {id:'auto',lab:'Auto dealership group',sub:'Sales floor and service bays'},
+  {id:'corp',lab:'Corporate & professional',sub:'Offices, sales, client-facing'},
+  {id:'other',lab:'Something else',sub:'We’ll ask about your teams'}];
+var ICP_SHORT={mech:'mechanical & electrical',civil:'heavy civil',mfg:'manufacturing',maint:'maintenance & shutdown',wh:'warehouse',gc:'construction',
+  energy:'utility & energy',land:'landscaping & snow',equip:'equipment dealer',truck:'fleet',auto:'dealership',corp:'corporate'};
+/* the teams each industry typically outfits, per advisor (ids are that advisor's own "who" answers) */
+var ICP_WHO={
+  mech:{jackets:['office','drivers','outdoor'],tops:['office','mixed'],layers:['office','mixed'],vests:['office','mixed'],pants:['trades'],hivis:['site']},
+  civil:{jackets:['office','drivers','outdoor'],tops:['office','outdoor'],layers:['office','outdoor'],vests:['office','outdoor'],pants:['trades'],hivis:['road','site','night']},
+  mfg:{jackets:['office','warehouse'],tops:['office','mixed'],layers:['office','mixed'],vests:['office','mixed'],pants:['shop'],hivis:['yard']},
+  maint:{jackets:['office','drivers','outdoor'],tops:['office','outdoor'],layers:['office','outdoor'],vests:['office','outdoor'],pants:['trades'],hivis:['site','night']},
+  wh:{jackets:['office','warehouse','drivers'],tops:['office','mixed'],layers:['office','mixed'],vests:['office','mixed'],pants:['shop'],hivis:['yard']},
+  gc:{jackets:['office','outdoor'],tops:['office','outdoor'],layers:['office','outdoor'],vests:['office','outdoor'],pants:['trades'],hivis:['site']},
+  energy:{jackets:['office','drivers','outdoor'],tops:['office','outdoor'],layers:['office','outdoor'],vests:['office','outdoor'],pants:['trades'],hivis:['road','site','night']},
+  land:{jackets:['office','outdoor','drivers'],tops:['office','outdoor'],layers:['office','outdoor'],vests:['office','outdoor'],pants:['trades'],hivis:['road','night']},
+  equip:{jackets:['office','drivers','warehouse'],tops:['office','mixed'],layers:['office','mixed'],vests:['office','mixed'],pants:['shop'],hivis:['yard','site']},
+  truck:{jackets:['office','drivers','warehouse'],tops:['office','mixed'],layers:['office','mixed'],vests:['office','mixed'],pants:['shop'],hivis:['yard']},
+  auto:{jackets:['office','warehouse'],tops:['office','mixed'],layers:['office','mixed'],vests:['office','mixed'],pants:['shop'],hivis:[]},
+  corp:{jackets:['office'],tops:['office','events'],layers:['office','gift'],vests:['office','gift'],pants:['light'],hivis:['visit']}};
+/* the order each industry buys in -- drives "Complete your program" and the advisor picker */
+var ICP_CATS={mech:['outerwear','tops','layers','headwear','vests','bottoms','hivis'],civil:['hivis','outerwear','layers','headwear','tops','bottoms','vests'],
+  mfg:['tops','layers','vests','outerwear','bottoms','hivis','headwear'],maint:['hivis','outerwear','layers','tops','bottoms','headwear','vests'],
+  wh:['hivis','layers','vests','outerwear','tops','headwear','bottoms'],gc:['outerwear','hivis','tops','layers','headwear','vests','bottoms'],
+  energy:['hivis','outerwear','layers','tops','bottoms','headwear','vests'],land:['outerwear','hivis','layers','headwear','tops','bottoms','vests'],
+  equip:['tops','outerwear','layers','vests','headwear','bottoms','hivis'],truck:['outerwear','hivis','layers','tops','headwear','vests'],
+  auto:['tops','layers','outerwear','vests','headwear'],corp:['tops','layers','outerwear','vests','headwear','golf']};
+var ICP_CAT_DEF=['outerwear','tops','layers','hivis','headwear','vests','bottoms','golf'];
+/* Steven's opening line, per industry: advice, never a product claim */
+var ICP_TAKE={
+  mech:'For a mechanical or electrical contractor, your techs are the company on every service call — so I put them in the same colours and logo as the office, in pieces built for van days and jobsites.',
+  civil:'Heavy civil crews work outside, near traffic and moving equipment, so I build the program around compliant hi-vis on top and warm, durable layers underneath.',
+  mfg:'In a plant, people wear the same pieces every shift and wash them constantly, so I lean on fabrics that hold their shape and colour — and keep the office in the same look.',
+  maint:'Shutdown and field-service crews move between sites on short notice, so I keep the program simple: a few durable pieces, checked against each site’s PPE rules, in sizes for the whole crew.',
+  wh:'On a warehouse floor people move between the dock, the racking and the office all shift, so I pick layers they can add and drop — with hi-vis wherever forklifts run.',
+  gc:'For a general contractor, the site team and the office are both the brand to owners and trades, so I give them one look — with hi-vis wherever the site requires it.',
+  energy:'Utility and energy crews face the hardest conditions — weather, traffic and sometimes arc flash — so the hazard rules come first and comfort second.',
+  land:'Landscaping and snow crews swing from summer sun to night plowing, so I plan the whole year: light tees and caps for the season, hi-vis and real winter warmth for snow.',
+  equip:'At an equipment dealer, sales and service are both in front of customers — polished for the showroom, tough for the shop and the field.',
+  truck:'For a fleet, drivers are your brand at every dock and customer site: jackets that work behind the wheel, and hi-vis for the yard.',
+  auto:'In a dealership group, the sales floor sells the brand and the service drive keeps it — one look across every store, polished up front and shop-tough in the bays.',
+  corp:'For a corporate team, what matters is pieces people choose to wear — fit and quality first, in men’s and women’s cuts of the same piece.'};
+/* arc flash / flash fire exposure: the industries where we ask about FR, the advisors and groups it touches */
+var ICP_FR={mech:1,mfg:1,maint:1,energy:1};
+var FR_ROLES={jackets:['drivers','warehouse','outdoor'],tops:['mixed','outdoor'],layers:['mixed','outdoor'],vests:['mixed','outdoor'],pants:['shop','trades'],hivis:['road','site','yard','night']};
+var FR_TXT={_:'Standard polyester, nylon and spandex can melt onto skin in an arc flash or flash fire, so we won’t recommend them here. FR clothing has to match your hazard assessment — an arc rating (cal/cm²) under CSA Z462 / NFPA 70E, or NFPA 2112 / CAN/CGSB-155.20 for flash fire — and anything worn underneath must be non-melting.',
+  hivis:'Hi-vis worn over FR clothing has to be FR-rated itself — a standard polyester vest can melt or burn on top of it. FR hi-vis must match your hazard assessment (an arc rating under CSA Z462 / NFPA 70E, or NFPA 2112 / CAN/CGSB-155.20 for flash fire) and still meet CSA Z96.'};
+var FR_NOTE='Not FR-rated — for people in this group with no arc-flash or flash-fire exposure. FR crews: see the FR row.';
+/* the groups a buyer picked in one advisor, in every other advisor's words */
+var CA_GRP_IN={jackets:{office:'office',drivers:'mobile',warehouse:'indoor',outdoor:'outdoor'},tops:{office:'office',mixed:'mobile',outdoor:'outdoor',events:'events'},
+  layers:{office:'office',mixed:'mobile',outdoor:'outdoor',gift:'gift'},vests:{office:'office',mixed:'mobile',outdoor:'outdoor',gift:'gift'},pants:{shop:'indoor',trades:'outdoor'}};
+var CA_GRP_OUT={jackets:{office:'office',mobile:'drivers',indoor:'warehouse',outdoor:'outdoor'},tops:{office:'office',mobile:'mixed',indoor:'mixed',outdoor:'outdoor',events:'events'},
+  layers:{office:'office',mobile:'mixed',indoor:'mixed',outdoor:'outdoor',gift:'gift'},vests:{office:'office',mobile:'mixed',indoor:'mixed',outdoor:'outdoor',gift:'gift'},pants:{indoor:'shop',outdoor:'trades',mobile:'trades'}};
+CA_ICO.bolt='<path d="M13 2L4 14h7l-1 8 9-12h-7z"/>';
+CA_ICO.gear='<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1L7 17M17 7l2.1-2.1"/>';
+CA_ICO.wrench='<path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2.4-.6-.6-2.4z"/>';
+CA_ICO.car='<path d="M3 13l2-5h14l2 5v5H3zM3 13h18"/><circle cx="7" cy="17" r="1.6"/><circle cx="17" cy="17" r="1.6"/>';
+CA_ICO.excav='<path d="M2 18h12v3H2zM4 18v-4h7v4M11 15l4-8 5 2-2 5M18 14l2 3"/>';
+CA_ICO.flame='<path d="M12 22c4 0 7-3 7-7 0-4-3-6-4-10-2 2-3 4-3 6-1-1-2-2-2-4-3 3-5 5-5 8 0 4 3 7 7 7z"/>';
+(function(){var m={mech:'thermo',civil:'cone',mfg:'gear',maint:'wrench',wh:'warehouse',gc:'hardhat',energy:'bolt',land:'snow',equip:'excav',truck:'truck',auto:'car',corp:'office',other:'spark'};
+  for(var k in m)CA_ICO_Q['icp|'+k]=m[k];CA_ICO_Q['fr|yes']='flame';CA_ICO_Q['fr|no']='no';CA_ICO_Q['fr|unsure']='any';})();
+var ICPG=null;
+function caIcpKey(){return 'jdp_icp_'+((typeof CFG!=='undefined'&&CFG&&CFG.slug)||location.pathname);}
+function caIcpValid(v){return ICP_OPTS.some(function(o){return o.id===v;});}
+function caIcpG(){if(ICPG)return ICPG;ICPG={};try{ICPG=JSON.parse(localStorage.getItem(caIcpKey())||'{}')||{};}catch(e){ICPG={};}
+  var u='';try{u=(new URLSearchParams(location.search).get('icp')||'').toLowerCase();}catch(e){}
+  if(caIcpValid(u))ICPG.icp=u;else if(!ICPG.icp&&typeof CFG!=='undefined'&&CFG&&caIcpValid(CFG.icp))ICPG.icp=CFG.icp;
+  caIcpSave();return ICPG;}
+function caIcpSave(){try{localStorage.setItem(caIcpKey(),JSON.stringify(ICPG||{}));}catch(e){}}
+function caIcpSet(id,v){var G=caIcpG();if(G[id]===v)return;G[id]=v;caIcpSave();CA_MEMO={};CA_MEMO_N=0;try{jdpTrack('ca_'+id,{v:v});}catch(e){}}
+function caCo(){var c=(typeof CFG!=='undefined'&&CFG&&CFG.client)||'';return (!c||/your brand/i.test(c)||(CFG&&CFG.demo))?'your company':c;}
+function caWhoQ(cfg){return (cfg.qs||[]).filter(function(q){return q.id==='who';})[0];}
+/* every group the buyer has picked anywhere, in shared words (this advisor excluded) */
+function caGroups(except){var g={};(CADV||[]).forEach(function(c){if(c.id===except)return;var S=CA[c.id]||{},M=CA_GRP_IN[c.id],w=S.who;if(!M||!w||!S._whoUser)return;
+  w.forEach(function(r){if(M[r])g[M[r]]=1;});});return Object.keys(g);}
+function caWhoPreset(cfg){var q=caWhoQ(cfg);if(!q)return {l:[]};var ok={};(q.opts||[]).forEach(function(o){ok[String(o.id)]=1;});
+  var M=CA_GRP_OUT[cfg.id],out=[];if(M)caGroups(cfg.id).forEach(function(g){var r=M[g];if(r&&ok[r]&&out.indexOf(r)<0)out.push(r);});
+  if(out.length){var ord=(q.opts||[]).map(function(o){return String(o.id);});out.sort(function(a,b){return ord.indexOf(a)-ord.indexOf(b);});return {l:out,src:'grp'};}
+  var G=caIcpG(),I=ICP_WHO[G.icp];if(I&&I[cfg.id])return {l:I[cfg.id].filter(function(r){return ok[r];}),src:'icp'};return {l:[]};}
+function caShared(cfg,A){if(!cfg.who)return;var G=caIcpG();
+  if(G.icp)A.icp=G.icp;else if(A.icp&&caIcpValid(A.icp))G.icp=A.icp;
+  if(G.fr)A.fr=G.fr;else if(A.fr)G.fr=A.fr;
+  var w=A.who||[],untouched=!A._whoUser&&(!w.length||(A._whoPre!=null&&w.join(',')===A._whoPre));
+  if(untouched){var p=caWhoPreset(cfg);if(p.l.length){A.who=p.l.slice();A._whoPre=p.l.join(',');A._whoSrc=p.src;}}}
+function caSharedQs(cfg,A){if(!cfg.who)return [];var out=[{id:'icp',q:'What does '+caCo()+' do?',short:'Your industry',cls:'icp',shared:1,
+    hint:'One tap — we’ll pre-fill your teams in every advisor. You can change anything.',opts:ICP_OPTS}];
+  if(FR_ROLES[cfg.id]&&ICP_FR[A.icp])out.push({id:'fr',q:'Does anyone on your crews need flame-resistant (FR) clothing?',short:'FR needs',shared:1,
+    hint:'Arc flash, flash fire, welding or hot work. FR is a safety rating, so we handle those crews separately.',
+    opts:[{id:'yes',lab:'Yes, some crews do',sub:'Arc flash, flash fire or hot work'},{id:'no',lab:'No',sub:'No arc-flash or flash-fire exposure'},{id:'unsure',lab:'Not sure',sub:'We’ll flag what to check'}]});
+  return out;}
+var _caQs0=caQs;
+caQs=function(cfg,A){caShared(cfg,A);var L=_caQs0(cfg,A),S=caSharedQs(cfg,A),G=caIcpG();
+  return S.concat(L).map(function(q){if(q.id==='who'&&A._whoPre!=null&&(A.who||[]).join(',')===A._whoPre&&!A._whoUser){var lab=(ICP_OPTS.filter(function(o){return o.id===G.icp;})[0]||{}).lab;
+    return Object.assign({},q,{preHint:A._whoSrc==='icp'&&lab?('Pre-selected for '+lab.toLowerCase()+' — tap to add or remove a group.'):'Pre-selected from your earlier answers — tap to add or remove a group.'});}return q;});};
+function caFirstOpen(qs,A){for(var j=0;j<qs.length;j++){var q=qs[j],v=A[q.id];if(q.multi?!(v&&v.length):(v==null||v===''))return j;}return 0;}
+function caFrOn(cfg,A){var R=FR_ROLES[cfg.id];return !!(R&&A.fr==='yes'&&ICP_FR[A.icp]&&(A.who||[]).some(function(r){return R.indexOf(r)>=0;}));}
+var _caProgramRaw0=caProgramRaw;
+caProgramRaw=function(cfg,A){var P=_caProgramRaw0(cfg,A);if(!caFrOn(cfg,A))return P;var R=FR_ROLES[cfg.id];
+  P=P.map(function(x){if(x.none||R.indexOf(x.role)<0)return x;return Object.assign({},x,{note:(x.note?(x.note+' '):'')+FR_NOTE});});
+  P.push({role:'fr',none:true,fr:true});return P;};
+function caFrRowHtml(cfg){var fr=(typeof CATS!=='undefined')&&CATS.indexOf('fr')>=0;
+  return '<div class="cprow none frrow" data-row="fr"><div class="cpmain"><span class="cpfor">Crews who need FR</span>'+
+    '<b class="cpname">Flame-resistant, rated to your hazard</b><p class="cpwhy">'+esc(FR_TXT[cfg.id]||FR_TXT._)+'</p>'+
+    '<div class="frbtns">'+(fr?'<button type="button" class="jaall" data-cafr="1">See flame-resistant gear →</button>':'')+
+    '<button type="button" class="jalink" data-caask="1">Have Steven spec an FR program</button></div></div></div>';}
+var _caTakeHtml0=caTakeHtml;
+caTakeHtml=function(cfg,A,P,brief){var h=_caTakeHtml0(cfg,A,P,brief),l=ICP_TAKE[caIcpG().icp];if(!h||!l)return h;
+  return h.replace('<span>Just Deals Promotions</span></div>','<span>Just Deals Promotions</span></div><p class="caicp">'+esc(l)+'</p>');};
+function caIcpTips(cfg,A){var G=caIcpG(),i=G.icp,c=cfg.id,t=[],has=function(l){return l.indexOf(c)>=0;};if(!i)return t;
+  if(ICP_FR[i]&&G.fr!=='no'&&FR_ROLES[c])t.push('Electricians, welders and anyone near arc flash or flash fire need FR clothing rated to your hazard assessment. Synthetic polos, tees and softshells must not be worn on top of it or underneath it.');
+  if(i==='land'&&has(['jackets','layers','hivis','headwear']))t.push('Snow removal is often night work beside traffic: hi-vis has to be the outer layer, so plan a Class 2 vest or hi-vis jacket over the branded layers.');
+  if(i==='wh'&&has(['jackets','vests']))t.push('Cold storage or freezer staff? Choose the freezer option under “The work” and tell us the temperature and time inside — we’ll check the pick against them.');
+  if(i==='mfg'&&has(['tops','layers','jackets','vests','pants']))t.push('Food processing? Many plants restrict pockets above the waist, buttons and loose trim on the production floor — tell us your GMP rules and we’ll check every pick against them.');
+  if({auto:1,mfg:1,equip:1,truck:1}[i]&&has(['tops','pants']))t.push('If a uniform laundry service washes the shop’s shirts and pants, choose that answer — industrial-wash fabrics hold up there; most others don’t.');
+  if({civil:1,energy:1,gc:1,maint:1}[i]&&c==='hivis')t.push('Most sites want hi-vis on everyone who walks the site, visitors included — a few visitor vests on the order save a scramble at the gate.');
+  if(i==='corp'&&has(['tops','layers','jackets','vests']))t.push('Mixed team? Order the women’s cut of the same piece from the start — the look stays consistent and the pieces actually get worn.');
+  if(i==='truck'&&c==='jackets')t.push('Drivers: bomber and jacket lengths sit better behind the wheel than parkas — that’s why the driver pick is never a long coat.');
+  return t;}
+(CADV||[]).forEach(function(cfg){var t0=cfg.tips;cfg.tips=function(A){var b=[];try{b=t0?(t0.call(cfg,A)||[]):[];}catch(e){b=[];}return caIcpTips(cfg,A).concat(b);};});
+/* the picker and the hub follow the order this industry buys in */
+var _caCats0=caCats;
+caCats=function(){var c=_caCats0(),o=ICP_CATS[caIcpG().icp];if(!o)return c;var r=function(x){var k=o.indexOf(x);return k<0?99:k;};
+  return c.slice().sort(function(a,b){return r(a)-r(b);});};
+function caNextHtml(cfg){var G=caIcpG(),o=ICP_CATS[G.icp]||ICP_CAT_DEF,cats=caCats(),here=VIEW.cat;
+  var L=o.filter(function(c){if(c===here||cats.indexOf(c)<0)return false;var g=caCfgFor(c);return g&&g.id!==cfg.id;}).slice(0,3);
+  if(!L.length)return '';var sh=ICP_SHORT[G.icp];
+  return '<div class="canext"><div class="canexth"><b>'+(sh?('Complete your '+esc(sh)+' program'):'Complete the program')+'</b><span>'+
+      (G.icp?'Your industry and teams carry over — most take one or two taps.':'Your teams carry over to the next advisor.')+'</span></div><div class="canextt">'+
+    L.map(function(c){var g=caCfgFor(c),done=caReady(g,caSt(g.id));
+      return '<button type="button" class="canx" data-advgo="'+esc(c)+'" data-src="next"><span class="canxi">'+caSvg(CA_TILE_ICO[c]||'spark',22)+'</span>'+
+        '<span class="canxt"><b>'+esc(shortCat(c))+'</b><i>'+esc(done?'Your picks are ready — see them':(g.tile||''))+'</i></span><span class="canxg">'+(done?'See':'Start')+' →</span></button>';}).join('')+
+  '</div></div>';}
+
+function catHasAdvisor(c){try{if(typeof CADV==='undefined'||c==='carhartt')return false;var keep=VIEW.cat;VIEW.cat=c;
+  var ok=CADV.some(function(g){return g.applies(c,'all')&&caPool(g,caSt(g.id)).length>=3;});VIEW.cat=keep;return ok;}catch(e){return false;}}
+/* THE HOME PAGE LEADS WITH THE ADVISOR (2026-10-13). The old grid of category tiles carried a small "Advisor" tag a
+   buyer had to notice. Now the first thing under the hero says what the advisor does and hands over a tile per
+   advisor -- each showing the first question it will ask -- and one tap lands on that question. Aisles without an
+   advisor stay one tap away as plain links underneath. */
+/* SHOP BY CATEGORY (2026-10-13). One grid, every aisle, the same quiet tile -- name, style count, and for aisles that
+   have one, a plain "Advisor" note. A category with an advisor opens on its first question, so the tile itself is
+   the way in; no separate hub of loud Start buttons competing with the catalogue. */
+function catTilesHtml(){
+  var cats=(typeof CATS!=='undefined'&&CATS.length)?CATS:[];
+  if(!cats.length)return '';
+  var adv=caCats();
+  return '<section class="excats entcats"><div class="w">'+
+    '<div class="enthd"><h2 class="exh">Shop by category</h2>'+
+      (adv.length?'<p class="exsub">Each apparel category starts with a short advisor: answer two or three questions and we recommend the right piece for each group.</p>':'')+'</div>'+
+    '<div class="ectiles">'+cats.map(function(c){var a=adv.indexOf(c)>=0,img=catTileImg(c),n=(TOTALS&&TOTALS[c])||0;
+      return '<button type="button" class="ectile" '+(a?'data-advgo':'data-catgo')+'="'+esc(c)+'">'+
+        '<span class="ecimg">'+(img?('<img src="'+img+'" alt="" loading="lazy">'):'')+'</span>'+
+        '<span class="ectx"><b>'+esc(shortCat(c))+'</b><i>'+n+' style'+(n===1?'':'s')+(a?' · Advisor':'')+'</i></span>'+
+        '<span class="ecgo" aria-hidden="true">›</span></button>';}).join('')+
+    '</div></div></section>';
+}
+function wireExplore(){
+  var ts=document.getElementById('topSearch'),ks=document.getElementById('kitSearch');
+  if(ts&&ks){
+    var push=function(){ks.value=ts.value;
+      /* Typing a search is a request to see products, so it returns to the store. */
+      if(ts.value&&giftViewOn())setGiftView(false);
+      try{ks.dispatchEvent(new Event('input',{bubbles:true}));}catch(e){}
+      var x=document.getElementById('topSearchX');if(x)x.style.display=ts.value?'':'none';};
+    ts.addEventListener('input',push);
+    ts.addEventListener('search',push);
+    wireSuggest();
+    var fa=document.getElementById('faqAsk');
+    if(fa&&!fa.dataset.w){fa.dataset.w='1';fa.addEventListener('click',function(){jdpTrack('faq_ask');openSourcing('');
+      var nt=document.getElementById('coNote');if(nt)nt.value='My question: ';});}
+    var x=document.getElementById('topSearchX');
+    if(x){x.style.display='none';
+      x.addEventListener('click',function(){ts.value='';push();ts.focus();});}
+  }
+  var sv=document.getElementById('sharev');
+  if(sv&&!sv.dataset.wired){sv.dataset.wired='1';sv.addEventListener('click',shareView);}
+  wireAdvGo(document);
+  var ha=document.getElementById('heroAdv');if(ha&&!ha.dataset.w){ha.dataset.w='1';ha.addEventListener('click',function(){jdpTrack('adv_hero');openAdvPicker();});}
+  var hb=document.getElementById('heroBrowse');if(hb&&!hb.dataset.w){hb.dataset.w='1';hb.addEventListener('click',function(){jdpTrack('browse_hero');
+    var t=document.querySelector('.entcats')||document.getElementById('navwrap');if(t)window.scrollTo({top:window.scrollY+t.getBoundingClientRect().top-70,behavior:'smooth'});});}
+  document.querySelectorAll('[data-catgo]').forEach(function(b){
+    b.addEventListener('click',function(){
+      setCat(b.dataset.catgo,true);
+      var g=document.getElementById('gridhd')||document.getElementById('grid');
+      if(g)g.scrollIntoView({behavior:'smooth',block:'start'});});});
+}
+function renderCart(){
+  var keys=Object.keys(CART),sub=cartSubtotal();
+  var items=keys.map(function(k){return cartLineHtml(k);}).join('');
+  var tmpl=isTemplate(ALID)?('<div class="tmplnote"><b>This is our starter template.</b> '+
+    'Anything you save goes to your own list \u2014 this one stays as it is.'+
+    '<button type="button" class="tmplcopy" id="tmplCopy">Copy these '+keys.length+
+    ' into my list</button></div>'):'';
+  var body=keys.length?(tmpl+items):('<div class="cempty"><div class="ce-ic">🛒</div><b>This board is empty</b><span>Add a few pieces to get your exact quote \u2014 or to send your team a list.</span>'+((starterId()&&starterId()!==ALID)
+      ?('<button class="ceadd" id="emptyAddRec">Start from our JDP starter list \u00b7 '+
+        listLen(starterId())+' pieces</button>'):'')+'</div>');
+  var setupRows=setupBreakdown(),setup=setupRows.reduce(function(t,x){return t+x.amount;},0);
+  var brk=setupRows.length?('<details class="setupbrk"><summary>One-time setup '+money(setup)+' <i>· once per design, shared across the kit</i></summary>'+setupRows.map(function(x){return '<div class="sbk"><span>'+esc(x.label)+'</span><span>'+money(x.amount)+'</span></div>';}).join('')+'</details>'):'';
+  document.getElementById('cart').innerHTML=
+    '<div class="carth"><h2>'+esc(activeName())+'</h2>'+
+      '<button class="cartx" id="cartx" aria-label="Close">✕</button></div>'+
+    listBarHtml()+
+    '<div class="citems" id="citems">'+body+'</div>'+
+    (keys.length?('<div class="cartf">'+
+      '<div class="crow"><span>Estimated subtotal</span><b>'+money(sub)+'</b></div>'+
+      (setup>0?brk:'')+
+      '<div class="csetup">Prices include your logo, decorated. Setup is a one-time charge per logo &amp; location, reused across the kit. Exact itemised quote confirmed free before anything runs.</div>'+
+      // People assume a list like this is saved to an account. It is saved to THIS browser -- say so,
+      // and point at the thing that actually makes it portable.
+      '<div class="cwhere">This board is saved on this device. <b>Send it to your team</b> to keep it \u2014 the link works on any phone or computer.</div>'+
+      '<button class="checkout" id="checkout">Get my exact quote <span class="ar">→</span></button>'+
+      '<button type="button" class="sharelist" id="shareList">'+
+        '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" '+
+        'stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/>'+
+        '<circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>'+
+        'Send this board to your team</button>'+
+      '<button type="button" class="svalt" data-samp="">\u270B See &amp; feel these first \u2014 we\u2019ll bring samples to you</button>'+
+      '<div class="cktrust"><span>No payment now</span><span>No obligation</span><span>No minimum beyond 12 pcs</span></div></div>'):'')+
+    '';
+  document.getElementById('cartx').addEventListener('click',closeAll);
+  var ck=document.getElementById('checkout');if(ck)ck.addEventListener('click',openCheckout);
+  var sl=document.getElementById('shareList');if(sl)sl.addEventListener('click',shareList);
+
+  var ea=document.getElementById('emptyAddRec');
+  if(ea)ea.addEventListener('click',function(){var s=starterId();if(s)switchList(s);});
+  var tc=document.getElementById('tmplCopy');
+  if(tc)tc.addEventListener('click',copyStarterToMine);
+  var lsl=document.getElementById('lsel');
+  if(lsl)lsl.addEventListener('change',function(){switchList(lsl.value);});
+  var lnw=document.getElementById('lNew');
+  if(lnw)lnw.addEventListener('click',function(){
+    var n=window.prompt('Name this board','Board '+(listIds().length+1));
+    if(n===null)return;newList(n);renderCart();refreshCartUI();
+    toast('Started \u201c'+listName(ALID)+'\u201d');});
+  var lrn=document.getElementById('lRen');
+  if(lrn)lrn.addEventListener('click',function(){
+    var n=window.prompt('Rename this board',activeName());
+    if(n===null)return;renameList(ALID,n);renderCart();refreshCartUI();});
+  var ldl=document.getElementById('lDel');
+  if(ldl)ldl.addEventListener('click',function(){
+    if(!window.confirm('Delete \u201c'+activeName()+'\u201d and everything in it?'))return;
+    deleteList(ALID);renderCart();refreshCartUI();});
+  document.querySelectorAll('.ci').forEach(function(ci){var k=ci.dataset.key;
+    var ed=ci.querySelector('[data-edit]');if(ed)ed.addEventListener('click',function(){editItem(k);});
+    ci.querySelector('[data-rm]').addEventListener('click',function(){delete CART[k];markCleared();saveCart();renderCart();refreshCartUI();});
+  });
+}
+function editItem(k){document.getElementById('cart').classList.remove('on');openSheet(k);}
+// Close ONLY the media lightbox and return to whatever is underneath (the product sheet) — not the whole store.
+function mediaOpen(){var m=document.getElementById('vmodal');return !!(m&&m.classList.contains('on'));}
+function closeMedia(){var m=document.getElementById('vmodal');if(!m)return;m.classList.remove('on');m.onclick=null;
+  setTimeout(function(){if(!m.classList.contains('on'))m.innerHTML='';},260);
+  var under=['sheet','cart','lead'].some(function(id){var e=document.getElementById(id);return e&&e.classList.contains('on');});
+  document.body.style.overflow=under?'hidden':'';}
+// Lifestyle/scenic image in a clean lightbox (reuses the video modal chrome) — keeps it out of the buy flow.
+function openScenic(src,title){var m=document.getElementById('vmodal');if(!m||!src)return;
+  m.innerHTML='<div class="vwrap"><button class="vx" id="vx" aria-label="Close">✕ Close</button>'+
+    '<img class="vscenic" src="'+esc(src)+'" alt="'+esc(title||'')+'">'+
+    /* The scenic is ONE fixed lifestyle photo per style, so it does not track the colour the buyer
+       has selected -- pick Black Heather and the worn shot may show a pale jacket. We hold no data
+       on which colour it depicts, so say so plainly rather than imply it is their choice. */
+    (title?'<div class="vcap">'+esc(title)+' — in the field <em>· colour shown may differ from your selection</em></div>':'')+'</div>';
+  m.classList.add('on');document.body.style.overflow='hidden';
+  var vx=document.getElementById('vx');if(vx)vx.addEventListener('click',closeMedia);
+  m.onclick=function(e){if(e.target===m)closeMedia();};
+  var w=m.querySelector('.vwrap');if(w)w.addEventListener('click',function(e){e.stopPropagation();});}
+// Cloudinary on-the-fly transforms: cap to 720p, auto quality, force H.264 (hardware-decoded = smooth on
+// phones). Cuts the file ~60% vs the original and adds an instant first-frame poster. muted = autoplay is
+// actually allowed on mobile (unmuted autoplay is blocked, which made the player look broken).
+/* 36 of the 42 videos run 30-81 seconds: brand films, not a quick product spin, so a bare "Watch
+   video" hides how much time it is asking for.
+   PROBE THE ORIGINAL URL, NOT THE TRANSFORMED ONE. Cloudinary builds a derived asset on its first
+   request and, while it does so, a metadata-only read of that derivative reports a stub length of
+   about 2-3 seconds. Measured cold: gbx-1s 48.9s original vs 2.50s derived, ks-3 35.6s vs 2.29s,
+   bhs-3 46.9s vs 2.79s. Probing the derivative therefore stamped "0:04" onto a 70-second film,
+   which is worse than saying nothing at all. The original is stored whole, so its duration is exact
+   and available at once. Playback still uses the transform -- streaming resolves the true length as
+   it arrives, so only the metadata-only probe was ever fooled. */
+function stampVideoDuration(url,btnId){
+  if(!url)return;
+  var btn=document.getElementById(btnId);if(!btn)return;
+  var lbl=btn.querySelector('.vwdur');if(!lbl)return;
+  var v=document.createElement('video');
+  v.preload='metadata';v.muted=true;
+  v.style.cssText='position:absolute;left:-9999px;width:1px;height:1px';
+  function put(){
+    var d=v.duration;
+    if(!isFinite(d)||d<3.5)return;   // 3.5s clears Cloudinary's ~2-3s cold-derivative stub
+    var mm=Math.floor(d/60),ss=Math.round(d%60);
+    if(ss===60){mm+=1;ss=0;}
+    lbl.textContent=' \u00b7 '+mm+':'+(ss<10?'0':'')+ss;
+  }
+  v.addEventListener('loadedmetadata',put);
+  v.addEventListener('durationchange',put);
+  v.addEventListener('error',function(){});
+  setTimeout(function(){try{v.removeAttribute('src');v.load();v.remove();}catch(e){}},12000);
+  v.src=url;   // ORIGINAL, deliberately -- see above
+  document.body.appendChild(v);
+}
+function vTransform(src,t){var i=src.indexOf('/video/upload/');return i<0?src:src.slice(0,i+14)+t+'/'+src.slice(i+14);}
+function openVideo(src,title){var m=document.getElementById('vmodal');if(!m||!src)return;
+  var opt=vTransform(src,'q_auto,w_720,c_limit,vc_h264');
+  var poster=/\.mp4($|\?)/i.test(src)?vTransform(src,'so_0,q_auto,w_720,c_limit').replace(/\.mp4/i,'.jpg'):'';
+  m.innerHTML='<div class="vwrap"><button class="vx" id="vx" aria-label="Close video">✕ Close</button>'+
+    '<button class="vunmute" id="vunmute" hidden>\ud83d\udd08 Tap for sound</button>'+
+    '<video src="'+esc(opt)+'"'+(poster?' poster="'+esc(poster)+'"':'')+' controls autoplay playsinline preload="auto" webkit-playsinline></video>'+
+    (title?'<div class="vcap">'+esc(title)+'</div>':'')+'</div>';
+  m.classList.add('on');document.body.style.overflow='hidden';
+  /* These are Stormtech brand films and every one of them carries an audio track, but the player
+     was hard-coded `muted` (added so mobile autoplay would not be blocked) with no unmute cue --
+     so it always played silent and looked broken. We only ever open this from a click, which IS a
+     user gesture, so sound is permitted: try unmuted first and fall back to muted ONLY if the
+     browser refuses, surfacing a "Tap for sound" button in that case rather than failing quietly. */
+  var v=m.querySelector('video');
+  var un=document.getElementById('vunmute');
+  if(v){
+    v.muted=false;
+    var p=v.play();
+    if(p&&p.catch)p.catch(function(){
+      v.muted=true;
+      var p2=v.play();if(p2&&p2.catch)p2.catch(function(){});
+      if(un)un.hidden=false;
+    });
+  }
+  /* If unmuting is refused (some environments block audible playback outright) the naive version
+     left the clip PAUSED and silent -- strictly worse than the muted playback it replaced. Put the
+     mute back and keep it running, leaving this button available, so the viewer never ends up worse
+     off for having asked for sound. */
+  if(un)un.addEventListener('click',function(){
+    if(!v)return;
+    v.muted=false;
+    var p3=v.play();
+    if(p3&&p3.catch){
+      p3.catch(function(){v.muted=true;var p4=v.play();if(p4&&p4.catch)p4.catch(function(){});});
+      p3.then&&p3.then(function(){un.hidden=true;},function(){});
+    }else{un.hidden=true;}
+  });
+  var vx=document.getElementById('vx');if(vx)vx.addEventListener('click',closeMedia);
+  // Click the dark backdrop (anywhere outside the player) to close; clicks on the player itself don't.
+  m.onclick=function(e){if(e.target===m)closeMedia();};
+  var w=m.querySelector('.vwrap');if(w)w.addEventListener('click',function(e){e.stopPropagation();});}
+/* When the sheet was opened FROM the board, the board is still mounted behind it. Anything that
+   changes a line has to refresh that view, or the buyer closes the sheet and sees stale numbers --
+   the edit appears not to have taken. */
+function boardOpen(){var e=document.getElementById('board');return !!(e&&e.classList.contains('on'));}
+function boardsOpen(){var e=document.getElementById('boards');return !!(e&&e.classList.contains('on'));}
+/* THE MISSING HALF OF "LIVE".
+   Saving worked from the first deploy -- boards were reaching the server correctly. But a browser
+   only ever rendered its OWN localStorage, and asked the server for a board solely when the URL
+   carried ?b=<slug>. So a board created on one machine was stored perfectly and stayed invisible
+   everywhere else. A live document has to be read from the server, not just written to it.
+
+   Board slugs are whatever the customer names them -- nothing here assumes any particular board. */
+function syncBoardsFromServer(){
+  if(!boardsApi())return Promise.resolve(false);
+  return fetch(boardsApi()+'?kit='+encodeURIComponent(SLUG)+'&list=1',{cache:'no-store'})
+    .then(function(r){return r.ok?r.json():null;})
+    .then(function(j){
+      if(!j||!j.ok||!j.boards||!j.boards.length)return false;
+      if(!LISTS)loadLists();
+      var rows=j.boards.filter(function(r){return isUS()===/^us-/.test(r.b||'');}).slice(0,40);          // this country's boards only; bounded
+      return Promise.all(rows.map(function(row){
+        var localId=null;
+        for(var k in LISTS){if(LISTS[k].slug===row.b){localId=k;break;}}
+        /* Every browser creates a default "My board" before it has ever talked to the server. When
+           the server also has a board of that name, matching on slug alone produced TWO boards with
+           the same name -- the empty local one sorting first, so the customer opened a blank board
+           and concluded nothing had synced. A never-synced local board whose name resolves to the
+           same slug IS this board: adopt it rather than duplicating it. */
+        if(!localId){
+          for(var k2 in LISTS){
+            var L2=LISTS[k2];
+            if(!L2.slug&&!isTemplate(k2)&&mslug(L2.name||'')===row.b){localId=k2;break;}
+          }
+        }
+        var local=localId?LISTS[localId]:null;
+        if(/^(us-)?q-/.test(row.b||''))return false;   // frozen quote copies are opened by their link, never listed
+        /* Local edits newer than the server copy win -- they are mid-flight and will push on the
+           next save. Never overwrite what someone is typing right now.
+           BUT an empty, never-synced board does not count as "work": every browser mints a default
+           board stamped Date.now(), which always beats the server's older timestamp. Combined with
+           the name-adoption above that silently blocked the pull, so a customer's real board never
+           arrived. Local only wins when it actually holds items. */
+        var localHasWork=!!(local&&Object.keys(local.items||{}).length);
+        if(local&&localHasWork&&(local.updated||0)>((row.updated||0)*1000))return false;
+        return pullBoard(row.b).then(function(sb){
+          if(!sb)return false;
+          /* Re-resolve: localId was computed BEFORE this fetch, so it is stale if ?b= adopted the
+             same board while we were in flight. This is the duplicate-board fix. */
+          var id=listIdForSlug(row.b,true);
+          /* DID THIS BOARD ORIGINATE HERE? A board with no local counterpart came from somewhere
+             else -- us, or a colleague of theirs -- which is exactly what "prepared for you" means.
+             A board that already existed in this browser is the visitor's own working list, however
+             many times it has synced. Recorded once, at the moment we learn it. */
+          var _fresh=!id;
+          if(!id){id=newListId();LISTS[id]={name:sb.name||row.b,items:{},updated:0};}
+          if(_fresh)LISTS[id].srv=1;
+          LISTS[id].name=sb.name||LISTS[id].name;
+          LISTS[id].items=asItems(sb.items);
+          LISTS[id].slug=row.b;
+          LISTS[id].rev=sb.rev||0;
+          /* WHO MADE THIS BOARD decides whether it is a shortlist we prepared or the customer's own
+             working list. Carried down from the server so curatedBoardIds() can tell them apart. */
+          LISTS[id].by=sb.by||row.by||LISTS[id].by||'';
+          LISTS[id].updated=(sb.updated||0)*1000;
+          if(id===ALID)CART=LISTS[id].items;
+          return true;
+        });
+      })).then(function(res){
+        var changed=res.some(Boolean);
+        if(changed){persistLists();refreshCartUI();syncBoardIfOpen();markSync('saved');}
+        /* Always repaint: the hero depends on what the SERVER holds, and on a first visit the
+           boards arrive after the page has already painted. */
+        try{
+          /* hideStaleStarter() DELETES a list, so every surface already painted from LISTS is now
+             stale -- and it necessarily runs after the repaint above, because it cannot know the
+             kit has curated boards until this fetch resolves. The starter list was therefore gone
+             from storage but still had a chip in the board strip. On desktop that chip merely
+             scrolled out of sight; once the strip wraps on a phone it ate a whole row above the
+             two boards that are the actual sales document. Repaint when it removes something. */
+          if(hideStaleStarter()){refreshCartUI();syncBoardIfOpen();}
+          renderRecoHero();
+        }catch(e){}
+        return changed;
+      });
+    }).catch(function(){return false;});
+}
+function syncBoardIfOpen(){
+  if(boardOpen())renderBoard();
+  else if(boardsOpen())renderBoardsIndex();
+  else if(programOpen())refreshProgram();
+  if(boardOpen()||boardsOpen()||programOpen())document.body.style.overflow='hidden';
+}
+function closeAll(){['ov','sheet','cart','lead','vmodal'].forEach(function(id){var e=document.getElementById(id);if(e)e.classList.remove('on');});var mv=document.getElementById('vmodal');if(mv)mv.innerHTML='';document.body.style.overflow='';}
+
+/* ---------- checkout: capture contact + send the kit for an exact quote ---------- */
+var JDP_EMAIL='steven@justdealspromotions.com';
+function contactVals(){return {
+  name:((document.getElementById('coName')||{}).value||'').trim(),
+  email:((document.getElementById('coEmail')||{}).value||'').trim(),
+  company:((document.getElementById('coCompany')||{}).value||'').trim(),
+  note:(function(){var b=(typeof briefText==='function')?briefText():'',n=((document.getElementById('coNote')||{}).value||'').trim();
+    return b?(b+(n?('\n'+n):'')):n;})()};}
+function persistContact(c){try{localStorage.setItem('jdpkit_contact',JSON.stringify({name:c.name,email:c.email,company:c.company}));}catch(e){}}
+/* ---- Quote output: a proforma the customer can be sent, and the deal economics for us -------
+   Steven: "when we generate a quote, we [want] the company store to automatically produce a invoice
+   and a separate statement of our profit / roi".
+   Both are built here and both ride in the order email. The economics block is NOT rendered in the
+   buyer's browser and is fenced with a DO-NOT-FORWARD banner, because the one thing worse than not
+   having it is pasting it to the customer.
+   HONESTY BOUNDARIES, deliberately not papered over:
+     * Spector/promo lines: the store holds Spector's LIST price, not our net cost, so their gross
+       margin is genuinely unknown here. Reported as not computable rather than as 0% or a guess.
+     * Setup: rates.setup are what we CHARGE. What a digitizing or screen file costs us is not in
+       the store, so setup is shown as revenue with its cost flagged untracked.
+     * No payment terms, validity window or turnaround is stated -- we do not invent commercial
+       terms, and the real invoice number comes from JDP's own system, so this carries a reference. */
+function quoteSig(){try{return JSON.stringify(Object.keys(CART).sort().map(function(k){var c=CART[k]||{};
+  return [k,c.qty,c.colour,c.fit,c.sizes||null,(c.decos||[]).filter(function(d){return d.on;}).map(function(d){return [d.pl,d.method,d.lg,d.colours||''];})];}));}catch(e){return String(Math.random());}}
+/* ONE QUOTE, ONE REFERENCE (2026-10-08). The reference was rebuilt from the clock on every open, so the
+   PDF an approver held and the request Steven received could carry different numbers for the same quote.
+   It now belongs to the quote's contents: unchanged contents keep it, any change mints the next one. */
+function stableRef(){
+  var L=(LISTS||{})[ALID];var sig=quoteSig();
+  if(L&&L.qref&&L.qsig===sig)return L.qref;
+  var r=docRef()+'-'+Math.random().toString(36).slice(2,4).toUpperCase();
+  if(L){L.qref=r;L.qsig=sig;try{persistLists();}catch(e){}}
+  return r;
+}
+function docRef(){
+  var d=new Date();
+  function p(n){return (n<10?'0':'')+n;}
+  var slug=String(CFG.slug||CFG.client||'JDP').replace(/[^A-Za-z0-9]/g,'').slice(0,4).toUpperCase();
+  return slug+'-'+d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+'-'+p(d.getHours())+p(d.getMinutes());
+}
+function docDate(){
+  var d=new Date(),M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return d.getDate()+' '+M[d.getMonth()]+' '+d.getFullYear();
+}
+/* Soft-wrap a detail string onto as many indented lines as it needs, breaking on the ' \u00b7 '
+   separators we already use so a position never splits across two lines. */
+function wrapInto(out,txt,width,indent){
+  txt=String(txt||'');if(!txt)return;
+  /* Break on the POSITION separator first. decoSummary() joins positions with a wide '  \u00b7  ' and
+     joins a position to its method with a narrow ' \u00b7 ', so splitting on the narrow one put
+     "Right chest" and "Embroidery" on different lines. Split wide when the string has wide
+     separators, and only fall back to narrow for plain lists like the size breakdown. */
+  var sep=(txt.indexOf('  \u00b7  ')>=0)?'  \u00b7  ':' \u00b7 ';
+  var parts=txt.split(sep),line='';
+  parts.forEach(function(p){
+    var add=line?(line+sep+p):p;
+    if(add.length>width&&line){out.push(indent+line);line=p;}
+    else line=add;
+  });
+  if(line)out.push(indent+line);
+}
+function pad(s,n){s=String(s);return s.length>=n?s:s+new Array(n-s.length+1).join(' ');}
+function lpad(s,n){s=String(s);return s.length>=n?s:new Array(n-s.length+1).join(' ')+s;}
+
+/* Per-line economics. Returns nulls for cost/profit where the data honestly is not held. */
+function lineEconomics(ck){
+  var base=bkey(ck),it=BYKEY[base];if(!it)return null;
+  var c=CART[ck]||{};
+  var promo=(it.layer==='promo');
+  if(promo){
+    var pq=promoQuote(it,c);
+    return {key:ck,name:it.name,sku:it.sku,promo:true,qty:pq.qty,
+            unit:pq.perPiece,revenue:pq.goods,
+            garmentCost:null,decoCost:null,cogs:null,gp:null,gm:null};
+  }
+  var q=c.qty||0,tq=tierQty(ck);
+  var unit=unitPrice(ck,c.decos,tq);
+  var gPc=(isUS()?usBlank(base,/#w$/.test(String(ck))):blankOf(base))*blankBreak(tq);
+  var layers=stdLayers(base);
+  var vpl={};(it.places||[]).forEach(function(p){if(p.logo)vpl[p.id]=1;});
+  var dPc=0;
+  activeDecos(c.decos).forEach(function(d){if(!vpl[d.pl])return;dPc+=decoCost(d,it,tq)*layers;});
+  var cogs=gPc+dPc;
+  return {key:ck,name:it.name,sku:it.sku,promo:false,qty:q,unit:unit,revenue:unit*q,
+          garmentCost:gPc*q,decoCost:dPc*q,cogsPc:cogs,cogs:cogs*q,
+          gpPc:unit-cogs,gp:(unit-cogs)*q,gm:unit>0?((unit-cogs)/unit):null};
+}
+
+/* The customer-facing document. Contains no cost or margin figure of any kind. */
+function proformaText(c){
+  c=c||{};
+  var L=[];
+  L.push('PROFORMA INVOICE  (estimate — not a demand for payment)'+(isUS()?'  ·  ALL AMOUNTS IN USD':'  ·  ALL AMOUNTS IN CAD'));
+  L.push('Ship to: '+(isUS()?'United States':'Canada'));
+  L.push('Reference '+(QREF||docRef())+'   ·   '+docDate());   /* the quote's own reference, not a fresh clock value */
+  L.push('');
+  L.push('From:  Just Deals Promotions');
+  L.push('To:    '+((c.company||CFG.client||'')||'—'));
+  if(c.name) L.push('Attn:  '+c.name+(c.email?'  <'+c.email+'>':''));
+  L.push('');
+  L.push(pad('ITEM',44)+lpad('QTY',5)+lpad('UNIT',11)+lpad('AMOUNT',12));
+  L.push(new Array(73).join('-'));
+  var sub=0;
+  Object.keys(CART).forEach(function(k){
+    var e=lineEconomics(k);if(!e)return;
+    var it=BYKEY[bkey(k)],cc=CART[k];
+    var desc=e.name+(fitTag(it,cc)?' ('+fitTag(it,cc)+')':'');
+    L.push(pad(desc.slice(0,44),44)+lpad(e.qty,5)+lpad(money(e.unit),11)+lpad(money(e.revenue),12));
+    /* decoSummary() falls back to the literal string 'left chest' when a line has no decos, which
+       is right for apparel but wrong for Spector goods: they carry no custom placement (Steven,
+       2026-09-06) and their branding is already inside the price. */
+    var det=[cc.colour, e.promo?'logo included':decoSummary(it,cc)].filter(Boolean).join(' · ');
+    /* WRAP, never truncate. A "Full crew ID" line carries three positions and slice(0,66) cut the
+       third one off entirely mid-word -- on an invoice the customer has to be able to see every
+       position they are being charged for. */
+    wrapInto(L,det,66,'   ');
+    /* was bkey(ck) -- same undeclared-variable bug as orderText(); the loop key here is `k`. */
+    var ss=sizesSummary(cc,BYKEY[bkey(k)]);if(ss)wrapInto(L,'sizes: '+ss+(cc.szset?'':' (estimated)'),66,'   ');
+    sub+=e.revenue;
+  });
+  L.push(new Array(73).join('-'));
+  L.push(pad('',44)+lpad('Subtotal',16)+lpad(money(sub),12));
+  var setup=cartSetup(),sb=setupBreakdown();
+  if(setup>0){
+    L.push(pad('',44)+lpad('One-time setup',16)+lpad(money(setup),12));
+    sb.forEach(function(x){L.push('   '+x.label.slice(0,58)+'  '+money(x.amount));});
+    L.push('   Setup is charged once per design, per location, per method — not per piece.');
+  }
+  L.push(pad('',44)+lpad('TOTAL',16)+lpad(money(sub+setup),12));
+  L.push('');
+  L.push('Decoration is priced into the unit rates above. Nothing is produced until');
+  L.push('this is approved. Taxes and freight are not included in this estimate.');
+  return L.join('\n');
+}
+
+/* HOW ONE PRICE WAS BUILT -- the same arithmetic as unitPrice(), step by step, so the profit report
+   explains a number rather than just stating it. If unitPrice() changes, this must change with it
+   (harness/profit.js asserts the two agree on every catalogue apparel line). */
+function priceParts(ck){
+  var key=bkey(ck),it=BYKEY[key],c=CART[ck]||{};if(!it||it.layer==='promo')return null;
+  var q=tierQty(ck),wf=/#w$/.test(String(ck));
+  var c0=isUS()?usBlank(key,wf):blankOf(key),bb=blankBreak(q),cg=c0*bb;
+  var vpl={};(it.places||[]).forEach(function(p){if(p.logo)vpl[p.id]=1;});
+  var ly=stdLayers(key),dec=0,decc=0,marks=[];
+  activeDecos(c.decos).forEach(function(d){if(!vpl[d.pl])return;
+    var co=decoCost(d,it,q)*ly,ch=decoCharge(d,it,q)*ly,p=placeOf(it,d.pl);
+    dec+=co;decc+=ch;marks.push({where:(p&&p.label)||d.pl,how:mlabOf(d.method),cost:co,charge:ch,mk:co>0?ch/co:0,small:isSmallMark(d,it)});});
+  var carh=isCarhartt(it),cm=carh?costMultCarh(c0):costMult(c0),vf=carh?volFactorCarh(q):volFactor(q);
+  var garm=cg*cm*vf,raw=garm+decc,floor=(cg+dec)/(carh?0.78:0.70),fl=raw<floor,pre=Math.max(raw,floor,2.5);
+  var unit=Math.ceil(pre/0.5)*0.5;
+  return {q:q,c0:c0,bb:bb,cg:cg,cm:cm,vf:vf,carh:carh,garm:garm,marks:marks,dec:dec,decc:decc,raw:raw,floor:floor,floored:fl,unit:unit,
+          cost:cg+dec,profit:unit-(cg+dec),gm:unit>0?(unit-(cg+dec))/unit:0};
+}
+function qBand(q){return q<24?'12–23 pcs':q<48?'24–47 pcs':q<100?'48–99 pcs':q<250?'100–249 pcs':'250+ pcs';}
+function profitReportText(){
+  var L=[],tRev=0,tCost=0,promoRev=0,lines=0;
+  var cur=isUS()?' USD':'';
+  L.push('PROFIT REPORT — FOR JDP ONLY. The customer never sees this.');
+  L.push('');
+  var body=[];
+  Object.keys(CART).forEach(function(ck){
+    var it=BYKEY[bkey(ck)],c=CART[ck];if(!it||!c)return;lines++;
+    if(it.layer==='promo'){var pq=promoQuote(it,c);promoRev+=pq.goods;
+      body.push((lines)+'. '+it.name+' — '+pq.qty+' pcs at '+money(pq.perPiece));
+      body.push('   Supplier (Spector) price, branding included. Our net cost is not in the store, so profit is not shown.');body.push('');return;}
+    var P=priceParts(ck);if(!P)return;var qty=c.qty||0;
+    tRev+=P.unit*qty;tCost+=P.cost*qty;
+    body.push(lines+'. '+it.name+(c.fit==='womens'?' (women\u2019s)':'')+' — '+qty+' pcs at '+money(P.unit)+' each');
+    body.push('   Garment:  we pay '+money(P.c0)+(P.bb<1?(' less '+Math.round((1-P.bb)*100)+'% volume break = '+money(P.cg)):'')+
+      '. Marked up ×'+P.cm.toFixed(2)+(P.carh?' (Carhartt rate)':'')+' and ×'+P.vf.toFixed(2)+' for '+qBand(P.q)+' = '+money(P.garm)+'.');
+    P.marks.forEach(function(m){
+      body.push('   Logo:     '+m.where+' '+m.how.toLowerCase()+' costs us '+money(m.cost)+', charged '+money(m.charge)+' (×'+m.mk.toFixed(2)+(m.small?', small-mark rate':'')+').');});
+    if(P.floored)body.push('   Minimum:  '+money(P.raw)+' would be under our 30% margin floor, so the price was raised to '+money(P.floor)+'.');
+    var _pre=Math.max(P.raw,P.floored?P.floor:0);
+    body.push('   Price:    '+money(P.garm)+' + '+money(P.decc)+' = '+money(_pre)+(money(_pre)!==money(P.unit)?(', rounded up to '+money(P.unit)):'')+'.');
+    body.push('   You make: '+money(P.profit)+' a piece ('+Math.round(P.gm*100)+'% margin) = '+money(P.profit*qty)+' on this line.'+(P.gm<0.30?'   *** UNDER 30% — CHECK ***':''));
+    body.push('');
+  });
+  var setup=cartSetup();
+  L.push('THE ORDER');
+  L.push('   Apparel sales        '+money(tRev)+cur);
+  L.push('   Our cost             '+money(tCost)+cur+'   (garments at the volume break + decoration)');
+  L.push('   Profit               '+money(tRev-tCost)+cur+'   '+(tRev>0?Math.round((tRev-tCost)/tRev*100)+'% margin':''));
+  if(setup>0)L.push('   Setup charged        '+money(setup)+cur+'   (our setup cost isn\u2019t in the store, so it is not counted as profit)');
+  if(promoRev>0)L.push('   Supplier-priced kits '+money(promoRev)+cur+'   (profit not shown — net cost not in the store)');
+  L.push('   Order total          '+money(cartSubtotal()+setup)+cur);
+  L.push('');
+  L.push('HOW EACH PRICE WAS BUILT');
+  L.push('');
+  L=L.concat(body);
+  L.push('THE RULES BEHIND THESE NUMBERS');
+  L.push('   • Garment markup depends on what the garment costs us: cheaper garments get a bigger multiple (e.g. ×1.90 under $15,');
+  L.push('     ×1.52 around $40–75, ×1.40 over $150). Carhartt runs leaner because buyers can see its retail price.');
+  L.push('   • Small orders pay a little more (×1.06 for 12–23 pcs); big orders a little less (×0.92 at 100+).');
+  L.push('   • Logo decoration is marked up on our decorator cost, stepping down at 48+ and 144+. Sleeve badges use the lower small-mark rate.');
+  L.push('   • Every apparel price is held to at least a 30% margin on true cost, then rounded up to the next 50¢.');
+  return L.join('\n');
+}
+/* The internal one. Never shown in the browser; fenced so it cannot be mistaken for the proforma. */
+function dealEconomicsText(){
+  var L=[];
+  var FLOOR=0.30;   // the v3 margin floor; anything under it is flagged, not silently accepted
+  L.push('================================================================');
+  L.push('  DEAL ECONOMICS — JDP INTERNAL. DO NOT FORWARD TO THE CUSTOMER.');
+  L.push('================================================================');
+  var rev=0,cogs=0,pcs=0,promoRev=0,promoPcs=0,under=[];
+  var rows=[];
+  Object.keys(CART).forEach(function(k){
+    var e=lineEconomics(k);if(!e)return;
+    rows.push(e);
+    if(e.promo){promoRev+=e.revenue;promoPcs+=e.qty;return;}
+    rev+=e.revenue;cogs+=e.cogs;pcs+=e.qty;
+    if(e.gm!=null&&e.gm<FLOOR)under.push(e);
+  });
+  var gp=rev-cogs, gm=rev>0?(gp/rev):0;
+  var setup=cartSetup();
+  L.push('');
+  L.push('APPAREL  (margin computable)');
+  L.push('   Revenue            '+lpad(money(rev),12)+'   on '+pcs+' pcs');
+  L.push('   Garment cost       '+lpad(money(rows.reduce(function(t,e){return t+(e.garmentCost||0);},0)),12));
+  L.push('   Decoration cost    '+lpad(money(rows.reduce(function(t,e){return t+(e.decoCost||0);},0)),12));
+  L.push('   ----------------------------------');
+  L.push('   GROSS PROFIT       '+lpad(money(gp),12)+'   '+(rev>0?(gm*100).toFixed(1)+'%':'—'));
+  if(pcs>0)L.push('   Per piece          '+lpad(money(gp/pcs),12)+'/pc');
+  L.push('');
+  if(promoRev>0){
+    L.push('PROMO / SPECTOR LINES');
+    L.push('   Revenue            '+lpad(money(promoRev),12)+'   on '+promoPcs+' pcs');
+    L.push('   Margin             NOT COMPUTABLE — the store holds Spector list price,');
+    L.push('                      not our net cost. Check the supplier invoice.');
+    L.push('');
+  }
+  if(setup>0){
+    L.push('SETUP');
+    L.push('   Charged            '+lpad(money(setup),12)+'   '+setupBreakdown().length+' distinct file(s)');
+    L.push('   Our cost           not tracked in the store — add it to see true setup margin');
+    L.push('');
+  }
+  L.push('ORDER TOTAL          '+lpad(money(cartSubtotal()+setup),12));
+  L.push('');
+  if(under.length){
+    L.push('*** '+under.length+' LINE(S) BELOW THE 30% FLOOR — review before quoting ***');
+    under.forEach(function(e){
+      L.push('   - '+e.name+': '+(e.gm*100).toFixed(1)+'%  ('+money(e.unit)+'/pc vs '+money(e.cogsPc)+' cost)');});
+    L.push('');
+  }else if(rev>0){
+    L.push('All apparel lines clear the 30% floor.');
+    L.push('');
+  }
+  L.push('PER-LINE DETAIL');
+  L.push('   '+pad('ITEM',30)+lpad('QTY',5)+lpad('UNIT',10)+lpad('COST/PC',10)+lpad('GP/PC',10)+lpad('GM%',7));
+  rows.forEach(function(e){
+    if(e.promo){
+      L.push('   '+pad(e.name.slice(0,30),30)+lpad(e.qty,5)+lpad(money(e.unit),10)+lpad('n/a',10)+lpad('n/a',10)+lpad('n/a',7));
+    }else{
+      L.push('   '+pad(e.name.slice(0,30),30)+lpad(e.qty,5)+lpad(money(e.unit),10)+lpad(money(e.cogsPc),10)+lpad(money(e.gpPc),10)+lpad((e.gm*100).toFixed(1),7));
+    }
+  });
+  L.push('');
+  L.push('How to read this: GM% is on the apparel lines only, measured against true cost');
+  L.push('(blank at the quantity break + our decoration cost). Setup is excluded from GM');
+  L.push('because its cost is not held here. Promo lines are excluded entirely.');
+  L.push('================================================================');
+  return L.join('\n');
+}
+function orderText(c){c=c||{};
+  /* WHAT LANDS IN THE INBOX IS THE PRODUCT. Everything upstream — the curation, the notes, the
+     headcount sizing — exists to produce this one message, and it had two defects that the
+     shortlist work itself created:
+       1. The kit link was location.href with the query string STRIPPED, so a buyer who built a
+          $23k board sent a link to the front page. Whoever quotes it could not open what they
+          actually chose.
+       2. "NOTES FROM THE BUYER" was echoing back OUR curated sell copy — two thousand characters
+          of our own words attributed to the customer, with their real message ("need these before
+          the December shift ramp") buried underneath it.
+     A note is only the buyer's if they wrote it or changed it, so lines carry note0 (the note as we
+     shipped it) and only a DIFFERENCE is reported. A board with no note0 is the buyer's own list,
+     where every note is theirs. */
+  var pieces=0,styles=0;
+  Object.keys(CART).forEach(function(k){var it=BYKEY[bkey(k)];if(!it)return;styles++;
+    pieces+=(it.layer==='promo')?promoQuote(it,CART[k]).qty:(CART[k].qty||0);});
+  var sub=cartSubtotal(),setup=cartSetup();
+  var boardUrl=(typeof shareListUrl==='function')?shareListUrl():location.href.split('#')[0];
+  var lines=['KIT REQUEST — '+CFG.client,''];
+  lines.push('SHIP TO: '+(isUS()?'UNITED STATES':'CANADA')+(isUS()===homeUS()?'':'  (store home: '+(homeUS()?'US':'Canada')+' — buyer switched country)'),'');
+  if(isUS())lines.push('*** US STORE — prices in USD. Garments + decoration by STORMTECH USA (supplier decorator), per their 2026 decoration price list. ***','');
+  /* The money and the link first. Nobody should scroll six thousand characters to find the total. */
+  lines.push('SUMMARY');
+  lines.push('  '+styles+' styles · '+pieces+' pieces');
+  lines.push('  Apparel: '+money(sub)+(setup>0?('   One-time setup: '+money(setup)):''));
+  lines.push('  Estimated total: '+money(sub+setup));
+  lines.push('  Their board: '+boardUrl);
+  lines.push('');
+  if(c.name||c.email||c.company){lines.push('From:');
+    if(c.name)lines.push('  Name: '+c.name);
+    if(c.company)lines.push('  Company/team: '+c.company);
+    if(c.email)lines.push('  Email: '+c.email);
+    lines.push('');}
+  Object.keys(CART).forEach(function(k){var it=BYKEY[bkey(k)];if(!it)return;var cc=CART[k];var u=unitPrice(k,cc.decos,tierQty(k));
+    lines.push('• '+it.name+(fitSku(it,cc)?' '+fitSku(it,cc):'')+' ('+it.sku+') — '+(fitTag(it,cc)?fitTag(it,cc)+' · ':'')+cc.colour+' · '+decoSummary(it,cc)+' · qty '+cc.qty+' @ '+money(u)+' ea = '+money(u*cc.qty));
+    /* was bkey(ck): `ck` does not exist in this loop (its variable is `k`), so this line threw a ReferenceError on every checkout from 2026-09-08 cf39435b until 2026-09-24 -- no store could send a quote, and the mailto fallback never ran because the throw came first. */var ss=sizesSummary(cc,BYKEY[bkey(k)]);if(ss)lines.push('    sizes: '+ss+(cc.szset?'  (entered by the buyer)':'  (estimated from headcount — confirm with buyer)'));});
+  lines.push('','Estimated subtotal: '+money(sub));
+  var sb=setupBreakdown();
+  if(sb.length){lines.push('One-time setup: '+money(setup)+'  (once per design, shared across the kit)');
+    sb.forEach(function(x){lines.push('   - '+x.label+': '+money(x.amount));});}
+  lines.push('(Decoration priced in; exact quote to be confirmed.)');
+  /* Only what the buyer actually wrote or changed. */
+  var _nt=Object.keys(CART).filter(function(k){
+    var cc=CART[k]||{};
+    if(!cc.note)return false;
+    if(cc.note0==null)return true;                 // their own list: the note is theirs
+    return String(cc.note).trim()!==String(cc.note0).trim();   // they edited ours
+  });
+  if(_nt.length){lines.push('','WHAT THEY CHANGED OR ADDED PER LINE:');
+    _nt.forEach(function(k){var it=BYKEY[bkey(k)];
+      lines.push('  - '+((it&&it.name)||k)+': '+CART[k].note);});}
+  if(c.note)lines.push('','MESSAGE FROM THE BUYER:','  '+c.note);
+  lines.push('','Their board: '+boardUrl);
+  lines.push('Store: '+location.href.split('#')[0].split('?')[0]);
+  /* Two documents, generated with the quote. The proforma is ready to send to the customer as-is;
+     the economics block is ours and is fenced so it cannot be mistaken for part of it. */
+  lines.push('','',proformaText(c));
+  /* The profit report is NOT part of this text any more. orderText() also feeds the mailto fallback
+     (which opens the BUYER's own mail client with this body) and "copy my list" (the buyer's
+     clipboard), so margins inside it could reach a customer. It now travels only as its own
+     `profit_report` field in the submission to JDP -- see profitReportText(). */
+  return lines.join('\n');
+}
+
+/* ---- THE FORMAL QUOTE (2026-10-06) ----------------------------------------------------------------
+   Steven: "we have enterprise buyers on here. they are confused. free mock ups is not the offer we
+   want. ... make the enterprise jobs easier and more simple."
+   An enterprise buyer's job is not "see a mockup", it is "get something my manager / procurement can
+   approve". The store has always built a proforma for every request -- but only inside the email to
+   Steven, so the buyer never held the one document they needed. Now every quote button in the store
+   (product, added panel, board, program, the Quote tab) opens that document: itemized, with their
+   logo on each line, volume pricing, setup and total, a reference number, JDP's published contact
+   details, and three actions -- download it as a PDF, share it with an approver, or send it to us to
+   confirm. Nothing is gated: they see the numbers first.
+   Commercial honesty, same as proformaText(): no validity window, payment terms or turnaround are
+   stated, because JDP publishes none. Taxes and freight are excluded, as the proforma already says. */
+var JDP_ADDR='4490 Chesswood Drive, Unit 6, Toronto, ON';
+var QREF='';
+function quoteOpen(){var e=document.getElementById('qdoc');return !!(e&&e.classList.contains('on'));}
+function quoteLines(){
+  var tiers=(CFG.pricing&&CFG.pricing.cols)||[12,48,144];
+  return Object.keys(CART).map(function(ck){
+    var e=lineEconomics(ck);if(!e)return null;
+    var it=BYKEY[bkey(ck)],c=CART[ck];
+    var thumb='';
+    if(!e.promo){var cols=curColsOf(it,c.fit),pl=(c.fit==='womens'&&it.wplaces&&it.wplaces.length)?it.wplaces:it.places;
+      try{var o=overlayHtml(it,{decos:c.decos||[]},c.colour,'front',cols,pl);
+        thumb='<span class="qth" style="position:relative;display:block;width:64px;height:64px;overflow:hidden;border-radius:8px;background:#fff">'+
+          '<img class="g" src="'+o.g+'" alt="" style="width:100%;height:100%;object-fit:contain">'+o.lg+'</span>';}catch(x){}}
+    else{var pc=colInList(it.cols,c.colour)||it.cols[0]||{};
+      thumb='<span class="qth" style="display:block;width:64px;height:64px;border-radius:8px;background:#fff url('+gurl(pc.front)+') center/contain no-repeat"></span>';}
+    var vol=e.promo?'':tiers.slice(1).map(function(t){return t+'+: '+money(unitPrice(ck,c.decos,t));}).join(' · ');
+    /* within reach of the next price break: say how many more and what each would cost */
+    var nud=null;
+    if(!e.promo){var tq=tierQty(ck),nt=nextTier(tq);
+      if(nt&&(nt-tq)<=Math.max(4,Math.ceil(nt*0.12))){   /* genuinely close only: 44->48, 128->144 -- not a sales push on every line */var ua=unitPrice(ck,c.decos,tq),ub=unitPrice(ck,c.decos,nt);
+        if(ub<ua)nud={need:nt-tq,tier:nt,unit:ub};}}
+    return {ck:ck,e:e,it:it,c:c,thumb:thumb,vol:vol,nud:nud,canSz:!e.promo&&!oneSize(it),
+      det:[c.colour,fitTag(it,c),e.promo?'logo included':decoSummary(it,c)].filter(Boolean).join(' · '),
+      sizes:sizesSummary(c,it),sku:fitSku(it,c)};
+  }).filter(Boolean);
+}
+/* THE SIZE SPLIT, ON THE QUOTE (2026-10-08). The sizes were a read-only estimate, so a buyer with the
+   real numbers had to leave the document their approver signs to correct them. Now every apparel line
+   opens a grid of the maker's own run for that cut (XS..6XL where the maker makes them), the quantity is
+   the sum, and the line says "your sizes" from then on -- in the quote, the PDF and the email. */
+var QSZ_OPEN={};
+function qszRowHtml(l){
+  var it=l.it,c=l.c,szs=itemSizes(it,c.fit),cur=c.sizes||spreadSizes(c.qty||moq(),c.fit,it);
+  return '<tr class="qszrow" data-qszr="'+esc(l.ck)+'"'+(QSZ_OPEN[l.ck]?'':' hidden')+'><td></td><td colspan="5"><div class="qszg">'+
+    '<div class="qszh"><b>Sizes'+(c.fit==='womens'?' · women’s cut':(fitTag(it,c)?' · '+esc(fitTag(it,c)):''))+'</b><span>'+esc(it.name)+' runs '+esc(szs[0])+'–'+esc(szs[szs.length-1])+'</span></div>'+
+    '<div class="qszcells">'+szs.map(function(z){return '<label><span>'+esc(z)+'</span><input type="number" inputmode="numeric" min="0" data-qszin="'+esc(l.ck)+'" data-z="'+esc(z)+'" value="'+(cur[z]||0)+'"></label>';}).join('')+'</div>'+
+    '<div class="qszf"><span class="qszsum" data-qszsum="'+esc(l.ck)+'">Total '+sizeSum(cur)+'</span>'+
+      '<button type="button" class="qszdone" data-qszdone="'+esc(l.ck)+'">Done</button></div></div></td></tr>';
+}
+function quoteDocHtml(){
+  if(!cartCount())return quoteEmptyHtml();
+  var L=quoteLines(),sub=0,pcs=0;L.forEach(function(l){sub+=l.e.revenue;pcs+=l.e.qty;});
+  var setup=cartSetup(),sb=setupBreakdown(),T=JDP_TRUST,saved={};
+  try{saved=JSON.parse(localStorage.getItem('jdpkit_contact')||'{}');}catch(e){}
+  var mark=heroMarkHtml('qmark');
+  var rows=L.map(function(l,i){
+    return '<tr><td class="qn">'+(i+1)+'</td><td class="qimg">'+l.thumb+'</td>'+
+      '<td class="qitem"><b>'+esc(l.e.name)+'</b>'+
+        '<i>'+esc([l.it.brand||l.it.sku,l.sku].filter(Boolean).join(' · '))+'</i>'+
+        '<span>'+esc(l.det)+'</span>'+
+        (l.canSz?('<span class="qsz">'+(l.sizes?('Sizes: '+esc(l.sizes)):'Sizes: not set yet')+
+          ' <em class="qszt'+(l.c.szset?' mine':'')+'">'+(l.c.szset?'your sizes':(l.sizes?'estimated':''))+'</em>'+
+          ' <button type="button" class="qszb" data-qsz="'+esc(l.ck)+'">'+(l.c.szset?'Edit sizes':'Enter sizes')+'</button></span>'):
+          (l.sizes?('<span>Sizes: '+esc(l.sizes)+'</span>'):''))+
+        (l.vol?('<span class="qvol">Volume pricing — '+esc(l.vol)+'</span>'):'')+
+        (l.nud?('<button type="button" class="qnud" data-qnud="'+esc(l.ck)+'" data-qtier="'+l.nud.tier+'">Add '+l.nud.need+' more → '+money(l.nud.unit)+' each</button>'):'')+'</td>'+
+      '<td class="qq"><span class="qqv">'+l.e.qty+'</span><input class="qqin" type="number" inputmode="numeric" min="1" value="'+l.e.qty+'" data-qk="'+esc(l.ck)+'" aria-label="Quantity of '+esc(l.e.name)+'">'+
+        '<button type="button" class="qrm" data-qrm="'+esc(l.ck)+'" aria-label="Remove '+esc(l.e.name)+'">Remove</button></td>'+
+      '<td class="qu">'+money(l.e.unit)+'</td><td class="qa">'+money(l.e.revenue)+'</td></tr>'+
+      (l.canSz?qszRowHtml(l):'');}).join('');
+  var who=listName(ALID);
+  return '<div class="qwrap">'+
+    '<div class="qbar"><button type="button" class="qback" id="qBack">‹ Back</button>'+
+      '<div class="qbarbtns"><button type="button" class="qbtn" id="qPdf"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>Download PDF</button>'+
+      '<button type="button" class="qbtn" id="qShare">Share with an approver ↗</button>'+
+      '<a class="qbtn qsend" href="#qact">Send to confirm →</a></div></div>'+
+    (APPROVER?('<div class="qappr"><b>'+(((LISTS[ALID]||{}).by)?esc((LISTS[ALID]||{}).by)+' shared this quote for your approval':'This quote was shared with you for approval')+'</b>'+
+      '<span>Reference '+esc(QREF)+' · exactly as it was sent. Approve it below and Just Deals confirms in writing — or download the PDF for your records.</span></div>'):'')+
+    '<div class="qgrid">'+
+    '<article class="qpaper" id="qpaper">'+
+      '<header class="qhd"><div><div class="qbrand">Just Deals Promotions</div>'+
+        '<div class="qaddr">'+esc(JDP_ADDR)+'<br>'+esc(T.phone)+' · '+esc(T.email)+'</div></div>'+
+        '<div class="qmeta"><h2>Quote</h2><dl><dt>Reference</dt><dd>'+esc(QREF)+'</dd><dt>Date</dt><dd>'+esc(docDate())+'</dd><dt>Ship to</dt><dd>'+(isUS()?'United States · USD':'Canada · CAD')+'</dd>'+
+        (who&&!/^my board$/i.test(who)?('<dt>For</dt><dd>'+esc(who)+'</dd>'):'')+'</dl></div></header>'+
+      '<div class="qparty"><div><span>Prepared for</span>'+(mark?('<div class="qmk">'+mark+'</div>'):'')+'<b>'+esc(CFG.client||'')+'</b></div>'+
+        '<div><span>Prepared by</span><b>Steven · Just Deals Promotions</b><i>'+esc(T.phone)+'</i></div></div>'+
+      '<div class="qhc"><label for="qHC">How many people?</label><input id="qHC" type="number" inputmode="numeric" min="1" placeholder="e.g. 40" value="'+(getHC()||'')+'">'+
+        '<button type="button" id="qHCgo">Update quote</button><i>Program pieces are one per person. Items added on their own are estimated — fewer outer layers than people. Sizes are estimated until you enter your own; nothing is produced until you confirm.</i></div>'+
+      '<div class="qadd"><button type="button" class="qbtn" id="qMore">+ Add more items</button><button type="button" class="qbtn" id="qProg">+ Add a program</button></div>'+
+      '<table class="qtab"><thead><tr><th>#</th><th></th><th>Item</th><th>Qty</th><th>Unit'+(isUS()?' (USD)':'')+'</th><th>Amount'+(isUS()?' (USD)':'')+'</th></tr></thead><tbody>'+rows+'</tbody></table>'+
+      '<div class="qtot"><div><span>Subtotal · '+pcs+' pieces</span><b>'+money(sub)+'</b></div>'+
+        (setup>0?('<div><span>One-time setup</span><b>'+money(setup)+'</b></div>'+
+          '<div class="qsb">'+sb.map(function(x){return esc(x.label)+' — '+money(x.amount);}).join('<br>')+'<br>Charged once per design, location and method — not per piece.</div>'):'')+
+        '<div class="qgt"><span>Total'+(isUS()?' in USD':'')+' (before tax &amp; freight)</span><b>'+money(sub+setup)+(isUS()?' <small class="qcur">USD</small>':'')+'</b></div></div>'+
+      '<div class="qnotes"><b>Notes</b><ul>'+
+        (isUS()?'<li>All prices are in US dollars (USD).</li>':'')+
+        '<li>Your logo decoration is included in every unit price above.</li>'+
+        '<li>Nothing is produced until you approve a proof of your logo and this quote.</li>'+
+        '<li>Taxes and freight are not included. Just Deals Promotions confirms this quote in writing — usually within '+esc(T.reply)+'.</li>'+
+        '<li>Price-match: send us a lower written quote for the same job and we will match it. Every order carries our Logo Reprint Guarantee.</li>'+
+      '</ul></div>'+
+      '<footer class="qfoot">Just Deals Promotions · '+(isUS()?'Since ':'Canadian since ')+T.since+' · '+esc(T.teams)+' teams · '+T.rating.toFixed(1)+'★ on Google</footer>'+
+    '</article>'+
+    '<aside class="qact" id="qact"><h3>'+(APPROVER?'Approve this quote':'Send to Just Deals to confirm')+'</h3>'+
+      '<p>'+(APPROVER?'Send your approval and Just Deals confirms the order in writing and sends a proof of the logo. No payment now.':'We check it, confirm it in writing and send a proof of your logo. No payment now, no obligation.')+'</p>'+
+      '<form id="qForm" novalidate>'+
+        '<label>Work email<input id="qEmail" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" value="'+esc(saved.email||'')+'" placeholder="you@company.com" aria-describedby="qEmailErr"></label>'+
+        '<p class="qerrm" id="qEmailErr" role="alert" hidden>Enter your work email — the written confirmation goes there.</p>'+
+        '<label>Your name <i>optional</i><input id="qName" autocomplete="name" value="'+esc(saved.name||'')+'"></label>'+
+        '<label>Company<input id="qCompany" autocomplete="organization" value="'+esc(saved.company||CFG.client||'')+'"></label>'+
+        '<label>PO number, deadline or notes <i>optional</i><textarea id="qNote" rows="3" placeholder="PO #, in-hands date, delivery address, anything procurement needs"></textarea></label>'+
+        '<label class="qfile">Attach a file <i>optional — PO, vendor forms, RFQ or your logo</i><input id="qFile" type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.ai,.eps,.svg,.png,.jpg,.jpeg"></label>'+
+        '<button type="submit" class="qgo" id="qGo">'+(APPROVER?'Approve &amp; send →':'Send for confirmation →')+'</button>'+
+      '</form>'+
+      '<div class="qside"><b>Ordering for both countries?</b> This is your '+(isUS()?'US':'Canadian')+' quote. '+
+        '<button type="button" class="qlnk" id="qMkt">Build the '+(isUS()?'Canadian':'US')+' quote →</button> We combine both under one PO.</div>'+
+      '<div class="qside"><b>Need us set up as a vendor?</b> Attach your supplier forms above, or call '+esc(T.phone)+'.</div>'+
+    '</aside></div></div>';
+}
+function quoteEmptyHtml(){
+  return '<div class="qwrap"><div class="qbar"><button type="button" class="qback" id="qBack">‹ Back</button></div>'+
+    '<div class="qempty"><h2>Your quote is empty</h2><p>Start with a ready program, add items from the catalogue, or send us your RFQ — '+
+      'then download an itemized quote for approval.</p>'+
+      '<div class="qadd"><button type="button" class="qbtn qsend" id="qProg">Start with a program</button>'+
+      '<button type="button" class="qbtn" id="qMore">Browse the catalogue</button><button type="button" class="qbtn" id="qRfq">Upload an RFQ</button></div></div></div>';
+}
+function quoteToCatalogue(){
+  closeQuote();setRail('explore');
+  var g=document.getElementById('excats')||document.querySelector('.excats')||document.getElementById('gridhd');
+  if(g)g.scrollIntoView({behavior:'smooth',block:'start'});
+  toast('Tap “+ Quote” on anything to add it');
+}
+function quoteToPrograms(){closeQuote();setRail('explore');var r=document.getElementById('recohero');if(r)r.scrollIntoView({behavior:'smooth',block:'start'});}
+function wireQuoteEdit(el){
+  var m=document.getElementById('qMore');if(m)m.addEventListener('click',function(){jdpTrack('quote_more');quoteToCatalogue();});
+  var p=document.getElementById('qProg');if(p)p.addEventListener('click',function(){jdpTrack('quote_prog');quoteToPrograms();});
+  var r=document.getElementById('qRfq');if(r)r.addEventListener('click',function(){closeQuote();openRfq();});
+  var rerender=function(){QREF=stableRef();var st=el.scrollTop;el.innerHTML=quoteDocHtml();wireQuote(el);el.scrollTop=st;refreshCartUI();};
+  el.querySelectorAll('[data-qrm]').forEach(function(b){b.addEventListener('click',function(){
+    delete CART[b.dataset.qrm];markCleared();saveCart();jdpTrack('quote_remove');rerender();});});
+  el.querySelectorAll('[data-qk]').forEach(function(inp){
+    var apply=function(){var n=parseInt(inp.value,10)||0,ck=inp.dataset.qk,c=CART[ck],it=BYKEY[bkey(ck)];if(!c||!it)return;
+      var min=(it.layer==='promo')?(it.moq||1):moq();
+      if(n<min){toast('Minimum is '+min+' for this item');n=min;}
+      if(c.sizes&&!oneSize(it)){c.sizes=spreadSizes(n,c.fit,it);c.qty=sizeSum(c.sizes);delete c.szset;}else c.qty=n;
+      saveCart();jdpTrack('quote_line_qty');rerender();};
+    inp.addEventListener('change',apply);
+    inp.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();inp.blur();}});});
+  /* size grid: open/close, live total, commit */
+  el.querySelectorAll('[data-qsz]').forEach(function(b){b.addEventListener('click',function(){
+    var ck=b.dataset.qsz,r=el.querySelector('[data-qszr="'+cssEsc(ck)+'"]');if(!r)return;
+    QSZ_OPEN[ck]=r.hidden;r.hidden=!r.hidden;if(!r.hidden){var f=r.querySelector('input');if(f){f.focus();f.select();}jdpTrack('quote_sizes_open');}});});
+  var szRead=function(ck){var out={};el.querySelectorAll('[data-qszin="'+cssEsc(ck)+'"]').forEach(function(f){
+      var v=Math.max(0,Math.min(100000,parseInt(f.value,10)||0));if(v)out[f.dataset.z]=v;});return out;};
+  el.querySelectorAll('[data-qszin]').forEach(function(f){
+    f.addEventListener('input',function(){var ck=f.dataset.qszin,t=sizeSum(szRead(ck)),it=BYKEY[bkey(ck)];
+      var sm=el.querySelector('[data-qszsum="'+cssEsc(ck)+'"]');
+      if(sm){sm.textContent='Total '+t+(t&&t<moq()?(' · minimum is '+moq()):'');sm.classList.toggle('low',!!(t&&t<moq()));}});
+    f.addEventListener('change',function(){var ck=f.dataset.qszin,c=CART[ck];if(!c)return;var sz=szRead(ck),t=sizeSum(sz);
+      if(t>0){c.sizes=sz;c.qty=t;c.szset=1;saveCart();}});
+    f.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();var d=el.querySelector('[data-qszdone="'+cssEsc(f.dataset.qszin)+'"]');if(d)d.click();}});});
+  el.querySelectorAll('[data-qszdone]').forEach(function(b){b.addEventListener('click',function(){
+    var ck=b.dataset.qszdone,c=CART[ck];if(!c)return;var sz=szRead(ck),t=sizeSum(sz);
+    if(!t){toast('Enter at least one size');return;}
+    c.sizes=sz;c.qty=t;c.szset=1;QSZ_OPEN[ck]=false;saveCart();jdpTrack('quote_sizes',{n:t});
+    if(t<moq())toast('Below the '+moq()+'-piece minimum — priced at the minimum tier');
+    rerender();});});
+  el.querySelectorAll('[data-qnud]').forEach(function(b){b.addEventListener('click',function(){
+    var ck=b.dataset.qnud,c=CART[ck],it=BYKEY[bkey(ck)],tier=parseInt(b.dataset.qtier,10)||0;if(!c||!it||!tier)return;
+    var add=tier-tierQty(ck);if(add<=0)return;
+    if(c.sizes&&!oneSize(it)){var ex=spreadSizes(add,c.fit,it);Object.keys(ex).forEach(function(z){c.sizes[z]=(c.sizes[z]||0)+ex[z];});c.qty=sizeSum(c.sizes);}
+    else c.qty=(c.qty||0)+add;
+    saveCart();jdpTrack('quote_nudge',{t:tier});toast('Now '+c.qty+' — priced at the '+tier+'+ tier');rerender();});});
+}
+function cssEsc(v){return String(v).replace(/["\\]/g,'\\$&');}
+function openQuote(src){
+  if(src!=='approver')toQuoteList();
+  if(!cartCount()&&(src==='checkout')){openSourcing('');return;}
+  QREF=stableRef();APPROVER=(src==='approver');
+  jdpTrack('quote_view',{src:src||'',n:cartCount()});
+  try{closeAll();}catch(e){}try{closeBoard();}catch(e){}try{closeBoards();}catch(e){}try{closeProgram();}catch(e){}
+  try{renderCart();}catch(e){}
+  var el=document.getElementById('qdoc');
+  if(!el){el=document.createElement('div');el.id='qdoc';el.className='boardov qdocov';document.body.appendChild(el);}
+  el.innerHTML=quoteDocHtml();wireQuote(el);
+  el.classList.add('on');el.scrollTop=0;document.body.style.overflow='hidden';
+}
+function closeQuote(){var el=document.getElementById('qdoc');if(!el||!el.classList.contains('on'))return;
+  el.classList.remove('on');document.body.style.overflow='';}
+/* THE APPROVER LINK IS A FROZEN COPY (2026-10-08). It used to point at the live board -- and every
+   visitor's default board on a store is the same "my-board", so whatever a colleague changed after the
+   link was sent is what the approver saw. Now sharing (or sending) writes the quote, exactly as it
+   stands, to its own board named after the reference, and the link opens straight onto the quote
+   document. The server refuses to overwrite a board without its revision, so the copy stays as sent. */
+var APPROVER=false;
+function quoteSnapSlug(){return mslug('q '+QREF);}
+function quoteSnapshot(){
+  var b=quoteSnapSlug(),L=LISTS[ALID]||{};
+  try{
+    if(L.qsnap===b)return b;
+    var who='';try{who=(JSON.parse(localStorage.getItem('jdpkit_contact')||'{}').name||'');}catch(e){}
+    var items=JSON.parse(JSON.stringify(asItems(CART)));
+    fetch(boardsApi(),{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({kit:SLUG,b:b,name:'Quote '+QREF,items:items,by:who})}).then(function(r){
+        if(r&&(r.ok||r.status===409)){L.qsnap=b;try{persistLists();}catch(e){}}}).catch(function(){});
+  }catch(e){}
+  return b;
+}
+function quoteShareUrl(){
+  var b=quoteSnapshot();
+  return location.origin+location.pathname+'?b='+encodeURIComponent(b)+'&quote=1';
+}
+function wireQuote(el){
+  document.getElementById('qBack').addEventListener('click',closeQuote);
+  if(!document.getElementById('qPdf')){wireQuoteEdit(el);return;}
+  document.getElementById('qPdf').addEventListener('click',function(){
+    jdpTrack('quote_pdf');
+    var t=document.title;document.title='Quote '+QREF+' — '+(CFG.client||'')+' — Just Deals Promotions';
+    document.documentElement.classList.add('qprint');
+    setTimeout(function(){try{window.print();}catch(e){}document.documentElement.classList.remove('qprint');document.title=t;},50);});
+  document.getElementById('qShare').addEventListener('click',function(){
+    var u=quoteShareUrl();jdpTrack('quote_share');
+    var done=function(){toast('Link copied — your approver opens this exact quote, reference '+QREF);};
+    try{if(navigator.share&&matchMedia('(hover:none)').matches){navigator.share({title:'Quote '+QREF,url:u}).catch(function(){});return;}
+      if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(u).then(done,function(){window.prompt('Copy this link',u);});return;}}catch(e){}
+    window.prompt('Copy this link',u);});
+  var hc=document.getElementById('qHC'),go=document.getElementById('qHCgo');
+  var upd=function(){var n=parseInt(hc.value,10)||0;if(n<1){hc.focus();return;}applyHeadcount(n);jdpTrack('quote_qty',{n:n});
+    QREF=stableRef();var st=el.scrollTop;el.innerHTML=quoteDocHtml();wireQuote(el);el.scrollTop=st;
+    toast('Quote updated for '+n+' people'+(KEPT_SIZES?(' · kept your sizes on '+KEPT_SIZES+' line'+(KEPT_SIZES===1?'':'s')):''));};
+  go.addEventListener('click',upd);hc.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();upd();}});
+  document.getElementById('qForm').addEventListener('submit',function(e){e.preventDefault();sendFormalQuote();});
+  wireQuoteEdit(el);
+  var qm=document.getElementById('qMkt');if(qm)qm.addEventListener('click',function(){setMarket(!isUS(),'quote');});
+  var em=document.getElementById('qEmail');if(em)em.addEventListener('input',function(){em.classList.remove('err');var er=document.getElementById('qEmailErr');if(er)er.hidden=true;});
+}
+function sendFormalQuote(){
+  var v=function(id){return ((document.getElementById(id)||{}).value||'').trim();};
+  var c={name:v('qName'),email:v('qEmail'),company:v('qCompany')||CFG.client||'',note:v('qNote')};
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(c.email)){var e=document.getElementById('qEmail');e.classList.add('err');e.focus();
+    var er=document.getElementById('qEmailErr');if(er){er.hidden=false;er.textContent=c.email?'That email doesn’t look complete — check it and try again.':'Enter your work email — the written confirmation goes there.';}
+    return;}
+  try{quoteSnapshot();}catch(x){}
+  persistContact(c);try{localStorage.setItem('jdp_lead_sent','1');}catch(x){}
+  /* The subject used to end "please confirm" and read like an invoice phish; the first formal quote ever
+     sent landed in Spam while every lead email from the same sender reached the inbox. It now reads like them. */
+  var body=orderText(c),subj=(APPROVER?'\u2705 Quote APPROVED — ':'\ud83e\uddfe New quote request — ')+(c.company||CFG.client)+' — '+money(cartSubtotal()+cartSetup())+(isUS()?' USD':'')+' — '+QREF+(c.name?' — '+c.name:'');
+  var payload={name:c.name||'(not given)',email:c.email,company:c.company,_subject:subj,_template:'table',_captcha:'false',
+    reference:QREF,profit_report:profitReportText(),kit:body,kit_link:location.href.split('#')[0].split('?')[0],their_list:quoteShareUrl(),
+    sizes_from:(Object.keys(CART).some(function(k){return (CART[k]||{}).szset;})?'buyer entered sizes on some lines':'all sizes estimated from headcount')};
+  var btn=document.getElementById('qGo');btn.disabled=true;btn.innerHTML='Sending…';
+  var done=false,fell=false;
+  var ok=function(){if(done||fell)return;done=true;jdpTrack('sent',{src:'quote',n:cartCount()});
+    var a=document.getElementById('qact');
+    if(a)a.innerHTML='<div class="qok"><span>✓</span><h3>Sent — reference '+esc(QREF)+'</h3>'+
+      '<p>Steven will confirm this quote in writing to <b>'+esc(c.email)+'</b>, usually within '+esc(JDP_TRUST.reply)+'. No payment now.</p>'+
+      '<button type="button" class="qbtn" id="qPdf2"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>Keep a PDF copy</button></div>';
+    var p2=document.getElementById('qPdf2');if(p2)p2.addEventListener('click',function(){document.getElementById('qPdf').click();});};
+  var fail=function(){if(done||fell)return;fell=true;mailtoFallback(c,body,subj);};
+  var to=setTimeout(fail,12000);
+  var f=document.getElementById('qFile'),file=(f&&f.files&&f.files[0])||null;
+  if(file){var fd=new FormData();Object.keys(payload).forEach(function(k){fd.append(k,payload[k]);});
+    fd.append('attachment',file,file.name);
+    fetch('https://formsubmit.co/'+JDP_EMAIL,{method:'POST',body:fd,mode:'no-cors'})
+      .then(function(){clearTimeout(to);ok();}).catch(function(){clearTimeout(to);fail();});return;}
+  fetch('https://formsubmit.co/ajax/'+JDP_EMAIL,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(payload)})
+    .then(function(r){return r.json().catch(function(){return {};});})
+    .then(function(j){clearTimeout(to);if(j&&String(j.success)==='true')ok();else fail();})
+    .catch(function(){clearTimeout(to);fail();});
+}
+
+function openCheckout(mode){
+  /* A board with items goes to the formal quote; an empty one (or a sourcing request) to the form. */
+  if(mode!=='form'&&cartCount()&&!CFG.demo){openQuote('checkout');return;}
+  jdpTrack('checkout',{n:cartCount()});
+  var n=cartCount(),sub=cartSubtotal(),setup=cartSetup();var saved={};
+  try{saved=JSON.parse(localStorage.getItem('jdpkit_contact')||'{}');}catch(e){}
+  document.getElementById('cart').innerHTML=
+    '<div class="carth"><button class="cartback" id="cartback" aria-label="Back">‹</button><h2>Your exact quote</h2><button class="cartx" id="cartx" aria-label="Close">✕</button></div>'+
+    '<div class="citems"><div class="co">'+
+      '<div class="cohow"><div class="costep"><b>1</b><span>Pick your gear</span></div><div class="costep"><b>2</b><span>Get your exact quote</span></div><div class="costep"><b>3</b><span>Approve &amp; we produce</span></div></div>'+
+      '<div class="cosum"><span>'+n+' item'+(n===1?'':'s')+' · est. <b>'+money(sub)+'</b>'+(setup>0?' + '+money(setup)+' setup':'')+'</span><button class="cosumedit" id="cosumedit">Edit ‹</button></div>'+
+      /* DEMO STORES ASK FOR ONE THING. The demo is where the website sends every visitor who clicks
+         "Browse the catalog", so this checkout IS the website's conversion step for browsers, and the
+         site asks for a work email and nothing else. Name, company, note and logo were always optional
+         in submitKit(); on a demo they now sit behind one toggle instead of reading as a five-part form.
+         Company is never pre-filled from CFG.client on a demo -- there it is literally "Your Company",
+         and every demo board arrived labelled that way. Client stores are unchanged. */
+      (CFG.demo
+        ? '<div class="coform coone">'+
+            '<input id="coEmail" type="email" inputmode="email" placeholder="Your work email — where we send your quote" autocomplete="email" autocapitalize="off" spellcheck="false" enterkeyhint="send" value="'+esc(saved.email||'')+'">'+
+            '<details class="coopt"><summary>Add your name, a note or your logo <i>optional</i></summary>'+
+              '<input id="coName" placeholder="Your name" autocomplete="name" value="'+esc(saved.name||'')+'">'+
+              '<input id="coCompany" placeholder="Company / team" autocomplete="organization" value="'+esc(saved.company||'')+'">'+
+              '<textarea id="coNote" placeholder="Anything to add? Deadlines, sizes, other items…"></textarea>'
+        /* CLIENT STORES NOW ASK FOR ONE THING TOO. Five fields stood between a buyer and a request
+           (name, email, company, note, logo). submitKit() has only ever required the email, and the
+           company is known -- it is the store. So: email, and a note for anything they want to say;
+           name and logo behind one optional toggle, company pre-filled inside it. */
+        : '<div class="coform coone">'+
+            /* TAP, DON'T TYPE. With nothing on the board, "Tell us what you need" used to open an
+               empty essay box. Ten buyers clicked it in 30 days; none sent. Now: tap what you need,
+               say how many people, give an email. The note is still there for anything else. */
+            (n?'':briefHtml())+
+            '<input id="coEmail" type="email" inputmode="email" placeholder="Your work email — where we send your mockup &amp; quote" autocomplete="email" autocapitalize="off" spellcheck="false" enterkeyhint="send" value="'+esc(saved.email||'')+'">'+
+            '<textarea id="coNote" placeholder="'+(n?'Anything to add? Deadlines, sizes, other items… (optional)':'Anything else? Colours, deadline, where the logo goes… (optional)')+'"></textarea>'+
+            '<details class="coopt"><summary>Add your name or your logo file <i>optional</i></summary>'+
+              '<input id="coName" placeholder="Your name" autocomplete="name" value="'+esc(saved.name||'')+'">'+
+              '<input id="coCompany" placeholder="Company / team" autocomplete="organization" value="'+esc(saved.company||CFG.client||'')+'">')+
+      /* Artwork is the single biggest cause of back-and-forth after an order lands. Asking for it
+         HERE, while they are already filling in a form, costs one click; chasing it by email later
+         costs days. Vector is what production actually wants, so it is named first -- but a
+         high-resolution PNG is accepted rather than blocking the order on a file they may not have. */
+      '<div class="artwrap">'+
+        '<div class="arthd">Your logo <i>optional \u2014 speeds up your quote</i></div>'+
+        '<label class="artdrop" for="coArt">'+
+          '<span class="artic" aria-hidden="true">\u2191</span>'+
+          '<span class="arttx"><b id="artLbl">Attach your logo file</b>'+
+            '<i>Best: vector \u2014 .ai, .eps, .pdf or .svg. Otherwise the highest-resolution '+
+            'PNG you have, on a transparent background.</i></span>'+
+        '</label>'+
+        '<input id="coArt" type="file" class="artin" accept=".ai,.eps,.pdf,.svg,.png,.jpg,.jpeg">'+
+        '<div class="artnote">No logo file to hand? Send your board anyway \u2014 we\u2019ll redraw your '+
+          'logo to production quality from the best image you have, at no charge.</div>'+
+      '</div>'+
+      '</details></div>'+
+    '</div></div>'+
+    '<div class="cartf">'+
+      '<button class="checkout" id="emailKit">Send my request <span class="ar">→</span></button>'+
+      (n?'<button class="copyalt" id="copyKit">or copy my list to paste into a reply</button>':'')+
+      '<div class="ckpm">\u2605 <b>Price-match guarantee</b> — found a lower written quote for the same job? Send it with your board and we\u2019ll match it.</div>'+
+      trustReplyHtml()+
+      '<button type="button" class="svalt" data-samp="">\u270B Rather see them in person first? We\u2019ll bring samples to you</button>'+
+      '<div class="cktrust" id="copyHint"><span>No payment now</span><span>No obligation</span><span>No minimum beyond 12 pcs</span></div></div>';
+  document.getElementById('cartx').addEventListener('click',closeAll);
+  document.getElementById('cartback').addEventListener('click',openCart);
+  document.getElementById('cosumedit').addEventListener('click',openCart);
+  document.getElementById('emailKit').addEventListener('click',submitKit);
+  var _ai=document.getElementById('coArt');
+  if(_ai)_ai.addEventListener('change',function(){
+    var f=_ai.files&&_ai.files[0],l=document.getElementById('artLbl');
+    if(l)l.textContent=f?(f.name+'  \u00b7  '+Math.max(1,Math.round(f.size/1024))+' KB'):'Attach your logo file';
+    var w=document.querySelector('.artdrop');if(w)w.classList.toggle('has',!!f);});
+  var _ck=document.getElementById('copyKit');if(_ck)_ck.addEventListener('click',copyKit);
+  document.querySelectorAll('#cart [data-brief]').forEach(function(b){b.addEventListener('click',function(){
+    var on=b.getAttribute('aria-pressed')!=='true';b.setAttribute('aria-pressed',on?'true':'false');b.classList.toggle('on',on);});});
+}
+var BRIEF_OPTS=['Polos','T-shirts','Hoodies & fleece','Jackets','Hi-vis & safety','Hats','Workwear','Employee gifts'];
+function briefHtml(){
+  return '<div class="cobrief"><div class="cobl">What do you need? <i>tap all that apply</i></div>'+
+    '<div class="cobchips">'+BRIEF_OPTS.map(function(o){
+      return '<button type="button" class="cobchip" data-brief="'+esc(o)+'" aria-pressed="false">'+esc(o)+'</button>';}).join('')+'</div>'+
+    '<label class="cobppl"><span class="cobl">How many people?</span>'+
+      '<input id="coPeople" type="number" inputmode="numeric" min="1" placeholder="e.g. 25"></label></div>';
+}
+function briefText(){
+  var picks=[].slice.call(document.querySelectorAll('#cart [data-brief][aria-pressed="true"]')).map(function(b){return b.dataset.brief;});
+  var ppl=parseInt((document.getElementById('coPeople')||{}).value,10)||0;
+  var t=[];if(picks.length)t.push('Needs: '+picks.join(', '));if(ppl)t.push('About '+ppl+' people');
+  return t.join(' · ');
+}
+function clipCopy(s){if(navigator.clipboard&&navigator.clipboard.writeText){try{navigator.clipboard.writeText(s);return;}catch(e){}}
+  var ta=document.createElement('textarea');ta.value=s;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.focus();ta.select();try{document.execCommand('copy');}catch(e){}document.body.removeChild(ta);}
+/* ---- DEMO LEADS REACH THE KIT QUEUE ------------------------------------------------------------
+   The website sends every "Browse the catalog" click to the demo store, so a board sent from a demo
+   is a website lead. It used to go only to FormSubmit -- Steven's inbox -- and never reached the
+   Airtable Kit Queue that every other website lead lands in. On a demo it now ALSO posts to the same
+   lead webhook the website uses, same payload shape, so it arrives as a Pending row like any other.
+   Client stores are deliberately excluded: their buyers are existing customers, and a Kit Queue row
+   would spawn a second store for a company that already has one.
+   Name / company / website are derived from the work email when not typed, exactly as the site does.
+   Freemail domains give no company; role inboxes (ops@, info@) give no name rather than "Ops".
+   This adds no CTA and no form: it is plumbing behind the checkout the demo already has. */
+var DLEAD_HOOK='https://hyperagent.com/api/webhooks/cms69ljxt0kod08adokdar5i6/receive';
+var DFREEMAIL={'gmail.com':1,'googlemail.com':1,'yahoo.com':1,'yahoo.ca':1,'ymail.com':1,'hotmail.com':1,
+  'hotmail.ca':1,'outlook.com':1,'live.com':1,'live.ca':1,'msn.com':1,'aol.com':1,'icloud.com':1,'me.com':1,
+  'mac.com':1,'protonmail.com':1,'proton.me':1,'gmx.com':1,'mail.com':1,'yandex.com':1,'zoho.com':1,
+  'rogers.com':1,'sympatico.ca':1,'bell.net':1,'bellnet.ca':1,'shaw.ca':1,'telus.net':1,'videotron.ca':1,
+  'cogeco.ca':1,'eastlink.ca':1,'xplornet.com':1};
+var DROLEBOX={info:1,ops:1,operations:1,sales:1,admin:1,office:1,accounts:1,accounting:1,ap:1,ar:1,
+  hello:1,contact:1,enquiries:1,inquiries:1,purchasing:1,procurement:1,buyer:1,hr:1,payroll:1,
+  safety:1,service:1,orders:1,estimating:1,estimates:1,quotes:1,shop:1,warehouse:1,dispatch:1,
+  team:1,mail:1,email:1,general:1,reception:1,front:1,billing:1,support:1,help:1,marketing:1};
+function dSiteFromEmail(email){
+  var m=/^[^@\s]+@([^@\s]+\.[a-z]{2,})$/i.exec((email||'').trim()); if(!m)return '';
+  var d=m[1].toLowerCase().replace(/^www\./,''); return DFREEMAIL[d]?'':d;
+}
+function dCompanyFromSite(site){
+  var b=(site||'').replace(/^https?:\/\//i,'').replace(/^www\./i,'').split('/')[0].split('.')[0];
+  if(!b)return '';
+  return b.replace(/[-_]+/g,' ').replace(/\b[a-z]/g,function(c){return c.toUpperCase();});
+}
+function dNameFromEmail(email){
+  var m=/^([^@\s]+)@/.exec((email||'').trim()); if(!m)return '';
+  var local=m[1].toLowerCase().replace(/\d+$/,'');
+  if(DROLEBOX[local.replace(/[._-]/g,'')])return '';
+  var parts=local.split(/[._-]+/).filter(function(x){return x&&!DROLEBOX[x];});
+  if(!parts.length)return '';
+  return parts.map(function(x){return x.length===1?x.toUpperCase()+'.':x.charAt(0).toUpperCase()+x.slice(1);}).join(' ');
+}
+function demoBoardSummary(){
+  try{return Object.keys(CART).map(function(k){var it=BYKEY[bkey(k)];
+    return it?(it.name+' ×'+((CART[k]||{}).qty||'')):null;}).filter(Boolean).join(', ');}catch(e){return '';}
+}
+function demoLead(c){
+  if(!CFG.demo)return;
+  var site=dSiteFromEmail(c.email);
+  var body={name:c.name||'',companyName:c.company||'',companyWebsite:site||'',website:site||'',
+    email:c.email||'',products:demoBoardSummary(),status:'pending',scope:'all',country:'CA',
+    source:'Website',submittedAt:new Date().toISOString(),
+    airtable:{base:'appCYDBvfvfaLfzyi',table:'tbl3ctjDqg6nyQDao'}};
+  try{fetch(DLEAD_HOOK,{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(body),keepalive:true}).catch(function(){});}catch(e){}
+}
+// PROPER form-to-inbox: POST the kit + contact straight to JDP's inbox (FormSubmit) — no reliance on the
+// visitor's email app. If the request fails for any reason, fall back to a prefilled email + clipboard copy
+// so a lead is never lost.
+function submitKit(){
+  var c=contactVals();
+  if(!c.email||c.email.indexOf('@')<1){var e=document.getElementById('coEmail');if(e){e.classList.add('err');e.focus();}
+    toast('Add your email so we can send your quote');return;}
+  /* Remember only what the buyer TYPED. Saved contact is shared by every store on this domain, so a
+     guessed name/company from a demo would pre-fill the next store they open. */
+  var typed={name:c.name,email:c.email,company:c.company};
+  if(CFG.demo){
+    if(!c.company)c.company=dCompanyFromSite(dSiteFromEmail(c.email));
+    if(!c.name)c.name=dNameFromEmail(c.email);
+  }
+  persistContact(CFG.demo?typed:c);var body=orderText(c);
+  var btn=document.getElementById('emailKit');if(btn){btn.disabled=true;btn.dataset.lbl=btn.innerHTML;btn.innerHTML='Sending…';}
+  var subj='Kit request — '+(c.company||(CFG.demo?c.email:CFG.client))+(c.name?' — '+c.name:'')+(CFG.demo?' (demo store)':'');
+  demoLead(c);
+  var payload={name:c.name||'(not given)',email:c.email,company:c.company||(CFG.demo?'':CFG.client)||'',
+    _subject:subj,_template:'table',_captcha:'false',profit_report:profitReportText(),kit:body,
+    kit_link:location.href.split('#')[0].split('?')[0],
+    // The customer's own list as a link: open it to see exactly what they chose, and adopt it as
+    // that store's shortlist in one click rather than reconstructing it from the text.
+    their_list:shareListUrl()};
+  var done=false,fell=false;
+  function fail(){if(done||fell)return;fell=true;mailtoFallback(c,body,subj);}
+  var to=setTimeout(fail,9000);   // network stalls -> fallback, never leave them stuck
+
+  /* If they attached artwork, the request MUST go to the non-AJAX endpoint. Verified by sending both
+     ways and reading the delivered mail: /ajax/ accepts a multipart POST, answers {"success":"true"}
+     and silently DISCARDS the file -- the message arrives as single-part text/html with no attachment.
+     The plain endpoint delivers it as a real attachment. Its response is opaque under no-cors, so a
+     resolved request is the success signal; a rejection still falls back to the prefilled email. */
+  var _af=document.getElementById('coArt'),_file=(_af&&_af.files&&_af.files[0])||null;
+  if(_file){
+    var fd=new FormData();
+    Object.keys(payload).forEach(function(k){fd.append(k,payload[k]);});
+    fd.append('artwork_filename',_file.name);
+    fd.append('attachment',_file,_file.name);
+    fetch('https://formsubmit.co/'+JDP_EMAIL,{method:'POST',body:fd,mode:'no-cors'})
+      .then(function(){clearTimeout(to);if(fell)return;done=true;checkoutSuccess(c);})
+      .catch(function(){clearTimeout(to);fail();});
+    return;
+  }
+  fetch('https://formsubmit.co/ajax/'+JDP_EMAIL,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(payload)})
+    .then(function(r){return r.json().catch(function(){return {};});})
+    .then(function(j){clearTimeout(to);if(fell)return;done=true;
+      if(j&&String(j.success)==='true'){checkoutSuccess(c);}else{fail();}})
+    .catch(function(){clearTimeout(to);fail();});
+}
+function mailtoFallback(c,body,subj){
+  clipCopy(body);
+  var btn=document.getElementById('emailKit');if(btn){btn.disabled=false;btn.innerHTML=btn.dataset.lbl||'Send my list — get my quote <span class="ar">→</span>';}
+  var hint=document.getElementById('copyHint');if(hint)hint.innerHTML='<span>Opening your email — just hit send ✓</span><span>Didn’t open? Your list is copied — email '+JDP_EMAIL+'</span>';
+  window.location.href='mailto:'+JDP_EMAIL+'?subject='+encodeURIComponent(subj)+'&body='+encodeURIComponent(body);
+}
+function checkoutSuccess(c){
+  jdpTrack('sent',{n:cartCount()});
+  var first=c.name?c.name.split(' ')[0]:'';
+  if(/^[A-Za-z]\.$/.test(first))first=c.name;   /* "J. Smith", not "J." */
+  first=first?esc(first):'';
+  document.getElementById('cart').innerHTML=
+    '<div class="carth"><h2>Request sent</h2><button class="cartx" id="cartx" aria-label="Close">✕</button></div>'+
+    '<div class="citems"><div class="cosent"><div class="csent-ic">✓</div>'+
+      '<h3>Your list is on its way'+(first?', '+first:'')+'!</h3>'+
+      '<p>We’ve got your picks and will reply to <b>'+esc(c.email)+'</b> with your exact quote. No payment now — no obligation.</p>'+
+      trustReplyHtml()+
+      '<button class="checkout" id="sentdone">Keep browsing</button></div></div>';
+  document.getElementById('cartx').addEventListener('click',closeAll);
+  document.getElementById('sentdone').addEventListener('click',closeAll);
+}
+function copyKit(){
+  var c=contactVals();persistContact(c);var txt=orderText(c);clipCopy(txt);
+  var btn=document.getElementById('copyKit'),hint=document.getElementById('copyHint');
+  if(btn)btn.textContent='✓ Copied — paste it into your reply to us';
+  if(hint)hint.innerHTML='<span>Copied to your clipboard.</span><span>Paste (Ctrl/⌘+V) into your reply, or email '+JDP_EMAIL+'</span>';
+}
+
+/* ---------- boot ---------- */
+function renderSkeleton(cfg){
+  var cards='';for(var i=0;i<8;i++){cards+='<div class="skcard"><div class="sk skimg"></div><div class="skb"><div class="sk skl1"></div><div class="sk skl2"></div><div class="sk skl3"></div></div></div>';}
+  document.getElementById('app').innerHTML=
+    '<header class="hdr"><div class="w hdrin"><span class="brand"><b>'+esc((cfg&&cfg.client)||'')+'</b><i>× Just Deals</i></span></div></header>'+
+    '<section class="hero"><div class="w heroin"><div class="eyb">Branded apparel · ready to order</div>'+
+      '<h1>'+esc(poss((cfg&&cfg.client)||'Your'))+" team store</h1>"+
+      '<p class="herosub">Loading your board…</p></div></section>'+
+    '<main class="w"><div class="menu">'+cards+'</div></main>';
+}
+// Keep the accent readable: a near-white / very light brand colour is invisible as text on the
+// white UI and washes out on accent buttons, so darken it toward a legible luminance (hue preserved).
+function safeAccent(hex){hex=(hex||'').replace('#','');if(hex.length<6)return '#'+(hex||'1d6fe0');
+  var r=parseInt(hex.slice(0,2),16),g=parseInt(hex.slice(2,4),16),b=parseInt(hex.slice(4,6),16);
+  var lum=0.299*r+0.587*g+0.114*b,guard=0;
+  while(lum>176&&guard++<12){r=Math.round(r*0.9);g=Math.round(g*0.9);b=Math.round(b*0.9);lum=0.299*r+0.587*g+0.114*b;}
+  function h(x){x=Math.max(0,Math.min(255,x)).toString(16);return x.length<2?'0'+x:x;}
+  return '#'+h(r)+h(g)+h(b);}
+function go(cfg){
+  CFG=cfg;
+  // SUPPRESS BLIND AUTO-SPLIT LOGO VARIANTS. The builder derives 'icon' and 'word' options by cutting
+  // the master at its widest horizontal/vertical gutter. That is a guess about brand structure, and it
+  // fails badly: on Facca Inc the cut put the company name in the piece labelled "Icon" and offered a
+  // "Wordmark" that is ONLY the tagline arc — a selectable mark with no company name on it. Across the
+  // fleet the same split produced 30.7:1 and 17.8:1 "wordmarks" (tagline strips and underlines).
+  // A customer must never be able to pick a meaningless fragment of their own brand, so we show only
+  // the verified full lockup. Set "allow_split_logos": true on a kit to opt back in, or supply real
+  // icon/wordmark files (any id other than 'icon'/'word' is always kept).
+  if(cfg.logos&&cfg.logos.length>1&&!cfg.allow_split_logos){
+    var keep=cfg.logos.filter(function(l){return l.id!=='icon'&&l.id!=='word';});
+    cfg.logos=keep.length?keep:[cfg.logos[0]];
+  }
+  if(cfg.accent)document.documentElement.style.setProperty('--a',safeAccent(cfg.accent));
+  document.title=(cfg.client||'Branded Apparel')+' — Team Store · Just Deals Promotions';
+  renderSkeleton(cfg);
+  // no-cache: always revalidate the shared catalogue so customers get the current products/photos
+  // (returns 304 when unchanged). Image URLs are versioned via CATVER below.
+  fetch((cfg.catalog_base||CATALOG_BASE)+'/catalog.json?v='+(cfg.ver||'1'),{cache:'no-cache'}).then(function(r){return r.json();}).then(function(cat){
+    CFG.catalog_base=cfg.catalog_base||CATALOG_BASE;CAT=cat;CATVER=cat.version||cat.v||'';
+    if(isUS()){cat.items=usFilterCatalogue(cat.items);document.documentElement.classList.add('mkt-us');}
+    /* a style added from a US price list carries ca:false until its Canadian vendor cost is in -- a Canadian
+       store never shows a product it cannot price */
+    else cat.items=(cat.items||[]).filter(function(it){return it.ca!==false;});
+    (cat.items||[]).forEach(function(it){BYKEY[it.key]=it;});
+    // Learn each logo's ink BEFORE first paint so garments render a thread colour that actually reads.
+    Promise.all((cfg.logos||[]).map(probeInk)).then(function(){
+      assignColourways();
+      SHARED=readSharedList();curateInit();loadCart();autoApplyShared();buildStore();jdpTrack('view',jdpViewCtx());
+      var _bm=location.search.match(/[?&]board=([^&#]+)/);
+      if(_bm){try{openBoard(decodeURIComponent(_bm[1]));}catch(e){}}
+      /* ?b=<slug> is the live-board link. The legacy ?list=... links stay working via SHARED, so
+         anything already emailed to a customer keeps opening. */
+      /* Every visit reconciles with the server, so a board made on any other device shows up here
+         without needing its link. */
+      syncBoardsFromServer();
+      var _lb=location.search.match(/[?&]b=([^&#]+)/);
+      if(_lb&&!/[?&]list=/.test(location.search)){
+        openSharedBoard(qdec(_lb[1])).then(function(found){
+          /* a frozen quote link opens on the document an approver signs, not on the board editor */
+          var _snap=/^(us-)?q-/.test(qdec(_lb[1]));
+          if(found&&(_snap||/[?&]quote=1/.test(location.search))){
+            var L=LISTS[ALID];if(L&&_snap){var m=String(L.name||'').match(/^Quote (.+)$/);if(m){L.qref=m[1];L.qsig=quoteSig();L.qsnap=qdec(_lb[1]);}}
+            openQuote(_snap?'approver':'link');}
+          else if(found)openBoard(ALID);
+          else toast('That board isn\u2019t available \u2014 it may have been renamed');});}refreshCartUI();if(curateOn())markCurCards();
+      /* A view link only makes sense when a board is not already taking over the screen. */
+      if(!/[?&](b|board)=/.test(location.search)){try{applyViewLink();}catch(e){}}
+      /* From here on, the address bar tracks the view. Not before -- see syncViewUrl. */
+      VURLOK=true;
+      // Deep link: /kits/<slug>/?item=<key> (or #item=<key>) opens straight to that product. This MUST
+      // run AFTER buildStore(). It used to fire synchronously, before the async ink probe resolved, so
+      // the sheet opened against an unbuilt store and was wiped by the first render -- every ?item=
+      // link, including every gift-set contents link, silently did nothing.
+      try{var m=(location.search.match(/[?&]item=([^&#]+)/)||location.hash.match(/item=([^&#]+)/));
+        if(m){var k=decodeURIComponent(m[1]);
+          var cm=(location.search.match(/[?&]c=([^&#]+)/)||location.hash.match(/[&#]c=([^&#]+)/));
+          if(BYKEY[k])openSheet(k,cm?decodeURIComponent(cm[1]):null);}}catch(e){}
+    });
+  }).catch(function(e){document.getElementById('app').innerHTML='<p style="padding:60px;text-align:center">Could not load the catalogue. Please refresh.</p>';});
+}
+var cel=document.getElementById('jdpcfg');
+if(cel){try{go(JSON.parse(cel.textContent));}catch(e){}}
+else{fetch('client.json?v='+Date.now()).then(function(r){return r.json();}).then(go).catch(function(){document.getElementById('app').innerHTML='<p style="padding:60px;text-align:center">Client config not found.</p>';});}
+})();
