@@ -4891,6 +4891,7 @@ function renderGridCore(){
   if(VIEW.sub!=='all'){var _sibs=subs.filter(function(s){return (BUCKETS[VIEW.cat][s]||[]).length;}),_ix=_sibs.indexOf(VIEW.sub),_nx=_sibs[_ix+1]||'';
     if(_sibs.length>1)hd.insertAdjacentHTML('beforeend','<div class="shelfnav" role="navigation" aria-label="Shelves in '+esc(shortCat(VIEW.cat))+'"><button type="button" class="snc snall" data-snall="1">All '+esc(shortCat(VIEW.cat))+' <i>'+TOTALS[VIEW.cat]+'</i></button>'+
         _sibs.map(function(s){var on=s===VIEW.sub;return '<button type="button" class="snc'+(on?' on':'')+'"'+(on?' aria-current="true"':' data-seesub="'+esc(s)+'"')+'>'+esc(s)+' <i>'+BUCKETS[VIEW.cat][s].length+'</i></button>';}).join('')+'</div>');
+    try{var _son=hd.querySelector('.shelfnav .snc.on');if(_son){var _sp=_son.parentNode;_sp.scrollLeft=Math.max(0,_son.offsetLeft-_sp.clientWidth/2+_son.clientWidth/2);}}catch(e){}
     inner=subGuideHtml(VIEW.sub)+
       '<div class="menu">'+fitOK(BUCKETS[VIEW.cat][VIEW.sub]||[]).map(menuCard).join('')+'</div>'+
       (_sibs.length>1?('<div class="shelfend"><button type="button" class="seback" data-snall="1"><span aria-hidden="true">\u2190</span> Back to all '+esc(shortCat(VIEW.cat))+'</button>'+
