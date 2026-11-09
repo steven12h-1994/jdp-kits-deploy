@@ -3715,7 +3715,7 @@ var CA_PIC={
 /* warmth questions carry a level meter: bars = position in the scale, never a temperature claim */
 var CA_METER={'jackets.warm':'Warmth','layers.warm':'Weight'};
 var CA_CUR_ADV='';
-function caStage(k){return '<span class="capic prod"><span class="capst">'+caThumb(k)+'</span><span class="capfl" aria-hidden="true"></span></span>';}
+function caStage(k){return '<span class="capic prod"><span class="capfl" aria-hidden="true"></span><span class="capst">'+caThumb(k)+'</span></span>';}
 function caPicsFor(q){var M=CA_PIC[CA_CUR_ADV+'.'+q.id];
   if(M&&q.opts&&q.opts.length){var ks=q.opts.map(function(o){var k=M[String(o.id)];return (k&&BYKEY[k])?k:'';});
     if(ks.every(function(k){return !!k;}))return ks.map(caStage);}
