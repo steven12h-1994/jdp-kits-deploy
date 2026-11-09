@@ -4502,32 +4502,96 @@ table.cmp{width:100%;border-collapse:separate;border-spacing:0;table-layout:fixe
 .cadv2 .carst,.cadv2 .caedt{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:#fff;border-radius:999px;padding:6px 13px;font:inherit;font-size:13px;font-weight:700;color:var(--ink);cursor:pointer}
 .cadv2 .carst:hover,.cadv2 .caedt:hover{border-color:var(--ink)}
 .cadv2 .carst span{font-size:15px;line-height:1}
-/* advisor answers as photo cards */
-.cadv2 .caopts.pics{grid-template-columns:repeat(auto-fill,minmax(min(100%,200px),1fr))!important;gap:14px!important}
-.cadv2 .caopts.pics.two{grid-template-columns:repeat(2,minmax(0,1fr))!important;max-width:620px}
-.cadv2 .caopts.pics.many{grid-template-columns:repeat(auto-fill,minmax(min(100%,172px),1fr))!important}
-.cadv2 .caopts.pics .caopt{flex-direction:column!important;align-items:stretch!important;padding:0!important;gap:0!important;overflow:hidden;min-height:0!important;border-radius:14px!important;background:#fff}
-.cadv2 .caopts.pics .caopt:hover{box-shadow:0 10px 26px -14px rgba(15,23,42,.35)!important;border-color:#c4c8cf!important}
-.cadv2 .caopts.pics .caopt.on{border-color:var(--a)!important;box-shadow:0 0 0 2px var(--a)!important}
-.capic{display:block;position:relative;aspect-ratio:4/3;overflow:hidden;background:#eef0f2}
-.capic.ppl img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:50% 4%;transition:transform .35s ease}
-.caopt:hover .capic.ppl img{transform:scale(1.035)}
-.capic.prod{display:flex;justify-content:center;background:#fff;border-bottom:1px solid #f0f1f3}
-.capst{position:relative;height:100%;aspect-ratio:1/1}
-.capst .g{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
-.capst .l{position:absolute;transform:translate(-50%,-50%);height:auto;max-width:none;pointer-events:none}
-.cadv2 .caopts.pics .caot{padding:12px 14px 14px;flex:1}
-.cadv2 .caopts.pics .caot b{font-size:15px}
-.cadv2 .caopts.pics .caok{position:absolute!important;top:10px;left:10px;z-index:2;box-shadow:0 1px 3px rgba(0,0,0,.25)}
-.cadv2 .caopts.pics .caopt.on .caot{background:color-mix(in srgb,var(--a) 6%,#fff)}
-@media(max-width:560px){
-  .cadv2 .caopts.pics,.cadv2 .caopts.pics.two,.cadv2 .caopts.pics.many{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important;max-width:none}
-  .capic{aspect-ratio:1/1}
-  .cadv2 .caopts.pics .caot{padding:9px 10px 11px}
-  .cadv2 .caopts.pics .caot b{font-size:13.5px}
-  .cadv2 .caopts.pics .caot i{font-size:11.5px}
-}
-
 /* bigger pick photos in the advisor result: the garment is the decision */
-.cpimg{width:108px!important;height:108px!important;border-radius:12px!important}
-@media(max-width:560px){.cpimg{width:80px!important;height:80px!important}}
+
+/* ===== ADVISOR v6 — enterprise visual system (2026-11-09) =====
+   One dark band (who we are, what you get, your logo on real gear) over a white working area; every answer is the
+   buyer's logo on a real garment on one shared stage; selection is unmistakable; the result reads like a proposal. */
+.xpert.cadv2{padding:0!important;overflow:hidden;border:1px solid #dfe3e8!important;border-radius:18px!important;background:#fff!important;box-shadow:0 1px 2px rgba(15,23,42,.04),0 12px 32px -18px rgba(15,23,42,.18)}
+.cadv2 .caband{position:relative;padding:22px 28px 22px;color:#fff;
+  background:radial-gradient(120% 160% at 100% 0%,color-mix(in srgb,var(--a) 55%,#0b1220) 0%,#0b1220 58%);}
+.cadv2 .caband .cahd{margin:0 0 4px!important}
+.cadv2 .caband .xpeyb{color:color-mix(in srgb,var(--a) 30%,#fff)!important;letter-spacing:.14em!important}
+.cadv2 .caband .castep{background:rgba(255,255,255,.12)!important;color:#fff!important;border:0!important}
+.cadv2 .caband .castep.done{background:rgba(255,255,255,.16)!important}
+.cadv2 .caband .carst,.cadv2 .caband .caedt{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.28);color:#fff}
+.cadv2 .caband .carst:hover,.cadv2 .caband .caedt:hover{background:rgba(255,255,255,.16);border-color:#fff}
+.cadv2 .caband .xph{color:#fff!important;font-size:27px!important;font-weight:750!important;letter-spacing:-.01em;margin:2px 0 6px!important}
+.cadv2 .caband .xpadv{color:rgba(255,255,255,.78)!important;font-size:15px;max-width:560px;margin:0}
+.cadv2 .cabandsub{margin:0;color:rgba(255,255,255,.78);font-size:14.5px}
+.caintro{display:flex;gap:28px;align-items:center;justify-content:space-between;margin-top:6px}
+.caintx{min-width:0;flex:1}
+.catrust{display:flex;flex-wrap:wrap;gap:8px 18px;margin:14px 0 0;padding:0;list-style:none}
+.catrust li{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;color:#fff}
+.catrust li:before{content:'';width:16px;height:16px;border-radius:50%;flex:none;
+  background:color-mix(in srgb,var(--a) 70%,#fff) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230b1220' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center/10px no-repeat}
+.caproof{flex:none;display:flex;flex-direction:column;align-items:center;gap:8px}
+.caprow{display:flex}
+.caprf{width:108px;height:108px;border-radius:14px;background:#fff;box-shadow:0 10px 24px -10px rgba(0,0,0,.55);overflow:hidden;position:relative;margin-left:-16px;border:2px solid rgba(255,255,255,.9)}
+.caprf:first-child{margin-left:0;transform:rotate(-4deg)}
+.caprf:nth-child(2){z-index:2;transform:translateY(-6px)}
+.caprf:nth-child(3){transform:rotate(4deg)}
+.caprf .capst{position:absolute;inset:6%}
+.capcap{font-size:11.5px;font-weight:600;color:rgba(255,255,255,.7);letter-spacing:.02em}
+.cadv2 .cainner{padding:20px 28px 24px}
+/* progress: a segmented track, answers shown under each step */
+.cadv2 .castepsb{gap:10px!important;margin:0 0 18px!important}
+.cadv2 .castepsb button{border:0!important;border-top:3px solid #e5e7eb!important;border-radius:0!important;padding:9px 2px 0!important;background:none!important;box-shadow:none!important}
+.cadv2 .castepsb li.now button{border-top-color:var(--ink)!important}
+.cadv2 .castepsb li.done button{border-top-color:var(--a)!important}
+.cadv2 .castepsb .csn{width:20px!important;height:20px!important;font-size:11px!important}
+.cadv2 .castepsb li.done .csn{background:var(--a)!important;color:#fff!important}
+.cadv2 .caq{font-size:21px!important;font-weight:700!important;margin:0 0 4px!important}
+/* answer cards */
+.cadv2 .caopts.pics{grid-template-columns:repeat(auto-fill,minmax(min(100%,196px),1fr))!important;gap:14px!important;margin-top:14px!important}
+.cadv2 .caopts.pics.two{grid-template-columns:repeat(2,minmax(0,1fr))!important;max-width:640px}
+.cadv2 .caopts.pics.many{grid-template-columns:repeat(auto-fill,minmax(min(100%,172px),1fr))!important}
+.cadv2 .caopts.pics .caopt{position:relative;flex-direction:column!important;align-items:stretch!important;padding:0!important;gap:0!important;min-height:0!important;
+  overflow:hidden;border:1px solid #dfe3e8!important;border-radius:14px!important;background:#fff;box-shadow:0 1px 2px rgba(15,23,42,.04)!important;
+  transition:transform .14s ease,box-shadow .14s ease,border-color .14s ease!important}
+.cadv2 .caopts.pics .caopt:hover{transform:translateY(-2px);border-color:#c3c9d2!important;box-shadow:0 14px 28px -16px rgba(15,23,42,.35)!important}
+.cadv2 .caopts.pics .caopt.on{border-color:var(--a)!important;box-shadow:0 0 0 2px var(--a),0 14px 28px -18px color-mix(in srgb,var(--a) 70%,transparent)!important}
+.capic{display:block;position:relative;aspect-ratio:5/4;overflow:hidden;
+  background:radial-gradient(70% 70% at 50% 42%,#fff 0%,#fff 38%,color-mix(in srgb,var(--a) 7%,#eef1f5) 100%)}
+.caopt.on .capic{background:radial-gradient(70% 70% at 50% 42%,#fff 0%,#fff 34%,color-mix(in srgb,var(--a) 16%,#eef1f5) 100%)}
+.capic .capst{position:absolute;top:7%;bottom:9%;left:50%;transform:translateX(-50%);aspect-ratio:1/1;z-index:1}
+.capst .g{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;mix-blend-mode:multiply}
+.capst .l{position:absolute;transform:translate(-50%,-50%);height:auto;max-width:none;pointer-events:none;filter:drop-shadow(0 .5px .5px rgba(0,0,0,.25))}
+.capfl{position:absolute;left:22%;right:22%;bottom:6%;height:10%;border-radius:50%;background:radial-gradient(closest-side,rgba(15,23,42,.18),transparent);z-index:0}
+.caopt:hover .capst{transform:translateX(-50%) scale(1.035);transition:transform .25s ease}
+.capic.ico{display:flex;align-items:center;justify-content:center;aspect-ratio:5/3}
+.capico{width:84px;height:84px;border-radius:22px;display:flex;align-items:center;justify-content:center;background:#fff;color:var(--a);box-shadow:0 8px 20px -12px rgba(15,23,42,.4)}
+.caopt.on .capico{background:var(--a);color:#fff}
+.cadv2 .caopts.pics .caot{padding:12px 14px 14px!important;flex:1;border-top:1px solid #eef0f3}
+.cadv2 .caopts.pics .caot b{font-size:15px!important;font-weight:700!important;color:var(--ink)!important}
+.cadv2 .caopts.pics .caot i{font-size:12.5px!important;color:var(--mut)!important;margin-top:3px}
+.cadv2 .caopts.pics .caopt.on .caot{background:color-mix(in srgb,var(--a) 5%,#fff)}
+.cadv2 .caopts.pics .caok{position:absolute!important;top:10px;left:auto!important;right:10px;z-index:3;width:24px!important;height:24px!important;box-shadow:0 1px 3px rgba(0,0,0,.18)}
+.cameter{display:flex;align-items:center;gap:8px;margin-top:9px}
+.camtl{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--mut)}
+.cambars{display:flex;gap:3px}
+.cambars i{width:16px;height:6px;border-radius:3px;background:#e5e7eb}
+.cambars i.on{background:var(--a)}
+/* footer: one clear primary action */
+.cadv2 .canav{margin-top:18px!important;padding-top:16px;border-top:1px solid #eef0f3}
+.cadv2 .canav .jaall{min-height:46px;padding:0 22px;border-radius:12px;font-weight:700}
+.cadv2 .canav .jaall:disabled{opacity:1!important;background:#eef0f3!important;color:#8a93a1!important;border-color:#eef0f3!important}
+/* result rows: real stage thumbnails, never over the text */
+.cprow{grid-template-columns:112px 1fr 150px 130px!important}
+.cprog:has(.cpkit) .cprow{grid-template-columns:112px 1fr 130px!important}
+.cpimg{width:112px!important;height:112px!important;border-radius:14px!important;border:1px solid #e5e7eb!important;
+  background:radial-gradient(70% 70% at 50% 42%,#fff 0%,#fff 40%,color-mix(in srgb,var(--a) 7%,#eef1f5) 100%)!important}
+.cpimg img.g{mix-blend-mode:multiply}
+@media(max-width:860px){.caproof{display:none}.cadv2 .caband{padding:20px 20px}.cadv2 .cainner{padding:18px 20px 20px}}
+@media(max-width:560px){
+  .cadv2 .caband{padding:18px 16px 18px}.cadv2 .cainner{padding:16px 14px 18px}
+  .cadv2 .caband .xph{font-size:21px!important}
+  .catrust{gap:6px 12px}.catrust li{font-size:12px}
+  .cadv2 .caopts.pics,.cadv2 .caopts.pics.two,.cadv2 .caopts.pics.many{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important;max-width:none}
+  .capic{aspect-ratio:1/1}.capic.ico{aspect-ratio:4/3}.capico{width:64px;height:64px;border-radius:18px}
+  .cadv2 .caopts.pics .caot{padding:10px 11px 12px!important}
+  .cadv2 .caopts.pics .caot b{font-size:14px!important}.cadv2 .caopts.pics .caot i{font-size:11.5px!important}
+  .cambars i{width:12px}
+  .cprow,.cprog:has(.cpkit) .cprow{grid-template-columns:84px 1fr!important}
+  .cpimg{width:84px!important;height:84px!important}
+}

@@ -3682,46 +3682,58 @@ function caCompareHtml(cfg,A,x){var base=caBaseOf(cfg,A,x.role)||x;if(!base||bas
    the maker shot it on a model, otherwise the garment itself with the buyer's own logo on it. A question shows photos
    only when every one of its answers has one, so a row never mixes photos with icons. */
 var CA_PIC={
-  'jackets.who':{office:'cbc_stealth_jacket',drivers:'st_nostromo',warehouse:'st_steelhead',outdoor:'st_magellan'},
-  'jackets.warm':{1:'st_pacifica',2:'cq_tempest',3:'st_tundrajkt',4:'st_denali'},
+  /* ADVISOR v6 (Steven, 2026-11-09: "the visuals on the advisor are terrible ... make it enterprise level"). Every answer is
+     the buyer's OWN logo on a real garment, on one shared stage. Flat product shots only -- studio models in mixed
+     lighting read as a fashion catalogue, not a uniform program, and they carried no logo. Each role gets a garment
+     whose silhouette says the job (a tailored softshell, a cab-friendly thermal, a work bomber, a hooded 3-in-1). */
+  'jackets.who':{office:'st_cruise',drivers:'st_nostromo',warehouse:'cs_l01110',outdoor:'st_vortex'},
+  'jackets.warm':{1:'st_pacifica',2:'softshell',3:'st_tundrajkt',4:'st_denali'},
   'jackets.rain':{0:'st_orbiter',1:'st_vertex'},
-  'tops.who':{office:'cbc_advantage_polo',mixed:'cq_spin_polo',outdoor:'st_equinoxtee',events:'cq_charge_tee'},
-  'tops.look':{polo:'cbc_prospect_polo',tee:'st_stockton_ss',woven:'cbc_skyline_shirt'},
+  'jackets.work':{gen:'cs_l03400',abr:'cs_l01055',canvas:'cs_l00910',frz:'cs_l01025'},
+  'tops.who':{office:'st_nevadass',mixed:'st_apollo',outdoor:'st_equinoxtee',events:'crewtee'},
+  'tops.look':{polo:'st_monterey',tee:'st_stockton_ss',woven:'shirt'},
+  'tops.twash':{home:'shirt',ind:'rk_sp24'},
   'hivis.who':{road:'tvest',site:'tee',yard:'cs_l01150',night:'tj3',visit:'rk_vyv6'},
   'hivis.kind':{vest:'tvest',tee:'tee',layer:'hoodie',jacket:'tj3'},
   'hivis.snag':{1:'tvest',0:'surveyor'},
   'hivis.season':{hot:'tt1',mild:'hoodie',cold:'tp1',wet:'rain'},
-  'layers.who':{office:'cbc_coastline_qz',mixed:'st_stocktonhoody',outdoor:'st_dockyard',gift:'cbc_mainsail_fz'},
-  'layers.style':{auto:'cbc_traverse_qz',qz:'cbc_traverse_qz',hood:'st_avalantehoody',fz:'st_treelinefz',crew:'st_monasheecrew'},
-  'layers.warm':{1:'cbc_coastline_qz',2:'st_ashburn',3:'st_monasheefz'},
-  'layers.outer':{0:'st_montereyqz',1:'cbc_roam_hoodie'},
-  'vests.who':{office:'cbc_evoke_vest',mixed:'cq_trail_vest',outdoor:'st_sierrathermalvest',gift:'cbc_charter_vest'},
+  'layers.who':{office:'st_montereyqz',mixed:'st_stocktonhoody',outdoor:'st_dockyard',gift:'st_monasheefz'},
+  'layers.style':{auto:'st_treeline',qz:'st_montereyqz',hood:'st_stocktonhoody',fz:'st_treelinefz',crew:'st_monasheecrew'},
+  'layers.warm':{1:'st_montereyqz',2:'st_ashburn',3:'st_monasheefz'},
+  'layers.outer':{0:'st_montereyqz',1:'st_dockyard'},
+  'vests.who':{office:'st_avalantevest',mixed:'vest',outdoor:'st_sierrathermalvest',gift:'st_stavangervest'},
   'vests.worn':{'in':'st_avalantevest',over:'st_cascadesvest',cold:'st_stavangervest'},
+  'vests.vwork':{gen:'vest',abr:'cs_l00915',frz:'cs_l01040'},
   'headwear.use':{sun:'st_summitcap',cold:'st_avalantebeanie',year:'st_steelheadcap'},
   'headwear.look':{struct:'at_skye',soft:'at_dadhat',trucker:'at_sonic',perf:'at_recyfive'},
-  'pants.who':{light:'cbc_bainbridge_pant',shop:'rk_pt2a',trades:'ff_rippant'},
+  'pants.who':{light:'dk_874x',shop:'rk_pt2a',trades:'ff_rippant'},
   'pants.cargo':{1:'rk_pt88',0:'dk_874x'},
   'fr.who':{elec:'ff_frshirt',oil:'ff_frcoverall',hot:'ff_frcotcov',cold:'ff_freureka'},
   'fr.kind':{shirt:'ff_frshirt',layer:'ff_frhoodie',outer:'ff_frcoverall6',pants:'ff_frpant'},
   'fr.hv':{1:'ff_frvest',0:'ff_frcoverall'},
-  'golf.occ':{host:'cbc_prospect_polo',team:'cbc_peshastin_hz',staff:'cq_spin_polo'},
-  'golf.wx':{warm:'cbc_coastline_polo',cool:'cbc_adapt_heather_qz'}};
+  'golf.wx':{warm:'st_nevadass',cool:'st_montereyqz'}};
+/* warmth questions carry a level meter: bars = position in the scale, never a temperature claim */
+var CA_METER={'jackets.warm':'Warmth','layers.warm':'Weight'};
 var CA_CUR_ADV='';
-function caPeople(it,women){var g=(it&&it.gallery)||[],m=g.filter(function(f){return /__(w_)?(worn|mdl)\d/.test(f);});
-  var w=m.filter(function(f){return /__w_/.test(f);}),mm=m.filter(function(f){return !/__w_/.test(f);});
-  return (women?(w[0]||mm[0]):(mm[0]||w[0]))||'';}
-function caPicsFor(q){var M=CA_PIC[CA_CUR_ADV+'.'+q.id];if(!M||!q.opts||!q.opts.length)return null;
-  var ks=q.opts.map(function(o){var k=M[String(o.id)];return (k&&BYKEY[k])?k:'';});if(ks.some(function(k){return !k;}))return null;
-  var ppl=ks.every(function(k){return !!caPeople(BYKEY[k]);});
-  return ks.map(function(k,j){var it=BYKEY[k];
-    if(ppl)return '<span class="capic ppl"><img src="'+gurl(caPeople(it,j%2===1))+'" alt="" loading="lazy" decoding="async"></span>';
-    return '<span class="capic prod"><span class="capst">'+caThumb(k)+'</span></span>';});}
+function caStage(k){return '<span class="capic prod"><span class="capst">'+caThumb(k)+'</span><span class="capfl" aria-hidden="true"></span></span>';}
+function caPicsFor(q){var M=CA_PIC[CA_CUR_ADV+'.'+q.id];
+  if(M&&q.opts&&q.opts.length){var ks=q.opts.map(function(o){var k=M[String(o.id)];return (k&&BYKEY[k])?k:'';});
+    if(ks.every(function(k){return !!k;}))return ks.map(caStage);}
+  /* no garment for every answer: the same stage, carrying the answer's pictogram, so every question looks alike */
+  return q.opts.map(function(o){return '<span class="capic ico"><span class="capico">'+caSvg(caIcoKey(q,o),44)+'</span></span>';});}
+function caMeterHtml(q,j){var lab=CA_METER[CA_CUR_ADV+'.'+q.id];if(!lab)return '';var n=q.opts.length,b='';
+  for(var x=0;x<n;x++)b+='<i'+(x<=j?' class="on"':'')+'></i>';
+  return '<span class="cameter"><span class="camtl">'+esc(lab)+'</span><span class="cambars">'+b+'</span></span>';}
+function caProofHtml(cfg){var qs=cfg.qs||[],q=qs[0];if(!q)return '';var M=CA_PIC[cfg.id+'.'+q.id];if(!M)return '';
+  var ks=[];Object.keys(M).forEach(function(o){var k=M[o];if(k&&BYKEY[k]&&ks.indexOf(k)<0)ks.push(k);});ks=ks.slice(0,3);if(ks.length<2)return '';
+  return '<div class="caproof" aria-hidden="true"><div class="caprow">'+ks.map(function(k){return '<span class="caprf"><span class="capst">'+caThumb(k)+'</span></span>';}).join('')+'</div>'+
+    '<span class="capcap">Every pick shown with your logo</span></div>';}
 function caOptHtml(q,A){var multi=!!q.multi,cur=A[q.id],_pics=caPicsFor(q),_j=0;
   return '<div class="caopts'+(_pics?' pics':'')+(q.cls?(' '+q.cls):'')+(q.opts.length>4?' many':'')+(q.opts.length<=2?' two':'')+(multi?' multi':' single')+'" role="'+(multi?'group':'radiogroup')+'" aria-label="'+esc(q.q)+'">'+q.opts.map(function(o){var v=String(o.id),on=multi?((cur||[]).indexOf(v)>=0):(cur!=null&&cur!==''&&String(cur)===v);
     return '<button type="button" class="caopt'+(on?' on':'')+'" data-ca="'+esc(q.id)+'" data-v="'+esc(v)+'" role="'+(multi?'checkbox':'radio')+'" aria-checked="'+on+'">'+
       '<span class="caok" aria-hidden="true"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>'+
-      (_pics?_pics[_j++]:('<span class="caoi">'+caSvg(caIcoKey(q,o))+'</span>'))+
-      '<span class="caot"><b>'+esc(o.lab)+'</b>'+(o.sub?('<i>'+esc(o.sub)+'</i>'):'')+'</span></button>';}).join('')+'</div>';}
+      (_pics?_pics[_j]:('<span class="caoi">'+caSvg(caIcoKey(q,o))+'</span>'))+
+      '<span class="caot"><b>'+esc(o.lab)+'</b>'+(o.sub?('<i>'+esc(o.sub)+'</i>'):'')+caMeterHtml(q,_j++)+'</span></button>';}).join('')+'</div>';}
 /* the step bar: every question is a tab; answered ones show the answer and can be reopened in one tap */
 function caStepsHtml(cfg,A,qs,i){return '<ol class="castepsb">'+qs.map(function(q,j){var v=A[q.id],ans=q.multi?(v||[]).map(function(z){return caAnsLab(q,z);}).join(', '):caAnsLab(q,v),done=!!ans;
   return '<li class="'+(j===i?'now':(done?'done':''))+'"><button type="button" data-cago="'+j+'"'+(j>i&&!done&&!(j===i+1&&false)?' disabled':'')+'><span class="csn">'+(done&&j!==i?'✓':(j+1))+'</span><span class="cst"><b>'+esc(q.short||q.q)+'</b>'+(ans?('<i>'+esc(ans)+'</i>'):'')+'</span></button></li>';}).join('')+'</ol>';}
@@ -3891,9 +3903,10 @@ function renderCatAdvisor(el,cfg){
     var dflt=q.def!=null?(q.opts.filter(function(o){return String(o.id)===String(q.def);})[0]||null):null;
     var nmx=caQmax(cfg,A);
     var _any=caAllQs(cfg,A).some(function(qq){var v=A[qq.id];return qq.multi?((v||[]).length>0):(v!=null&&v!=='');});
-    body=head+'<span class="cahdr">'+(_any?'<button type="button" class="carst" data-careset="1" title="Clear every answer and start again"><span aria-hidden="true">\u21ba</span> Start over</button>':'')+'<span class="castep">'+(i+1)+' of '+Math.max(n,nmx)+'</span></span></div>'+
-      ((i===0||A._fresh)?('<h3 class="xph">'+esc(cfg.h)+'</h3><p class="xpadv">'+esc(caQword(cfg,A))+' quick question'+(Math.max(n,nmx)>1?'s':'')+', then a recommended program'+(cfg.roles?' for your kit':(cfg.who?' for each group':''))+' — priced for your headcount, with your logo on it.</p>'):'')+
-      caStepsHtml(cfg,A,qs,i)+
+    body='<div class="caband">'+head+'<span class="cahdr">'+(_any?'<button type="button" class="carst" data-careset="1" title="Clear every answer and start again"><span aria-hidden="true">\u21ba</span> Start over</button>':'')+'<span class="castep">'+(i+1)+' of '+Math.max(n,nmx)+'</span></span></div>'+
+      ((i===0||A._fresh)?('<div class="caintro"><div class="caintx"><h3 class="xph">'+esc(cfg.h)+'</h3><p class="xpadv">'+esc(caQword(cfg,A))+' quick question'+(Math.max(n,nmx)>1?'s':'')+', then a recommended program'+(cfg.roles?' for your kit':(cfg.who?' for each group':''))+' — priced for your headcount, with your logo on it.</p>'+
+        '<ul class="catrust"><li>Your logo on every pick</li><li>Priced at your headcount</li><li>Free digital proof before anything is made</li></ul></div>'+caProofHtml(cfg)+'</div>'):'')+
+      '</div><div class="cainner">'+caStepsHtml(cfg,A,qs,i)+
       '<h3 class="caq">'+esc(q.q)+'</h3>'+(q.hint||q.multi?('<p class="caqh">'+esc(q.multi?(q.preHint||'Select every group that applies — each gets its own pick. Tap again to remove one.'):q.hint)+'</p>'):'')+
       (q.multi?('<div class="camulti"><span class="cacount" data-cacount="1">'+((A[q.id]||[]).length?((A[q.id]||[]).length+' selected'):'None selected yet')+'</span>'+
         '<button type="button" class="jalink" data-casall="'+esc(q.id)+'">Select all</button><button type="button" class="jalink" data-caclr="'+esc(q.id)+'"'+((A[q.id]||[]).length?'':' hidden')+'>Clear</button></div>'):'')+
@@ -3901,14 +3914,15 @@ function renderCatAdvisor(el,cfg){
       '<div class="canav">'+(i>0?'<button type="button" class="jalink" data-cago="'+(i-1)+'">← Back</button>':'<button type="button" class="jalink" data-caask="1">Rather talk it through? Ask Steven</button>')+
         (dflt&&!answered?('<button type="button" class="jalink caskip" data-caskip="'+esc(q.id)+'">Not sure? We’ll assume “'+esc(dflt.lab)+'”</button>'):'')+
         (q.multi?('<button type="button" class="jaall" data-cago="'+(i+1)+'"'+(answered?'':' disabled')+'>'+(i+1>=n?'See my program →':'Continue →')+'</button>'):
-          (answered?(ready&&i+1>=n?'<button type="button" class="jaall" data-cares="1">See my program →</button>':'<button type="button" class="jaall" data-cago="'+(i+1)+'">Next →</button>'):''))+'</div>';
+          (answered?(ready&&i+1>=n?'<button type="button" class="jaall" data-cares="1">See my program →</button>':'<button type="button" class="jaall" data-cago="'+(i+1)+'">Next →</button>'):''))+'</div></div>';
   }else{
     P=caLabelled(cfg,A);
     var ok=P.filter(function(x){return !x.none;}),nS=caPool(cfg,A).length;
     /* one group: the comparison IS the decision, so it starts open */
     if(A._open===undefined&&ok.length===1&&(ok[0].alts||[]).length)A._open=ok[0].role;
-    body=head+'<span class="cahdr"><button type="button" class="caedt" data-caedit="*">Edit answers</button><button type="button" class="carst" data-careset="1" title="Clear every answer and start again"><span aria-hidden="true">\u21ba</span> Start over</button><span class="castep done">✓ Recommended program</span></span></div>'+
-      '<h3 class="xph">'+(cfg.roles?('Your golf kit — '+ok.length+' piece'+(ok.length===1?'':'s')):(ok.length>1?('Your '+esc(cfg.noun)+' program — '+ok.length+' groups'):('Our recommendation')))+'</h3>'+
+    var _T=caTotals(cfg,A,P);
+    body='<div class="caband res">'+head+'<span class="cahdr"><button type="button" class="caedt" data-caedit="*">Edit answers</button><button type="button" class="carst" data-careset="1" title="Clear every answer and start again"><span aria-hidden="true">\u21ba</span> Start over</button><span class="castep done">✓ Recommended program</span></span></div>'+
+      '<h3 class="xph">'+(cfg.roles?('Your golf kit — '+ok.length+' piece'+(ok.length===1?'':'s')):(ok.length>1?('Your '+esc(cfg.noun)+' program — '+ok.length+' groups'):('Our recommendation')))+'</h3>'+(ok.length?('<p class="cabandsub">'+_T.n+' pieces · '+money(_T.t)+' estimate · your logo included</p>'):'')+'</div><div class="cainner">'+
       '<div class="casum"><span class="casuml">Picked for</span>'+caAllQs(cfg,A).map(function(qq){var v=A[qq.id],t=qq.multi?(v||[]).map(function(z){return caAnsLab(qq,z);}).join(', '):caAnsLab(qq,v),as=caHidden(cfg,A,qq);
           return t?('<button type="button" class="casumc'+(as?' as':'')+'" data-caedit="'+esc(qq.id)+'" title="'+(as?'We assumed this — tap to change':'Change: '+esc(qq.q))+'">'+esc(t)+' <span aria-hidden="true">✎</span></button>'):'';}).join('')+
         '<span class="casumh">Tap any answer to change it.</span></div>'+
@@ -3920,7 +3934,7 @@ function renderCatAdvisor(el,cfg){
       '<p class="cacmp">'+(ok.some(function(x){return x.cur;})?('Hand-picked by our team from the '+nS+' '+esc(cfg.noun)+' in this store for exactly these answers.'):('Chosen from the '+nS+' '+esc(cfg.noun2||cfg.noun)+' in this store that fit what you’re buying, against your answers — fabric, fit, sizes and how they’re built for the job.'))+
         (cfg.note?(function(){try{var t=cfg.note(A);return t?(' '+t):'';}catch(e){return '';}})():'')+'</p>'+
       ((cfg.tips&&cfg.tips(A).length)?('<details class="catips"><summary>What our team would tell you before you order</summary><ul>'+cfg.tips(A).map(function(t){return '<li>'+esc(t)+'</li>';}).join('')+'</ul></details>'):'')+
-      '<div class="cabarl cpreset"><button type="button" class="jalink" data-careset="1">Start over</button></div>';
+      '<div class="cabarl cpreset"><button type="button" class="jalink" data-careset="1">Start over</button></div></div>';
   }
   el.innerHTML='<section class="xpert cadv2 m-'+mode+'" aria-label="'+esc(cfg.label)+'">'+body+'</section>';
   try{wireAdvGo(el);}catch(e){}
