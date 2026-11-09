@@ -3614,14 +3614,14 @@ var CA_TILE_ICO={outerwear:'jacket',tops:'polo',layers:'zip',vests:'vest',hivis:
 function caHubTiles(cls){return caCats().map(function(c){var g=caCfgFor(c),img=catTileImg(c),A=g?caSt(g.id):{},nq=g?caQs(g,A).length:0,q0=g?((g.tile||(g.qs&&g.qs[0]&&g.qs[0].q)||'')):'',done=g&&caReady(g,A);
     return '<button type="button" class="ahtile '+(cls||'')+'" data-advgo="'+esc(c)+'">'+
       '<span class="ahimg">'+(img?('<img src="'+img+'" alt="" loading="lazy">'):caSvg(CA_TILE_ICO[c]||'spark',34))+'</span>'+
-      '<span class="ahtx"><b>'+esc(shortCat(c))+'</b><i>'+esc(done?'Your picks are ready — tap to see them':q0)+'</i>'+(done?'':('<em class="ahq">'+nwords(nq)+' question'+(nq>1?'s':'')+' · 20 sec</em>'))+'</span>'+
+      '<span class="ahtx"><b>'+esc(shortCat(c))+'</b><i>'+esc(done?'Your picks are ready — tap to see them':q0)+'</i>'+(done?'':('<em class="ahq">'+(nq?(nwords(nq)+' question'+(nq>1?'s':'')+' · 10 sec'):'Picks ready, no questions')+'</em>'))+'</span>'+
       '<span class="ahgo">'+(done?'See picks':'Start')+' <span aria-hidden="true">→</span></span></button>';}).join('');}
 function wireAdvGo(root){(root||document).querySelectorAll('[data-advgo]').forEach(function(b){if(b.dataset.w)return;b.dataset.w='1';
   b.addEventListener('click',function(){advGo(b.dataset.advgo,b.dataset.src||(b.closest('.advhub')?'hub':(b.closest('.advpick')?'rail':'grid')));});});}
 /* the rail's Advisor button opens this: every advisor, one tap from anywhere */
 function openAdvPicker(){closeAdvPicker();var d=document.createElement('div');d.className='advpick';d.id='advPick';d.setAttribute('role','dialog');d.setAttribute('aria-label','Advisor');
   d.innerHTML='<div class="apscrim" data-apx="1"></div><div class="appanel"><div class="aphd"><span class="ahey">'+caSvg('spark',16)+' Advisor</span><button type="button" class="apx" data-apx="1" aria-label="Close">&times;</button></div>'+
-    '<h3>What are you choosing?</h3><p>Answer two or three one-tap questions about your team. We’ll show the piece we’d pick — with your logo on it and the reasons — plus a lower-cost and a premium option.</p>'+
+    '<h3>What are you choosing?</h3><p>One or two taps about your team. We’ll show the piece we’d pick — with your logo on it and the reasons — plus a lower-cost and a premium option.</p>'+
     '<div class="ahtiles">'+caHubTiles('sm')+'</div></div>';
   document.body.appendChild(d);wireAdvGo(d);d.querySelectorAll('[data-apx]').forEach(function(x){x.addEventListener('click',closeAdvPicker);});
   document.addEventListener('keydown',caEsc);jdpTrack('adv_pick');setTimeout(function(){d.classList.add('on');},10);}
@@ -3631,7 +3631,7 @@ function closeAdvPicker(){var d=document.getElementById('advPick');if(d)d.remove
 function caNudgeHtml(){var c=VIEW.cat;if(!c||VIEW.q)return '';var g=caCfgFor(c);if(!g)return '';var A=caSt(g.id);if(caReady(g,A)&&A._m==='res')return '';
   var n=caQs(g,A).length;
   return '<button type="button" class="canudge" data-advgo="'+esc(c)+'" data-src="grid"><span class="cani">'+caSvg('spark',22)+'</span>'+
-    '<b>Not sure which one?</b><i>'+nwords(n)+' quick question'+(n>1?'s':'')+' and we’ll pick the right '+esc(g.one||'piece')+' for your team — shown with your logo.</i>'+
+    '<b>Not sure which one?</b><i>'+(n?(nwords(n)+' quick question'+(n>1?'s':'')+' and we’ll pick'):'We’ve already picked')+' the right '+esc(g.one||'piece')+' for your team — shown with your logo.</i>'+
     '<span class="cango">Get my pick <span aria-hidden="true">→</span></span></button>';}
 /* golf: the extras we source rather than stock */
 function golfIntroHtml(){return '<div class="golfx"><div><b>Tournament extras, sourced for you</b><span>Logo golf balls · towels · umbrellas · tee packs · divot tools · scorecard holders. Not in the store — tell us what you need and we’ll source and price it with your apparel.</span></div>'+
@@ -3719,7 +3719,7 @@ function renderCatAdvisor(el,cfg){
   var A=caSt(cfg.id);
   if(cfg.preset)try{cfg.preset(A,VIEW.cat,VIEW.sub);}catch(e){}
   var qs=caQs(cfg,A),ready=caReady(cfg,A),n=qs.length;
-  var mode=A._m||(ready?'res':'q');if(mode==='intro')mode='q';if(mode==='res'&&!ready)mode='q';
+  var mode=A._m||(ready?'res':'q');if(mode==='intro')mode='q';if(mode==='res'&&!ready)mode='q';if(!n)mode='res';
   var i=Math.max(0,Math.min(n-1,A._i||0));
   if(mode==='q'&&A._i==null){var f0=caFirstOpen(qs,A);if(f0>0){i=f0;A._fresh=1;}}
   var head='<div class="cahd"><span class="xpeyb">'+esc(cfg.label)+'</span>';
@@ -3745,10 +3745,10 @@ function renderCatAdvisor(el,cfg){
     if(A._open===undefined&&ok.length===1&&(ok[0].alts||[]).length)A._open=ok[0].role;
     body=head+'<span class="castep done">✓ Recommended program</span></div>'+
       '<h3 class="xph">'+(cfg.roles?('Your golf kit — '+ok.length+' piece'+(ok.length===1?'':'s')):(ok.length>1?('Your '+esc(cfg.noun)+' program — '+ok.length+' groups'):('Our recommendation')))+'</h3>'+
-      '<div class="casum"><span class="casuml">Based on</span>'+caQs(cfg,A).map(function(qq,j){var v=A[qq.id],t=qq.multi?(v||[]).map(function(z){return caAnsLab(qq,z);}).join(', '):caAnsLab(qq,v);
-          return t?('<button type="button" class="casumc" data-cago="'+j+'" title="Change: '+esc(qq.q)+'">'+esc(t)+' <span aria-hidden="true">✎</span></button>'):'';}).join('')+
-        '<button type="button" class="jalink" data-cago="0">Change answers</button></div>'+
-      (cfg.toggles?('<div class="catog">'+cfg.toggles.map(function(g){var on=A[g.id]==='1';
+      '<div class="casum"><span class="casuml">Picked for</span>'+caAllQs(cfg,A).map(function(qq){var v=A[qq.id],t=qq.multi?(v||[]).map(function(z){return caAnsLab(qq,z);}).join(', '):caAnsLab(qq,v),as=caHidden(cfg,A,qq);
+          return t?('<button type="button" class="casumc'+(as?' as':'')+'" data-caedit="'+esc(qq.id)+'" title="'+(as?'We assumed this — tap to change':'Change: '+esc(qq.q))+'">'+esc(t)+' <span aria-hidden="true">✎</span></button>'):'';}).join('')+
+        '<span class="casumh">Not right? Tap any to change.</span></div>'+
+      (caTogs(cfg,A).length?('<div class="catog">'+caTogs(cfg,A).map(function(g){var on=A[g.id]==='1';
         return '<button type="button" class="catgl'+(on?' on':'')+'" data-catog="'+esc(g.id)+'" aria-pressed="'+on+'"><span class="catsw" aria-hidden="true"></span><b>'+esc(g.lab)+'</b><i>'+esc(g.sub)+'</i></button>';}).join('')+'</div>'):'')+
       caProgHtml(cfg,A,P)+
       caTakeHtml(cfg,A,P,true)+
@@ -3784,6 +3784,8 @@ function caClick(e,el,cfg){
   var b=e.target.closest('button,[data-xpopen]');if(!b||!el.contains(b))return;var d=b.dataset,A=caSt(cfg.id);if(A._fresh)delete A._fresh;
   if(d.advgo!=null)return;
   if(d.cafr!=null){jdpTrack('ca_fr',{c:cfg.id});setCat('fr',true);return;}
+  if(d.caedit!=null){A._show=A._show||{};var al=caAllQs(cfg,A);if(d.caedit==='*')al.forEach(function(q){A._show[q.id]=1;});else A._show[d.caedit]=1;
+    var LE=caQs(cfg,A),ke=0;LE.forEach(function(q,j){if(q.id===d.caedit)ke=j;});A._m='q';A._i=ke;CA_PICK={};jdpTrack('ca_edit',{c:cfg.id,q:d.caedit});caSave();renderCatAdvisor(el,cfg);caScrollIn(el);return;}
   var re=function(){caSave();renderCatAdvisor(el,cfg);};
   if(d.ca!=null){var nq=d.ca,v=d.v,L=caQs(cfg,A),qd=L.filter(function(x){return x.id===nq;})[0]||{};CA_PICK={};
     if(qd.multi){if(nq==='who')A._whoUser=1;var l=A[nq]=(A[nq]||[]).slice(),k=l.indexOf(v);if(k>=0)l.splice(k,1);else l.push(v);caSave();if(!CA_ST1[cfg.id]){CA_ST1[cfg.id]=1;jdpTrack('ca_start',{c:cfg.id});}jdpTrack('ca_q',{c:cfg.id,q:nq,v:v});
@@ -3805,7 +3807,7 @@ function caClick(e,el,cfg){
     var L3=caQs(cfg,A),nx=L3.indexOf(qd2)+1;if(nx>=L3.length){A._m='res';A._shown=0;}else{A._m='q';A._i=nx;}re();caScrollIn(el);return;}
   if(d.cago!=null){var t=+d.cago,L4=caQs(cfg,A);if(t>=L4.length){A._m='res';A._shown=0;jdpTrack('ca_done',{c:cfg.id});}else{A._m='q';A._i=t;}re();caScrollIn(el);return;}
   if(d.cares!=null){A._m='res';A._shown=0;re();caScrollIn(el);return;}
-  if(d.careset!=null){CA[cfg.id]={_m:'q',_i:0};CA_PICK={};caSave();jdpTrack('ca_reset',{c:cfg.id});renderCatAdvisor(el,cfg);caScrollIn(el);return;}
+  if(d.careset!=null){var sh={};caAllQs(cfg,A).forEach(function(q){sh[q.id]=1;});CA[cfg.id]={_m:'q',_i:0,_show:sh};CA_PICK={};caSave();jdpTrack('ca_reset',{c:cfg.id});renderCatAdvisor(el,cfg);caScrollIn(el);return;}
   if(d.caq!=null){var pp=d.caq.split('|'),role=pp[0],step=+pp[1],cur=caQtyOf(cfg,A,role);caSetQty(el,cfg,A,role,cur+step);return;}
   if(d.cadet!=null){var r=d.cadet,box=el.querySelector('[data-detail="'+r+'"]');if(!box)return;var open=box.hidden;
     if(open&&!box.innerHTML){var x=caLabelled(cfg,A).filter(function(y){return y.role===r;})[0];if(x&&!x.none)box.innerHTML=caCompareHtml(cfg,A,x);}
@@ -3813,7 +3815,7 @@ function caClick(e,el,cfg){
     var nb=(caBaseOf(cfg,A,r)||{alts:[]}).alts.length+1;b.innerHTML=(open?'Hide comparison':('Compare '+nb+' options'))+' <span aria-hidden="true">'+(open?'▴':'▾')+'</span>';if(open)jdpTrack('ca_det',{c:cfg.id,r:r});return;}
   if(d.caswap!=null){var p=d.caswap.split('|'),grp=caLabelled(cfg,A).filter(function(x){return !x.none&&x.roles.indexOf(p[0])>=0;})[0];
     (grp?grp.roles:[p[0]]).forEach(function(rr){CA_PICK[cfg.id+'.'+rr]=p[1];});A._open=p[0];jdpTrack('ca_swap',{c:cfg.id,k:p[1]});re();return;}
-  if(d.catog!=null){var tg=d.catog;A[tg]=A[tg]==='1'?'':'1';CA_PICK={};jdpTrack('ca_q',{c:cfg.id,q:tg,v:A[tg]||'0'});re();return;}
+  if(d.catog!=null){var tg=d.catog;A[tg]=A[tg]==='1'?'':'1';if(tg==='fr')caIcpSet('fr',A[tg]);CA_PICK={};jdpTrack('ca_q',{c:cfg.id,q:tg,v:A[tg]||'0'});re();return;}
   if(d.cacol!=null){var c2=d.cacol.split('|'),k2=c2[0],col=c2.slice(1).join('|');CA_COL[k2]=col;jdpTrack('ca_col',{c:cfg.id,k:k2});
     var card=b.closest('.cam');if(card){var im=card.querySelector('.camimg');if(im)im.innerHTML=caThumb(k2,col)+'<span class="camlogo">Shown with your logo</span>';
       card.querySelectorAll('[data-cacol]').forEach(function(x){x.classList.toggle('on',x===b);});var cl=card.querySelector('[data-cacur]');if(cl)cl.textContent=col;}
@@ -3832,7 +3834,7 @@ function caAddProgram(cfg,A){var L=caLoadProgram(cfg,A),P=L.P,tot=L.tot;jdpTrack
 function caAsk(cfg,A){jdpTrack('xp_ask',{c:cfg.id});openSourcing('');
   var nt=document.getElementById('coNote');if(nt&&!nt.value){
     var lines=['Please review this '+cfg.noun+' program for our team.'];
-    caQs(cfg,A).forEach(function(x){var v=A[x.id];if(v==null||v===''||(x.multi&&!(v||[]).length))return;lines.push(x.q+': '+(x.multi?(v||[]).map(function(z){return caAnsLab(x,z);}).join(', '):caAnsLab(x,v)));});
+    caAllQs(cfg,A).forEach(function(x){var v=A[x.id];if(v==null||v===''||(x.multi&&!(v||[]).length))return;lines.push(x.q+': '+(x.multi?(v||[]).map(function(z){return caAnsLab(x,z);}).join(', '):caAnsLab(x,v)));});
     if(caReady(cfg,A)){caLabelled(cfg,A).filter(function(x){return !x.none;}).forEach(function(x){lines.push((x.lab?x.lab+': ':'')+BYKEY[x.main.k].name+' × '+caQtyOf(cfg,A,x.role));});}
     lines.push('Needed by: ');nt.value=lines.join('\n');}}
 /* ---- the advisors, one per major apparel category ------------------------------------------------- */
@@ -10510,9 +10512,18 @@ CA_ICO.flame='<path d="M12 22c4 0 7-3 7-7 0-4-3-6-4-10-2 2-3 4-3 6-1-1-2-2-2-4-3
 var ICPG=null;
 function caIcpKey(){return 'jdp_icp_'+((typeof CFG!=='undefined'&&CFG&&CFG.slug)||location.pathname);}
 function caIcpValid(v){return ICP_OPTS.some(function(o){return o.id===v;});}
+var ICP_MAP=null;
+function caSlug(){var m=/\/kits\/([^\/?#]+)/.exec(location.pathname||'');return (typeof CFG!=='undefined'&&CFG&&CFG.slug)||(m?m[1]:'');}
+/* the store's industry is BACKGROUND intelligence (Steven, 2026-11-09: "use our ICPs as background intelligence, not mandatory
+   customer-facing questions"): one small shared map, slug -> ICP, built from the Kit Queue, Apollo's industry label and the
+   company name. Fetched once, silently; a store it does not cover simply asks who it is outfitting, as before. */
+(function(){try{fetch(location.origin+'/kits/_catalog/icp.json',{cache:'no-cache'}).then(function(r){return r.ok?r.json():null;}).then(function(m){
+  if(!m)return;ICP_MAP=m;var G=caIcpG(),v=m[caSlug()];if(v&&!G.icp&&caIcpValid(v)){G.icp=v;G.src='map';caIcpSave();CA_MEMO={};CA_MEMO_N=0;
+    try{if(VIEW&&VIEW.cat&&!Object.keys(CA_ST1).length&&document.getElementById('xpert'))renderGrid();}catch(e){}}}).catch(function(){});}catch(e){}})();
 function caIcpG(){if(ICPG)return ICPG;ICPG={};try{ICPG=JSON.parse(localStorage.getItem(caIcpKey())||'{}')||{};}catch(e){ICPG={};}
   var u='';try{u=(new URLSearchParams(location.search).get('icp')||'').toLowerCase();}catch(e){}
   if(caIcpValid(u))ICPG.icp=u;else if(!ICPG.icp&&typeof CFG!=='undefined'&&CFG&&caIcpValid(CFG.icp))ICPG.icp=CFG.icp;
+  else if(!ICPG.icp&&ICP_MAP&&caIcpValid(ICP_MAP[caSlug()]))ICPG.icp=ICP_MAP[caSlug()];
   caIcpSave();return ICPG;}
 function caIcpSave(){try{localStorage.setItem(caIcpKey(),JSON.stringify(ICPG||{}));}catch(e){}}
 function caIcpSet(id,v){var G=caIcpG();if(G[id]===v)return;G[id]=v;caIcpSave();CA_MEMO={};CA_MEMO_N=0;try{jdpTrack('ca_'+id,{v:v});}catch(e){}}
@@ -10527,21 +10538,29 @@ function caWhoPreset(cfg){var q=caWhoQ(cfg);if(!q)return {l:[]};var ok={};(q.opt
   var G=caIcpG(),I=ICP_WHO[G.icp];if(I&&I[cfg.id])return {l:I[cfg.id].filter(function(r){return ok[r];}),src:'icp'};return {l:[]};}
 function caShared(cfg,A){if(!cfg.who)return;var G=caIcpG();
   if(G.icp)A.icp=G.icp;else if(A.icp&&caIcpValid(A.icp))G.icp=A.icp;
-  if(G.fr)A.fr=G.fr;else if(A.fr)G.fr=A.fr;
+  if(G.fr!=null)A.fr=G.fr;
   var w=A.who||[],untouched=!A._whoUser&&(!w.length||(A._whoPre!=null&&w.join(',')===A._whoPre));
   if(untouched){var p=caWhoPreset(cfg);if(p.l.length){A.who=p.l.slice();A._whoPre=p.l.join(',');A._whoSrc=p.src;}}}
-function caSharedQs(cfg,A){if(!cfg.who)return [];var out=[{id:'icp',q:'What does '+caCo()+' do?',short:'Your industry',cls:'icp',shared:1,
-    hint:'One tap — we’ll pre-fill your teams in every advisor. You can change anything.',opts:ICP_OPTS}];
-  if(FR_ROLES[cfg.id]&&ICP_FR[A.icp])out.push({id:'fr',q:'Does anyone on your crews need flame-resistant (FR) clothing?',short:'FR needs',shared:1,
-    hint:'Arc flash, flash fire, welding or hot work. FR is a safety rating, so we handle those crews separately.',
-    opts:[{id:'yes',lab:'Yes, some crews do',sub:'Arc flash, flash fire or hot work'},{id:'no',lab:'No',sub:'No arc-flash or flash-fire exposure'},{id:'unsure',lab:'Not sure',sub:'We’ll flag what to check'}]});
-  return out;}
+function caSharedQs(cfg,A){return [];}   /* nothing about the company is asked: industry is inferred, FR is a toggle */
 var _caQs0=caQs;
-caQs=function(cfg,A){caShared(cfg,A);var L=_caQs0(cfg,A),S=caSharedQs(cfg,A),G=caIcpG();
-  return S.concat(L).map(function(q){if(q.id==='who'&&A._whoPre!=null&&(A.who||[]).join(',')===A._whoPre&&!A._whoUser){var lab=(ICP_OPTS.filter(function(o){return o.id===G.icp;})[0]||{}).lab;
+function caAllQs(cfg,A){caShared(cfg,A);return _caQs0(cfg,A);}
+function caHidden(cfg,A,q){if((A._show||{})[q.id])return false;
+  if(q.id==='who')return !!(A._whoPre!=null&&!A._whoUser&&(A.who||[]).length&&(A.who||[]).join(',')===A._whoPre);
+  return !!((A._auto||{})[q.id]&&String(A[q.id])===String(q.def));}
+caQs=function(cfg,A){caShared(cfg,A);var L=_caQs0(cfg,A),G=caIcpG();A._auto=A._auto||{};
+  /* FEWEST QUESTIONS (Steven, 2026-11-09): a question with a sensible default is ASSUMED, not asked -- the answer shows as a
+     chip on the result, one tap to change -- and a team pre-filled from the industry or an earlier advisor is not asked again */
+  L.forEach(function(q){if(q.def!=null&&!q.ask&&!q.multi&&(A[q.id]==null||A[q.id]==='')){A[q.id]=String(q.def);A._auto[q.id]=1;}});
+  L=L.filter(function(q){return !caHidden(cfg,A,q);});
+  return L.map(function(q){if(q.id==='who'&&A._whoPre!=null&&(A.who||[]).join(',')===A._whoPre&&!A._whoUser){var lab=(ICP_OPTS.filter(function(o){return o.id===G.icp;})[0]||{}).lab;
     return Object.assign({},q,{preHint:A._whoSrc==='icp'&&lab?('Pre-selected for '+lab.toLowerCase()+' — tap to add or remove a group.'):'Pre-selected from your earlier answers — tap to add or remove a group.'});}return q;});};
 function caFirstOpen(qs,A){for(var j=0;j<qs.length;j++){var q=qs[j],v=A[q.id];if(q.multi?!(v&&v.length):(v==null||v===''))return j;}return 0;}
-function caFrOn(cfg,A){var R=FR_ROLES[cfg.id];return !!(R&&A.fr==='yes'&&ICP_FR[A.icp]&&(A.who||[]).some(function(r){return R.indexOf(r)>=0;}));}
+function caFrOn(cfg,A){var R=FR_ROLES[cfg.id];return !!(R&&A.fr==='1'&&(A.who||[]).some(function(r){return R.indexOf(r)>=0;}));}
+/* the FR switch shows where it can matter: an FR-exposed industry, or an unknown one with field crews in the program */
+function caTogs(cfg,A){var T=(cfg.toggles||[]).slice(),R=FR_ROLES[cfg.id],i=caIcpG().icp;
+  if(R&&(ICP_FR[i]||!i)&&(A.who||[]).some(function(r){return R.indexOf(r)>=0;}))
+    T.push({id:'fr',lab:'Some crews need FR clothing',sub:'Arc flash, flash fire or hot work — we add an FR row and keep synthetics off those crews'});
+  return T;}
 var _caProgramRaw0=caProgramRaw;
 caProgramRaw=function(cfg,A){var P=_caProgramRaw0(cfg,A);if(!caFrOn(cfg,A))return P;var R=FR_ROLES[cfg.id];
   P=P.map(function(x){if(x.none||R.indexOf(x.role)<0)return x;return Object.assign({},x,{note:(x.note?(x.note+' '):'')+FR_NOTE});});
@@ -10555,7 +10574,7 @@ var _caTakeHtml0=caTakeHtml;
 caTakeHtml=function(cfg,A,P,brief){var h=_caTakeHtml0(cfg,A,P,brief),l=ICP_TAKE[caIcpG().icp];if(!h||!l)return h;
   return h.replace('<span>Just Deals Promotions</span></div>','<span>Just Deals Promotions</span></div><p class="caicp">'+esc(l)+'</p>');};
 function caIcpTips(cfg,A){var G=caIcpG(),i=G.icp,c=cfg.id,t=[],has=function(l){return l.indexOf(c)>=0;};if(!i)return t;
-  if(ICP_FR[i]&&G.fr!=='no'&&FR_ROLES[c])t.push('Electricians, welders and anyone near arc flash or flash fire need FR clothing rated to your hazard assessment. Synthetic polos, tees and softshells must not be worn on top of it or underneath it.');
+  if(ICP_FR[i]&&G.fr!=='1'&&FR_ROLES[c])t.push('Electricians, welders and anyone near arc flash or flash fire need FR clothing rated to your hazard assessment. Synthetic polos, tees and softshells must not be worn on top of it or underneath it — switch on “Some crews need FR” above and we’ll handle those crews separately.');
   if(i==='land'&&has(['jackets','layers','hivis','headwear']))t.push('Snow removal is often night work beside traffic: hi-vis has to be the outer layer, so plan a Class 2 vest or hi-vis jacket over the branded layers.');
   if(i==='wh'&&has(['jackets','vests']))t.push('Cold storage or freezer staff? Choose the freezer option under “The work” and tell us the temperature and time inside — we’ll check the pick against them.');
   if(i==='mfg'&&has(['tops','layers','jackets','vests','pants']))t.push('Food processing? Many plants restrict pockets above the waist, buttons and loose trim on the production floor — tell us your GMP rules and we’ll check every pick against them.');
@@ -10564,7 +10583,7 @@ function caIcpTips(cfg,A){var G=caIcpG(),i=G.icp,c=cfg.id,t=[],has=function(l){r
   if(i==='corp'&&has(['tops','layers','jackets','vests']))t.push('Mixed team? Order the women’s cut of the same piece from the start — the look stays consistent and the pieces actually get worn.');
   if(i==='truck'&&c==='jackets')t.push('Drivers: bomber and jacket lengths sit better behind the wheel than parkas — that’s why the driver pick is never a long coat.');
   return t;}
-(CADV||[]).forEach(function(cfg){var t0=cfg.tips;cfg.tips=function(A){var b=[];try{b=t0?(t0.call(cfg,A)||[]):[];}catch(e){b=[];}return caIcpTips(cfg,A).concat(b);};});
+(CADV||[]).forEach(function(cfg){if(cfg.id==='jackets')(cfg.qs||[]).forEach(function(q){if(q.id==='warm'||q.id==='rain')q.ask=1;});var t0=cfg.tips;cfg.tips=function(A){var b=[];try{b=t0?(t0.call(cfg,A)||[]):[];}catch(e){b=[];}return caIcpTips(cfg,A).concat(b);};});
 /* the picker and the hub follow the order this industry buys in */
 var _caCats0=caCats;
 caCats=function(){var c=_caCats0(),o=ICP_CATS[caIcpG().icp];if(!o)return c;var r=function(x){var k=o.indexOf(x);return k<0?99:k;};
@@ -10573,7 +10592,7 @@ function caNextHtml(cfg){var G=caIcpG(),o=ICP_CATS[G.icp]||ICP_CAT_DEF,cats=caCa
   var L=o.filter(function(c){if(c===here||cats.indexOf(c)<0)return false;var g=caCfgFor(c);return g&&g.id!==cfg.id;}).slice(0,3);
   if(!L.length)return '';var sh=ICP_SHORT[G.icp];
   return '<div class="canext"><div class="canexth"><b>'+(sh?('Complete your '+esc(sh)+' program'):'Complete the program')+'</b><span>'+
-      (G.icp?'Your industry and teams carry over — most take one or two taps.':'Your teams carry over to the next advisor.')+'</span></div><div class="canextt">'+
+      (G.icp?'Your teams carry over — most open with picks ready.':'Your teams carry over to the next advisor.')+'</span></div><div class="canextt">'+
     L.map(function(c){var g=caCfgFor(c),done=caReady(g,caSt(g.id));
       return '<button type="button" class="canx" data-advgo="'+esc(c)+'" data-src="next"><span class="canxi">'+caSvg(CA_TILE_ICO[c]||'spark',22)+'</span>'+
         '<span class="canxt"><b>'+esc(shortCat(c))+'</b><i>'+esc(done?'Your picks are ready — see them':(g.tile||''))+'</i></span><span class="canxg">'+(done?'See':'Start')+' →</span></button>';}).join('')+
