@@ -4797,3 +4797,20 @@ table.cmp{width:100%;border-collapse:separate;border-spacing:0;table-layout:fixe
   .qzstats b{font-size:18px}
 }
 .caopt .caot .caom{display:block;font-style:normal;font-size:12px;font-weight:650;color:var(--a);margin-top:5px;letter-spacing:.01em}
+/* ===== Quarter & Half-Zips finishing (round 9c) ===== */
+#famlift{display:flex;flex-direction:column;gap:12px;margin:4px 0 18px}
+.famintro{margin:0;font-size:14.5px;line-height:1.5;color:#374151;max-width:72ch}
+.famshelf>.famon{margin-top:0}
+.famt:focus-visible{outline:2px solid var(--a);outline-offset:2px}
+@media (max-width:520px){
+  /* all four kinds visible at once on a phone, no sideways scroll */
+  .famrow{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;overflow:visible;margin:0;padding:0}
+  .famt{flex:none;border-radius:14px}
+  .famimg{aspect-ratio:16/11}
+  .famtx{padding:9px 11px 11px;gap:2px}
+  .famtx b{font-size:14px;line-height:1.25}
+  .famtx i{display:none}
+  .famtx em{font-size:12px;margin-top:2px}
+  .famintro{font-size:13.5px}
+  #famlift{margin:2px 0 14px}
+}

@@ -100,6 +100,13 @@ function autoInkFor(method,rgb,logo,colours){
       /* NO HYBRID? Keep the real artwork when flattening it would destroy knocked-out detail --
          Walco's flat white turned its banner into a white slab with the text invisible. Otherwise
          a flat reverse is both the better print and the more legible one. */
+      /* MID-TONE GARMENTS (lum 0.18-0.30: ocean blue, tour-blue heather, mushroom). The brand ink has just failed
+         3:1, there is no onlight hybrid, and the line below would either keep the failing full-colour mark or
+         flatten it. ATCO's #0057B8 sat at 1.5-1.7:1 on Clique Ocean Blue and C&B Tour Blue Heather -- blue on blue.
+         The ondark reverse keeps the brand colours AND clears 3:1 here, so it wins whenever white clears the bar and
+         it beats the alternative we would otherwise draw. */
+      var cW=1.05/(gl+0.05),cD=(gl+0.05)/0.0574;
+      if(canHybrid&&logo.inks.ondark&&cW>=INK_MINRATIO&&(k.ko>=INK_KO_MIN||cW>=cD))return 'ondark';
       if(k.ko>=INK_KO_MIN)return 'brand';
       return gl<0.18?'white':'dark';
     }
@@ -4985,7 +4992,7 @@ function renderXpert(){
    styles and the entry price with the logo -- and lists each family as its own good-better-best run, lowest price
    first. A tile narrows the shelf to that family; the advisor above it is already set to quarter-zips. Families are
    curated per style (SHELF_FAM.map) with a rule fallback for anything added later, from the catalogue's own fabric data. */
-var SHELF_FAM={'Quarter & Half-Zips':{noun:'quarter-zips',fams:[
+var SHELF_FAM={'Quarter & Half-Zips':{noun:'quarter-zips',intro:'Every quarter- and half-zip we carry, grouped by fabric. Tap a fabric to narrow it down \u2014 every price includes your logo.',fams:[
     {id:'perf',lab:'Performance & stretch',sub:'Smooth, wicking and easy-care — office, sales, golf and events',lead:['st_volanteqz','cbc_traverse_qz','st_montereyqz']},
     {id:'knit',lab:'Sweater-knit & soft-knit',sub:'A softer, dressier hand — managers, client meetings and gifts',lead:['cbc_drift_qz','cbc_mainsail_hz','cbc_adapt_heather_qz']},
     {id:'cotton',lab:'Cotton-blend sweatshirt',sub:'The classic sweatshirt feel — everyday wear for crews and staff',lead:['flux','cs_l00602','rw_tremblant']},
@@ -4994,7 +5001,7 @@ var SHELF_FAM={'Quarter & Half-Zips':{noun:'quarter-zips',fams:[
     cbc_coastline_qz:'perf',cbc_forge_qz:'perf',cbc_traverse_qz:'perf',
     cq_haven_qz:'knit',cb_qzip:'knit',cbc_adapt_heather_qz:'knit',cbc_drift_qz:'knit',cb_roamqz:'knit',st_avalanteqz:'knit',cbc_mainsail_hz:'knit',
     flux:'cotton',cs_l00602:'cotton',rw_tremblant:'cotton',nk_halfzipsw:'cotton',nk_halfzip:'perf',ff_cotthalfzip:'cotton',
-    rw_spiritbear:'cotton',ch_100617:'cotton',ch_105294:'cotton',ch_105295:'cotton',ch_106660:'perf',cq_summit_hz:'warm',st_shastaqz:'warm',st_basethermalqz:'warm',st_treeline:'warm',st_monteroqz:'warm',cbc_peshastin_hz:'warm'}}};
+    rw_spiritbear:'cotton',ch_100617:'cotton',ch_106660:'perf',cq_summit_hz:'warm',st_shastaqz:'warm',st_basethermalqz:'warm',st_treeline:'warm',st_monteroqz:'warm',cbc_peshastin_hz:'warm'}}};
 function shelfFamOf(sub,k){var F=SHELF_FAM[sub];if(!F)return '';if(F.map[k])return F.map[k];var it=BYKEY[k]||{},f=it.fab||{},t=((it.name||'')+' '+(f.knit||'')).toLowerCase();
   var cot=(f.mix||[]).reduce(function(a,m){return a+(/cotton/i.test(m[0])?m[1]:0);},0);
   if(cot>=50)return 'cotton';
@@ -5016,11 +5023,19 @@ function famShelfHtml(sub,ks){var F=SHELF_FAM[sub],by={};ks.forEach(function(k){
   var secs=fams.filter(function(f){return !on||f.id===on;}).map(function(f){var L=ord(by[f.id]);
     return '<section class="famsec" data-fam="'+esc(f.id)+'"><div class="famhd"><h3>'+esc(f.lab)+'</h3><span>'+L.length+' style'+(L.length===1?'':'s')+' · '+range(L)+'/pc with your logo</span><p>'+esc(f.sub)+'</p></div>'+
       '<div class="menu">'+L.map(menuCard).join('')+'</div></section>';}).join('');
-  return '<div class="famshelf">'+tiles+secs+'</div>';}
+  var intro=F.intro?'<p class="famintro">'+esc(F.intro)+'</p>':'';
+  return '<div class="famshelf"><div class="famtop">'+intro+tiles+'</div>'+secs+'</div>';}
+/* Choose-a-kind tiles lead the shelf, ABOVE the filter card: a buyer from the quarter-zip newsletter sees the four
+   kinds with their own logo first, then refines. The tiles keep their listeners when moved (wireFam binds them). */
+function liftFamTop(){var ib=document.getElementById('inbar'),old=document.getElementById('famlift');
+  var t=document.querySelector('#grid .famtop');
+  if(old&&(!t||old!==t))old.remove();
+  if(!t||!ib||!ib.parentNode)return;
+  t.id='famlift';ib.parentNode.insertBefore(t,ib);}
 function wireFam(root){(root||document).querySelectorAll('[data-famsel]').forEach(function(b){if(b.dataset.fw)return;b.dataset.fw='1';
   b.addEventListener('click',function(){var v=b.dataset.famsel||null;VIEW.fam=(v&&VIEW.fam!==v)?v:null;jdpTrack('shelf_fam',{s:bslug(VIEW.sub||''),f:VIEW.fam||'all'});renderGrid();
     var g=document.querySelector('.famshelf');if(g){var hdr=document.querySelector('.tbar')||document.querySelector('.hdr'),y=g.getBoundingClientRect().top+window.scrollY-((hdr&&hdr.offsetHeight)||64)-12;if(window.scrollY>y)window.scrollTo({top:y,behavior:'smooth'});}});});}
-function renderGrid(){renderGridCore();try{syncInbar();}catch(e){}try{renderXpert();}catch(e){}}
+function renderGrid(){renderGridCore();try{liftFamTop();}catch(e){}try{syncInbar();}catch(e){}try{renderXpert();}catch(e){}}
 function renderGridCore(){
   var grid=document.getElementById('grid'),hd=document.getElementById('gridhd'),nr=document.getElementById('noResults');
   if(!grid)return;var q=(VIEW.q||'').trim().toLowerCase();
@@ -5273,7 +5288,11 @@ function scrollToResults(){
   var sticky=(tb?tb.offsetHeight:(hdr?hdr.offsetHeight:60))+(nav&&getComputedStyle(nav).position==='sticky'?nav.offsetHeight:0)+10;
   var y=window.pageYOffset+hd.getBoundingClientRect().top-sticky;
   window.scrollTo({top:Math.max(0,y),behavior:'smooth'});}
-function setSub(sub,noScroll){VIEW.sub=sub;VIEW.fam=null;document.querySelectorAll('.schip').forEach(function(b){b.classList.toggle('on',b.dataset.sub===sub);});renderGrid();syncViewUrl();if(!noScroll)scrollToResults();}
+function setSub(sub,noScroll){VIEW.sub=sub;VIEW.fam=null;document.querySelectorAll('.schip').forEach(function(b){b.classList.toggle('on',b.dataset.sub===sub);});
+  /* The filter bars count what is ON SCREEN. They were only redrawn by setCat, so a shelf opened from a link or a chip
+     kept the whole aisle's counts ("Black 84" on a 35-style shelf) and could keep an aisle-only budget band live. */
+  try{renderFitbar();renderColbar();renderBandbar();renderWarmbar();renderSortbar();renderFilterUI();}catch(e){}
+  renderGrid();syncViewUrl();if(!noScroll)scrollToResults();}
 function setCat(cat,doScroll){
   /* Any move into the catalogue leaves the gift page. Without this a category pick from the
      Categories menu rendered the grid behind a hidden storefront and the buyer saw nothing move. */
