@@ -1232,7 +1232,7 @@ function menuCard(key){
   var _dd=defaultDecos(key);
   var startP=unitPrice(key,_dd,moq());
   var bestP=unitPrice(key,_dd,topcol);
-  var rec=((key===CFG.feature||item.rec)&&(item.layer==='promo'||hasDecoPlace(item)))?'<span class="mrec">Recommended</span>':'';   // a blank is never badged as our pick
+  var rec=((key===CFG.feature||item.rec)&&(item.layer==='promo'||hasDecoPlace(item))&&!(VIEW.cat!=='carhartt'&&isCarhartt(item)))?'<span class="mrec">Recommended</span>':'';   /* Carhartt is badged only in its own aisle (it is cross-listed on the quarter-zip shelf, never recommended there) */   // a blank is never badged as our pick
   // Class badge: a specific published class reads bold; styles whose maker publishes only the generic
   // "meets CSA" claim (no class number) render muted — we never invent a class.
   var csa=item.csa?'<span class="mcsa'+(/^Meets/.test(item.csa)?' gen':'')+'" title="'+(/^Meets/.test(item.csa)?'Certified high-visibility apparel — ask us to confirm the exact class for your job':'Certified high-visibility rating')+'">🛡 '+esc(item.csa)+'</span>':'';
