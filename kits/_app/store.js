@@ -3738,7 +3738,7 @@ function caOptHtml(q,A){var multi=!!q.multi,cur=A[q.id],_pics=caPicsFor(q),_j=0;
     return '<button type="button" class="caopt'+(on?' on':'')+'" data-ca="'+esc(q.id)+'" data-v="'+esc(v)+'" role="'+(multi?'checkbox':'radio')+'" aria-checked="'+on+'">'+
       '<span class="caok" aria-hidden="true"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>'+
       (_pics?_pics[_j]:('<span class="caoi">'+caSvg(caIcoKey(q,o))+'</span>'))+
-      '<span class="caot"><b>'+esc(o.lab)+'</b>'+(o.sub?('<i>'+esc(o.sub)+'</i>'):'')+caMeterHtml(q,_j++)+'</span></button>';}).join('')+'</div>';}
+      '<span class="caot"><b>'+esc(o.lab)+'</b>'+(o.sub?('<i>'+esc(o.sub)+'</i>'):'')+(o.meta?('<em class="caom">'+esc(o.meta)+'</em>'):'')+caMeterHtml(q,_j++)+'</span></button>';}).join('')+'</div>';}
 /* the step bar: every question is a tab; answered ones show the answer and can be reopened in one tap */
 function caStepsHtml(cfg,A,qs,i){return '<ol class="castepsb">'+qs.map(function(q,j){var v=A[q.id],ans=q.multi?(v||[]).map(function(z){return caAnsLab(q,z);}).join(', '):caAnsLab(q,v),done=!!ans;
   return '<li class="'+(j===i?'now':(done?'done':''))+'"><button type="button" data-cago="'+j+'"'+(j>i&&!done&&!(j===i+1&&false)?' disabled':'')+'><span class="csn">'+(done&&j!==i?'✓':(j+1))+'</span><span class="cst"><b>'+esc(q.short||q.q)+'</b>'+(ans?('<i>'+esc(ans)+'</i>'):'')+'</span></button></li>';}).join('')+'</ol>';}
@@ -4957,11 +4957,12 @@ var QZ_WHO=[
   {id:'mixed',lab:'Site & in-and-out staff',sub:'Supervisors, estimators, techs, drivers'},
   {id:'outdoor',lab:'Field crews',sub:'Under a jacket or hi-vis vest'},
   {id:'gift',lab:'Gifts, events & golf days',sub:'Welcome kits, awards, client gifts'}];
-var QZ_FAMLAB={perf:'Smooth performance',knit:'Sweater-knit',cotton:'Cotton sweatshirt',warm:'Fleece & thermal'};
-var QZ_FAMWHY={perf:'Smooth performance knit — wicks, stretches and comes out of the wash looking new',
-  knit:'Sweater-knit — the softer, dressier hand of a sweater with the ease of a quarter-zip',
-  cotton:'Cotton sweatshirt — the soft, classic feel people wear on weekends too',
-  warm:'Fleece & thermal — the warmest kind of quarter-zip, built for cold mornings'};
+/* the same four names as the family tiles on the shelf, so the advisor and the shelf speak one language */
+var QZ_FAMLAB={perf:'Performance & stretch',knit:'Sweater-knit & soft-knit',cotton:'Cotton-blend sweatshirt',warm:'Fleece & thermal'};
+var QZ_FAMWHY={perf:'Performance & stretch — a smooth knit that wicks, moves and comes out of the wash looking new',
+  knit:'Sweater-knit & soft-knit — the softer, dressier hand of a sweater with the ease of a quarter-zip',
+  cotton:'Cotton-blend sweatshirt — the soft, classic feel people wear on weekends too',
+  warm:'Fleece & thermal — a brushed or grid fleece that holds heat, for cold mornings and cold sites'};
 var QZ_DEF_FAM={office:'perf',mixed:'warm',outdoor:'warm',gift:'knit'};
 var QZ_NEAR={perf:['knit','warm','cotton'],knit:['perf','warm','cotton'],cotton:['warm','knit','perf'],warm:['perf','cotton','knit']};
 /* the polo from the same maker's range: order both and the office set matches */
@@ -5010,6 +5011,11 @@ var CUR_QZA={
 'gift|warm':{p:'cbc_peshastin_hz',ang:'Cutter & Buck Peshastin: a 250 gsm recycled grid fleece half-zip, heathered, with UPF 50+ — a warm gift with a brand people know.',
   alts:[['st_basethermalqz','Value','Base Thermal — 240 gsm grid-back thermal fleece'],['cq_summit_hz','Softer','Clique Summit — non-pilling microfleece half-zip']]}};
 var QZ_ANG=curAngFrom({ca:CUR_QZA});
+/* each answer says what it leaves on the table: how many styles on this shelf qualify, and the entry price with the logo */
+function qzOptMeta(L,test,price){var ks=caKeys([['layers',QZ_SUB]]);
+  return L.map(function(o){if(o.ico)return o;var m=ks.filter(function(k){return BYKEY[k]&&test(BYKEY[k],o.id);});if(!m.length)return o;
+    var lo=0;if(price)m.forEach(function(k){var p=famPrice(k);if(p&&(!lo||p<lo))lo=p;});
+    return Object.assign({},o,{meta:m.length+' style'+(m.length===1?'':'s')+(o.id==='std'?'':'')+(lo?(' · from '+money(lo)+'/pc'):'')});});}
 var QZCFG={id:'qz',tile:'Performance, sweater-knit, cotton or fleece',one:'quarter-zip',label:'Quarter-zip advisor',noun:'quarter-zip',nounPl:'quarter-zips',noun2:'quarter-zips',
   h:'The right quarter-zip for every team.',
   sub:'Four quick questions, then one quarter-zip for each group, with the reasons it fits.',
@@ -5018,12 +5024,14 @@ var QZCFG={id:'qz',tile:'Performance, sweater-knit, cotton or fleece',one:'quart
   who:true,
   qs:[{id:'who',q:'Who will wear it?',short:'Who wears it',hint:'Pick every group',multi:true,wide:true,opts:QZ_WHO},
       {id:'feel',q:'How should it feel?',short:'The feel',def:'auto',hint:'The fabric decides the look, the warmth and the price.',
-        opts:[{id:'perf',lab:'Smooth performance',sub:'Stretch, wicking, easy-care'},{id:'knit',lab:'Sweater-knit',sub:'Softer, dressier, heathered'},
-          {id:'cotton',lab:'Cotton sweatshirt',sub:'Soft, classic, casual'},{id:'warm',lab:'Fleece & thermal',sub:'The warmest, for the cold'},
-          {id:'auto',lab:'Best for each group',sub:'Let us choose',ico:'spark'}]},
+        optsFor:function(){return qzOptMeta([{id:'perf',lab:'Performance & stretch',sub:'Smooth, wicking, easy-care'},{id:'knit',lab:'Sweater-knit & soft-knit',sub:'Softer, dressier, heathered'},
+          {id:'cotton',lab:'Cotton-blend sweatshirt',sub:'Soft, classic, casual'},{id:'warm',lab:'Fleece & thermal',sub:'Warmest, for the cold'},
+          {id:'auto',lab:'Best for each group',sub:'Let us choose',ico:'spark'}],function(it,id){return qzFamOf(it.key)===id;},true);},
+        opts:[{id:'perf',lab:'Performance & stretch'},{id:'knit',lab:'Sweater-knit & soft-knit'},{id:'cotton',lab:'Cotton-blend sweatshirt'},{id:'warm',lab:'Fleece & thermal'},{id:'auto',lab:'Best for each group'}]},
       {id:'fit',q:'What sizing must every piece cover?',short:'Sizes & cuts',def:'std',hint:'We only recommend styles that come in every size and cut you need.',
-        opts:[{id:'std',lab:'Standard sizing',sub:'No special cuts or sizes'},{id:'lad',lab:'Women’s cuts too',sub:'A matching women’s fit'},
-          {id:'big',lab:'Big sizes',sub:'4XL and up'},{id:'both',lab:'Both',sub:'Women’s cuts and 4XL+'}]},
+        optsFor:function(){return qzOptMeta([{id:'std',lab:'Standard sizing',sub:'No special cuts or sizes'},{id:'lad',lab:'Women’s cuts too',sub:'A matching women’s fit'},
+          {id:'big',lab:'Big sizes',sub:'4XL and up'},{id:'both',lab:'Both',sub:'Women’s cuts and 4XL+'}],function(it,id){return qzFits(it,{fit:id});},false);},
+        opts:[{id:'std',lab:'Standard sizing'},{id:'lad',lab:'Women’s cuts too'},{id:'big',lab:'Big sizes'},{id:'both',lab:'Both'}]},
       {id:'outer',q:'For site and field staff: what goes over it?',short:'Worn under',def:'0',hint:'This only changes the pick for site staff and field crews.',
         when:function(A){var w=A.who||[];return w.indexOf('outdoor')>=0||w.indexOf('mixed')>=0;},
         opts:[{id:'0',lab:'A jacket or hi-vis vest',sub:'Worn as a mid-layer'},{id:'1',lab:'Nothing — worn on its own',sub:'Heavier, with a storm flap'}]}],
@@ -5040,7 +5048,8 @@ var QZCFG={id:'qz',tile:'Performance, sweater-knit, cotton or fleece',one:'quart
     return s;},
   why:function(it,A,role){var out=[],fam=qzFamOf(it.key),f=(it.fab&&it.fab.finishes)||[];
     if(QZ_FAMWHY[fam])out.push(QZ_FAMWHY[fam]);
-    f.filter(function(x){return !/recycled|grs|oeko|logo trims|locker/i.test(x);}).slice(0,2).forEach(function(x){out.push(caCap(x));});
+    var said=String(((CUR_QZA[role+'|'+qzFamFor(A,role)]||{}).p===it.key?CUR_QZA[role+'|'+qzFamFor(A,role)].ang:'')+' '+(QZ_ANG[it.key]||'')).toLowerCase();
+    f.filter(function(x){return !/recycled|grs|oeko|logo trims|locker/i.test(x)&&said.indexOf(String(x).toLowerCase())<0;}).slice(0,2).forEach(function(x){out.push(caCap(x));});
     return out.slice(0,3);},
   tips:function(A){var w=A.who||[],n=qzNeed(A),t=['Quarter-zips are embroidered left chest, about 3.5" wide, clear of the zip — we check fine detail on your proof before anything is stitched.'];
     if(!n.lad)t.push('Mixed team? Pick a style that comes in a matching women’s cut — the look stays the same across the team and the pieces actually get worn.');
@@ -5068,7 +5077,7 @@ var QZCFG={id:'qz',tile:'Performance, sweater-knit, cotton or fleece',one:'quart
       '<div><b>'+lad+'</b><i>with a matching women’s cut</i></div>'+(lo?('<div><b>'+money(lo)+'</b><i>from, per piece with your logo</i></div>'):'')+'</div>';}};
 (function(){var i=-1;CADV.forEach(function(c,j){if(c.id==='layers'&&i<0)i=j;});if(i<0)CADV.push(QZCFG);else CADV.splice(i,0,QZCFG);})();
 CA_PIC['qz.who']={office:'st_volanteqz',mixed:'st_monteroqz',outdoor:'st_shastaqz',gift:'cbc_mainsail_hz'};
-CA_PIC['qz.feel']={perf:'st_milanoqz',knit:'cbc_adapt_heather_qz',cotton:'rw_spiritbear',warm:'st_basethermalqz'};
+CA_PIC['qz.feel']={perf:'st_milanoqz',knit:'cbc_adapt_heather_qz',cotton:'cs_l00602',warm:'st_basethermalqz'};
 CA_PIC['qz.outer']={0:'st_basethermalqz',1:'st_monteroqz'};
 CA_ICO.pair='<circle cx="8" cy="6.5" r="2.6"/><circle cx="16" cy="6.5" r="2.6"/><path d="M3.5 20v-4.5a4.5 4.5 0 0 1 9 0V20M11.5 20v-4.5a4.5 4.5 0 0 1 9 0V20"/>';
 CA_ICO.ruler='<rect x="2" y="8" width="20" height="8" rx="1.5"/><path d="M6 8v3M10 8v4M14 8v3M18 8v4"/>';
