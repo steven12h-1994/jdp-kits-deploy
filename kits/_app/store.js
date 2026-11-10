@@ -3406,7 +3406,8 @@ function caProgramRaw(cfg,A){
            alternatives keeps them in its order, whatever their price; anything it can't show is topped up from the
            ranking as Value / Premium. */
         if(cur.alts){cur.alts.forEach(function(a){if(alts0.length>=2||!a||!okK(a.k)||a.k===m0.k)return;var r=rowOf(a.k);if(!(r.p>0))return;
-            alts0.push({r:r,lab:a.lab,t:r.p<m0.p?'lo':'hi',ang:a.why||(cfg.angOf?cfg.angOf(a.k):''),named:true});});
+            var lb=a.lab;if(/^(lower cost|value)$/i.test(lb)&&r.p>=m0.p-0.5)lb='Premium';else if(/^(step up|premium)$/i.test(lb)&&r.p<=m0.p+0.5)lb='Value';   /* a named 'Value' that the pick's own step-up made dearer is not a value any more */
+            alts0.push({r:r,lab:lb,t:r.p<m0.p?'lo':'hi',ang:a.why||(cfg.angOf?cfg.angOf(a.k):''),named:true});});
           var used=function(r){return r.k===m0.k||alts0.some(function(a){return a.r.k===r.k;});};
           if(alts0.length<2&&!cur.only){var v=restC0.filter(function(r){return !used(r)&&r.p<=m0.p-gap0;})[0];if(v&&!alts0.some(function(a){return a.t==='lo';}))alts0.push({r:v,lab:'Value',t:'lo',ang:cfg.angOf?cfg.angOf(v.k):''});}
           if(alts0.length<2&&!cur.only){var pr=restC0.filter(function(r){return !used(r)&&r.p>=m0.p+gap0;})[0];if(pr)alts0.push({r:pr,lab:'Premium',t:'hi',ang:cfg.angOf?cfg.angOf(pr.k):''});}}
@@ -3720,8 +3721,9 @@ var CA_METER={'jackets.warm':'Warmth','layers.warm':'Weight'};
 var CA_CUR_ADV='';
 function caStage(k){return '<span class="capic prod"><span class="capfl" aria-hidden="true"></span><span class="capst">'+caThumb(k)+'</span></span>';}
 function caPicsFor(q){var M=CA_PIC[CA_CUR_ADV+'.'+q.id];
-  if(M&&q.opts&&q.opts.length){var ks=q.opts.map(function(o){var k=M[String(o.id)];return (k&&BYKEY[k])?k:'';});
-    if(ks.every(function(k){return !!k;}))return ks.map(caStage);}
+  if(M&&q.opts&&q.opts.length){var ks=q.opts.map(function(o){var k=M[String(o.id)];return (k&&BYKEY[k])?k:(o.ico?'#':'');});
+    /* a "let us choose" answer has no garment of its own: it keeps the same stage, with its pictogram */
+    if(ks.every(function(k){return !!k;})&&ks.some(function(k){return k!=='#';}))return ks.map(function(k,j){return k==='#'?('<span class="capic ico"><span class="capico">'+caSvg(q.opts[j].ico,44)+'</span></span>'):caStage(k);});}
   /* no garment for every answer: the same stage, carrying the answer's pictogram, so every question looks alike */
   return q.opts.map(function(o){return '<span class="capic ico"><span class="capico">'+caSvg(caIcoKey(q,o),44)+'</span></span>';});}
 function caMeterHtml(q,j){var lab=CA_METER[CA_CUR_ADV+'.'+q.id];if(!lab)return '';var n=q.opts.length,b='';
@@ -3790,7 +3792,7 @@ function caHubTiles(cls){return caCats().map(function(c){var g=caCfgFor(c),img=c
       '<span class="ahtx"><b>'+esc(shortCat(c))+'</b><i>'+esc(done?'Your picks are ready — tap to see them':q0)+'</i>'+(done?'':('<em class="ahq">'+(nq?(caQword(g,A)+' question'+(caQmax(g,A)>1?'s':'')):'Picks ready, no questions')+'</em>'))+'</span>'+
       '<span class="ahgo">'+(done?'See picks':'Start')+' <span aria-hidden="true">→</span></span></button>';}).join('');}
 function wireAdvGo(root){(root||document).querySelectorAll('[data-advgo]').forEach(function(b){if(b.dataset.w)return;b.dataset.w='1';
-  b.addEventListener('click',function(){advGo(b.dataset.advgo,b.dataset.src||(b.closest('.advhub')?'hub':(b.closest('.advpick')?'rail':'grid')));});});}
+  b.addEventListener('click',function(){advGo(b.dataset.advgo,b.dataset.src||(b.closest('.advhub')?'hub':(b.closest('.advpick')?'rail':'grid')),b.dataset.advsub||'');});});}
 /* the rail's Advisor button opens this: every advisor, one tap from anywhere */
 function openAdvPicker(){closeAdvPicker();var d=document.createElement('div');d.className='advpick';d.id='advPick';d.setAttribute('role','dialog');d.setAttribute('aria-label','Advisor');
   d.innerHTML='<div class="apscrim" data-apx="1"></div><div class="appanel"><div class="aphd"><span class="ahey">'+caSvg('spark',16)+' Advisor</span><button type="button" class="apx" data-apx="1" aria-label="Close">&times;</button></div>'+
@@ -3892,7 +3894,7 @@ function caRowHtml(cfg,A,x){
   if(x.none)return '<div class="cprow none"><div class="cpmain"><span class="cpfor">'+esc(x.lab||'')+'</span><p class="cpwhy">Nothing in this aisle fits all your answers for this group — <button type="button" class="jalink" data-caask="1">ask Steven</button> and we’ll source it.</p></div></div>';
   var it=BYKEY[x.main.k],k=x.main.k,q=caQtyOf(cfg,A,cfg.roles?'_kit':x.role),u=caUnit(k,q),open=(A._open===x.role);
   var b=caBaseOf(cfg,A,x.role),mine=b&&!b.none&&b.main.k!==k;
-  var why=String(caWhyLine(cfg,A,x)||'').replace(/\s*Hooded option: [^.]*\.?$/,''),pts=caPoints(cfg,A,x,it),F=caFacts(it);
+  var why=String(caWhyLine(cfg,A,x)||'').replace(/\s*Hooded option: [^.]*\.?$/,''),pts=caPoints(cfg,A,x,it),F=caFacts(it);if(cfg.factsFor){try{F=cfg.factsFor(it,F,A,x)||F;}catch(e){}}
   var nt=x.note||'';if(!nt&&cfg.rowNote){try{nt=cfg.rowNote(A,x.role,it)||'';}catch(e){nt='';}}
   return '<article class="cpc'+(mine?' mine':'')+'" data-row="'+esc(x.role)+'">'+
     '<header class="cpchd"><span class="cpcfor">'+(x.lab?((cfg.roleLabs?'':'For ')+esc(x.lab)):'Our recommendation')+'</span>'+
@@ -3905,7 +3907,7 @@ function caRowHtml(cfg,A,x){
         (why?('<p class="cpcwhy"><b>Why it fits'+(x.lab&&!cfg.roleLabs?(' '+esc(x.lab.split(' + ')[0].replace(/^The /,'').toLowerCase())):'')+'</b>'+esc(why)+'</p>'):'')+
         (pts.length?('<ul class="cpcpts">'+pts.map(function(p){return '<li>'+esc(p)+'</li>';}).join('')+'</ul>'):'')+
         '<dl class="cpcspec">'+F.map(function(r){return '<div><dt>'+esc(r[0])+'</dt><dd>'+esc(r[1])+'</dd></div>';}).join('')+'</dl>'+
-        caFamHtml(cfg,A,x)+(nt?('<p class="cpnote">'+esc(nt)+'</p>'):'')+
+        caFamHtml(cfg,A,x)+(cfg.pairHtml?(function(){try{return cfg.pairHtml(x,A)||'';}catch(e){return '';}})():'')+(nt?('<p class="cpnote">'+esc(nt)+'</p>'):'')+
         '<button type="button" class="jalink cpcmore" data-xpopen="'+esc(k)+'">Full details, sizes &amp; logo placements →</button></div>'+
       '<div class="cpcbuy">'+(cfg.roles?'':('<span class="cpql">People in this group</span>'+caStepper(esc(x.role),q)))+
         '<div class="cpcprice"><b data-cpu="'+esc(x.role)+'">'+money(u)+'</b><i data-cpq="'+esc(x.role)+'">per piece at '+q+', your logo included</i></div>'+
@@ -3983,7 +3985,7 @@ function renderCatAdvisor(el,cfg){
     var _any=caAllQs(cfg,A).some(function(qq){var v=A[qq.id];return qq.multi?((v||[]).length>0):(v!=null&&v!=='');});
     body='<div class="caband">'+head+'<span class="cahdr">'+(_any?'<button type="button" class="carst" data-careset="1" title="Clear every answer and start again"><span aria-hidden="true">\u21ba</span> Start over</button>':'')+'<span class="castep">'+(i+1)+' of '+Math.max(n,nmx)+'</span></span></div>'+
       ((i===0||A._fresh)?('<div class="caintro"><div class="caintx"><h3 class="xph">'+esc((_onShelf&&cfg.hSub[VIEW.sub])||cfg.h)+'</h3><p class="xpadv">'+esc(caQword(cfg,A))+' quick question'+(Math.max(n,nmx)>1?'s':'')+', then a recommended program'+(cfg.roles?' for your kit':(cfg.who?' for each group':''))+' — priced for your headcount, with your logo on it.</p>'+
-        '<ul class="catrust"><li>Your logo on every pick</li><li>Priced at your headcount</li><li>Free digital proof before anything is made</li></ul></div>'+caProofHtml(cfg)+'</div>'):'')+
+        '<ul class="catrust"><li>Your logo on every pick</li><li>Priced at your headcount</li><li>Free digital proof before anything is made</li></ul></div>'+caProofHtml(cfg)+'</div>'+(cfg.introStats?(function(){try{return cfg.introStats(A)||'';}catch(e){return '';}})():'')):'')+
       '</div><div class="cainner">'+caStepsHtml(cfg,A,qs,i)+
       '<h3 class="caq">'+esc(q.q)+'</h3>'+(q.hint||q.multi?('<p class="caqh">'+esc(q.multi?(q.preHint||'Select every group that applies — each gets its own pick. Tap again to remove one.'):q.hint)+'</p>'):'')+
       (q.multi?('<div class="camulti"><span class="cacount" data-cacount="1">'+((A[q.id]||[]).length?((A[q.id]||[]).length+' selected'):'None selected yet')+'</span>'+
@@ -4001,7 +4003,7 @@ function renderCatAdvisor(el,cfg){
     var _T=caTotals(cfg,A,P);
     body='<div class="caband res">'+head+'<span class="cahdr"><button type="button" class="caedt" data-caedit="*">Edit answers</button><button type="button" class="carst" data-careset="1" title="Clear every answer and start again"><span aria-hidden="true">\u21ba</span> Start over</button><span class="castep done">✓ Recommended program</span></span></div>'+
       '<h3 class="xph">'+(cfg.roles?('Your golf kit — '+ok.length+' piece'+(ok.length===1?'':'s')):(ok.length>1?('Your '+esc(_onShelf&&cfg.nounSub?cfg.nounSub[VIEW.sub]:cfg.noun)+' program — '+ok.length+' groups'):('Our recommendation for your '+esc(_onShelf&&cfg.nounSub?cfg.nounSub[VIEW.sub]+'s':cfg.noun))))+'</h3>'+
-        '<p class="cabandsub">'+(ok.some(function(x){return x.cur;})?('Hand-picked from the '+nS+' '+esc(cfg.noun)+' in this store for exactly your answers'):('Chosen from the '+nS+' '+esc(cfg.noun2||cfg.noun)+' in this store against your answers'))+' — each shown with your logo, priced at your headcount.</p>'+
+        '<p class="cabandsub">'+(ok.some(function(x){return x.cur;})?('Hand-picked from the '+nS+' '+esc(cfg.nounPl||cfg.noun)+' in this store for exactly your answers'):('Chosen from the '+nS+' '+esc(cfg.noun2||cfg.noun)+' in this store against your answers'))+' — each shown with your logo, priced at your headcount.</p>'+
         (ok.length?caKpis(cfg,A,P):'')+'</div><div class="cainner">'+
       '<div class="casum"><span class="casuml">Picked for</span>'+caAllQs(cfg,A).map(function(qq){var v=A[qq.id],t=qq.multi?(v||[]).map(function(z){return caAnsLab(qq,z);}).join(', '):caAnsLab(qq,v),as=caHidden(cfg,A,qq);
           return t?('<button type="button" class="casumc'+(as?' as':'')+'" data-caedit="'+esc(qq.id)+'" title="'+(as?'We assumed this — tap to change':'Change: '+esc(qq.q))+'">'+esc(t)+' <span aria-hidden="true">✎</span></button>'):'';}).join('')+
@@ -4936,6 +4938,162 @@ var CUR_ANG=Object.assign({},curAngFrom({ca:CUR_QZ}),curAngFrom(CUR_TOPS),curAng
       var M=CUR_VESTS[curMkt()]||{};return caRow(M[role+'|'+(A.worn||'in')]);};
     C.vests.curOk=lad;C.vests.toggles=[tog];wrapScore(C.vests);ang(C.vests);}
 })();
+/* ===== THE QUARTER-ZIP ADVISOR (Steven, 2026-11-10: "I want the quarter zip section to have its own advisor ... when we
+   send a prospect to their quarter zip section we have the best quarter zip section in the world" (paraphrased) -- ahead of a newsletter
+   to every prospect pushing quarter-zips). Until now this shelf borrowed the fleece & sweater advisor: its first question
+   showed hoodies, its second asked for a style the buyer had already chosen, and warmth was the only lens. A buyer who
+   lands on the quarter-zip shelf has ONE decision to make, and corporate apparel buyers make it in this order:
+     1. who wears it (each group gets its own pick, priced at its own headcount),
+     2. how it should feel -- the fabric family decides the look, the warmth AND the price band,
+     3. the sizing the program must cover -- a matching women's cut and 4XL+ are the two deal-breakers in a mixed
+        workforce, so nothing is recommended that fails them,
+     4. for site and field staff only: is it a mid-layer under a jacket or hi-vis, or worn on its own outside.
+   Every answer lands on a hand-picked quarter-zip from the four families on the shelf, with two named alternatives
+   (lower cost / step up / women's cut / warmer...), the maker's facts only, and the matching polo where the maker
+   makes one. Nike stays on the shelf to browse but is not recommended (Steven, 2026-10-14). */
+var QZ_SUB='Quarter & Half-Zips';
+var QZ_WHO=[
+  {id:'office',lab:'Office & client-facing',sub:'Sales, managers, front desk'},
+  {id:'mixed',lab:'Site & in-and-out staff',sub:'Supervisors, estimators, techs, drivers'},
+  {id:'outdoor',lab:'Field crews',sub:'Under a jacket or hi-vis vest'},
+  {id:'gift',lab:'Gifts, events & golf days',sub:'Welcome kits, awards, client gifts'}];
+var QZ_FAMLAB={perf:'Smooth performance',knit:'Sweater-knit',cotton:'Cotton sweatshirt',warm:'Fleece & thermal'};
+var QZ_FAMWHY={perf:'Smooth performance knit — wicks, stretches and comes out of the wash looking new',
+  knit:'Sweater-knit — the softer, dressier hand of a sweater with the ease of a quarter-zip',
+  cotton:'Cotton sweatshirt — the soft, classic feel people wear on weekends too',
+  warm:'Fleece & thermal — the warmest kind of quarter-zip, built for cold mornings'};
+var QZ_DEF_FAM={office:'perf',mixed:'warm',outdoor:'warm',gift:'knit'};
+var QZ_NEAR={perf:['knit','warm','cotton'],knit:['perf','warm','cotton'],cotton:['warm','knit','perf'],warm:['perf','cotton','knit']};
+/* the polo from the same maker's range: order both and the office set matches */
+var QZ_PAIR={st_sonoraqz:'st_sonora',st_montereyqz:'st_monterey',st_milanoqz:'st_milanopolo',cbc_prospect_qz:'cbc_prospect_polo',
+  cbc_forge_qz:'cbc_forge_polo',cbc_coastline_qz:'cbc_coastline_polo',cq_spin_hz:'cq_spin_polo'};
+function qzFamOf(k){return shelfFamOf(QZ_SUB,k);}
+function qzFamFor(A,role){var f=A.feel||'auto';return (f==='auto'||!QZ_FAMLAB[f])?(QZ_DEF_FAM[role]||'perf'):f;}
+function qzBig(it){return /^[4-6]XL/.test(String(jaMaxSize(it)||''));}
+function qzNeed(A){var f=A.fit||'std';return {lad:f==='lad'||f==='both',big:f==='big'||f==='both'};}
+function qzFits(it,A){var n=qzNeed(A);if(n.lad&&!hasLadies(it))return false;if(n.big&&!qzBig(it))return false;return true;}
+function qzNeedTxt(A){var n=qzNeed(A);return n.lad&&n.big?'a women’s cut and sizes to 4XL+':(n.lad?'a matching women’s cut':(n.big?'sizes to 4XL and up':''));}
+/* hand-picked: role | family -> our pick and named alternatives (the maker's facts only) */
+var CUR_QZA={
+'office|perf':{p:'st_volanteqz',ang:'A 170 gsm 4-way-stretch jersey with H2X-DRY, UPF 50+ and snag-resistant fabric — layers cleanly over a polo or shirt, in matching men’s and women’s cuts.',
+  alts:[['cbc_traverse_qz','Premium','Cutter & Buck Traverse — a 200 gsm matte double-knit built for the office, the course and travel'],['cq_spin_hz','Value','Clique Spin — spin-dyed interlock half-zip with UPF 50+']]},
+'office|knit':{p:'cbc_adapt_heather_qz',ang:'A heathered soft-knit jersey from Cutter & Buck with a contrast-stitch zip and a zippered chest pocket — reads like a sweater, layers like a quarter-zip, in men’s and women’s cuts.',
+  alts:[['cbc_mainsail_hz','Premium','Cutter & Buck Mainsail — sweater-knit fleece half-zip, brushed inside'],['cq_haven_qz','Value','Clique Haven — smooth, soft stretch knit, sizes to 5XL']]},
+'office|cotton':{p:'rw_tremblant',ang:'Made in Canada by Redwood Classics: a slim-fit 16 oz cotton-rich fleece mock-neck zip that dresses up or down.',
+  alts:[['rw_spiritbear','Heavyweight','Redwood Classics Spirit Bear — 20 oz, 100% cotton zip polo, made in Canada'],['cs_l00602','Value','Fairmount — 330 gsm cotton-rich quarter-zip, sizes to 4XL']]},
+'office|warm':{p:'st_basethermalqz',ang:'A 240 gsm grid-back thermal fleece with H2X-DRY — warm, breathable and smooth enough to wear in the office, in men’s and women’s cuts.',
+  alts:[['cbc_peshastin_hz','Premium','Cutter & Buck Peshastin — 250 gsm recycled grid fleece, heathered, UPF 50+'],['cq_summit_hz','Value','Clique Summit — non-pilling microfleece half-zip']]},
+'mixed|perf':{p:'st_volanteqz',ang:'Snag-resistant 4-way-stretch jersey with H2X-DRY — stands up to vehicles, racking and tools, and still looks sharp at the customer’s door.',
+  alts:[['cbc_forge_qz','Premium','Cutter & Buck Forge — recycled 4-way stretch with UPF 50+'],['st_montereyqz','Value','Monterey — light H2X-DRY double piqué, snag resistant']]},
+'mixed|knit':{p:'cq_haven_qz',ang:'A smooth, soft stretch knit from Clique — the comfortable layer people keep on from the office to the site, in sizes to 5XL.',
+  alts:[['st_avalanteqz','Warmer','Avalante — 320 gsm sweater-knit fleece with a zippered chest pocket'],['cb_roamqz','Water-repellent','Cutter & Buck Roam — soft-knit with a water-repellent finish']]},
+'mixed|cotton':{p:'cs_l00602',ang:'A 330 gsm cotton-rich quarter-zip sweatshirt in sizes to 4XL — the soft, hard-wearing everyday layer for people in and out all day.',
+  alts:[['flux','Value','Flux — 280 gsm cotton-blend quarter-zip, sizes to 4XL'],['rw_spiritbear','Made in Canada','Redwood Classics Spirit Bear — 20 oz, 100% cotton zip polo']]},
+'mixed|warm':{p:'st_basethermalqz',ang:'A 240 gsm grid-back thermal fleece with H2X-DRY and snag-resistant fabric — warm and breathable for people in and out all day.',
+  alts:[['st_monteroqz','Pockets','Montero — 300 gsm, zippered hand pockets and a storm flap'],['cq_summit_hz','Value','Clique Summit — non-pilling microfleece half-zip']]},
+'outdoor|perf':{p:'st_milanoqz',ang:'A 222 gsm brushed-back stretch knit with H2X-DRY, UPF 50+ and articulated shoulders, in men’s sizes to 6XL — moves with the work under a vest or jacket.',
+  alts:[['st_volanteqz','Lighter','Volante — 170 gsm, snag-resistant stretch jersey'],['st_montereyqz','Value','Monterey — light H2X-DRY double piqué, snag resistant']]},
+'outdoor|knit':{p:'st_avalanteqz',ang:'A 320 gsm sweater-knit fleece, brushed inside, with a zippered chest pocket — the warmest knit quarter-zip on the shelf.',
+  alts:[['cb_roamqz','Water-repellent','Cutter & Buck Roam — soft-knit with a water-repellent finish'],['cq_haven_qz','Value','Clique Haven — smooth, soft stretch knit, sizes to 5XL']]},
+'outdoor|cotton':{p:'cs_l00602',ang:'A 330 gsm cotton-rich quarter-zip sweatshirt in sizes to 4XL — heavy enough for cold mornings, soft enough to wear all shift.',
+  alts:[['rw_spiritbear','Heavyweight','Redwood Classics Spirit Bear — 20 oz, 100% cotton zip polo, made in Canada'],['flux','Value','Flux — 280 gsm cotton-blend quarter-zip']]},
+'outdoor|warm':{p:'st_shastaqz',ang:'A 235 gsm anti-pill polar fleece with a high collar and a kangaroo pocket, in sizes to 5XL — the classic warm crew layer.',
+  alts:[['st_basethermalqz','Thermal','Base Thermal — 240 gsm grid-back, snag resistant'],['st_monteroqz','Heavier','Montero — 300 gsm with a storm flap and zippered pockets']]},
+'outer':{p:'st_monteroqz',ang:'A 300 gsm quarter-zip with a storm flap behind the zip and zippered hand pockets — the quarter-zip built to be worn outside on its own.',
+  alts:[['cb_roamqz','Water-repellent','Cutter & Buck Roam — soft-knit with a water-repellent finish'],['rw_spiritbear','Heavyweight cotton','Redwood Classics Spirit Bear — 20 oz, 100% cotton, made in Canada'],['cs_l00602','Value','Fairmount — 330 gsm cotton-rich quarter-zip']]},
+'gift|perf':{p:'cbc_prospect_qz',ang:'A featherlight jacquard-textured stretch quarter-zip from Cutter & Buck, with UPF 50+ — the polished gift that actually gets worn.',
+  alts:[['cbc_traverse_qz','Premium','Cutter & Buck Traverse — 200 gsm matte double-knit'],['st_volanteqz','Value','Volante — H2X-DRY stretch jersey, UPF 50+']]},
+'gift|knit':{p:'cbc_mainsail_hz',ang:'A heathered sweater-knit fleece half-zip from Cutter & Buck, brushed inside, with a zip chest pocket — the executive layer people keep for years.',
+  alts:[['cbc_drift_qz','Textured knit','Cutter & Buck Drift — pebble-textured knit, sizes to 5XL'],['cbc_adapt_heather_qz','Women’s cut','Cutter & Buck Adapt — heathered soft-knit, men’s and women’s cuts'],['st_avalanteqz','Value','Avalante — 320 gsm sweater-knit fleece']]},
+'gift|cotton':{p:'rw_spiritbear',ang:'Made in Canada by Redwood Classics: a 20 oz, 100% cotton brushed-back fleece zip polo — the heaviest cotton quarter-zip we carry, and a gift that feels expensive.',
+  alts:[['rw_tremblant','Slimmer','Redwood Classics Tremblant — 16 oz slim-fit mock-neck zip'],['cs_l00602','Value','Fairmount — 330 gsm cotton-rich quarter-zip']]},
+'gift|warm':{p:'cbc_peshastin_hz',ang:'Cutter & Buck Peshastin: a 250 gsm recycled grid fleece half-zip, heathered, with UPF 50+ — a warm gift with a brand people know.',
+  alts:[['st_basethermalqz','Value','Base Thermal — 240 gsm grid-back thermal fleece'],['cq_summit_hz','Softer','Clique Summit — non-pilling microfleece half-zip']]}};
+var QZ_ANG=curAngFrom({ca:CUR_QZA});
+var QZCFG={id:'qz',tile:'Performance, sweater-knit, cotton or fleece',one:'quarter-zip',label:'Quarter-zip advisor',noun:'quarter-zip',nounPl:'quarter-zips',noun2:'quarter-zips',
+  h:'The right quarter-zip for every team.',
+  sub:'Four quick questions, then one quarter-zip for each group, with the reasons it fits.',
+  overWhy:'who wears it and how it should feel',
+  applies:function(c,s){return c==='layers'&&s===QZ_SUB;},
+  who:true,
+  qs:[{id:'who',q:'Who will wear it?',short:'Who wears it',hint:'Pick every group',multi:true,wide:true,opts:QZ_WHO},
+      {id:'feel',q:'How should it feel?',short:'The feel',def:'auto',hint:'The fabric decides the look, the warmth and the price.',
+        opts:[{id:'perf',lab:'Smooth performance',sub:'Stretch, wicking, easy-care'},{id:'knit',lab:'Sweater-knit',sub:'Softer, dressier, heathered'},
+          {id:'cotton',lab:'Cotton sweatshirt',sub:'Soft, classic, casual'},{id:'warm',lab:'Fleece & thermal',sub:'The warmest, for the cold'},
+          {id:'auto',lab:'Best for each group',sub:'Let us choose',ico:'spark'}]},
+      {id:'fit',q:'What sizing must every piece cover?',short:'Sizes & cuts',def:'std',hint:'We only recommend styles that come in every size and cut you need.',
+        opts:[{id:'std',lab:'Standard sizing',sub:'No special cuts or sizes'},{id:'lad',lab:'Women’s cuts too',sub:'A matching women’s fit'},
+          {id:'big',lab:'Big sizes',sub:'4XL and up'},{id:'both',lab:'Both',sub:'Women’s cuts and 4XL+'}]},
+      {id:'outer',q:'For site and field staff: what goes over it?',short:'Worn under',def:'0',hint:'This only changes the pick for site staff and field crews.',
+        when:function(A){var w=A.who||[];return w.indexOf('outdoor')>=0||w.indexOf('mixed')>=0;},
+        opts:[{id:'0',lab:'A jacket or hi-vis vest',sub:'Worn as a mid-layer'},{id:'1',lab:'Nothing — worn on its own',sub:'Heavier, with a storm flap'}]}],
+  fact:function(it){var g=caGsm(it);return caArt((g?(g+' gsm '):'')+(QZ_FAMLAB[qzFamOf(it.key)]||'').toLowerCase()+' quarter-zip')+(hasLadies(it)?' in men’s and women’s cuts':'');},
+  pool:function(){return caKeys([['layers',QZ_SUB]]).filter(function(k){return !jaHivis(BYKEY[k]);});},
+  score:function(it,A,role,p){if(!qzFits(it,A))return null;
+    var fam=qzFamOf(it.key),want=qzFamFor(A,role),pick=A.feel&&A.feel!=='auto',s=0,g=caGsm(it);
+    if(fam===want)s+=pick?60:40;else{var j=(QZ_NEAR[want]||[]).indexOf(fam);s+=j===0?8:(j===1?4:0);}
+    if(role==='office'){if(hasLadies(it))s+=6;if(caLuxe(it))s+=4;}
+    else if(role==='mixed'){if(caFin(it,/snag/i))s+=6;if(caFin(it,/pocket/i))s+=4;}
+    else if(role==='outdoor'){if(g>=230)s+=8;if(/Cutter & Buck/i.test(caBrand(it)))s-=6;if(qzBig(it))s+=4;}
+    else if(role==='gift'){if(caLuxe(it))s+=10;if(/made in canada/i.test(caFab(it)+' '+(it.blurb||'')))s+=4;}
+    if(A.outer==='1'&&(role==='outdoor'||role==='mixed')){if(g>=280||/20 oz/.test(caFab(it)))s+=12;if(caFin(it,/storm flap|water-repellent/i))s+=12;}
+    return s;},
+  why:function(it,A,role){var out=[],fam=qzFamOf(it.key),f=(it.fab&&it.fab.finishes)||[];
+    if(QZ_FAMWHY[fam])out.push(QZ_FAMWHY[fam]);
+    f.filter(function(x){return !/recycled|grs|oeko|logo trims|locker/i.test(x);}).slice(0,2).forEach(function(x){out.push(caCap(x));});
+    return out.slice(0,3);},
+  tips:function(A){var w=A.who||[],n=qzNeed(A),t=['Quarter-zips are embroidered left chest, about 3.5" wide, clear of the zip — we check fine detail on your proof before anything is stitched.'];
+    if(!n.lad)t.push('Mixed team? Pick a style that comes in a matching women’s cut — the look stays the same across the team and the pieces actually get worn.');
+    if(w.indexOf('outdoor')>=0||w.indexOf('mixed')>=0)t.push(A.outer==='1'?'Worn on its own outside, a heavier knit with a storm flap holds up better than a light performance layer.':'Under hi-vis, the quarter-zip is the mid-layer: the hi-vis vest or jacket has to stay on top to count.');
+    t.push('Light performance quarter-zips (about 145–220 gsm) layer over a polo; 300 gsm fleece and 20 oz cotton are warm enough to wear on their own.');
+    if(w.indexOf('gift')>=0)t.push('Gifting without sizes? Order a size run weighted to M–XL — the split is yours to change on the quote.');
+    return t;},
+  curOk:function(it,A){return qzFits(it,A);},
+  angOf:function(k){return QZ_ANG[k]||CUR_ANG[k]||'';},
+  curate:function(A,role){var fam=qzFamFor(A,role),outer=A.outer==='1'&&(role==='outdoor'||role==='mixed');
+    var row=outer?CUR_QZA.outer:CUR_QZA[role+'|'+fam];if(!row)return null;
+    var pool={};caPool(QZCFG,A,role).forEach(function(k){pool[k]=1;});
+    var fits=function(r){return [r.p].concat((r.alts||[]).map(function(a){return a[0];})).some(function(k){return pool[k]&&BYKEY[k]&&qzFits(BYKEY[k],A);});};
+    if(!fits(row)){var need=qzNeedTxt(A),nb=(QZ_NEAR[fam]||[]);for(var i=0;i<nb.length;i++){var r2=CUR_QZA[role+'|'+nb[i]];
+        if(r2&&fits(r2)){row=Object.assign({},r2,{note:'No '+(QZ_FAMLAB[fam]||'').toLowerCase()+' quarter-zip in this store comes in '+need+', so this is the closest '+QZ_FAMLAB[nb[i]].toLowerCase()+' style that does.'});break;}}}
+    return caRow(row);},
+  /* the result card: what kind of quarter-zip it is, and the polo from the same range */
+  factsFor:function(it,F){var fam=QZ_FAMLAB[qzFamOf(it.key)];return fam?[['Type',fam+(/half-?zip/i.test(it.name||'')?' · half-zip':' · quarter-zip')]].concat(F):F;},
+  pairHtml:function(x){var pk=QZ_PAIR[x.main.k],p=pk&&BYKEY[pk];if(!p)return '';var u=0;try{u=caUnit(pk,moq());}catch(e){u=0;}
+    return '<p class="cpfam qzpair"><span>Matching polo:</span> <b>'+esc(caShort(p.name))+'</b> — same '+esc(p.brand||'')+' range'+(u?(', from '+money(u)+'/pc'):'')+' <button type="button" class="cpsw" data-xpopen="'+esc(pk)+'">See it</button></p>';},
+  introStats:function(){var ks=caKeys([['layers',QZ_SUB]]),fam={},lad=0,big=0,lo=0;
+    ks.forEach(function(k){var it=BYKEY[k];if(!it)return;fam[qzFamOf(k)]=1;if(hasLadies(it))lad++;if(qzBig(it))big++;var p=famPrice(k);if(p&&(!lo||p<lo))lo=p;});
+    if(ks.length<6)return '';
+    return '<div class="qzstats"><div><b>'+ks.length+'</b><i>quarter- &amp; half-zips</i></div><div><b>'+Object.keys(fam).length+'</b><i>fabric families</i></div>'+
+      '<div><b>'+lad+'</b><i>with a matching women’s cut</i></div>'+(lo?('<div><b>'+money(lo)+'</b><i>from, per piece with your logo</i></div>'):'')+'</div>';}};
+(function(){var i=-1;CADV.forEach(function(c,j){if(c.id==='layers'&&i<0)i=j;});if(i<0)CADV.push(QZCFG);else CADV.splice(i,0,QZCFG);})();
+CA_PIC['qz.who']={office:'st_volanteqz',mixed:'st_monteroqz',outdoor:'st_shastaqz',gift:'cbc_mainsail_hz'};
+CA_PIC['qz.feel']={perf:'st_milanoqz',knit:'cbc_adapt_heather_qz',cotton:'rw_spiritbear',warm:'st_basethermalqz'};
+CA_PIC['qz.outer']={0:'st_basethermalqz',1:'st_monteroqz'};
+CA_ICO.pair='<circle cx="8" cy="6.5" r="2.6"/><circle cx="16" cy="6.5" r="2.6"/><path d="M3.5 20v-4.5a4.5 4.5 0 0 1 9 0V20M11.5 20v-4.5a4.5 4.5 0 0 1 9 0V20"/>';
+CA_ICO.ruler='<rect x="2" y="8" width="20" height="8" rx="1.5"/><path d="M6 8v3M10 8v4M14 8v3M18 8v4"/>';
+CA_ICO_Q['fit|std']='zip';CA_ICO_Q['fit|lad']='pair';CA_ICO_Q['fit|big']='ruler';CA_ICO_Q['fit|both']='team';
+/* the advisor picker and the home hub: quarter-zips get their own tile, and it lands on the quarter-zip shelf */
+function qzHubTile(cls){try{if(!(BUCKETS.layers&&(BUCKETS.layers[QZ_SUB]||[]).length))return '';var A=caSt('qz');if(caPool(QZCFG,A).length<3)return '';
+  var done=caReady(QZCFG,A),lead=CA_PIC['qz.who'].office;
+  return '<button type="button" class="ahtile qzt '+(cls||'')+'" data-advgo="layers" data-advsub="'+esc(QZ_SUB)+'">'+
+    '<span class="ahimg">'+(BYKEY[lead]?('<span class="capst">'+caThumb(lead)+'</span>'):caSvg('zip',34))+'</span>'+
+    '<span class="ahtx"><b>Quarter-zips</b><i>'+esc(done?'Your picks are ready — tap to see them':'Who wears it and how it should feel')+'</i>'+(done?'':('<em class="ahq">'+caQword(QZCFG,A)+' questions</em>'))+'</span>'+
+    '<span class="ahgo">'+(done?'See picks':'Start')+' <span aria-hidden="true">→</span></span></button>';}catch(e){return '';}}
+var _caHubTiles0=caHubTiles;
+caHubTiles=function(cls){var h=_caHubTiles0(cls),t=qzHubTile(cls);if(!t)return h;
+  var i=h.indexOf('data-advgo="layers"');if(i<0)return t+h;var j=h.indexOf('</button>',i);return j<0?(h+t):(h.slice(0,j+9)+t+h.slice(j+9));};
+var _advGo0=advGo;
+advGo=function(c,src,sub){if(!sub)return _advGo0(c,src);var g=null;
+  for(var i=0;i<CADV.length;i++){if(CADV[i].applies(c,sub)){g=CADV[i];break;}}
+  if(!g||!(BUCKETS[c]&&(BUCKETS[c][sub]||[]).length))return _advGo0(c,src);
+  var A=caSt(g.id);
+  if(!caReady(g,A)){A._m='q';var L=caQs(g,A),k=0;while(k<L.length-1&&(L[k].multi?(A[L[k].id]||[]).length:(A[L[k].id]!=null&&A[L[k].id]!=='')))k++;A._i=k;}else A._m='res';
+  caSave();jdpTrack('adv_go',{c:c,s:bslug(sub),src:src||''});try{closeAdvPicker();}catch(e){}
+  setCat(c,false);setSub(sub,true);
+  setTimeout(function(){var x=document.getElementById('xpert');if(x){var hdr=document.querySelector('.tbar')||document.querySelector('.hdr');
+    window.scrollTo({top:Math.max(0,window.scrollY+x.getBoundingClientRect().top-((hdr&&hdr.offsetHeight)||64)-12),behavior:'smooth'});}},60);};
+
 var XP_SUB={};
 function renderXpert(){
   var el=document.getElementById('xpert');if(!el)return;
@@ -4980,8 +5138,8 @@ var SHELF_FAM={'Quarter & Half-Zips':{noun:'quarter-zips',fams:[
   map:{cq_spin_hz:'perf',cq_ice_hz:'perf',st_montereyqz:'perf',cs_l00875:'perf',st_volanteqz:'perf',st_sonoraqz:'perf',st_milanoqz:'perf',cbc_prospect_qz:'perf',
     cbc_coastline_qz:'perf',cbc_forge_qz:'perf',cbc_traverse_qz:'perf',
     cq_haven_qz:'knit',cb_qzip:'knit',cbc_adapt_heather_qz:'knit',cbc_drift_qz:'knit',cb_roamqz:'knit',st_avalanteqz:'knit',cbc_mainsail_hz:'knit',
-    flux:'cotton',cs_l00602:'cotton',rw_tremblant:'cotton',nk_halfzipsw:'cotton',nk_halfzip:'cotton',ff_cotthalfzip:'cotton',
-    cq_summit_hz:'warm',st_shastaqz:'warm',st_basethermalqz:'warm',st_treeline:'warm',st_monteroqz:'warm',cbc_peshastin_hz:'warm'}}};
+    flux:'cotton',cs_l00602:'cotton',rw_tremblant:'cotton',nk_halfzipsw:'cotton',nk_halfzip:'perf',ff_cotthalfzip:'cotton',
+    rw_spiritbear:'cotton',cq_summit_hz:'warm',st_shastaqz:'warm',st_basethermalqz:'warm',st_treeline:'warm',st_monteroqz:'warm',cbc_peshastin_hz:'warm'}}};
 function shelfFamOf(sub,k){var F=SHELF_FAM[sub];if(!F)return '';if(F.map[k])return F.map[k];var it=BYKEY[k]||{},f=it.fab||{},t=((it.name||'')+' '+(f.knit||'')).toLowerCase();
   var cot=(f.mix||[]).reduce(function(a,m){return a+(/cotton/i.test(m[0])?m[1]:0);},0);
   if(cot>=50)return 'cotton';
@@ -10947,14 +11105,14 @@ var ICP_TAKE={
   corp:'For a corporate team, what matters is pieces people choose to wear — fit and quality first, in men’s and women’s cuts of the same piece.'};
 /* arc flash / flash fire exposure: the industries where we ask about FR, the advisors and groups it touches */
 var ICP_FR={mech:1,mfg:1,maint:1,energy:1};
-var FR_ROLES={jackets:['drivers','warehouse','outdoor'],tops:['mixed','outdoor'],layers:['mixed','outdoor'],vests:['mixed','outdoor'],pants:['shop','trades'],hivis:['road','site','yard','night']};
+var FR_ROLES={qz:['mixed','outdoor'],jackets:['drivers','warehouse','outdoor'],tops:['mixed','outdoor'],layers:['mixed','outdoor'],vests:['mixed','outdoor'],pants:['shop','trades'],hivis:['road','site','yard','night']};
 var FR_TXT={_:'Standard polyester, nylon and spandex can melt onto skin in an arc flash or flash fire, so we won’t recommend them here. FR clothing has to match your hazard assessment — an arc rating (cal/cm²) under CSA Z462 / NFPA 70E, or NFPA 2112 / CAN/CGSB-155.20 for flash fire — and anything worn underneath must be non-melting.',
   hivis:'Hi-vis worn over FR clothing has to be FR-rated itself — a standard polyester vest can melt or burn on top of it. FR hi-vis must match your hazard assessment (an arc rating under CSA Z462 / NFPA 70E, or NFPA 2112 / CAN/CGSB-155.20 for flash fire) and still meet CSA Z96.'};
 var FR_NOTE='Not FR-rated — for people in this group with no arc-flash or flash-fire exposure. FR crews: see the FR row.';
 /* the groups a buyer picked in one advisor, in every other advisor's words */
-var CA_GRP_IN={jackets:{office:'office',drivers:'mobile',warehouse:'indoor',outdoor:'outdoor'},tops:{office:'office',mixed:'mobile',outdoor:'outdoor',events:'events'},
+var CA_GRP_IN={qz:{office:'office',mixed:'mobile',outdoor:'outdoor',gift:'gift'},jackets:{office:'office',drivers:'mobile',warehouse:'indoor',outdoor:'outdoor'},tops:{office:'office',mixed:'mobile',outdoor:'outdoor',events:'events'},
   layers:{office:'office',mixed:'mobile',outdoor:'outdoor',gift:'gift'},vests:{office:'office',mixed:'mobile',outdoor:'outdoor',gift:'gift'},pants:{shop:'indoor',trades:'outdoor'}};
-var CA_GRP_OUT={jackets:{office:'office',mobile:'drivers',indoor:'warehouse',outdoor:'outdoor'},tops:{office:'office',mobile:'mixed',indoor:'mixed',outdoor:'outdoor',events:'events'},
+var CA_GRP_OUT={qz:{office:'office',mobile:'mixed',indoor:'mixed',outdoor:'outdoor',gift:'gift'},jackets:{office:'office',mobile:'drivers',indoor:'warehouse',outdoor:'outdoor'},tops:{office:'office',mobile:'mixed',indoor:'mixed',outdoor:'outdoor',events:'events'},
   layers:{office:'office',mobile:'mixed',indoor:'mixed',outdoor:'outdoor',gift:'gift'},vests:{office:'office',mobile:'mixed',indoor:'mixed',outdoor:'outdoor',gift:'gift'},pants:{indoor:'shop',outdoor:'trades',mobile:'trades'}};
 CA_ICO.bolt='<path d="M13 2L4 14h7l-1 8 9-12h-7z"/>';
 CA_ICO.gear='<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1L7 17M17 7l2.1-2.1"/>';
@@ -11024,7 +11182,7 @@ caProgramRaw=function(cfg,A){var P=_caProgramRaw0(cfg,A);if(!caFrOn(cfg,A))retur
    recommend, so this row could only say "ask Steven". With ForceField's arc-rated range in the catalogue it names the
    piece for this aisle -- the arc rating restated from the maker's own page -- one tap from the product with the
    buyer's logo, and still sends anything beyond it (a higher arc rating, FR winter parkas) to Steven. */
-var FR_PICKS={tops:['ff_frtee','ff_frhrc2tee'],layers:['ff_frhoodie','ff_frfleece'],jackets:['ff_frhoodie','ff_frcotcov'],
+var FR_PICKS={qz:['ff_frhoodie','ff_frfleece'],tops:['ff_frtee','ff_frhrc2tee'],layers:['ff_frhoodie','ff_frfleece'],jackets:['ff_frhoodie','ff_frcotcov'],
   vests:['ff_frduckvest','ff_frvest'],hivis:['ff_frvest','ff_frduckvest'],pants:['ff_frpant','ff_frcoverall6'],_:['ff_frtee','ff_frhoodie']};
 var FR_PICKNOTE={jackets:'For winter FR work, layer the FR hoodie under an FR-rated parka — we source the parka to your arc rating.',
   hivis:'The FR vest is an outer layer: it goes over arc-rated FR clothing, never over standard polyester.'};
