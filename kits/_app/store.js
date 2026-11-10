@@ -3441,7 +3441,7 @@ function caFeat(it){var f={},fl=jaFlags(it),g=caGsm(it),mx=jaMaxSize(it),c=caCla
   return f;}
 function caTrade(main,alt,lo){var a=caFeat(BYKEY[main]),b=caFeat(BYKEY[alt]),out=[],k;
   var from=lo?a:b,to=lo?b:a;      // lower: what our pick has that it lacks; premium: what it adds
-  for(k in from){if(k==='gsm')continue;if(k==='wr'&&to.wp)continue;if(!to[k])out.push(from[k]);}   // waterproof already covers water repellency
+  for(k in from){if(k==='gsm')continue;if(k==='wr'&&to.wp)continue;if(k==='big'&&!(BYKEY[lo?alt:main]||{}).sizes)continue;if(!to[k])out.push(from[k]);}   /* no published size run: never claim it stops short */   // waterproof already covers water repellency
   if(a.gsm&&b.gsm&&Math.abs(a.gsm-b.gsm)>=30){if(lo&&b.gsm<a.gsm)out.push('weight ('+b.gsm+' vs '+a.gsm+' gsm)');if(!lo&&b.gsm>a.gsm)out.push('heavier fabric ('+b.gsm+' gsm)');}
   out=out.slice(0,2);
   if(lo)return out.length?('Gives up '+out.join(' and ')):'The same essentials for less';
@@ -3855,10 +3855,12 @@ function caDecoTxt(it){var m=String(it.method||'').trim();if(m)return m.replace(
 function caFacts(it){var S=caSpec(it),W=caWarmInfo(it),R=[];
   if(it.fr&&(it.fr.atpv||it.fr.limited))R.push(['Arc rating',it.fr.atpv?('ATPV '+it.fr.atpv+' cal/cm²'+(it.fr.cat?(' · CAT '+it.fr.cat):'')):'Not arc-rated — outer layer only']);
   if(it.csa)R.push(['Hi-vis',String(it.csa).replace(/\s*\(.*$/,'')]);
-  if(S.fabric&&S.fabric!=='—')R.push(['Fabric',S.fabric]);
+  var fm=(it.fab&&it.fab.mix&&it.fab.mix.length)?it.fab.mix.map(function(x){return x[1]+'% '+String(x[0]).toLowerCase();}).join(' / '):'',fw=caWeightTxt(it),fk=(it.fab&&typeof it.fab.knit==='string'&&it.fab.knit.length<40)?it.fab.knit:'';
+  var ftx=[fm,fw].filter(Boolean).join(' · ')||S.fabric;if(fk&&ftx&&ftx!=='—')ftx=fk+' — '+ftx;
+  if(ftx&&ftx!=='—')R.push(['Fabric',ftx]);
   if(W&&W.lvl)R.push([W.knit?'Weight':'Warmth',W.knit?W.lab:(W.lab+(W.detail?(' · '+W.detail):''))]);
   if(S.weather&&S.weather!=='—')R.push(['Weather',S.weather]);
-  R.push(['Fit & sizes',S.cuts+(S.sizes&&S.sizes!=='—'?(' · '+S.sizes):'')]);
+  R.push(['Fit & sizes',S.cuts+(it.sizes&&S.sizes&&S.sizes!=='—'?(' · '+S.sizes):'')]);
   R.push(['Your logo',caDecoTxt(it)]);
   return R;}
 /* the reasons beyond the spec rows: benefit lines from the advisor's own why(), minus what the spec already says */
