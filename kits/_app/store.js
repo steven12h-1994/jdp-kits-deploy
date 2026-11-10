@@ -3834,24 +3834,109 @@ function caWhyLine(cfg,A,x){var it=BYKEY[x.main.k],w=x.ang||'';if(!w){try{w=cfg.
 function caStepper(attr,v){return '<div class="cpstep"><button type="button" class="cpsb" data-caq="'+attr+'|-1" aria-label="Fewer">−</button>'+
   '<input class="cpsi" type="text" inputmode="numeric" pattern="[0-9]*" data-caqi="'+attr+'" value="'+v+'" aria-label="How many people">'+
   '<button type="button" class="cpsb" data-caq="'+attr+'|1" aria-label="More">+</button></div>';}
+/* ===== ADVISOR RESULT v7 -- THE RECOMMENDATION AS A DECISION BRIEF (Steven, 2026-11-10: "Our recommendation after they
+   input their answers is the most important section ... It is a mess and does not provide the information needed for
+   the company to make the decision!"). v5/v6 answered with a table row per group: a 108px thumbnail, a name, one line
+   of reason, a stepper and a price -- and everything a buyer actually decides on (colour, fabric, warmth, fit, sizes,
+   where the logo goes, what the volume breaks are, what the cheaper and the premium option would change) sat behind
+   "Compare 3 options", while "Steven's take" repeated the same alternatives as a wall of prose underneath.
+   A procurement buyer takes the answer to an approver, so each group now gets one decision card that carries the
+   whole case on its face:
+     * the pick on a large stage with THEIR logo, and its colours as swatches that re-render the mockup;
+     * why it is right for this group (our curated reason) and the facts that decide it -- fabric, weight or warmth,
+       weather, fit and sizes, and the decoration -- read only from the catalogue;
+     * people, the price at that headcount, the line total, and the store's own volume breaks with the current one
+       marked and the next one named;
+     * the other options for the group side by side, each with the price difference and what it gains or gives up,
+       one tap to choose; the full spec table stays one tap away.
+   The band on top states the program in four numbers (groups, pieces, estimate, average per person), and the foot
+   says exactly what happens next. Nothing is invented: every fact comes from caSpec/caWarmInfo/caTiers/caTrade. */
+function caDecoTxt(it){var m=String(it.method||'').trim();if(m)return m.replace(/\s*·\s*/g,' · ');var s=it.std||{};return s.label||'Embroidered · left chest';}
+function caFacts(it){var S=caSpec(it),W=caWarmInfo(it),R=[];
+  if(it.fr&&(it.fr.atpv||it.fr.limited))R.push(['Arc rating',it.fr.atpv?('ATPV '+it.fr.atpv+' cal/cm²'+(it.fr.cat?(' · CAT '+it.fr.cat):'')):'Not arc-rated — outer layer only']);
+  if(it.csa)R.push(['Hi-vis',String(it.csa).replace(/\s*\(.*$/,'')]);
+  if(S.fabric&&S.fabric!=='—')R.push(['Fabric',S.fabric]);
+  if(W&&W.lvl)R.push([W.knit?'Weight':'Warmth',W.knit?W.lab:(W.lab+(W.detail?(' · '+W.detail):''))]);
+  if(S.weather&&S.weather!=='—')R.push(['Weather',S.weather]);
+  R.push(['Fit & sizes',S.cuts+(S.sizes&&S.sizes!=='—'?(' · '+S.sizes):'')]);
+  R.push(['Your logo',caDecoTxt(it)]);
+  return R;}
+/* the reasons beyond the spec rows: benefit lines from the advisor's own why(), minus what the spec already says */
+function caPoints(cfg,A,x,it){var w=[];try{w=cfg.why?(cfg.why(it,A,x.role)||[]):[];}catch(e){w=[];}
+  return w.filter(function(t){return t&&!/\bgsm\b|cuts?\b|women|men’s|unisex|sizes?\b|\d+%/i.test(t);}).slice(0,3);}
+function caTierStrip(k,q){var T=caTiers(k);if(T.length<2)return '';var cur=0;T.forEach(function(t,i){if(q>=t.q)cur=i;});var nx=T[cur+1];
+  return '<div class="cpctier" role="list" aria-label="Price per piece by quantity">'+T.map(function(t,i){
+      return '<span role="listitem" class="'+(i===cur?'on':'')+'"><i>'+t.q+'+</i><b>'+money(t.p)+'</b></span>';}).join('')+'</div>'+
+    (nx?('<p class="cpcnext">At '+nx.q+'+ it’s <b>'+money(nx.p)+'</b>/pc — '+(nx.q-q)+' more to get there</p>'):'<p class="cpcnext ok">✓ Best volume price</p>');}
+function caSwatches2(k){var it=BYKEY[k],cs=browseCols(it)||[],cur=caColOf(k);if(!cs.length)return '';var max=9;
+  return '<div class="cpcsw"><span class="cpcswl">Colour <b data-cacur="'+esc(k)+'">'+esc(cur||'')+'</b><i>'+cs.length+' colour'+(cs.length===1?'':'s')+'</i></span>'+
+    (cs.length>1?('<div class="cpcdots">'+cs.slice(0,max).map(function(c){return '<button type="button" class="cdot'+(c.name===cur?' on':'')+'" data-cacol="'+esc(k)+'|'+esc(c.name||'')+'" style="background:'+(c.rgb||'#ccc')+'" title="'+esc(c.name||'')+'" aria-label="See it in '+esc(c.name||'')+'"></button>';}).join('')+
+      (cs.length>max?('<button type="button" class="cmore" data-xpopen="'+esc(k)+'">+'+(cs.length-max)+'</button>'):'')+'</div>'):'')+'</div>';}
+function caAltList(cfg,A,x,q){var base=caBaseOf(cfg,A,x.role)||x;if(!base||base.none)return '';
+  var opts=[{k:base.main.k,lab:'Our pick'}].concat((base.alts||[]).map(function(a){return {k:a.r.k,lab:a.lab};}));
+  var seen={};opts=opts.filter(function(o){if(seen[o.k]||o.k===x.main.k||!BYKEY[o.k])return false;seen[o.k]=1;return true;});
+  if(!opts.length)return '';var u0=caUnit(x.main.k,q),open=(A._open===x.role);
+  return '<div class="cpcalts"><div class="cpcalth"><span>Other options for '+esc(x.lab?x.lab.replace(/^The /,''):'this group')+'</span>'+
+      '<button type="button" class="cpcmp'+(open?' on':'')+'" data-cadet="'+esc(x.role)+'" aria-expanded="'+open+'">'+(open?'Hide comparison':'Compare side by side')+' <span aria-hidden="true">'+(open?'▴':'▾')+'</span></button></div>'+
+    '<div class="cpcaltl">'+opts.map(function(o){var it=BYKEY[o.k],u=caUnit(o.k,q),d=u-u0,lo=d<-0.49;
+      var tr=o.lab==='Our pick'?'The one we’d choose for this group':caTrade(x.main.k,o.k,lo);
+      return '<div class="cpcalt'+(o.lab==='Our pick'?' pick':'')+'"><button type="button" class="cpcaimg" data-xpopen="'+esc(o.k)+'" aria-label="See '+esc(it.name)+' with your logo">'+caThumb(o.k)+'</button>'+
+        '<div class="cpcab"><span class="cpcal"><em>'+esc(o.lab)+'</em><span class="cpcad'+(lo?' lo':(d>0.49?' hi':''))+'" data-cpad="'+esc(x.role)+'|'+esc(o.k)+'">'+(Math.abs(d)<0.5?'Same price':((lo?'Save ':'+')+money(Math.abs(d))+'/pc'))+'</span></span>'+
+          '<b class="cpcan">'+esc(caShort(it.name))+'</b><span class="cpcabr">'+esc(it.brand||it.sku||'')+(hasLadies(it)?' · men’s & women’s cuts':'')+'</span>'+
+          '<span class="cpcatr">'+esc(tr)+'</span></div>'+
+        '<button type="button" class="cpcuse" data-cachoose="'+esc(x.role)+'|'+esc(o.k)+'">'+(o.lab==='Our pick'?'Back to our pick':'Choose this')+'</button></div>';}).join('')+'</div></div>';}
 function caRowHtml(cfg,A,x){
   if(x.fr)return caFrRowHtml(cfg);
   if(x.none)return '<div class="cprow none"><div class="cpmain"><span class="cpfor">'+esc(x.lab||'')+'</span><p class="cpwhy">Nothing in this aisle fits all your answers for this group — <button type="button" class="jalink" data-caask="1">ask Steven</button> and we’ll source it.</p></div></div>';
-  var it=BYKEY[x.main.k],q=caQtyOf(cfg,A,x.role),u=caUnit(x.main.k,q),open=(A._open===x.role);
-  return '<div class="cprow" data-row="'+esc(x.role)+'">'+
-    '<button type="button" class="cpimg" data-xpopen="'+esc(x.main.k)+'" aria-label="See '+esc(it.name)+' with your logo">'+caThumb(x.main.k)+'</button>'+
-    '<div class="cpmain">'+(x.lab?('<span class="cpfor">'+(cfg.roleLabs?'':'For ')+esc(x.lab)+'</span>'):'')+
-      '<b class="cpname">'+esc(caShort(it.name))+'</b><span class="cpbr">'+esc(it.brand||it.sku||'')+(hasLadies(it)?' · men’s & women’s cuts':'')+'</span>'+
-      '<p class="cpwhy">'+esc(caWhyLine(cfg,A,x).replace(/\s*Hooded option: [^.]*\.?$/,''))+'</p>'+caFamHtml(cfg,A,x)+
-      (function(){var nt=x.note||'';if(!nt&&cfg.rowNote){try{nt=cfg.rowNote(A,x.role,BYKEY[x.main.k])||'';}catch(e){nt='';}}return nt?('<p class="cpnote">'+esc(nt)+'</p>'):'';})()+
-      caChoiceTag(cfg,A,x)+
-      (function(){var bb=caBaseOf(cfg,A,x.role)||x;if(!(bb.alts||[]).length)return '';
-        return '<div class="cpcmpw"><button type="button" class="cpcmp'+(open?' on':'')+'" data-cadet="'+esc(x.role)+'" aria-expanded="'+open+'">'+(open?'Hide comparison':('Compare '+(bb.alts.length+1)+' options'))+' <span aria-hidden="true">'+(open?'▴':'▾')+'</span></button>'+
-          '<span class="cpcmpl">Our pick · '+bb.alts.map(function(a){return esc(a.lab);}).join(' · ')+'</span></div>';})()+'</div>'+
-    (cfg.roles?'':('<div class="cpqty"><span class="cpql">People</span>'+caStepper(esc(x.role),q)+'</div>'))+
-    '<div class="cpprice"><b data-cpu="'+esc(x.role)+'">'+money(u)+'</b><i data-cpq="'+esc(x.role)+'">/pc at '+q+'</i><span class="cpline" data-cpl="'+esc(x.role)+'">'+money(u*q)+'</span></div>'+
-  '</div>'+
-  '<div class="cpdetail" data-detail="'+esc(x.role)+'"'+(open?'':' hidden')+'>'+(open?caCompareHtml(cfg,A,x):'')+'</div>';}
+  var it=BYKEY[x.main.k],k=x.main.k,q=caQtyOf(cfg,A,cfg.roles?'_kit':x.role),u=caUnit(k,q),open=(A._open===x.role);
+  var b=caBaseOf(cfg,A,x.role),mine=b&&!b.none&&b.main.k!==k;
+  var why=String(caWhyLine(cfg,A,x)||'').replace(/\s*Hooded option: [^.]*\.?$/,''),pts=caPoints(cfg,A,x,it),F=caFacts(it);
+  var nt=x.note||'';if(!nt&&cfg.rowNote){try{nt=cfg.rowNote(A,x.role,it)||'';}catch(e){nt='';}}
+  return '<article class="cpc'+(mine?' mine':'')+'" data-row="'+esc(x.role)+'">'+
+    '<header class="cpchd"><span class="cpcfor">'+(x.lab?((cfg.roleLabs?'':'For ')+esc(x.lab)):'Our recommendation')+'</span>'+
+      (mine?'<span class="cpcbadge you">Your choice</span>':'<span class="cpcbadge">✓ Our pick</span>')+'</header>'+
+    '<div class="cpcbody">'+
+      '<div class="cpcvis"><button type="button" class="cpcimg" data-xpopen="'+esc(k)+'" aria-label="See '+esc(it.name)+' with your logo">'+
+        '<span class="capfl" aria-hidden="true"></span><span class="capst">'+caThumb(k)+'</span><span class="cpclogo">Shown with your logo</span></button>'+
+        caSwatches2(k)+'</div>'+
+      '<div class="cpcinfo"><h4 class="cpcname">'+esc(caShort(it.name))+'</h4><span class="cpcbr">'+esc(it.brand||it.sku||'')+(it.msku?(' · '+esc(it.msku)+(it.wsku?(' / '+esc(it.wsku)):'')):'')+'</span>'+
+        (why?('<p class="cpcwhy"><b>Why it fits'+(x.lab&&!cfg.roleLabs?(' '+esc(x.lab.split(' + ')[0].replace(/^The /,'').toLowerCase())):'')+'</b>'+esc(why)+'</p>'):'')+
+        (pts.length?('<ul class="cpcpts">'+pts.map(function(p){return '<li>'+esc(p)+'</li>';}).join('')+'</ul>'):'')+
+        '<dl class="cpcspec">'+F.map(function(r){return '<div><dt>'+esc(r[0])+'</dt><dd>'+esc(r[1])+'</dd></div>';}).join('')+'</dl>'+
+        caFamHtml(cfg,A,x)+(nt?('<p class="cpnote">'+esc(nt)+'</p>'):'')+
+        '<button type="button" class="jalink cpcmore" data-xpopen="'+esc(k)+'">Full details, sizes &amp; logo placements →</button></div>'+
+      '<div class="cpcbuy">'+(cfg.roles?'':('<span class="cpql">People in this group</span>'+caStepper(esc(x.role),q)))+
+        '<div class="cpcprice"><b data-cpu="'+esc(x.role)+'">'+money(u)+'</b><i data-cpq="'+esc(x.role)+'">per piece at '+q+', your logo included</i></div>'+
+        '<div class="cpcline"><span>Line total</span><b data-cpl="'+esc(x.role)+'">'+money(u*q)+'</b></div>'+
+        '<div class="cpctiers" data-cpt="'+esc(x.role)+'">'+caTierStrip(k,q)+'</div></div>'+
+    '</div>'+
+    caAltList(cfg,A,x,q)+
+    '<div class="cpdetail" data-detail="'+esc(x.role)+'"'+(open?'':' hidden')+'>'+(open?caCompareHtml(cfg,A,x):'')+'</div>'+
+  '</article>';}
+function caKpis(cfg,A,P){var ok=P.filter(function(x){return !x.none;}),T=caTotals(cfg,A,P),kq=cfg.roles?caQtyOf(cfg,A,'_kit'):0;
+  var ppl=cfg.roles?kq:T.n,avg=ppl?(T.t/ppl):0;
+  return '<div class="cakpis">'+
+    '<div><b>'+ok.length+'</b><i>'+(cfg.roles?(ok.length===1?'piece in the kit':'pieces in the kit'):(ok.length===1?'group':'groups'))+'</i></div>'+
+    '<div><b data-cpkn="1">'+(cfg.roles?kq:T.n)+'</b><i>'+(cfg.roles?'people':'pieces')+'</i></div>'+
+    '<div class="big"><b data-cptot="1">'+money(T.t)+'</b><i>program estimate</i></div>'+
+    '<div><b data-cpavg="1">'+money(avg)+'</b><i>'+(cfg.roles?'per person, full kit':'average per person')+'</i></div></div>';}
+function caProgHtml(cfg,A,P){var ok=P.filter(function(x){return !x.none;}),T=caTotals(cfg,A,P),allIn=ok.length&&ok.every(function(x){return cartHasAny(x.main.k);});
+  var kq=cfg.roles?caQtyOf(cfg,A,'_kit'):0,ppl=cfg.roles?kq:T.n;
+  return '<div class="cprog v7">'+
+    (cfg.roles?('<div class="cpkit"><span><b>How many people?</b><i>Each person gets the full kit</i></span>'+caStepper('_kit',kq)+'</div>'):'')+
+    P.map(function(x){return caRowHtml(cfg,A,x);}).join('')+
+    '<div class="cptot"><div class="cptott"><b>Program estimate <span data-cptot="1">'+money(T.t)+'</span></b>'+
+      '<i><span data-cptn="1">'+(cfg.roles?(kq+' people · '+ok.length+' pieces each'):(T.n+' pieces'))+'</span> · <span data-cpavg="1">'+money(ppl?T.t/ppl:0)+'</span> per person · your logo included · before one-time setup, tax &amp; freight</i></div>'+
+      (ok.length?('<button type="button" class="jaall cpadd'+(allIn?' done':'')+'" data-caall="1">'+(allIn?'✓ Added — view my quote →':'Add the program to my quote →')+'</button>'):'')+'</div>'+
+    (allIn?'<div class="cpadded">Added to your quote, in the colours and quantities above. Keep adding anything else you need — then send it all from your quote.</div>':'')+
+    '<ol class="cpnext"><li><b>Add to your quote</b><span>Colours, quantities and sizes carry over — change anything there.</span></li>'+
+      '<li><b>Share it with your approver</b><span>Download the formal quote as a PDF or send the link.</span></li>'+
+      '<li><b>Approve a free digital proof</b><span>Your logo on each piece, before anything is made.</span></li></ol>'+
+    '<div class="cpfoot"><span>Questions about sizing, colours or decoration?</span><button type="button" class="jalink" data-caask="1">Have Steven review this program</button></div>'+
+  '</div>';}
+/* the expert's notes, visible -- not behind a disclosure -- because they are the advice a rep would give before ordering */
+function caNotesHtml(cfg,A){var t=[];try{t=cfg.tips?(cfg.tips(A)||[]):[];}catch(e){t=[];}if(!t.length)return '';
+  return '<div class="canotes"><span class="catakav" aria-hidden="true">S</span><div><b>Steven’s notes before you order</b><ul>'+t.slice(0,4).map(function(x){return '<li>'+esc(x)+'</li>';}).join('')+'</ul></div></div>';}
 /* when the buyer has chosen something other than our pick, the row says so -- and offers the way back */
 function caChoiceTag(cfg,A,x){var b=caBaseOf(cfg,A,x.role);if(!b||b.none||b.main.k===x.main.k)return '';
   return '<p class="cpchoice"><span>Your choice</span> — our pick was <b>'+esc(caShort(BYKEY[b.main.k].name))+'</b> <button type="button" class="cpsw" data-cachoose="'+esc(x.role)+'|'+esc(b.main.k)+'">Back to our pick</button></p>';}
@@ -3866,19 +3951,6 @@ function caAltChips(cfg,x){if(!(x.alts||[]).length)return '';
     return '<button type="button" class="cpalt" data-caswap="'+esc(x.role)+'|'+esc(a.r.k)+'" title="'+esc(a.ang||it.name)+'"><em>'+esc(a.lab)+'</em> '+esc(caShort(it.name))+
       ' <i>'+(Math.abs(d)<0.5?'same price':((d<0?'−':'+')+money(Math.abs(d))))+'</i></button>';}).join('')+'</div>';}
 function caTotals(cfg,A,P){var t=0,n=0;P.forEach(function(x){if(x.none)return;var q=caQtyOf(cfg,A,x.role);t+=caUnit(x.main.k,q)*q;n+=q;});return {t:t,n:n};}
-function caProgHtml(cfg,A,P){var ok=P.filter(function(x){return !x.none;}),T=caTotals(cfg,A,P),allIn=ok.length&&ok.every(function(x){return cartHasAny(x.main.k);});
-  var kq=cfg.roles?caQtyOf(cfg,A,'_kit'):0;
-  return '<div class="cprog">'+
-    (cfg.roles?('<div class="cpkit"><span><b>How many people?</b><i>Each person gets the full kit</i></span>'+caStepper('_kit',kq)+'</div>'):'')+
-    '<div class="cphead"><span>'+(cfg.roles?'Piece':'Group & our pick')+'</span>'+(cfg.roles?'':'<span>People</span>')+'<span>Price</span></div>'+
-    P.map(function(x){return caRowHtml(cfg,A,x);}).join('')+
-    '<div class="cptot"><div class="cptott"><b>Program estimate <span data-cptot="1">'+money(T.t)+'</span></b>'+
-      '<i><span data-cptn="1">'+(cfg.roles?(kq+' people · '+ok.length+' pieces each'):(T.n+' pieces'))+'</span> · your logo included · before one-time setup, tax &amp; freight</i></div>'+
-      (ok.length?('<button type="button" class="jaall cpadd'+(allIn?' done':'')+'" data-caall="1">'+(allIn?'✓ Added — view my quote →':'Add all to quote →')+'</button>'):'')+'</div>'+
-    (allIn?'<div class="cpadded">Added to your quote. Keep adding anything else you need — then send it all from your quote.</div>':'')+
-    '<div class="cpfoot"><span>Free digital proof with your logo before anything is made · no payment to get a quote</span>'+
-      '<button type="button" class="jalink" data-caask="1">Have Steven review it</button></div>'+
-  '</div>';}
 /* ADD TO QUOTE, THEN KEEP GOING (Steven, 2026-10-19: "should be simple and easy ... we want them to use the quote feature
    and convert from there after they have finished adding all the products they want"). The recommendation has ONE
    action -- "Add all to quote". Adding no longer throws the buyer into the full-screen quote: the program lands on the
@@ -3899,7 +3971,7 @@ function renderCatAdvisor(el,cfg){
   var mode=A._m||(ready?'res':'q');if(mode==='intro')mode='q';if(mode==='res'&&!ready)mode='q';if(!n)mode='res';
   var i=Math.max(0,Math.min(n-1,A._i||0));
   if(mode==='q'&&A._i==null){var f0=caFirstOpen(qs,A);if(f0>0){i=f0;A._fresh=1;}}
-  var head='<div class="cahd"><span class="xpeyb">'+esc(cfg.label)+'</span>';
+  var head='<div class="cahd"><span class="xpeyb">'+esc((cfg.labSub&&cfg.labSub[VIEW.sub])||cfg.label)+'</span>';
   var body='',P=null;
   if(mode==='q'){
     var q=qs[i],answered=q.multi?((A[q.id]||[]).length>0):(A[q.id]!=null&&A[q.id]!=='');
@@ -3907,7 +3979,7 @@ function renderCatAdvisor(el,cfg){
     var nmx=caQmax(cfg,A);
     var _any=caAllQs(cfg,A).some(function(qq){var v=A[qq.id];return qq.multi?((v||[]).length>0):(v!=null&&v!=='');});
     body='<div class="caband">'+head+'<span class="cahdr">'+(_any?'<button type="button" class="carst" data-careset="1" title="Clear every answer and start again"><span aria-hidden="true">\u21ba</span> Start over</button>':'')+'<span class="castep">'+(i+1)+' of '+Math.max(n,nmx)+'</span></span></div>'+
-      ((i===0||A._fresh)?('<div class="caintro"><div class="caintx"><h3 class="xph">'+esc(cfg.h)+'</h3><p class="xpadv">'+esc(caQword(cfg,A))+' quick question'+(Math.max(n,nmx)>1?'s':'')+', then a recommended program'+(cfg.roles?' for your kit':(cfg.who?' for each group':''))+' — priced for your headcount, with your logo on it.</p>'+
+      ((i===0||A._fresh)?('<div class="caintro"><div class="caintx"><h3 class="xph">'+esc((cfg.hSub&&cfg.hSub[VIEW.sub])||cfg.h)+'</h3><p class="xpadv">'+esc(caQword(cfg,A))+' quick question'+(Math.max(n,nmx)>1?'s':'')+', then a recommended program'+(cfg.roles?' for your kit':(cfg.who?' for each group':''))+' — priced for your headcount, with your logo on it.</p>'+
         '<ul class="catrust"><li>Your logo on every pick</li><li>Priced at your headcount</li><li>Free digital proof before anything is made</li></ul></div>'+caProofHtml(cfg)+'</div>'):'')+
       '</div><div class="cainner">'+caStepsHtml(cfg,A,qs,i)+
       '<h3 class="caq">'+esc(q.q)+'</h3>'+(q.hint||q.multi?('<p class="caqh">'+esc(q.multi?(q.preHint||'Select every group that applies — each gets its own pick. Tap again to remove one.'):q.hint)+'</p>'):'')+
@@ -3925,19 +3997,19 @@ function renderCatAdvisor(el,cfg){
     if(A._open===undefined&&ok.length===1&&(ok[0].alts||[]).length)A._open=ok[0].role;
     var _T=caTotals(cfg,A,P);
     body='<div class="caband res">'+head+'<span class="cahdr"><button type="button" class="caedt" data-caedit="*">Edit answers</button><button type="button" class="carst" data-careset="1" title="Clear every answer and start again"><span aria-hidden="true">\u21ba</span> Start over</button><span class="castep done">✓ Recommended program</span></span></div>'+
-      '<h3 class="xph">'+(cfg.roles?('Your golf kit — '+ok.length+' piece'+(ok.length===1?'':'s')):(ok.length>1?('Your '+esc(cfg.noun)+' program — '+ok.length+' groups'):('Our recommendation')))+'</h3>'+(ok.length?('<p class="cabandsub">'+_T.n+' pieces · '+money(_T.t)+' estimate · your logo included</p>'):'')+'</div><div class="cainner">'+
+      '<h3 class="xph">'+(cfg.roles?('Your golf kit — '+ok.length+' piece'+(ok.length===1?'':'s')):(ok.length>1?('Your '+esc(cfg.noun)+' program — '+ok.length+' groups'):('Our recommendation for your '+esc(cfg.noun))))+'</h3>'+
+        '<p class="cabandsub">'+(ok.some(function(x){return x.cur;})?('Hand-picked from the '+nS+' '+esc(cfg.noun)+' in this store for exactly your answers'):('Chosen from the '+nS+' '+esc(cfg.noun2||cfg.noun)+' in this store against your answers'))+' — each shown with your logo, priced at your headcount.</p>'+
+        (ok.length?caKpis(cfg,A,P):'')+'</div><div class="cainner">'+
       '<div class="casum"><span class="casuml">Picked for</span>'+caAllQs(cfg,A).map(function(qq){var v=A[qq.id],t=qq.multi?(v||[]).map(function(z){return caAnsLab(qq,z);}).join(', '):caAnsLab(qq,v),as=caHidden(cfg,A,qq);
           return t?('<button type="button" class="casumc'+(as?' as':'')+'" data-caedit="'+esc(qq.id)+'" title="'+(as?'We assumed this — tap to change':'Change: '+esc(qq.q))+'">'+esc(t)+' <span aria-hidden="true">✎</span></button>'):'';}).join('')+
         '<span class="casumh">Tap any answer to change it.</span></div>'+
       (caTogs(cfg,A).length?('<div class="catog">'+caTogs(cfg,A).map(function(g){var on=A[g.id]==='1';
         return '<button type="button" class="catgl'+(on?' on':'')+'" data-catog="'+esc(g.id)+'" aria-pressed="'+on+'"><span class="catsw" aria-hidden="true"></span><b>'+esc(g.lab)+'</b><i>'+esc(g.sub)+'</i></button>';}).join('')+'</div>'):'')+
       caProgHtml(cfg,A,P)+
-      caTakeHtml(cfg,A,P,true)+
+      caNotesHtml(cfg,A)+
+      (cfg.note?(function(){try{var t=cfg.note(A);return t?('<p class="cacmp">'+esc(t)+'</p>'):'';}catch(e){return '';}})():'')+
       caNextHtml(cfg)+
-      '<p class="cacmp">'+(ok.some(function(x){return x.cur;})?('Hand-picked by our team from the '+nS+' '+esc(cfg.noun)+' in this store for exactly these answers.'):('Chosen from the '+nS+' '+esc(cfg.noun2||cfg.noun)+' in this store that fit what you’re buying, against your answers — fabric, fit, sizes and how they’re built for the job.'))+
-        (cfg.note?(function(){try{var t=cfg.note(A);return t?(' '+t):'';}catch(e){return '';}})():'')+'</p>'+
-      ((cfg.tips&&cfg.tips(A).length)?('<details class="catips"><summary>What our team would tell you before you order</summary><ul>'+cfg.tips(A).map(function(t){return '<li>'+esc(t)+'</li>';}).join('')+'</ul></details>'):'')+
-      '<div class="cabarl cpreset"><button type="button" class="jalink" data-careset="1">Start over</button></div></div>';
+      '<div class="cabarl cpreset"><button type="button" class="jalink" data-caedit="*">Edit answers</button><button type="button" class="jalink" data-careset="1">Start over</button></div></div>';
   }
   el.innerHTML='<section class="xpert cadv2 m-'+mode+'" aria-label="'+esc(cfg.label)+'">'+body+'</section>';
   try{wireAdvGo(el);}catch(e){}
@@ -3950,12 +4022,16 @@ function renderCatAdvisor(el,cfg){
 function caMultiSync(el,l){var n=(l||[]).length,c=el.querySelector('[data-cacount]');if(c)c.textContent=n?(n+' selected'):'None selected yet';
   var clr=el.querySelector('[data-caclr]');if(clr)clr.hidden=!n;var go=el.querySelector('.canav .jaall[data-cago]');if(go)go.disabled=!n;}
 function caScrollIn(el){var r=el.getBoundingClientRect();if(r.top<56)window.scrollTo({top:window.scrollY+r.top-84,behavior:'smooth'});}
-function caRefreshTotals(el,cfg,A){var P=caLabelled(cfg,A),T=caTotals(cfg,A,P);
-  P.forEach(function(x){if(x.none)return;var q=caQtyOf(cfg,A,x.role),u=caUnit(x.main.k,q),r=x.role;
-    var bu=el.querySelector('[data-cpu="'+r+'"]'),bq=el.querySelector('[data-cpq="'+r+'"]'),bl=el.querySelector('[data-cpl="'+r+'"]');
-    if(bu)bu.textContent=money(u);if(bq)bq.textContent='/pc at '+q;if(bl)bl.textContent=money(u*q);});
-  var t=el.querySelector('[data-cptot]');if(t)t.textContent=money(T.t);
-  var tn=el.querySelector('[data-cptn]');if(tn)tn.textContent=cfg.roles?(caQtyOf(cfg,A,'_kit')+' people · '+P.filter(function(x){return !x.none;}).length+' pieces each'):(T.n+' pieces');}
+function caRefreshTotals(el,cfg,A){var P=caLabelled(cfg,A),T=caTotals(cfg,A,P),kq=cfg.roles?caQtyOf(cfg,A,'_kit'):0,ppl=cfg.roles?kq:T.n;
+  P.forEach(function(x){if(x.none||x.fr)return;var q=caQtyOf(cfg,A,cfg.roles?'_kit':x.role),u=caUnit(x.main.k,q),r=x.role;
+    var bu=el.querySelector('[data-cpu="'+r+'"]'),bq=el.querySelector('[data-cpq="'+r+'"]'),bl=el.querySelector('[data-cpl="'+r+'"]'),bt=el.querySelector('[data-cpt="'+r+'"]');
+    if(bu)bu.textContent=money(u);if(bq)bq.textContent='per piece at '+q+', your logo included';if(bl)bl.textContent=money(u*q);if(bt)bt.innerHTML=caTierStrip(x.main.k,q);
+    el.querySelectorAll('[data-cpad^="'+r+'|"]').forEach(function(s){var k=s.getAttribute('data-cpad').split('|')[1],d=caUnit(k,q)-u,lo=d<-0.49;
+      s.className='cpcad'+(lo?' lo':(d>0.49?' hi':''));s.textContent=Math.abs(d)<0.5?'Same price':((lo?'Save ':'+')+money(Math.abs(d))+'/pc');});});
+  el.querySelectorAll('[data-cptot]').forEach(function(t){t.textContent=money(T.t);});
+  el.querySelectorAll('[data-cpavg]').forEach(function(t){t.textContent=money(ppl?T.t/ppl:0);});
+  el.querySelectorAll('[data-cpkn]').forEach(function(t){t.textContent=cfg.roles?kq:T.n;});
+  var tn=el.querySelector('[data-cptn]');if(tn)tn.textContent=cfg.roles?(kq+' people · '+P.filter(function(x){return !x.none;}).length+' pieces each'):(T.n+' pieces');}
 function caSetQty(el,cfg,A,role,v){A._qty=A._qty||{};A._qty[role]=Math.max(moq(),Math.min(99999,parseInt(v,10)||moq()));caSave();
   el.querySelectorAll('[data-caqi="'+role+'"]').forEach(function(x){if(document.activeElement!==x)x.value=A._qty[role];});caRefreshTotals(el,cfg,A);}
 function caInput(e,el,cfg,commit){var t=e.target;if(!t||!t.dataset||t.dataset.caqi==null)return;var A=caSt(cfg.id),v=String(t.value).replace(/[^0-9]/g,'');
@@ -3998,7 +4074,8 @@ function caClick(e,el,cfg){
     (grp?grp.roles:[p[0]]).forEach(function(rr){CA_PICK[cfg.id+'.'+rr]=p[1];});A._open=p[0];jdpTrack('ca_swap',{c:cfg.id,k:p[1]});re();return;}
   if(d.catog!=null){var tg=d.catog;A[tg]=A[tg]==='1'?'':'1';if(tg==='fr')caIcpSet('fr',A[tg]);CA_PICK={};jdpTrack('ca_q',{c:cfg.id,q:tg,v:A[tg]||'0'});re();return;}
   if(d.cacol!=null){var c2=d.cacol.split('|'),k2=c2[0],col=c2.slice(1).join('|');CA_COL[k2]=col;jdpTrack('ca_col',{c:cfg.id,k:k2});
-    var card=b.closest('.cam');if(card){var im=card.querySelector('.camimg');if(im)im.innerHTML=caThumb(k2,col)+'<span class="camlogo">Shown with your logo</span>';
+    var card=b.closest('.cam,.cpc');if(card){var im=card.querySelector('.camimg');if(im)im.innerHTML=caThumb(k2,col)+'<span class="camlogo">Shown with your logo</span>';
+      var im2=card.querySelector('.cpcimg .capst');if(im2)im2.innerHTML=caThumb(k2,col);
       card.querySelectorAll('[data-cacol]').forEach(function(x){x.classList.toggle('on',x===b);});var cl=card.querySelector('[data-cacur]');if(cl)cl.textContent=col;}
     el.querySelectorAll('.cprow .cpimg[data-xpopen="'+k2+'"]').forEach(function(x){x.innerHTML=caThumb(k2,col);});
     if(cartHasAny(k2)){var ck2=cartAnyKey(k2);if(CART[ck2]){CART[ck2].colour=col;saveCart();refreshCartUI();}}return;}
@@ -4405,6 +4482,12 @@ var CA_WHO_LAYER=[
   {id:'gift',lab:'A gift or welcome kit',sub:'Something they’ll keep'}];
 CADV.push({id:'layers',tile:'Quarter-zip, hoodie or fleece — by who wears it',one:'layer',label:'Fleece & sweater advisor',noun:'fleece and sweaters',noun2:'layers',
   h:'Quarter-zip, hoodie or fleece? Start with who wears it.',
+  /* on a shelf the buyer has already chosen the style -- the advisor picks within it, and says so */
+  hSub:{'Quarter & Half-Zips':'Which quarter-zip? Start with who wears it.','Hoodies':'Which hoodie? Start with who wears it.','Crewnecks & Sweatshirts':'Which crewneck? Start with who wears it.','Full-Zips & Fleece':'Which full-zip? Start with who wears it.'},
+  labSub:{'Quarter & Half-Zips':'Quarter-zip advisor','Hoodies':'Hoodie advisor','Crewnecks & Sweatshirts':'Crewneck advisor','Full-Zips & Fleece':'Full-zip advisor'},
+  preset:function(A,c,s){var m={'Quarter & Half-Zips':'qz','Hoodies':'hood','Crewnecks & Sweatshirts':'crew','Full-Zips & Fleece':'fz'}[s||''];
+    if(m){if(!A.style||A.style===A._pst){if(A.style!==m){A.style=m;CA_PICK={};}A._pst=m;}}
+    else if(A._pst&&A.style===A._pst){A.style='';A._pst='';CA_PICK={};}},
   sub:'A few quick questions about the job, then one recommended layer for each group, with the reasons it fits.',
   overWhy:'this style and warmth',
   applies:function(c,s){return c==='layers'||(c==='carhartt'&&/Sweatshirts/.test(s));},
@@ -4612,7 +4695,7 @@ CADV.push({id:'fr',tile:'Arc rating, layer and weather — the FR piece each cre
       {id:'hv',q:'Do they also need hi-vis?',short:'Hi-vis',opts:[{id:'1',lab:'Yes — FR hi-vis',sub:'Near traffic or equipment'},{id:'0',lab:'No',sub:'Plant or shop only'}]}],
   fact:function(it,A){var r=frRate(it);return (r?('FR rated ATPV '+r+' cal/cm²'):'flame-resistant outer layer')+((A&&A.hv==='0'&&it.csa)?' — the closest match: nothing without hi-vis in this range meets your rating, so this one is also hi-vis':'');},
   pool:function(A){var K=A.kind;var subs={shirt:['FR Shirts','FR Tees'],layer:['FR Hoodies'],outer:['FR Coveralls','FR Hi-Vis & Rain','FR Jackets'],pants:['FR Pants']};
-    var L=K?subs[K]:['FR Shirts','FR Tees','FR Hoodies','FR Coveralls','FR Hi-Vis & Rain','FR Jackets','FR Pants'];
+    var L=(K&&subs[K])?subs[K]:['FR Shirts','FR Tees','FR Hoodies','FR Coveralls','FR Hi-Vis & Rain','FR Jackets','FR Pants'];
     return caKeys(L.map(function(s){return ['fr',s];})).filter(function(k){var it=BYKEY[k];return !!(it&&it.fr);});},
   score:function(it,A,role,p){var r=frRate(it),lim=frLim(it),n=(it.name||'').toLowerCase(),s=0,need=(A.atpv==='ff'||!A.atpv)?0:+A.atpv;
     if(need&&!r)return null;                    // an arc-rated job never gets an unrated outer layer as its pick
@@ -4813,7 +4896,25 @@ us:{
 'gift|cold':{p:'cbc_evoke_vest',ang:'The Cutter & Buck Evoke puffer — the premium, keep-forever vest.',alts:[['st_stavangervest','Stormtech','Stavanger — water-repellent quilted vest'],['cq_hudson_vest','Value','Clique Hudson — insulated puffer vest']]}}};
 function curMkt(){return (typeof isUS==='function'&&isUS())?'us':'ca';}
 function curAngFrom(T){var o={};['ca','us'].forEach(function(m){var M=T[m]||{};for(var k in M){var r=M[k];(r.alts||[]).forEach(function(a){if(!o[a[0]])o[a[0]]=a[2]||'';});}});return o;}
-var CUR_ANG=Object.assign({},curAngFrom(CUR_TOPS),curAngFrom(CUR_LAYERS),curAngFrom(CUR_VESTS));
+/* QUARTER-ZIP PICKS (2026-11-10). When the buyer has chosen the quarter-zip -- on the Quarter & Half-Zips shelf or as the
+   style answer -- the advisor no longer leaves it to the score, which handed outdoor crews a golf layer. Each role and
+   weight gets a hand-picked quarter-zip, a real lower-cost option and a real step up, from the four families on the
+   shelf. Reasons quote the maker's facts only. */
+var CUR_QZ={
+'office|1':{p:'st_volanteqz',ang:'A 170 gsm 4-way-stretch jersey with H2X-DRY, UPF 50+ and snag-resistant fabric — layers cleanly over a polo, in men’s and women’s cuts.',alts:[['cbc_prospect_qz','Premium','Cutter & Buck Prospect — featherlight jacquard stretch, matches the Prospect polo'],['cq_spin_hz','Value','Clique Spin — spin-dyed interlock half-zip, UPF 50+']]},
+'office|2':{p:'st_milanoqz',ang:'A 222 gsm brushed-back stretch quarter-zip with H2X-DRY and UPF 50+, in men’s sizes to 6XL — the everyday office layer that fits everyone.',alts:[['cbc_traverse_qz','Premium','Cutter & Buck Traverse — recycled stretch double-knit'],['cs_l00875','Value','Meadowbrook — 190 gsm interlock quarter-zip']]},
+'office|3':{p:'st_avalanteqz',ang:'A 320 gsm sweater-knit fleece quarter-zip, brushed inside — warm enough to wear on its own and still office-smart.',alts:[['cbc_mainsail_hz','Premium','Cutter & Buck Mainsail — sweater-knit fleece half-zip'],['cs_l00602','Value','Fairmount — 330 gsm cotton-rich quarter-zip']]},
+'mixed|1':{p:'st_volanteqz',ang:'Snag-resistant 4-way-stretch jersey with H2X-DRY — stands up to vehicles, racking and tools, and looks sharp at the customer’s door.',alts:[['cbc_forge_qz','Premium','Cutter & Buck Forge — recycled stretch, UPF 50+'],['cq_spin_hz','Value','Clique Spin — spin-dyed interlock half-zip']]},
+'mixed|2':{p:'st_basethermalqz',ang:'A 240 gsm grid-back thermal fleece with H2X-DRY and snag-resistant fabric — warm and breathable for people in and out all day.',alts:[['st_monteroqz','Pockets','Montero — 300 gsm, zippered hand pockets and a storm flap'],['flux','Value','Flux — 280 gsm cotton-blend quarter-zip']]},
+'mixed|3':{p:'st_monteroqz',ang:'A 300 gsm quarter-zip with zippered hand pockets, a snap chest pocket and a storm flap behind the zip — a work-ready layer for drivers and techs.',alts:[['rw_tremblant','Made in Canada','Redwood Classics Tremblant — 16 oz fleece mock-neck zip'],['cs_l00602','Value','Fairmount — 330 gsm cotton-rich quarter-zip']]},
+'outdoor|1':{p:'st_basethermalqz',ang:'A 240 gsm grid-back thermal fleece with H2X-DRY and snag-resistant fabric — the layer that goes under a jacket or a hi-vis vest.',alts:[['st_shastaqz','Polar fleece','Shasta — 235 gsm anti-pill polar fleece, kangaroo pocket'],['flux','Value','Flux — 280 gsm cotton-blend quarter-zip']]},
+'outdoor|2':{p:'st_shastaqz',ang:'A 235 gsm anti-pill polar fleece with a high collar and a kangaroo pocket, in sizes to 5XL — the classic warm crew layer.',alts:[['st_basethermalqz','Thermal','Base Thermal — 240 gsm grid-back, snag resistant'],['flux','Value','Flux — 280 gsm cotton-blend quarter-zip']]},
+'outdoor|3':{p:'st_monteroqz',ang:'A 300 gsm quarter-zip with zippered hand pockets and a storm flap behind the zip — the heavier quarter-zip for cold mornings.',alts:[['rw_tremblant','Made in Canada','Redwood Classics Tremblant — 16 oz fleece mock-neck zip'],['cs_l00602','Value','Fairmount — 330 gsm cotton-rich quarter-zip']]},
+'outer':{p:'st_monteroqz',ang:'A 300 gsm quarter-zip with a storm flap behind the zip and zippered hand pockets — the quarter-zip for wearing outside.',alts:[['cb_roamqz','Water-repellent','Cutter & Buck Roam — soft-knit with a water-repellent finish'],['cs_l00602','Value','Fairmount — 330 gsm cotton-rich quarter-zip']]},
+'gift|1':{p:'cbc_prospect_qz',ang:'A featherlight jacquard-textured stretch quarter-zip from Cutter & Buck, with UPF 50+ — the polished gift that gets worn.',alts:[['cbc_drift_qz','Premium','Cutter & Buck Drift — pebble-textured knit'],['st_volanteqz','Value','Volante — H2X-DRY stretch jersey']]},
+'gift|2':{p:'cbc_traverse_qz',ang:'Cutter & Buck Traverse: a recycled-stretch double-knit quarter-zip people keep reaching for.',alts:[['cbc_drift_qz','Textured knit','Cutter & Buck Drift — pebble-textured knit'],['st_milanoqz','Value','Milano — brushed-back stretch, sizes to 6XL']]},
+'gift|3':{p:'cbc_mainsail_hz',ang:'A heathered sweater-knit fleece half-zip, brushed inside, with a zip chest pocket — the executive layer people keep for years.',alts:[['st_avalanteqz','Value','Avalante — 320 gsm sweater-knit fleece'],['cbc_peshastin_hz','Grid fleece','Cutter & Buck Peshastin — recycled grid fleece']]}};
+var CUR_ANG=Object.assign({},curAngFrom({ca:CUR_QZ}),curAngFrom(CUR_TOPS),curAngFrom(CUR_LAYERS),curAngFrom(CUR_VESTS));
 (function(){var C={};CADV.forEach(function(c){C[c.id]=c;});
   var lad=function(it,A){return !(A.lad==='1'&&!hasLadies(it));},
       tog={id:'lad',lab:'Women’s cut needed',sub:'Only show styles with a matching women’s cut'},
@@ -4822,7 +4923,9 @@ var CUR_ANG=Object.assign({},curAngFrom(CUR_TOPS),curAngFrom(CUR_LAYERS),curAngF
   if(C.tops){C.tops.curate=function(A,role){var L=A.look||'polo',ind=L==='woven'&&A.twash==='ind'&&(role==='mixed'||role==='outdoor');
       var M=CUR_TOPS[curMkt()]||{};return caRow(M[L+'|'+role+(ind?'|ind':'')]||(ind?null:undefined));};
     C.tops.curOk=lad;C.tops.toggles=[tog];wrapScore(C.tops);ang(C.tops);}
-  if(C.layers){C.layers.curate=function(A,role){if(A.style&&A.style!=='auto')return null;var M=CUR_LAYERS[curMkt()]||{};
+  if(C.layers){C.layers.curate=function(A,role){
+      if(A.style==='qz'){if(A.outer==='1'&&(role==='outdoor'||role==='mixed'))return caRow(CUR_QZ.outer);return caRow(CUR_QZ[role+'|'+(A.warm||'2')]);}
+      if(A.style&&A.style!=='auto')return null;var M=CUR_LAYERS[curMkt()]||{};
       if(A.outer==='1'&&(role==='outdoor'||role==='mixed'))return caRow(M.outer);return caRow(M[role+'|'+(A.warm||'2')]);};
     C.layers.curOk=lad;C.layers.toggles=[tog];wrapScore(C.layers);ang(C.layers);}
   if(C.vests){C.vests.curate=function(A,role){if((A.vwork||'gen')!=='gen'&&(role==='outdoor'||role==='mixed'))return null;
@@ -4857,6 +4960,49 @@ function renderXpert(){
     var nt=document.getElementById('coNote');if(nt&&!nt.value)nt.value='Please recommend '+sub.toLowerCase()+' for our team.\nHow many people: \nWho wears it (office / warehouse / outdoor / client-facing): \nBudget per person: \nNeeded by: ';});
 }
 
+/* ===== QUARTER & HALF-ZIPS, ORGANISED THE WAY A BUYER CHOOSES (Steven, 2026-11-10: "Quarter & Half-Zips is an extremely
+   popular category ... make it enterprise level!"). The shelf was 19 cards in one undifferentiated grid -- a $15 cotton
+   sweatshirt next to a $48 grid fleece next to a $34 golf layer -- so the buyer had to open each to learn what kind of
+   quarter-zip it was. Enterprise buyers choose the FABRIC FAMILY first (it decides who it suits and what it costs), then a
+   price point inside it. So the shelf now opens with the four families as tiles -- what each is, who it is for, how many
+   styles and the entry price with the logo -- and lists each family as its own good-better-best run, lowest price
+   first. A tile narrows the shelf to that family; the advisor above it is already set to quarter-zips. Families are
+   curated per style (SHELF_FAM.map) with a rule fallback for anything added later, from the catalogue's own fabric data. */
+var SHELF_FAM={'Quarter & Half-Zips':{noun:'quarter-zips',fams:[
+    {id:'perf',lab:'Performance & stretch',sub:'Smooth, wicking and easy-care — office, sales, golf and events',lead:['st_volanteqz','cbc_traverse_qz','st_montereyqz']},
+    {id:'knit',lab:'Sweater-knit & soft-knit',sub:'A softer, dressier hand — managers, client meetings and gifts',lead:['cbc_drift_qz','cbc_mainsail_hz','cbc_adapt_heather_qz']},
+    {id:'cotton',lab:'Cotton-blend sweatshirt',sub:'The classic sweatshirt feel — everyday wear for crews and staff',lead:['flux','cs_l00602','rw_tremblant']},
+    {id:'warm',lab:'Fleece & thermal',sub:'Warmer layers — cold mornings, drivers and outdoor crews',lead:['st_basethermalqz','st_shastaqz','cq_summit_hz']}],
+  map:{cq_spin_hz:'perf',cq_ice_hz:'perf',st_montereyqz:'perf',cs_l00875:'perf',st_volanteqz:'perf',st_sonoraqz:'perf',st_milanoqz:'perf',cbc_prospect_qz:'perf',
+    cbc_coastline_qz:'perf',cbc_forge_qz:'perf',cbc_traverse_qz:'perf',
+    cq_haven_qz:'knit',cb_qzip:'knit',cbc_adapt_heather_qz:'knit',cbc_drift_qz:'knit',cb_roamqz:'knit',st_avalanteqz:'knit',cbc_mainsail_hz:'knit',
+    flux:'cotton',cs_l00602:'cotton',rw_tremblant:'cotton',nk_halfzipsw:'cotton',nk_halfzip:'cotton',ff_cotthalfzip:'cotton',
+    cq_summit_hz:'warm',st_shastaqz:'warm',st_basethermalqz:'warm',st_treeline:'warm',st_monteroqz:'warm',cbc_peshastin_hz:'warm'}}};
+function shelfFamOf(sub,k){var F=SHELF_FAM[sub];if(!F)return '';if(F.map[k])return F.map[k];var it=BYKEY[k]||{},f=it.fab||{},t=((it.name||'')+' '+(f.knit||'')).toLowerCase();
+  var cot=(f.mix||[]).reduce(function(a,m){return a+(/cotton/i.test(m[0])?m[1]:0);},0);
+  if(cot>=50)return 'cotton';
+  if(/sweater|heather|jacquard|textured|soft-knit/.test(t))return 'knit';
+  if(/fleece|thermal|sherpa|polar|grid/.test(t))return 'warm';
+  return 'perf';}
+function famPrice(k){var p=0;try{p=sxPrice(k);}catch(e){p=0;}return p||0;}
+function famShelfHtml(sub,ks){var F=SHELF_FAM[sub],by={};ks.forEach(function(k){var f=shelfFamOf(sub,k);(by[f]=by[f]||[]).push(k);});
+  var fams=F.fams.filter(function(f){return (by[f.id]||[]).length;}),on=VIEW.fam&&by[VIEW.fam]?VIEW.fam:null;
+  var lead=function(f){var L=(f.lead||[]).filter(function(k){return (by[f.id]||[]).indexOf(k)>=0;});return L[0]||by[f.id][0];};
+  var range=function(L){var ps=L.map(famPrice).filter(Boolean);if(!ps.length)return '';var lo=Math.min.apply(null,ps),hi=Math.max.apply(null,ps);return money(lo)+(hi>lo+0.5?('–'+money(hi)):'');};
+  var tiles='<div class="famrow" role="group" aria-label="Choose a kind of '+esc(F.noun.replace(/s$/,''))+'">'+fams.map(function(f){var L=by[f.id],a=f.id===on;
+      return '<button type="button" class="famt'+(a?' on':'')+'" data-famsel="'+esc(f.id)+'" aria-pressed="'+a+'">'+
+        '<span class="famimg"><span class="capfl" aria-hidden="true"></span><span class="capst">'+caThumb(lead(f))+'</span></span>'+
+        '<span class="famtx"><b>'+esc(f.lab)+'</b><i>'+esc(f.sub)+'</i><em>'+L.length+' style'+(L.length===1?'':'s')+' · from '+money(Math.min.apply(null,L.map(famPrice).filter(Boolean).concat([1e9])))+'/pc</em></span></button>';}).join('')+'</div>'+
+    (on?('<div class="famon"><span>Showing <b>'+esc((F.fams.filter(function(f){return f.id===on;})[0]||{}).lab||'')+'</b></span><button type="button" class="jalink" data-famsel="">Show all '+ks.length+' '+esc(F.noun)+'</button></div>'):'');
+  /* inside a family: good-better-best, the keenest price first, unless the buyer chose a sort */
+  var ord=function(L){return VIEW.sort?L:L.slice().sort(function(a,b){return famPrice(a)-famPrice(b);});};
+  var secs=fams.filter(function(f){return !on||f.id===on;}).map(function(f){var L=ord(by[f.id]);
+    return '<section class="famsec" data-fam="'+esc(f.id)+'"><div class="famhd"><h3>'+esc(f.lab)+'</h3><span>'+L.length+' style'+(L.length===1?'':'s')+' · '+range(L)+'/pc with your logo</span><p>'+esc(f.sub)+'</p></div>'+
+      '<div class="menu">'+L.map(menuCard).join('')+'</div></section>';}).join('');
+  return '<div class="famshelf">'+tiles+secs+'</div>';}
+function wireFam(root){(root||document).querySelectorAll('[data-famsel]').forEach(function(b){if(b.dataset.fw)return;b.dataset.fw='1';
+  b.addEventListener('click',function(){var v=b.dataset.famsel||null;VIEW.fam=(v&&VIEW.fam!==v)?v:null;jdpTrack('shelf_fam',{s:bslug(VIEW.sub||''),f:VIEW.fam||'all'});renderGrid();
+    var g=document.querySelector('.famshelf');if(g){var hdr=document.querySelector('.tbar')||document.querySelector('.hdr'),y=g.getBoundingClientRect().top+window.scrollY-((hdr&&hdr.offsetHeight)||64)-12;if(window.scrollY>y)window.scrollTo({top:y,behavior:'smooth'});}});});}
 function renderGrid(){renderGridCore();try{syncInbar();}catch(e){}try{renderXpert();}catch(e){}}
 function renderGridCore(){
   var grid=document.getElementById('grid'),hd=document.getElementById('gridhd'),nr=document.getElementById('noResults');
@@ -4910,7 +5056,7 @@ function renderGridCore(){
         _sibs.map(function(s){var on=s===VIEW.sub;return '<button type="button" class="snc'+(on?' on':'')+'"'+(on?' aria-current="true"':' data-seesub="'+esc(s)+'"')+'>'+esc(s)+' <i>'+BUCKETS[VIEW.cat][s].length+'</i></button>';}).join('')+'</div>');
     try{var _son=hd.querySelector('.shelfnav .snc.on');if(_son){var _sp=_son.parentNode;_sp.scrollLeft=Math.max(0,_son.offsetLeft-_sp.clientWidth/2+_son.clientWidth/2);}}catch(e){}
     inner=subGuideHtml(VIEW.sub)+
-      '<div class="menu">'+fitOK(BUCKETS[VIEW.cat][VIEW.sub]||[]).map(menuCard).join('')+'</div>'+
+      (SHELF_FAM[VIEW.sub]?famShelfHtml(VIEW.sub,fitOK(BUCKETS[VIEW.cat][VIEW.sub]||[])):('<div class="menu">'+fitOK(BUCKETS[VIEW.cat][VIEW.sub]||[]).map(menuCard).join('')+'</div>'))+
       (_sibs.length>1?('<div class="shelfend"><button type="button" class="seback" data-snall="1"><span aria-hidden="true">\u2190</span> Back to all '+esc(shortCat(VIEW.cat))+'</button>'+
         (_nx?('<button type="button" class="senext" data-seesub="'+esc(_nx)+'">Next shelf: '+esc(_nx)+' <span aria-hidden="true">\u2192</span></button>'):'')+'</div>'):'');}
   else if(subs.length>1&&TOTALS[VIEW.cat]>6){
@@ -4949,7 +5095,7 @@ function renderGridCore(){
     else{var _st=inner.indexOf('<div class="menu">');if(_st>=0){var _need=Math.max(2,Math.min(grpPreviewN(),4))-1,_ix=[],_m,_rx=/<article class="mcard/g;_rx.lastIndex=_st;
       while((_m=_rx.exec(inner))&&_ix.length<=_need)_ix.push(_m.index);
       if(_ix.length>_need)inner=inner.slice(0,_ix[_need])+_nh+inner.slice(_ix[_need]);else inner=inner.replace(/<\/div>$/,_nh+'</div>');}}}}catch(e){}
-  grid.innerHTML=(VIEW.cat==='hivis'?hivisIntroHtml():'')+(VIEW.cat==='golf'?golfIntroHtml():'')+inner+moreCatsHtml();wireCards();wireAdvGo(grid);
+  grid.innerHTML=(VIEW.cat==='hivis'?hivisIntroHtml():'')+(VIEW.cat==='golf'?golfIntroHtml():'')+inner+moreCatsHtml();wireCards();wireAdvGo(grid);try{wireFam(grid);}catch(e){}
   var _gx=document.getElementById('golfX');if(_gx)_gx.addEventListener('click',function(){jdpTrack('golf_extras');openSourcing('');var nt=document.getElementById('coNote');
     if(nt&&!nt.value)nt.value='Golf extras we need (logo balls, towels, umbrellas, tee packs…):\nQuantity: \nEvent date: ';});
   grid.querySelectorAll('[data-seesub]').forEach(function(b){
@@ -5110,12 +5256,12 @@ function scrollToResults(){
   var sticky=(tb?tb.offsetHeight:(hdr?hdr.offsetHeight:60))+(nav&&getComputedStyle(nav).position==='sticky'?nav.offsetHeight:0)+10;
   var y=window.pageYOffset+hd.getBoundingClientRect().top-sticky;
   window.scrollTo({top:Math.max(0,y),behavior:'smooth'});}
-function setSub(sub,noScroll){VIEW.sub=sub;document.querySelectorAll('.schip').forEach(function(b){b.classList.toggle('on',b.dataset.sub===sub);});renderGrid();syncViewUrl();if(!noScroll)scrollToResults();}
+function setSub(sub,noScroll){VIEW.sub=sub;VIEW.fam=null;document.querySelectorAll('.schip').forEach(function(b){b.classList.toggle('on',b.dataset.sub===sub);});renderGrid();syncViewUrl();if(!noScroll)scrollToResults();}
 function setCat(cat,doScroll){
   /* Any move into the catalogue leaves the gift page. Without this a category pick from the
      Categories menu rendered the grid behind a hidden storefront and the buyer saw nothing move. */
   if(giftViewOn())setGiftView(false);
-  VIEW.cat=cat;VIEW.sub='all';VIEW.q='';
+  VIEW.cat=cat;VIEW.sub='all';VIEW.q='';VIEW.fam=null;
   var nw=document.getElementById('navwrap');if(nw)nw.classList.remove('searching');
   var si=document.getElementById('kitSearch');if(si)si.value='';
   document.querySelectorAll('.ctab').forEach(function(t){var on=t.dataset.cat===cat;t.classList.toggle('on',on);
