@@ -3971,7 +3971,8 @@ function renderCatAdvisor(el,cfg){
   var mode=A._m||(ready?'res':'q');if(mode==='intro')mode='q';if(mode==='res'&&!ready)mode='q';if(!n)mode='res';
   var i=Math.max(0,Math.min(n-1,A._i||0));
   if(mode==='q'&&A._i==null){var f0=caFirstOpen(qs,A);if(f0>0){i=f0;A._fresh=1;}}
-  var head='<div class="cahd"><span class="xpeyb">'+esc((cfg.labSub&&cfg.labSub[VIEW.sub])||cfg.label)+'</span>';
+  var _onShelf=!!(cfg.labSub&&cfg.labSub[VIEW.sub]&&A._pst&&A.style===A._pst);
+  var head='<div class="cahd"><span class="xpeyb">'+esc(_onShelf?cfg.labSub[VIEW.sub]:cfg.label)+'</span>';
   var body='',P=null;
   if(mode==='q'){
     var q=qs[i],answered=q.multi?((A[q.id]||[]).length>0):(A[q.id]!=null&&A[q.id]!=='');
@@ -3979,7 +3980,7 @@ function renderCatAdvisor(el,cfg){
     var nmx=caQmax(cfg,A);
     var _any=caAllQs(cfg,A).some(function(qq){var v=A[qq.id];return qq.multi?((v||[]).length>0):(v!=null&&v!=='');});
     body='<div class="caband">'+head+'<span class="cahdr">'+(_any?'<button type="button" class="carst" data-careset="1" title="Clear every answer and start again"><span aria-hidden="true">\u21ba</span> Start over</button>':'')+'<span class="castep">'+(i+1)+' of '+Math.max(n,nmx)+'</span></span></div>'+
-      ((i===0||A._fresh)?('<div class="caintro"><div class="caintx"><h3 class="xph">'+esc((cfg.hSub&&cfg.hSub[VIEW.sub])||cfg.h)+'</h3><p class="xpadv">'+esc(caQword(cfg,A))+' quick question'+(Math.max(n,nmx)>1?'s':'')+', then a recommended program'+(cfg.roles?' for your kit':(cfg.who?' for each group':''))+' — priced for your headcount, with your logo on it.</p>'+
+      ((i===0||A._fresh)?('<div class="caintro"><div class="caintx"><h3 class="xph">'+esc((_onShelf&&cfg.hSub[VIEW.sub])||cfg.h)+'</h3><p class="xpadv">'+esc(caQword(cfg,A))+' quick question'+(Math.max(n,nmx)>1?'s':'')+', then a recommended program'+(cfg.roles?' for your kit':(cfg.who?' for each group':''))+' — priced for your headcount, with your logo on it.</p>'+
         '<ul class="catrust"><li>Your logo on every pick</li><li>Priced at your headcount</li><li>Free digital proof before anything is made</li></ul></div>'+caProofHtml(cfg)+'</div>'):'')+
       '</div><div class="cainner">'+caStepsHtml(cfg,A,qs,i)+
       '<h3 class="caq">'+esc(q.q)+'</h3>'+(q.hint||q.multi?('<p class="caqh">'+esc(q.multi?(q.preHint||'Select every group that applies — each gets its own pick. Tap again to remove one.'):q.hint)+'</p>'):'')+
@@ -3997,7 +3998,7 @@ function renderCatAdvisor(el,cfg){
     if(A._open===undefined&&ok.length===1&&(ok[0].alts||[]).length)A._open=ok[0].role;
     var _T=caTotals(cfg,A,P);
     body='<div class="caband res">'+head+'<span class="cahdr"><button type="button" class="caedt" data-caedit="*">Edit answers</button><button type="button" class="carst" data-careset="1" title="Clear every answer and start again"><span aria-hidden="true">\u21ba</span> Start over</button><span class="castep done">✓ Recommended program</span></span></div>'+
-      '<h3 class="xph">'+(cfg.roles?('Your golf kit — '+ok.length+' piece'+(ok.length===1?'':'s')):(ok.length>1?('Your '+esc(cfg.noun)+' program — '+ok.length+' groups'):('Our recommendation for your '+esc(cfg.noun))))+'</h3>'+
+      '<h3 class="xph">'+(cfg.roles?('Your golf kit — '+ok.length+' piece'+(ok.length===1?'':'s')):(ok.length>1?('Your '+esc(_onShelf&&cfg.nounSub?cfg.nounSub[VIEW.sub]:cfg.noun)+' program — '+ok.length+' groups'):('Our recommendation for your '+esc(_onShelf&&cfg.nounSub?cfg.nounSub[VIEW.sub]+'s':cfg.noun))))+'</h3>'+
         '<p class="cabandsub">'+(ok.some(function(x){return x.cur;})?('Hand-picked from the '+nS+' '+esc(cfg.noun)+' in this store for exactly your answers'):('Chosen from the '+nS+' '+esc(cfg.noun2||cfg.noun)+' in this store against your answers'))+' — each shown with your logo, priced at your headcount.</p>'+
         (ok.length?caKpis(cfg,A,P):'')+'</div><div class="cainner">'+
       '<div class="casum"><span class="casuml">Picked for</span>'+caAllQs(cfg,A).map(function(qq){var v=A[qq.id],t=qq.multi?(v||[]).map(function(z){return caAnsLab(qq,z);}).join(', '):caAnsLab(qq,v),as=caHidden(cfg,A,qq);
@@ -4484,6 +4485,7 @@ CADV.push({id:'layers',tile:'Quarter-zip, hoodie or fleece — by who wears it',
   h:'Quarter-zip, hoodie or fleece? Start with who wears it.',
   /* on a shelf the buyer has already chosen the style -- the advisor picks within it, and says so */
   hSub:{'Quarter & Half-Zips':'Which quarter-zip? Start with who wears it.','Hoodies':'Which hoodie? Start with who wears it.','Crewnecks & Sweatshirts':'Which crewneck? Start with who wears it.','Full-Zips & Fleece':'Which full-zip? Start with who wears it.'},
+  nounSub:{'Quarter & Half-Zips':'quarter-zip','Hoodies':'hoodie','Crewnecks & Sweatshirts':'crewneck','Full-Zips & Fleece':'full-zip'},
   labSub:{'Quarter & Half-Zips':'Quarter-zip advisor','Hoodies':'Hoodie advisor','Crewnecks & Sweatshirts':'Crewneck advisor','Full-Zips & Fleece':'Full-zip advisor'},
   preset:function(A,c,s){var m={'Quarter & Half-Zips':'qz','Hoodies':'hood','Crewnecks & Sweatshirts':'crew','Full-Zips & Fleece':'fz'}[s||''];
     if(m){if(!A.style||A.style===A._pst){if(A.style!==m){A.style=m;CA_PICK={};}A._pst=m;}}

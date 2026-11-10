@@ -4774,3 +4774,9 @@ table.cmp{width:100%;border-collapse:separate;border-spacing:0;table-layout:fixe
 .famhd p{flex-basis:100%;margin:0;font-size:13.5px;color:#475569}
 @media (max-width:900px){.famrow{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:520px){.famrow{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;margin:0 -16px;padding:0 16px 4px}.famt{flex:0 0 72%;scroll-snap-align:start}}
+.cpcbuy .cpql{display:block}
+.cpcbuy .cpstep{display:flex;width:100%}
+.cpcbuy .cpsb{flex:none;width:40px;height:40px;font-size:18px}
+.cpcbuy .cpsi{flex:1 1 auto;min-width:0;width:100%;height:40px;font-size:16px}
+@media (max-width:1100px){.cpcbuy .cpstep{width:170px}}
+@media (max-width:760px){.cpcbuy .cpstep{width:100%}}
