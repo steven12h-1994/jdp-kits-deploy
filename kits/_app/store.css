@@ -5279,3 +5279,23 @@ html.r11 .r12ico{display:none!important}
   html.r11 .r12assure{gap:8px 16px!important;font-size:12.5px!important}
   html.r11 .r12side{flex-wrap:wrap!important;white-space:normal!important}
 }
+
+/* =====================================================================================================
+   ROUND 13 · first-screen label, demo CTA, program add-ons
+   ===================================================================================================== */
+html.r11 .r12head{margin-bottom:24px!important}
+html.r11 .r12lbl{font-size:12px!important;font-weight:700!important;letter-spacing:.14em!important;text-transform:uppercase!important;color:var(--r-mut)!important;margin:0 0 12px!important}
+html.r11 .r12k{color:var(--a)!important;letter-spacing:.11em!important}
+html.r11 .r12demo{display:inline-flex!important;align-items:center!important;gap:6px!important;height:42px!important;padding:0 18px!important;border:0!important;border-radius:10px!important;background:var(--a)!important;color:#fff!important;font:inherit!important;font-size:14.5px!important;font-weight:650!important;cursor:pointer!important;box-shadow:0 1px 2px rgba(13,17,23,.12)!important}
+html.r11 .r12demo:hover{filter:brightness(.93)!important}
+/* add-ons read as an invitation, not as disabled cards */
+html.r11 .pvgridadd .pvoff{opacity:1!important}
+html.r11 .pvgridadd .pvoff .pvimg{filter:none!important}
+html.r11 .pvgridadd .pvc{border-style:dashed!important;border-color:var(--r-line2)!important}
+html.r11 .pvgridadd .pvc:not(.pvoff){border-style:solid!important;border-color:var(--r-ink)!important}
+html.r11 .pvgridadd .pvin:not(.on){background:var(--a)!important;border-color:var(--a)!important;color:#fff!important}
+html.r11 .pvkitadd{margin-top:22px!important;border-top:1px solid var(--r-line)!important;padding-top:30px!important}
+html.r11 .pvkit span{color:var(--r-ink)!important}
+@media(max-width:600px){html.r11 .r12lbl{margin-bottom:10px!important;font-size:11px!important}
+  html.r11 .r12side{width:100%!important}
+  html.r11 .r12demo{flex:1 1 auto!important;justify-content:center!important}}

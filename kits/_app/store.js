@@ -1028,6 +1028,7 @@ function deleteList(id){
    a phone, needs no custom popover, and cannot get stuck open. Counts are shown inline so switching
    is an informed choice rather than a guess. */
 function listBarHtml(){
+  return '';   /* round 13: no board switcher -- one quote */
   if(!LISTS)loadLists();
   var ids=listIds();
   var opts=ids.map(function(id){
@@ -5554,8 +5555,8 @@ function openKitSheet(kid){
     '<button class="shx" id="shx" aria-label="Close">✕</button>'+
     '<div class="shscroll"><div class="kithd"><span class="kittag">'+esc(kit.tag)+'</span><h2>'+esc(kit.name)+'</h2><p>'+esc(kit.blurb)+'</p></div>'+
     '<div class="krows">'+rows+'</div>'+
-    '<div class="pinc"><span class="pinci">✓</span> Add the set, then tweak sizes &amp; colours in your board and send for your exact quote — no obligation.</div></div>'+
-    '<div class="shfoot"><button class="shaddbtn" id="kitAdd"><span>Add all '+items.length+' pieces to my list</span></button>'+
+    '<div class="pinc"><span class="pinci">✓</span> Add the set, then adjust sizes &amp; colours in your quote — no obligation.</div></div>'+
+    '<div class="shfoot"><button class="shaddbtn" id="kitAdd"><span>Add all '+items.length+' pieces to my quote</span></button>'+
     '<div class="shtrust">Adjust any piece after adding · no payment now</div></div>';
   var sh=document.getElementById('sheet');
   document.getElementById('shx').addEventListener('click',closeAll);
@@ -5678,32 +5679,8 @@ function buildStore(){
    tbarHtml()+
    /* Same reasoning as the shots: the flex row is declared inline so a late stylesheet cannot
       leave the strip stacked under the headline at full width. */
-   (demo?(
-   '<section class="hero"><div class="w heroin heroflex" style="display:flex;align-items:center;'+
-     'gap:32px;justify-content:space-between;flex-wrap:wrap">'+
-     '<div class="herotx" style="flex:1 1 320px;min-width:0">'+
-       (demo?'':'<div class="r11eyb">Branded apparel &amp; workwear</div>')+
-       '<h1>'+esc(poss(CFG.client))+" team store</h1>"+
-       '<p class="herosub">'+(demo?'This is a live sample. Every item shows exactly where your logo goes — swap in your brand and it becomes your team’s store. Live pricing, exact quote, no obligation.':'Branded apparel for your team, with your logo already applied. Get a recommendation, or browse the catalogue and build an itemized quote for approval.')+'</p>'+
-       /* ENTERPRISE HERO (2026-10-13: "the page is way too busy ... looks salesy"). Two actions, no more: the
-          advisor's front door and the catalogue. Proof is one quiet line under them. */
-       (demo?'':'<div class="heroadv"><button type="button" class="heroadvb" id="heroAdv">Get a recommendation</button><button type="button" class="herobrw" id="heroBrowse">Browse the catalogue</button></div>')+
-       homeProofHtml()+
-       /* 4imprint opens every category with a named person ("David with 4imprint, 11 years"). The
-          person who actually answers these stores is Steven, so say so, with the number that reaches
-          him -- and give the two ways forward, not six claims. */
-       /* ONE QUESTION, in the hero (2026-10-09 11:15). The three-step box, the RFQ button and two
-          separate ways to reach Steven became one question and one quiet human line. */
-       /* HOW IT WORKS, restored (Steven, 2026-10-09 13:15: "you removed the 3 step how it works section
-          with rfq that has messaging for enterprise and made it super clear how it works we should keep
-          that"). Three steps, the program shortcut, the RFQ upload, and the person who answers. */
-     '</div>'+
-     heroShotsHtml()+
-   '</div>'+
-   /* how ordering works: one calm row across the page, under the hero (kept, per Steven 2026-10-09) */
-   (demo||!trustOn()?'':('<div class="w hnrow">'+heroNextHtml()+'</div>'))+
-   '</section>'
-   ):r12HeroHtml())+
+   /* round 13: demo and landing stores share the three-door first screen (r12HeroHtml carries their lead CTA) */
+   r12HeroHtml()+
    /* The value strip is gone. It stacked three more claims directly beneath a hero that already
       carries three trust chips AND the sample offer -- six competing assertions above the fold, which
       reads as sales noise to an enterprise buyer rather than reassurance. Two of the three were weak
@@ -5910,7 +5887,7 @@ function openLead(){
   document.body.style.overflow='hidden';
 }
 var TT;
-function toast(msg){var t=document.getElementById('toast'),m=document.getElementById('toastM');if(!t)return;if(m)m.textContent=msg||'Added to your board';t.classList.add('on');clearTimeout(TT);TT=setTimeout(function(){t.classList.remove('on');},3600);}
+function toast(msg){var t=document.getElementById('toast'),m=document.getElementById('toastM');if(!t)return;if(m)m.textContent=msg||'Added to your quote';t.classList.add('on');clearTimeout(TT);TT=setTimeout(function(){t.classList.remove('on');},3600);}
 
 /* ---------- item customiser (one clean screen) ---------- */
 var SH={key:null,colour:null,face:'front',D:{},qty:12,showExtra:false,fit:'mens'};
@@ -7118,7 +7095,7 @@ function renderPromoSheet(){
       '<div class="psrow"><span>Your logo</span><span>included in the price</span></div>'+
       '<div class="psrow pstot"><span>Estimated total</span><span>'+money(q.goods)+'</span></div></div>';
     footHtml='<div class="pfrow"><span>'+q.qty+' '+unitP+' · '+money(q.perPiece)+'/'+unitP+'</span><b>'+money(q.goods)+'</b></div>'+
-      '<button class="shaddbtn" id="shAdd"><span>'+(CART[SH.key]?'Update board':'Add to board')+'</span><span class="p">'+money(q.goods)+'</span></button>'+
+      '<button class="shaddbtn" id="shAdd"><span>'+(CART[SH.key]?'Update quote':'Add to quote')+'</span><span class="p">'+money(q.goods)+'</span></button>'+
       '<div class="shtrust">Minimum '+min+' '+unitP+' · your logo included in this price</div>';
   }else{
     var meth=methods.map(function(m,i){var up=m.r>0?('<small>+'+money(m.r)+'/pc</small>'):'<small>included</small>';
@@ -7132,7 +7109,7 @@ function renderPromoSheet(){
       '<div class="psrow"><span>One-time logo setup'+(q.locs>1?' · 2 spots':'')+'</span><span>'+money(q.setup)+'</span></div>'+
       '<div class="psrow pstot"><span>Estimated total</span><span>'+money(q.total)+' <em>≈'+money(q.allIn)+'/pc</em></span></div></div>';
     footHtml='<div class="pfrow"><span>'+q.qty+' pcs · '+money(q.perPiece)+'/pc + '+money(q.setup)+' setup</span><b>'+money(q.total)+'</b></div>'+
-      '<button class="shaddbtn" id="shAdd"><span>'+(CART[SH.key]?'Update board':'Add to board')+'</span><span class="p">'+money(q.total)+'</span></button>'+
+      '<button class="shaddbtn" id="shAdd"><span>'+(CART[SH.key]?'Update quote':'Add to quote')+'</span><span class="p">'+money(q.total)+'</span></button>'+
       '<div class="shtrust">Minimum '+min+' pcs · no payment now</div>';
   }
   document.getElementById('sheet').innerHTML=
@@ -7214,7 +7191,7 @@ function renderSheet(){
        already in there removes the "did I just overwrite it?" doubt, and nudges the second add. */
     (function(){var other=ckey(SH.key,SH.fit==='womens'?'mens':'womens');var o=CART[other];
       return o?('<span class="fitboth">\u2713 '+(SH.fit==='womens'?'Men\u2019s':'Women\u2019s')+
-        ' cut already in your board \u2014 '+(o.qty||0)+' pcs</span>'):'';})()+
+        ' cut already in your quote \u2014 '+(o.qty||0)+' pcs</span>'):'';})()+
     '</div>'):(item.unisex?'<div class="fittog"><span class="fitl">Fit</span><span class="unitag">Unisex</span><span class="fitnote">One unisex cut — fits everyone</span></div>':'');
   var faceTog=hasBack?'<div class="ftog"><button class="pchip'+(SH.face==='front'?' on':'')+'" data-face="front">Front</button><button class="pchip'+(SH.face==='back'?' on':'')+'" data-face="back">Back</button></div>':'';
   var logoPlaces=(item.places||[]).filter(function(p){return p.logo;});
@@ -7979,9 +7956,9 @@ function sharedStripHtml(){
   return '<div class="herooffer pkoffer">'+
       '<span class="hoic" aria-hidden="true">\u2713</span>'+
       '<span class="hotx"><b>'+(still<n
-          ? (still+' of '+(who?(esc(who)+'\u2019s '):'')+n+' pieces are in your board')
-          : (who?(esc(who)+'\u2019s '+n+' piece'+(n===1?' is':'s are')+' in your board')
-               :(n+' piece'+(n===1?'':'s')+' \u2014 already in your board')))+'</b>'+
+          ? (still+' of '+(who?(esc(who)+'\u2019s '):'')+n+' pieces are in your quote')
+          : (who?(esc(who)+'\u2019s '+n+' piece'+(n===1?' is':'s are')+' in your quote')
+               :(n+' piece'+(n===1?'':'s')+' \u2014 already in your quote')))+'</b>'+
         '<i>'+(still<n
           ? 'You\u2019ve changed the list \u2014 that\u2019s fine, add or remove anything you like. '
           : ('Colours, sizes and quantities exactly as '+(who?esc(who):'they')+' set them. '))+
@@ -8027,7 +8004,7 @@ function addPicks(){
     CART[x.k]={qty:(d&&d.qty)||moq(),colour:(d&&d.colour)||vmOf(x.k).colour,decos:recCartDecos(x.k)};
     n++;});
   saveCart();refreshCartUI();openBoard();
-  toast(n?('Added '+n+' piece'+(n===1?'':'s')+' from your shortlist'):'Your shortlist is already in your board');
+  toast(n?('Added '+n+' piece'+(n===1?'':'s')+' from your shortlist'):'Your shortlist is already in your quote');
 }
 /* ---- Curator mode ----------------------------------------------------------------------------
    Steven was the bottleneck: every shortlist change meant describing a store and a list of products
@@ -8372,7 +8349,7 @@ function refreshCartUI(){
     var b=card.querySelector('.madd');
     if(b){b.classList.toggle('has',on);
       b.innerHTML=on?('<span class="mqk">✓</span><b>'+qn+'</b>'):'<span class="mqk">+</span><span class="mqt">Quote</span>';
-      b.setAttribute('aria-label',on?(qn+' in your board'):'Save to my board');}});
+      b.setAttribute('aria-label',on?(qn+' in your quote'):'Add to my quote');}});
 }
 function openCart(){renderCart();document.getElementById('ov').classList.add('on');document.getElementById('cart').classList.add('on');document.body.style.overflow='hidden';}
 function cartLineHtml(k){var it=BYKEY[bkey(k)];if(!it)return '';var c=CART[k];
@@ -9130,6 +9107,12 @@ function wireBoard(){
   if(tc)tc.addEventListener('click',function(){copyStarterToMine();renderBoard();});
 }
 function openBoard(id){
+  /* ROUND 13 (Steven, 2026-11-12: "remove board functionality as we do not use it anymore"). One place to buy: the quote.
+     Every path that used to open the board editor -- old ?b= / ?board= links already sent to prospects, kit sets,
+     shortlists -- now lands on the quote with those pieces in it, so nothing a buyer already holds breaks. */
+  try{if(id&&LISTS&&LISTS[id]&&!isTemplate(id))switchList(id);}catch(e){}
+  try{openQuote('board');}catch(e){}
+  return;
   jdpTrack('board');
   /* A board id is local to the browser that made it. openBoard used to write ?board=<id> into the
      address bar, so copying that URL -- the obvious thing to do -- handed someone a link that
@@ -9268,6 +9251,8 @@ function renderBoardsIndex(){
   var x=document.getElementById('biClose');if(x)x.addEventListener('click',closeBoards);
 }
 function openBoards(){
+  try{openQuote('boards');}catch(e){}
+  return;
   // Opening the index is exactly when a stale list is most visible -- reconcile, then re-render.
   syncBoardsFromServer().then(function(changed){if(changed)renderBoardsIndex();});
   var el=document.getElementById('boards');
@@ -9524,77 +9509,122 @@ function catTileImg(cat){
 /* US PROGRAMS: built from the Stormtech range a US store carries (Stormtech USA has no CSA hi-vis, so
    the third program is weather rather than site compliance). Steven to confirm the picks. */
 var PROG_SPECS_US=[
+  /* ROUND 13: core kit + recommended add-ons (opt:1), as for Canada. Stormtech USA has no CSA hi-vis, so the third
+     program stays weather. */
   {id:'crew',name:'Crew Uniform Program',who:'the crew on the tools',
-   sub:'For the crew on the tools: a quarter-zip, a quilted vest and two jackets that carry your logo all year.',
+   sub:'Everything a crew wears from the first warm day to deep winter: tee, quarter-zip, vest, two jackets and a cap.',
    items:[
-     {k:'st_treeline',lab:'Quarter-zip',why:'Stormtech’s Treeline performance quarter-zip — the layer a crew lives in from fall to spring, so it is the piece your logo is seen on most. Men’s and ladies’ cuts.'},
+     {k:'st_baseline',lab:'Tee',why:'Stormtech’s Baseline tee — 180 gsm enzyme-washed cotton jersey, moisture-wicking with UPF 50+, S to 5XL. The piece your logo is seen on most.'},
+     {k:'st_treeline',lab:'Quarter-zip',why:'Stormtech’s Treeline performance quarter-zip — the layer a crew lives in from fall to spring. Men’s and ladies’ cuts.'},
      {k:'st_sierravest',lab:'Quilted vest',col:'Black',why:'Stormtech’s Sierra thermal vest — warmth with the arms free that stays on indoors and goes under a jacket outside. Men’s and ladies’ cuts.'},
      {k:'st_cascades',lab:'Softshell jacket',col:'Black',why:'Stormtech’s Cascades softshell — wind and light-rain cover for the months a parka is too much. Men’s and ladies’ cuts.'},
-     {k:'st_nautilusjkt',lab:'Insulated jacket',col:'Black',why:'Stormtech’s Nautilus quilted jacket — real winter warmth that still moves. Men’s and ladies’ cuts.'}
+     {k:'st_nautilusjkt',lab:'Insulated jacket',col:'Black',why:'Stormtech’s Nautilus quilted jacket — real winter warmth that still moves. Men’s and ladies’ cuts.'},
+     {k:'st_steelheadcap',lab:'Cap',why:'Stormtech’s Steelhead canvas cap with your logo on the front — the brand on every head on site.'},
+     {k:'st_stocktonhoody',lab:'Hoodie',opt:1,why:'Stormtech’s Stockton — 240 gsm cotton-polyester terry fleece with UPF 50+, S to 5XL.'},
+     {k:'st_axis',lab:'Rain shell',col:'Black',opt:1,why:'Stormtech’s Axis jacket — a waterproof, breathable shell for rain days. Men’s and ladies’ cuts.'},
+     {k:'st_avalantebeanie',lab:'Beanie',opt:1,why:'Stormtech’s Avalante knit beanie with your logo, for the months the cap stays in the truck.'},
+     {k:'st_aquacooler24',lab:'Cooler backpack',opt:1,why:'Stormtech’s Aquarius 24 cooler backpack — lunch for the day, carried hands-free.'}
    ]},
   {id:'premium',name:'Premium · In Front of the Client',who:'the people in front of your clients',
-   sub:'Sales, management and anyone whose first impression is the company’s.',
+   sub:'Sales, management and anyone whose first impression is the company’s — polo, button-down, quarter-zip, vest and softshell.',
    items:[
-     {k:'vest',lab:'Quilted vest',col:'Black',why:'Stormtech’s Nautilus quilted vest — windproof and water-repellent, and the office-program staple because it looks put-together indoors and out. Men’s and ladies’ cuts.'},
-     /* 2026-10-09: Cutter & Buck USA pricing arrived, so the US premium program now matches the Canadian
-        one Steven chose (C&B Traverse quarter-zip + Advantage polo). */
-     {k:'cbc_traverse_qz',lab:'Quarter-zip',col:'Black',why:'Cutter & Buck’s Traverse — a 200 gsm recycled stretch quarter-zip with moisture wicking and UPF 50+. The layer that reads considered, not casual. Men’s and ladies’ cuts.'},
+     {k:'cbc_advantage_polo',lab:'Polo',col:'Liberty Navy',why:'Cutter & Buck’s Advantage piqué — cotton, recycled polyester and a little stretch, the polo that still looks pressed at the end of a client day. Men’s and ladies’ cuts.'},
+     {k:'cbc_skyline_shirt',lab:'Button-down shirt',why:'Cutter & Buck’s Skyline: an end-on-end stretch woven that is moisture-wicking and wrinkle-resistant, with a PFAS-free soil-release finish. Men’s and ladies’ cuts.'},
+     {k:'cbc_traverse_qz',lab:'Quarter-zip',col:'Black',why:'Cutter & Buck’s Traverse — a 200 gsm recycled stretch quarter-zip with moisture wicking and UPF 50+. Men’s and ladies’ cuts.'},
+     {k:'vest',lab:'Quilted vest',col:'Black',why:'Stormtech’s Nautilus quilted vest — windproof and water-repellent, the office-program staple because it looks put-together indoors and out. Men’s and ladies’ cuts.'},
      {k:'st_cruise',lab:'Softshell jacket',col:'Black',why:'Stormtech’s waterproof Cruise softshell — the client-facing shell, structured and cut to look sharp over a polo. Men’s and ladies’ cuts.'},
-     {k:'cbc_advantage_polo',lab:'Polo',col:'Liberty Navy',why:'Cutter & Buck’s Advantage piqué — cotton, recycled polyester and a little stretch, the polo that still looks pressed at the end of a client day. Men’s and ladies’ cuts.'}
+     {k:'cbc_rainier_puffer',lab:'Winter puffer',opt:1,why:'Cutter & Buck’s Rainier: PrimaLoft Silver insulation from 70% recycled polyester in a wind- and water-resistant nylon shell. XS to 5XL.'},
+     {k:'st_roadwarrior',lab:'Laptop backpack',opt:1,why:'Stormtech’s Road Warrior computer backpack — the bag a sales team carries to every client meeting.'},
+     {k:'st_summitcap',lab:'Cap',opt:1,why:'Stormtech’s Summit Cap in recycled nylon, unstructured with an adjustable strap — for golf days and events.'}
    ]},
   {id:'weather',name:'All-Weather Program',who:'the teams who work outside',
-   sub:'From the first wet morning to deep winter — a shell, a softshell, a quilted jacket and a 3-in-1.',
+   sub:'From the first wet morning to deep winter — a shell, a softshell, a quilted jacket, a 3-in-1 and a beanie.',
    items:[
      {k:'st_axis',lab:'Waterproof shell',col:'Black',why:'Stormtech’s Axis jacket — a waterproof, breathable shell for rain days. Men’s and ladies’ cuts.'},
      {k:'st_cirrus',lab:'Softshell jacket',col:'Black',why:'Stormtech’s Cirrus bonded softshell — wind cover with stretch for people in and out of vehicles. Men’s and ladies’ cuts.'},
      {k:'st_stavanger',lab:'Quilted jacket',col:'Black',why:'Stormtech’s Stavanger quilted jacket — built for real cold. Men’s and ladies’ cuts.'},
-     {k:'st_vortex',lab:'3-in-1 parka',col:'Black',why:'Stormtech’s Vortex HD 3-in-1 — a waterproof shell and a zip-out liner, worn three ways; your logo goes on both layers. Men’s and ladies’ cuts.'}
+     {k:'st_vortex',lab:'3-in-1 parka',col:'Black',why:'Stormtech’s Vortex HD 3-in-1 — a waterproof shell and a zip-out liner, worn three ways; your logo goes on both layers. Men’s and ladies’ cuts.'},
+     {k:'st_avalantebeanie',lab:'Beanie',why:'Stormtech’s Avalante knit beanie with your logo — the piece the whole team wears all winter.'},
+     {k:'st_sierravest',lab:'Quilted vest',col:'Black',opt:1,why:'Stormtech’s Sierra thermal vest — a warm mid-layer under the shell. Men’s and ladies’ cuts.'},
+     {k:'st_olympiarain',lab:'Rain pant',opt:1,why:'Stormtech’s Olympia rain pant — waterproof and breathable, XXS to 5XL. Supplied without a logo.'},
+     {k:'st_deluge',lab:'Waterproof backpack',opt:1,why:'Stormtech’s Deluge 26 waterproof backpack — keeps the day’s kit dry, with your logo on the front.'}
    ]}
 ];
 function progSpecs(){return isUS()?PROG_SPECS_US:PROG_SPECS;}
 var PROG_SPECS=[
-  /* Steven, 2026-10-02: "change the program product selection to these products in this order."
-     Four pieces per program, his order. `col` is the colourway the program opens on where the
-     neutral rule would pick the wrong one for the job (a white polo is a neutral; it is not the
-     premium read of that polo). Every `why` is built from the catalogue's own published facts. */
+  /* ROUND 13 (Steven, 2026-11-12: "add more products to the ready-made programs"). Each program is now a CORE KIT
+     (ticked, priced per person) plus RECOMMENDED ADD-ONS (opt:1, shown unticked under the kit, one tap to add).
+     The per-person number a buyer sees stays the honest price of the core kit; the add-ons widen the program
+     without inflating it. Core order follows how a uniform is worn, base layer out. Every `why` restates
+     catalogue or maker facts only. Steven's 2026-10-02 four pieces are all still in each core kit. */
   {id:'crew',name:'Crew Uniform Program',
    who:'the crew on the tools',
-   sub:'For the crew on the tools: a hoodie, a vest and two jackets that carry your logo all year.',
+   sub:'Everything a crew wears from the first warm day to deep winter: tee, hoodie, vest, two jackets and a cap.',
    items:[
+     {k:'cs_s05280', lab:'Heavyweight tee',
+      why:'A 280 gsm heavyweight cotton tee with a drop shoulder, XS to 4XL in eight colours. Crews wear tees most days, so this is the piece your logo is seen on most often.'},
      {k:'vault',     lab:'Hoodie',
-      why:'The layer a crew lives in from September to May, so it is the piece your logo is seen on most. 280 gsm cotton-polyester fleece in 18 colours — order deeper than you think.'},
+      why:'The layer a crew lives in from September to May. 280 gsm cotton-polyester fleece in 18 colours — order deeper than you think.'},
      {k:'chill',     lab:'Puffy vest',
       why:'Warmth with the arms free — 180 g polyester insulation that stays on indoors and goes under a jacket outside. Men’s and ladies’ cuts.'},
      {k:'softshell', lab:'Softshell jacket',
       why:'Lightweight wind and rain cover for the nine months a parka is too much — 8,000 mm water-repellent and windproof, five colours, both cuts.'},
      {k:'cs_l03170', lab:'Insulated jacket',
-      why:'The same idea for winter: 100 g recycled insulation through the body and 80 g in the sleeves, an 8,000 mm windproof shell and a removable hood.'}
+      why:'The same idea for winter: 100 g recycled insulation through the body and 80 g in the sleeves, an 8,000 mm windproof shell and a removable hood.'},
+     {k:'cs_h08200', lab:'Cap',
+      why:'A snapback cotton-twill cap in 22 colours with your logo on the front — the cheapest way to put the brand on every head on site.'},
+     {k:'cs_s05895', lab:'Long-sleeve tee', opt:1,
+      why:'160 gsm cotton and recycled-polyester jersey with a soft peached hand, XS to 4XL — sleeves for the shoulder seasons.'},
+     {k:'cs_l02185', lab:'Rain jacket', opt:1,
+      why:'Waterproof to 5,000 mm with fully seam-sealed seams and a breathable mechanical-stretch shell, for crews who work through the rain.'},
+     {k:'cs_h08010', lab:'Toque', opt:1,
+      why:'A fleece-lined knit cuff toque with your logo on the cuff, for the months the cap stays in the truck.'},
+     {k:'st_aquacooler24', lab:'Cooler backpack', opt:1,
+      why:'Stormtech’s Aquarius 24 cooler backpack — lunch for the day, carried hands-free, with your logo on the front.'}
    ]},
   {id:'premium',name:'Premium · In Front of the Client',
    who:'the people in front of your clients',
-   sub:'Sales, management and anyone whose first impression is the company’s.',
+   sub:'Sales, management and anyone whose first impression is the company’s — polo, button-down, quarter-zip, vest and softshell.',
    items:[
-     {k:'vest',               lab:'Quilted vest', col:'Black',
-      why:'Stormtech’s quilted thermal vest — windproof and water-repellent, and the office-program staple because it looks put-together indoors and out. Men’s and ladies’ cuts.'},
+     {k:'cbc_advantage_polo', lab:'Polo', col:'Liberty Navy',
+      why:'Cutter & Buck’s cotton-blend piqué — 52% cotton, 45% recycled polyester, 3% spandex — the polo that still looks pressed at the end of a client day. GRS-certified recycled, OEKO-TEX Standard 100.'},
+     {k:'cbc_skyline_shirt',  lab:'Button-down shirt',
+      why:'Cutter & Buck’s Skyline: an end-on-end stretch woven that is moisture-wicking and wrinkle-resistant, with a PFAS-free soil-release finish. Men’s and ladies’ cuts.'},
      {k:'cbc_traverse_qz',    lab:'Quarter-zip', col:'Black',
       why:'A 200 gsm double-knit quarter-zip in 70% recycled polyester with stretch, moisture wicking and UPF 50+. Ten colours, men’s and ladies’ — the layer that reads considered, not casual.'},
+     {k:'vest',               lab:'Quilted vest', col:'Black',
+      why:'Stormtech’s quilted thermal vest — windproof and water-repellent, and the office-program staple because it looks put-together indoors and out. Men’s and ladies’ cuts.'},
      {k:'st_cruise',          lab:'Softshell jacket', col:'Black',
       why:'Stormtech’s waterproof Cruise softshell — the client-facing shell, structured and cut to look sharp over a polo. Men’s and ladies’ cuts.'},
-     {k:'cbc_advantage_polo', lab:'Polo', col:'Liberty Navy',
-      why:'Cutter & Buck’s cotton-blend piqué — 52% cotton, 45% recycled polyester, 3% spandex — the polo that still looks pressed at the end of a client day. GRS-certified recycled, OEKO-TEX Standard 100.'}
+     {k:'cbc_rainier_puffer', lab:'Winter puffer', opt:1,
+      why:'Cutter & Buck’s Rainier: a nylon shell with PrimaLoft Silver insulation made from 70% recycled polyester, wind- and water-resistant, with a hood that packs into the collar. XS to 5XL.'},
+     {k:'st_roadwarrior',     lab:'Laptop backpack', opt:1,
+      why:'Stormtech’s Road Warrior computer backpack — the bag a sales team carries to every client meeting, with your logo on the front.'},
+     {k:'st_summitcap',       lab:'Cap', opt:1,
+      why:'Stormtech’s Summit Cap in recycled nylon, unstructured with an adjustable strap — for golf days and events.'}
    ]},
   {id:'hivis',name:'CSA Hi-Vis Program',
    who:'the crews who have to be site-legal',
-   sub:'Site-legal from the first cold morning to deep winter — four pieces, one program.',
+   sub:'Site-legal from the first warm day to deep winter: tee, tear-away vest, hoodie, softshell and winter parka.',
    items:[
+     {k:'tee',    lab:'Hi-vis tee',
+      why:'CSA Z96 Class 1 cotton traffic tee, S to 5XL — the base layer under the vest on warm days.'},
+     {k:'tvest',  lab:'Tear-away vest',
+      why:'CSA Z96 Class 2 five-point tear-away vest that breaks away if it is caught — the piece that makes any shirt site-legal.'},
      {k:'hoodie', lab:'Hi-vis hoodie',
       why:'CSA Z96 Class 2. Compliance and warmth in one layer, so nobody covers their hi-vis with a personal hoodie and stops being compliant.'},
      {k:'tj2',    lab:'Hi-vis softshell',
       why:'CSA Z96 Class 2 wind and rain protection that is not a parka — the nine-month jacket.'},
      {k:'tp1',    lab:'Winter parka',
       why:'CSA Z96 Class 2 winter parka — the line that stops a crew buying their own coats in January.'},
-     {k:'tt4',    lab:'Hi-vis long sleeve',
-      why:'CSA Z96 Class 1 cotton with the arms covered — for shoulder seasons and any site where sleeves are the rule.'}
+     {k:'tt4',    lab:'Hi-vis long sleeve', opt:1,
+      why:'CSA Z96 Class 1 cotton with the arms covered — for shoulder seasons and any site where sleeves are the rule.'},
+     {k:'rain',   lab:'Hi-vis rain jacket', opt:1,
+      why:'CSA Z96 Class 2 (ANSI 107 Class 3) rain jacket, S to 5XL, for wet-weather days on site.'},
+     {k:'rp90',   lab:'Hi-vis rain pants', opt:1,
+      why:'CSA Z96 Class 3 rain pants — worn with the rain jacket they cover crews head to toe in the wet. Supplied without a logo.'},
+     {k:'cs_h08010', lab:'Toque', opt:1,
+      why:'A fleece-lined knit cuff toque with your logo on the cuff for winter mornings on site.'}
    ]}
 ];
 
@@ -9645,7 +9675,7 @@ function progBuild(spec){
   var rows=[];
   (spec.items||[]).forEach(function(it){
     if(!BYKEY[it.k])return;
-    rows.push({k:it.k,lab:it.lab,why:it.why,col:it.col||null});
+    rows.push({k:it.k,lab:it.lab,why:it.why,col:it.col||null,opt:it.opt?1:0});
   });
   return rows;
 }
@@ -9697,7 +9727,8 @@ function seedPrograms(){
         var _it=BYKEY[r.k]||{};
         var _q=(_it.layer==='promo')?(_it.moq||moq()):moq();
         items[r.k]={qty:_q,colour:progColourFor(r.k,r.col),decos:recCartDecos(r.k),
-                    why:r.lab+' — '+r.why};});
+                    why:r.lab+' — '+r.why};
+        if(r.opt)items[r.k].opt=1;});
       var id='prog_'+spec.id;
       LISTS[id]={name:spec.name,items:items,updated:0,starter:true,prog:1,
                  sub:spec.sub,slug:null,basis:spec.basis||'kit',noun:spec.noun||'pieces',
@@ -9789,6 +9820,7 @@ function boardPerPerson(id){
   var pick=L.basis==='pick',lo=0,t=0;
   Object.keys(L.items||{}).forEach(function(k){
     var it=BYKEY[bkey(k)];if(!it)return;
+    if(L.prog&&(L.items[k]||{}).opt)return;      /* round 13: an add-on is not part of the per-person kit price */
     var u=0;
     try{
       if(it.layer==='promo'){
@@ -10380,7 +10412,10 @@ function giftViewOn(){
    board editor is untouched -- "Change this program" copies the pieces into the buyer's own board,
    where sizes, notes, add and remove already live. */
 var PV_ID=null,PV_BACK=null,PV_OFF={};
-function pvOff(id){return PV_OFF[id]||(PV_OFF[id]={});}
+function pvOff(id){if(PV_OFF[id])return PV_OFF[id];var o=PV_OFF[id]={},it=(((LISTS||{})[id])||{}).items||{};
+  Object.keys(it).forEach(function(k){if(it[k]&&it[k].opt)o[k]=true;});return o;}
+function progCoreN(id){var it=(((LISTS||{})[id])||{}).items||{};return Object.keys(it).filter(function(k){return !(it[k]&&it[k].opt);}).length;}
+function progOptN(id){var it=(((LISTS||{})[id])||{}).items||{};return Object.keys(it).filter(function(k){return it[k]&&it[k].opt;}).length;}
 function pvOnKeys(id){var off=pvOff(id);return Object.keys(((LISTS||{})[id]||{}).items||{}).filter(function(k){return !off[k];});}
 function programOpen(){var e=document.getElementById('progv');return !!(e&&e.classList.contains('on'));}
 function pvProgId(id){return /^prog_/.test(id||'')?id:'prog_'+id;}
@@ -10464,7 +10499,9 @@ function pvEstHtml(id,n){
 function programHtml(id){
   var L=LISTS[id];if(!L)return '';
   var ks=Object.keys(L.items||{}),n=getHC(),pp0=pvPerPerson(id,0),T=JDP_TRUST;
-  var cards=ks.map(function(ck,i){return pvCardHtml(ck,i+1);}).join('');
+  var core=ks.filter(function(k){return !(L.items[k]&&L.items[k].opt);}),adds=ks.filter(function(k){return L.items[k]&&L.items[k].opt;});
+  var cards=core.map(function(ck,i){return pvCardHtml(ck,i+1);}).join('');
+  var addCards=adds.map(function(ck,i){return pvCardHtml(ck,core.length+i+1);}).join('');
   /* "mockup &" drops out on a phone so the bar's input and button share one row. */
   var _non=pvOnKeys(id).length;
   var cta=function(idb,cls){return '<button type="button" class="pvcta pvadd '+(cls||'')+'" id="'+idb+'"'+(_non?'':' disabled')+'>Add '+_non+' piece'+(_non===1?'':'s')+' <span class="pvl">to my quote </span><span class="ar">→</span></button>';};
@@ -10488,11 +10525,13 @@ function programHtml(id){
         /* ONE FIELD NEXT TO THE PRICE. 51 program opens, 0 quotes: the button opened a drawer with
            a second form. Now the email goes in right here and the program goes with it. */
         cta('pvQuoteHero','pvherocta')+
-        '<div class="pvtrust">Untick anything you don’t need · add more items or another program after · itemized PDF for your approver</div>'+
+        '<div class="pvtrust">Untick anything you don’t need · add-ons below · itemized PDF quote for your approver</div>'+
       '</div>'+
     '</div></section>'+
-    '<div class="pvkit"><span>The kit</span><i>'+ks.length+' pieces · priced at the '+moq()+'-piece minimum · prices drop at 48+ and 144+</i></div>'+
+    '<div class="pvkit"><span>The core kit</span><i>'+core.length+' pieces · one of each per person · priced at the '+moq()+'-piece minimum · prices drop at 48+ and 144+</i></div>'+
     '<ol class="pvgrid">'+cards+'</ol>'+
+    (adds.length?('<div class="pvkit pvkitadd"><span>Recommended add-ons</span><i>Often added to this program · tap “+ Add to quote” on any piece to include it</i></div>'+
+      '<ol class="pvgrid pvgridadd">'+addCards+'</ol>'):'')+
     '<div class="pvfoot">'+
 
       '<button type="button" class="pvlink" id="pvShare">Share this program ↗</button>'+
@@ -10512,7 +10551,7 @@ function programUrl(id){return location.origin+location.pathname+'?program='+Str
 function addProgramToQuote(id,n){
   var src=(LISTS[id]||{}).items||{},keys=pvOnKeys(id);if(!keys.length)return;
   var tid=(PV_BACK&&LISTS[PV_BACK]&&!isTemplate(PV_BACK))?PV_BACK:personalListId();
-  keys.forEach(function(ck){try{var e=JSON.parse(JSON.stringify(src[ck]));delete e.why;e.prog=1;LISTS[tid].items[ck]=e;}catch(x){}});
+  keys.forEach(function(ck){try{var e=JSON.parse(JSON.stringify(src[ck]));delete e.why;delete e.opt;e.prog=1;LISTS[tid].items[ck]=e;}catch(x){}});
   ALID=tid;CART=LISTS[tid].items;LISTS[tid].updated=Date.now();persistLists();
   if(n>0)setHC(n);
   var hn=n||getHC();keys.forEach(function(ck){try{sizeLineFromHC(ck,hn);}catch(x){}});
@@ -10675,7 +10714,7 @@ function recoHeroHtml(){
            a price EXISTS without saying what it is, so the buyer has to click to find out the one
            thing they actually want to know. Cost per person, one of each at the minimum, is the
            figure they are trying to reach anyway. */
-        '<i class="rhfoot">'+listLen(id)+' '+esc(L.noun||'pieces')+(function(){
+        '<i class="rhfoot">'+(L.prog?progCoreN(id):listLen(id))+' '+esc(L.noun||'pieces')+(L.prog&&progOptN(id)?(' + '+progOptN(id)+' add-ons'):'')+(function(){
            var pp=boardPerPerson(id);
            /* NOT a <b>: `.rhtx b` is display:block for the board name, so a <b> here broke
               "12 pieces · $665 per person" onto three lines. Inline style as well as a class,
@@ -11255,29 +11294,41 @@ function r12Counts(){var seen={},n=0;(CATS||[]).forEach(function(c){catKeysOf(c)
   return {styles:n,cats:(CATS||[]).length,ex:exs};}
 function r12ProgName(n){return String(n||'').replace(/\s*\u00b7.*$/,'').replace(/\s+Program$/i,'').trim();}
 function r12HeroHtml(){
-  var ks=heroShots(),C=r12Counts(),T=JDP_TRUST,chk='<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.2 4.2L19 7"/></svg>',
+  /* ROUND 13 copy (Steven, 2026-11-12: "tweak the copy so site performs better"). Each door is labelled by the buyer's
+     situation, not by our feature -- "I know what I need" / "Help me choose" / "Outfitting a whole team" -- so a buyer
+     recognises themselves in one glance and self-selects. Titles are verbs, CTAs name the outcome, numbers are the
+     store's own. The assurance line answers the four objections an ops / HR buyer has before clicking anything:
+     will it have our logo, can my approver sign it off, do I have to pay, will a person answer. */
+  var ks=heroShots(),C=r12Counts(),T=JDP_TRUST,demo=!!CFG.demo,cta=CFG.cta||{},hasCta=demo&&!!(cta.label||CFG.cta_form),
+      chk='<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.2 4.2L19 7"/></svg>',
       arr='<span class="r12ar" aria-hidden="true">\u2192</span>';
   var shopVis='<span class="r12vis r12vshop">'+(ks.length?ks.map(function(k,i){return r12Shot(k,'r12s'+i);}).join(''):'')+'</span>';
   var advVis='<span class="r12vis r12vadv" aria-hidden="true"><span class="r12q"><span class="r12qh">'+caSvg('spark',14)+'Advisor</span>'+
       '<b>Who are you outfitting?</b><span class="r12qo"><i>Office &amp; client-facing</i><i class="on">Outdoor crews</i><i>Warehouse</i><i>Drivers</i></span></span>'+
       '<span class="r12qr"><i>Value</i><i class="on">Our pick</i><i>Premium</i></span><span class="r12ico">'+caSvg('spark',36)+'</span></span>';
   var progVis='<span class="r12vis r12vprog" id="r12pv">'+[0,1,2,3].map(function(){return '<span class="r12st"></span>';}).join('')+'</span>';
-  function door(id,vis,kick,h,p,cta,pid){return '<button type="button" class="r12door" data-r12="'+id+'"'+(pid?' id="'+pid+'"':'')+'>'+vis+
+  function door(id,vis,kick,h,p,ctaTx,pid){return '<button type="button" class="r12door" data-r12="'+id+'"'+(pid?' id="'+pid+'"':'')+'>'+vis+
       '<span class="r12tx"><span class="r12k">'+kick+'</span><b class="r12h">'+h+'</b><span class="r12p"'+(id==='prog'?' id="r12pp"':'')+'>'+p+'</span>'+
-      '<span class="r12cta">'+cta+arr+'</span></span></button>';}
+      '<span class="r12cta">'+ctaTx+arr+'</span></span></button>';}
+  var h1=demo?'Your company\u2019s team store':(esc(poss(CFG.client))+' team store');
+  var sub=demo?'A live sample. Every piece shows where your logo goes and what it costs at your quantity \u2014 explore it the way your team would.'
+              :'Workwear and corporate apparel for your whole team \u2014 every piece shown with your logo and priced at your quantity.';
   return '<section class="hero r12hero"><div class="w">'+
-    '<div class="r12head"><div class="r11eyb">Branded apparel &amp; workwear</div>'+
-      '<h1>'+esc(poss(CFG.client))+' team store</h1>'+
-      '<p class="herosub">Every piece is shown with your logo and priced at your quantity. Choose how you\u2019d like to start.</p></div>'+
+    '<div class="r12head"><div class="r11eyb">'+(demo?'Sample store \u00b7 branded apparel &amp; workwear':'Branded apparel &amp; workwear')+'</div>'+
+      '<h1>'+h1+'</h1>'+
+      '<p class="herosub">'+sub+'</p></div>'+
+    '<div class="r12lbl">How would you like to start?</div>'+
     '<div class="r12paths" id="r12paths">'+
-      door('shop',shopVis,'Browse','Shop the catalogue',C.styles+' styles across '+C.cats+' categories'+(C.ex?(' \u2014 '+C.ex):'')+'.','Browse the catalogue')+
-      door('adv',advVis,'Get advice','Let the Advisor pick','Answer a few quick questions. We pick the piece \u2014 plus a lower-cost and a premium option.','Start the Advisor')+
-      door('prog',progVis,'Start from a kit','Use a ready-made program','Complete kits built by role, priced per person. Swap or remove anything.','See ready programs','r12prog')+
+      door('shop',shopVis,'I know what I need','Browse the catalogue',C.styles+' styles across '+C.cats+' categories'+(C.ex?(' \u2014 '+C.ex):'')+', each priced with your logo.','Browse '+C.styles+' styles')+
+      door('adv',advVis,'Help me choose','Get a recommendation','Answer a few quick questions about your team. We pick the piece, plus a lower-cost and a premium option.','Start the Advisor')+
+      door('prog',progVis,'Outfitting a whole team','Start from a ready-made program','Complete kits by role, priced per person. Untick anything you don\u2019t need.','See the programs','r12prog')+
     '</div>'+
-    '<div class="r12assure"><span class="r12ok">'+chk+'Your logo on every piece</span><span class="r12ok">'+chk+'Priced at your quantity</span>'+
-      '<span class="r12ok">'+chk+'Itemized PDF quote for approval</span><span class="r12ok">'+chk+'No payment, no obligation</span>'+
-      (trustOn()?('<span class="r12side"><button type="button" class="r12lnk" data-r11="rfq">Have an RFQ or spec? Upload it</button><span class="r12dot" aria-hidden="true">\u00b7</span>'+
-        '<a class="r12lnk r12call" href="tel:'+T.tel+'">Call Steven '+T.phone+'</a></span>'):'')+
+    '<div class="r12assure"><span class="r12ok">'+chk+'Itemized PDF quote for your approver</span>'+
+      '<span class="r12ok">'+chk+'No payment to get a quote</span>'+(trustOn()?('<span class="r12ok">'+chk+'A real person replies in '+esc(T.reply)+'</span>'):'')+
+      (hasCta?('<span class="r12side"><button type="button" class="r12demo" id="leadOpen1">'+esc(cta.label||'Get your store \u2014 free')+' \u2192</button>'+
+          (cta.phone?('<a class="r12lnk" href="tel:'+T.tel+'">or call '+esc(cta.phone)+'</a>'):'')+'</span>')
+       :(trustOn()?('<span class="r12side"><button type="button" class="r12lnk" data-r11="rfq">Have an RFQ or spec? Upload it</button><span class="r12dot" aria-hidden="true">\u00b7</span>'+
+        '<a class="r12lnk r12call" href="tel:'+T.tel+'">Call Steven '+T.phone+'</a></span>'):''))+
     '</div>'+
     '<div class="r12proof">'+homeProofHtml()+'</div>'+
   '</div></section>';}
@@ -11292,7 +11343,7 @@ function r12Fill(){var d=document.getElementById('r12prog');if(!d)return;
   var pp=Infinity;ids.forEach(function(id){try{var v=boardPerPerson(id);if(v&&v<pp)pp=v;}catch(e){}});
   var names=ids.slice(0,3).map(function(id){return r12ProgName((LISTS[id]||{}).name);}).filter(Boolean);
   var p=document.getElementById('r12pp');
-  if(p)p.textContent=(names.length?(names.join(', ')+' \u2014 '):'')+'complete kits by role, priced per person'+(isFinite(pp)?(', from '+money0(pp)):'')+'.';}
+  if(p)p.textContent=(names.length?(names.join(', ')+' \u2014 '):'')+'complete kits by role'+(isFinite(pp)?(', from '+money0(pp)+' per person'):', priced per person')+'. Untick anything you don\u2019t need.';}
 document.addEventListener('click',function(e){var t=e.target&&e.target.closest?e.target.closest('[data-r12]'):null;if(!t)return;
   var w=t.dataset.r12;
   if(w==='shop'){jdpTrack('browse_hero');var g=document.querySelector('.entcats');if(g)window.scrollTo({top:window.scrollY+g.getBoundingClientRect().top-(window.innerWidth>820?150:70),behavior:'smooth'});}
@@ -11333,7 +11384,7 @@ function renderAdvView(){var el=document.getElementById('advvin');if(!el)return;
   wireAdvGo(el);}
 function openProgView(src){jvClose();JVIEW='prog';
   var x=document.getElementById('progsx'),n=parseInt(((document.getElementById('railN')||{}).textContent)||'0',10)||0;
-  if(x){x.innerHTML=n?('<button type="button" class="progboards" data-progboards="1">Your saved boards <i>'+n+'</i> <span aria-hidden="true">\u2192</span></button>'):'';}
+  if(x){x.innerHTML='';}   /* round 13: boards retired */
   jvSync();syncViewUrl();window.scrollTo({top:0,behavior:'auto'});if(src!==false)jdpTrack('hero_programs',{src:src||'tab'});}
 /* every aisle and shelf: Shop / Category / Shelf, and one line that opens the advisor for this aisle */
 function jvPost(){var hd=document.getElementById('gridhd');if(!hd||(VIEW.q||'').trim()||!VIEW.cat)return;
@@ -11411,7 +11462,7 @@ function renderCart(){
         '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" '+
         'stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/>'+
         '<circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>'+
-        'Send this board to your team</button>'+
+        'Send this quote to your team</button>'+
       '<button type="button" class="svalt" data-samp="">\u270B See &amp; feel these first \u2014 we\u2019ll bring samples to you</button>'+
       '<div class="cktrust"><span>No payment now</span><span>No obligation</span><span>No minimum beyond 12 pcs</span></div></div>'):'')+
     '';
@@ -12516,7 +12567,7 @@ function go(cfg){
             var L=LISTS[ALID];if(L&&_snap){var m=String(L.name||'').match(/^Quote (.+)$/);if(m){L.qref=m[1];L.qsig=quoteSig();L.qsnap=qdec(_lb[1]);}}
             openQuote(_snap?'approver':'link');}
           else if(found)openBoard(ALID);
-          else toast('That board isn\u2019t available \u2014 it may have been renamed');});}refreshCartUI();if(curateOn())markCurCards();
+          else toast('That link isn\u2019t available \u2014 it may have been replaced');});}refreshCartUI();if(curateOn())markCurCards();
       /* A view link only makes sense when a board is not already taking over the screen. */
       JBOOT=1;
       if(!/[?&](b|board)=/.test(location.search)){try{applyViewLink();}catch(e){}}
