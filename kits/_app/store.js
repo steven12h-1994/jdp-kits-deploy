@@ -28,6 +28,11 @@ function autoInk(rgb){var l=hexLum(rgb),s=hexSat(rgb);if(l<120||s>=70)return 'wh
 // A SATURATED brand colour is never touched — red thread on navy reads fine and it is the customer's
 // actual brand; only the neutrals get rescued.
 var INK={},INK_MINRATIO=3.0,INK_MAXSAT=45;
+/* ROUND 10 (Steven, 2026-11-12: a friend found the store "chaotic and not an enterprise feel"). The store is now four
+   destinations with one job each -- Shop, Advisor, Programs, Gifts -- instead of one long page that stacked the hero,
+   category tiles, programs, a second category bar, an advisor, filters and a product grid. JVIEW is the destination,
+   JBROWSE says the buyer has opened an aisle or shelf (otherwise Shop shows its front page: the shelf directory). */
+var JVIEW='shop',JBROWSE=false,JBOOT=0,ADV_CUR='';
 /* The kit's primary mark, in ink counts. Measured by probeInk() before the store is ever built, so
    this is settled by the time anything renders or prices. Falls back to 1 if the probe could not
    read the artwork -- under-quoting a setup is recoverable, a store that fails to load is not. */
@@ -3797,6 +3802,7 @@ function advGo(c,src){var g=caCfgFor(c);if(!g){setCat(c,true);return;}var A=caSt
   caSave();jdpTrack('adv_go',{c:c,src:src||''});try{closeAdvPicker();}catch(e){}
   setCat(c,false);setTimeout(function(){var x=document.getElementById('xpert');if(x){var hdr=document.querySelector('.tbar')||document.querySelector('.hdr');
     window.scrollTo({top:Math.max(0,window.scrollY+x.getBoundingClientRect().top-((hdr&&hdr.offsetHeight)||64)-12),behavior:'smooth'});}},60);}
+var _advGo0=advGo;advGo=function(c,src,sub){var ok=VURLOK;VURLOK=false;try{_advGo0(c,src,sub);}finally{VURLOK=ok;}if(caCfgFor(c))openAdvView(c,src);else syncViewUrl();};
 var CA_TILE_ICO={outerwear:'jacket',tops:'polo',layers:'zip',vests:'vest',hivis:'cone',headwear:'cap',golf:'flag',bottoms:'hardhat'};
 function caHubTiles(cls){return caCats().map(function(c){var g=caCfgFor(c),img=catTileImg(c),A=g?caSt(g.id):{},nq=g?caQs(g,A).length:0,q0=g?((g.tile||(g.qs&&g.qs[0]&&g.qs[0].q)||'')):'',done=g&&caReady(g,A);
     return '<button type="button" class="ahtile '+(cls||'')+'" data-advgo="'+esc(c)+'">'+
@@ -3814,12 +3820,13 @@ function openAdvPicker(){closeAdvPicker();var d=document.createElement('div');d.
     (document.getElementById('recohero')?'<button type="button" class="approg" data-approg="1" style="display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;margin-top:14px;padding:14px 16px;border:1px solid var(--line);border-radius:12px;background:#fff;text-align:left;cursor:pointer;font:inherit"><span><b style="display:block;font-size:15px">Outfitting several teams at once?</b><i style="font-style:normal;color:#6b7280;font-size:13px">Start from a ready-made program (office, crew or hi-vis), then swap any piece.</i></span><span aria-hidden="true" style="font-weight:600;color:var(--a)">See programs →</span></button>':'')+
     '</div>';
   document.body.appendChild(d);wireAdvGo(d);
-  var pg=d.querySelector('[data-approg]');if(pg)pg.addEventListener('click',function(){closeAdvPicker();jdpTrack('hero_programs',{src:'advpick'});var r=document.getElementById('recohero');if(r)r.scrollIntoView({behavior:'smooth',block:'start'});});d.querySelectorAll('[data-apx]').forEach(function(x){x.addEventListener('click',closeAdvPicker);});
+  var pg=d.querySelector('[data-approg]');if(pg)pg.addEventListener('click',function(){closeAdvPicker();jdpTrack('hero_programs',{src:'advpick'});openProgView(false);});d.querySelectorAll('[data-apx]').forEach(function(x){x.addEventListener('click',closeAdvPicker);});
   document.addEventListener('keydown',caEsc);jdpTrack('adv_pick');setTimeout(function(){d.classList.add('on');},10);}
+openAdvPicker=function(){openAdvView('','picker');};
 function caEsc(e){if(e.key==='Escape')closeAdvPicker();}
 function closeAdvPicker(){var d=document.getElementById('advPick');if(d)d.remove();document.removeEventListener('keydown',caEsc);}
 /* the card a browsing buyer meets after the first row of products */
-function caNudgeHtml(){var c=VIEW.cat;if(!c||VIEW.q)return '';if(typeof noAdvHere==='function'&&noAdvHere())return '';var g=caCfgFor(c);if(!g)return '';var A=caSt(g.id);if(caReady(g,A)&&A._m==='res')return '';
+function caNudgeHtml(){return '';var c=VIEW.cat;if(!c||VIEW.q)return '';if(typeof noAdvHere==='function'&&noAdvHere())return '';var g=caCfgFor(c);if(!g)return '';var A=caSt(g.id);if(caReady(g,A)&&A._m==='res')return '';
   var n=caQs(g,A).length;
   return '<button type="button" class="canudge" data-advgo="'+esc(c)+'" data-src="grid"><span class="cani">'+caSvg('spark',22)+'</span>'+
     '<b>Not sure which one?</b><i>'+(n?(nwords(n)+' quick question'+(n>1?'s':'')+' and we’ll pick'):'We’ve already picked')+' the right '+esc(g.one||'piece')+' for your team — shown with your logo.</i>'+
@@ -4959,6 +4966,9 @@ function noAdvHere(){return !!NO_ADV_SHELF[(VIEW.cat||'')+'|'+(VIEW.sub||'')];}
 var XP_SUB={};
 function renderXpert(){
   var el=document.getElementById('xpert');if(!el)return;
+  /* ROUND 10: aisles and shelves no longer carry an advisor or a three-picks panel (740px of questions above the
+     products on every aisle). The Advisor tab holds them; each aisle keeps one line that opens it. */
+  el.innerHTML='';return;
   var cat=VIEW.cat,q=(VIEW.q||'').trim();
   if(q||!cat||cat==='accessories'||(typeof giftViewOn==='function'&&giftViewOn())||noAdvHere()){el.innerHTML='';return;}
   /* every major apparel category has its own advisor; the rest keep the three picks */
@@ -4992,7 +5002,35 @@ function renderXpert(){
    styles and the entry price with the logo -- and lists each family as its own good-better-best run, lowest price
    first. A tile narrows the shelf to that family; the advisor above it is already set to quarter-zips. Families are
    curated per style (SHELF_FAM.map) with a rule fallback for anything added later, from the catalogue's own fabric data. */
-var SHELF_FAM={'Quarter & Half-Zips':{noun:'quarter-zips',intro:'Every quarter- and half-zip we carry, grouped by fabric. Tap a fabric to narrow it down \u2014 every price includes your logo.',fams:[
+/* Fabric facts for family rules. fab is sometimes a sentence rather than an object, so read both. */
+function famTx(it){var f=it.fab;return ((it.name||'')+' '+(typeof f==='string'?f:((f&&f.knit)||'')+' '+(((f&&f.finishes)||[]).join(' ')))+' '+(it.blurb||'')).toLowerCase();}
+function famShare(it,re){var f=it.fab;if(f&&typeof f==='object'&&f.mix&&f.mix.length)return f.mix.reduce(function(a,m){return a+(re.test(m[0])?m[1]:0);},0);
+  var str=typeof f==='string'?f:'',m=str.match(new RegExp('(\\d+)%\\s*(?:recycled\\s+)?'+re.source,'i'));return m?+m[1]:-1;}
+function famGsm(it){var f=it.fab,w=String((f&&typeof f==='object'&&f.weight)||''),g=(w+' '+(it.name||'')).match(/(\d{3})\s*gsm/i);if(g)return +g[1];var o=w.match(/(\d+(?:\.\d+)?)\s*oz/i);return o?Math.round(+o[1]*33.9):0;}
+var SHELF_FAM={'Polos':{noun:'polos',intro:'Every polo we carry, grouped by fabric. Tap one to narrow it down \u2014 every price includes your logo.',fams:[
+    {id:'perf',lab:'Performance & stretch',sub:'Wicking polyester and stretch \u2014 crews, sales, golf and events'},
+    {id:'cotton',lab:'Cotton & cotton-blend',sub:'A softer, classic hand \u2014 office, front desk and client-facing teams'}],map:{},
+    rule:function(it){var c=famShare(it,/cotton/i),t=famTx(it);return (c>=50||(c<0&&/cotton/.test(t)&&!/polyester/.test(t)))?'cotton':'perf';}},
+  'Tees':{noun:'tees',intro:'Every tee we carry, grouped by fabric and weight. Tap one to narrow it down \u2014 every price includes your logo.',fams:[
+    {id:'cotton',lab:'Cotton & cotton-blend',sub:'Soft everyday tees \u2014 crews, staff and events'},
+    {id:'heavy',lab:'Heavyweight',sub:'Thicker cotton that holds its shape \u2014 trades, yards and retail'},
+    {id:'perf',lab:'Performance',sub:'Lightweight polyester \u2014 hot days, active work and golf'}],map:{},
+    rule:function(it){var c=famShare(it,/cotton/i),t=famTx(it),g=famGsm(it);if(/heavyweight|vintage wash/.test(String(it.name||'').toLowerCase())||(c>=80&&g>=220))return 'heavy';
+      return (c>=50||(c<0&&/cotton/.test(t)))?'cotton':'perf';}},
+  'Hoodies':{noun:'hoodies',intro:'Every hoodie we carry, grouped by weight and fabric. Tap one to narrow it down \u2014 every price includes your logo.',fams:[
+    {id:'everyday',lab:'Everyday fleece',sub:'The classic hoodie \u2014 soft fleece for crews, staff and events'},
+    {id:'heavy',lab:'Heavyweight',sub:'Thick, warm and built to last \u2014 cold mornings, yards and trades'},
+    {id:'tech',lab:'Performance & tech',sub:'Polyester fleece and stretch knits \u2014 a smoother, sharper look'}],map:{},
+    rule:function(it){var n=String(it.name||'').toLowerCase(),c=famShare(it,/cotton/i),p=famShare(it,/polyester/i),t=famTx(it),g=famGsm(it);
+      if(g>=380||/heavyweight|sherpa|fortress/.test(n))return 'heavy';if(c>=50||(c<0&&/cotton/.test(t)))return 'everyday';
+      if(p>=50||/polyester|performance|interlock|stretch|water[- ]repellent/.test(t))return 'tech';return 'everyday';}},
+  'Shirts':{noun:'shirts',intro:'Every shirt we carry, grouped by how it\u2019s worn. Tap one to narrow it down \u2014 every price includes your logo.',fams:[
+    {id:'office',lab:'Button-downs & dress shirts',sub:'Crisp wovens and knit shirts \u2014 office, front desk and client-facing teams'},
+    {id:'work',lab:'Work & uniform shirts',sub:'Industrial work shirts in poplin, twill and ripstop \u2014 plant, service and trades'},
+    {id:'check',lab:'Flannel & check',sub:'Plaid and check shirts \u2014 site offices, dealerships and casual Fridays'}],map:{},
+    rule:function(it){var n=String(it.name||'').toLowerCase(),k=String((it.fab&&typeof it.fab==='object'&&it.fab.knit)||'').toLowerCase(),b=String(it.brand||it.sku||'').toLowerCase();
+      if(/flannel|plaid|check/.test(n+' '+k))return 'check';if(/red kap|dickies|forcefield/.test(b)||/work shirt|industrial|ripstop|crew shirt/.test(n))return 'work';return 'office';}},
+  'Quarter & Half-Zips':{noun:'quarter-zips',intro:'Every quarter- and half-zip we carry, grouped by fabric. Tap a fabric to narrow it down \u2014 every price includes your logo.',fams:[
     {id:'perf',lab:'Performance & stretch',sub:'Smooth, wicking and easy-care — office, sales, golf and events',lead:['st_volanteqz','cbc_traverse_qz','st_montereyqz']},
     {id:'knit',lab:'Sweater-knit & soft-knit',sub:'A softer, dressier hand — managers, client meetings and gifts',lead:['cbc_drift_qz','cbc_mainsail_hz','cbc_adapt_heather_qz']},
     {id:'cotton',lab:'Cotton-blend sweatshirt',sub:'The classic sweatshirt feel — everyday wear for crews and staff',lead:['flux','cs_l00602','rw_tremblant']},
@@ -5002,7 +5040,7 @@ var SHELF_FAM={'Quarter & Half-Zips':{noun:'quarter-zips',intro:'Every quarter- 
     cq_haven_qz:'knit',cb_qzip:'knit',cbc_adapt_heather_qz:'knit',cbc_drift_qz:'knit',cb_roamqz:'knit',st_avalanteqz:'knit',cbc_mainsail_hz:'knit',
     flux:'cotton',cs_l00602:'cotton',rw_tremblant:'cotton',nk_halfzipsw:'cotton',nk_halfzip:'perf',ff_cotthalfzip:'cotton',
     rw_spiritbear:'cotton',ch_100617:'cotton',ch_106660:'perf',cq_summit_hz:'warm',st_shastaqz:'warm',st_basethermalqz:'warm',st_treeline:'warm',st_monteroqz:'warm',cbc_peshastin_hz:'warm'}}};
-function shelfFamOf(sub,k){var F=SHELF_FAM[sub];if(!F)return '';if(F.map[k])return F.map[k];var it=BYKEY[k]||{},f=it.fab||{},t=((it.name||'')+' '+(f.knit||'')).toLowerCase();
+function shelfFamOf(sub,k){var F=SHELF_FAM[sub];if(!F)return '';if(F.map[k])return F.map[k];if(F.rule){try{return F.rule(BYKEY[k]||{});}catch(e){return F.fams[0].id;}}var it=BYKEY[k]||{},f=it.fab||{},t=((it.name||'')+' '+(f.knit||'')).toLowerCase();
   var cot=(f.mix||[]).reduce(function(a,m){return a+(/cotton/i.test(m[0])?m[1]:0);},0);
   if(cot>=50)return 'cotton';
   if(/sweater|heather|jacquard|textured|soft-knit/.test(t))return 'knit';
@@ -5027,15 +5065,24 @@ function famShelfHtml(sub,ks){var F=SHELF_FAM[sub],by={};ks.forEach(function(k){
   return '<div class="famshelf"><div class="famtop">'+intro+tiles+'</div>'+secs+'</div>';}
 /* Choose-a-kind tiles lead the shelf, ABOVE the filter card: a buyer from the quarter-zip newsletter sees the four
    kinds with their own logo first, then refines. The tiles keep their listeners when moved (wireFam binds them). */
+function shelfTilesEl(){var c=VIEW.cat;if(!c||!BUCKETS[c]||(VIEW.q||'').trim()||VIEW.sub!=='all')return null;
+  var subs=subNames(c).filter(function(x){return (BUCKETS[c][x]||[]).length;});if(subs.length<2)return null;
+  var d=document.createElement('div');d.className='famtop shelftop';
+  d.innerHTML='<div class="famrow shelfrow" role="group" aria-label="Shelves in '+esc(shortCat(c))+'">'+subs.map(function(x){var L=BUCKETS[c][x],
+      ps=L.map(famPrice).filter(function(p){return p>0;}),lo=ps.length?Math.min.apply(null,ps):0,lead=L.filter(function(k){return famPrice(k)>0;})[0]||L[0];
+    return '<button type="button" class="famt" data-shelftile="'+esc(x)+'"><span class="famimg"><span class="capfl" aria-hidden="true"></span><span class="capst">'+caThumb(lead)+'</span></span>'+
+      '<span class="famtx"><b>'+esc(x)+'</b><em>'+L.length+' style'+(L.length===1?'':'s')+(lo?(' \u00b7 from '+money(lo)+'/pc'):'')+'</em></span></button>';}).join('')+'</div>';
+  d.querySelectorAll('[data-shelftile]').forEach(function(b){b.addEventListener('click',function(){jdpTrack('aisle',{c:c,src:'shelftile'});setSub(b.dataset.shelftile);});});
+  return d;}
 function liftFamTop(){var ib=document.getElementById('inbar'),old=document.getElementById('famlift');
-  var t=document.querySelector('#grid .famtop');
+  var t=document.querySelector('#grid .famtop')||shelfTilesEl();
   if(old&&(!t||old!==t))old.remove();
   if(!t||!ib||!ib.parentNode)return;
   t.id='famlift';ib.parentNode.insertBefore(t,ib);}
 function wireFam(root){(root||document).querySelectorAll('[data-famsel]').forEach(function(b){if(b.dataset.fw)return;b.dataset.fw='1';
   b.addEventListener('click',function(){var v=b.dataset.famsel||null;VIEW.fam=(v&&VIEW.fam!==v)?v:null;jdpTrack('shelf_fam',{s:bslug(VIEW.sub||''),f:VIEW.fam||'all'});renderGrid();
     var g=document.querySelector('.famshelf');if(g){var hdr=document.querySelector('.tbar')||document.querySelector('.hdr'),y=g.getBoundingClientRect().top+window.scrollY-((hdr&&hdr.offsetHeight)||64)-12;if(window.scrollY>y)window.scrollTo({top:y,behavior:'smooth'});}});});}
-function renderGrid(){renderGridCore();try{liftFamTop();}catch(e){}try{syncInbar();}catch(e){}try{renderXpert();}catch(e){}}
+function renderGrid(){renderGridCore();try{liftFamTop();}catch(e){}try{jvPost();}catch(e){}try{syncInbar();}catch(e){}try{jvSync();}catch(e){}try{renderXpert();}catch(e){}}
 function renderGridCore(){
   var grid=document.getElementById('grid'),hd=document.getElementById('gridhd'),nr=document.getElementById('noResults');
   if(!grid)return;var q=(VIEW.q||'').trim().toLowerCase();
@@ -5187,6 +5234,8 @@ function hivisIntroHtml(){
 function applyViewLink(){
   var s=location.search,c,sub2;
   if(/[?&]view=gifts\b/.test(s)){setGiftView(true);return true;}
+  if(/[?&]view=advisor\b/.test(s)){var _am=/[?&]a=([a-z]+)/.exec(s);if(_am&&caCfgFor(_am[1]))advGo(_am[1],'link');else openAdvView('','link');return true;}
+  if(/[?&]view=programs\b/.test(s)){openProgView('link');return true;}
   /* A program has a plain, permanent address -- the link a rep pastes into an email. */
   var pm=/[?&]program=([a-z0-9_-]+)/.exec(s);
   if(pm){try{openProgram(pm[1]);}catch(e){}return true;}
@@ -5229,6 +5278,9 @@ function viewUrl(){
   /* The gift page is a destination a rep will want to send on its own -- "here are your gift
      options" -- so it owns the address bar while it is open. */
   if(giftViewOn())return b+'?view=gifts';
+  if(!VIEW.q&&JVIEW==='adv')return b+'?view=advisor'+(ADV_CUR?('&a='+encodeURIComponent(ADV_CUR)):'');
+  if(!VIEW.q&&JVIEW==='prog')return b+'?view=programs';
+  if(!VIEW.q&&!JBROWSE)return b;
   if(VIEW.q)return b+'?q='+encodeURIComponent(VIEW.q).replace(/%20/g,'+');
   if(VIEW.cat&&VIEW.sub&&VIEW.sub!=='all')return b+'?cat='+encodeURIComponent(VIEW.cat)+'&sub='+bslug(VIEW.sub);
   if(VIEW.cat)return b+'?cat='+encodeURIComponent(VIEW.cat);
@@ -5240,6 +5292,7 @@ function viewLabel(){
   if(VIEW.cat)return megaName(VIEW.cat);
   return CFG.client?(CFG.client+' team store'):'our team store';
 }
+function vKey(){return JVIEW+'|'+(JBROWSE?1:0)+'|'+ADV_CUR+'|'+(giftViewOn()?'g':'')+'|'+(VIEW.q?'q':(VIEW.cat||''))+'|'+(VIEW.q?'':(VIEW.sub||''));}
 function syncViewUrl(){
   /* MUST stay silent until the incoming link has been read. buildStore() opens a default category,
      which called this and rewrote the URL to ?cat=tops BEFORE applyViewLink() could look at it --
@@ -5251,17 +5304,19 @@ function syncViewUrl(){
   try{if(typeof boardOpen==='function'&&(boardOpen()||boardsOpen()))return;}catch(e){}
   /* A move to another aisle or shelf is a real step, so it gets a history entry the browser's Back button can undo;
      typing in search and re-renders of the same view only replace the address. */
-  var u=viewUrl(),vk=(giftViewOn()?'g':'')+'|'+(VIEW.q?'q':(VIEW.cat||''))+'|'+(VIEW.q?'':(VIEW.sub||''));
+  var u=viewUrl(),vk=vKey();
   try{if(VKEY!==null&&vk!==VKEY&&!VPOP)history.pushState({jdpv:1},'',u);else history.replaceState(history.state,'',u);}catch(e){}
   VKEY=vk;
 }
 var VKEY=null,VPOP=0,VHOME=null;
 window.addEventListener('popstate',function(){if(!VURLOK)return;VPOP=1;
   try{try{closeAll();}catch(e){}
+    JVIEW='shop';JBROWSE=false;ADV_CUR='';
     if(!applyViewLink()){if(giftViewOn())setGiftView(false);if(VIEW.q){VIEW.q='';var ts=document.getElementById('topSearch');if(ts)ts.value='';}
-      if(VHOME)setCat(VHOME,false);}
+      if(VHOME)setCat(VHOME,false);JBROWSE=false;JVIEW='shop';try{history.replaceState(history.state,'',location.pathname);}catch(e){}}
+    try{jvSync();}catch(e){}
   }catch(e){}finally{VPOP=0;}
-  VKEY=(giftViewOn()?'g':'')+'|'+(VIEW.q?'q':(VIEW.cat||''))+'|'+(VIEW.q?'':(VIEW.sub||''));});
+  VKEY=vKey();});
 function shareView(){
   var url=viewUrl(),lab=viewLabel();
   var title=lab+' \u2014 '+(CFG.client||'Team store');
@@ -5288,7 +5343,7 @@ function scrollToResults(){
   var sticky=(tb?tb.offsetHeight:(hdr?hdr.offsetHeight:60))+(nav&&getComputedStyle(nav).position==='sticky'?nav.offsetHeight:0)+10;
   var y=window.pageYOffset+hd.getBoundingClientRect().top-sticky;
   window.scrollTo({top:Math.max(0,y),behavior:'smooth'});}
-function setSub(sub,noScroll){VIEW.sub=sub;VIEW.fam=null;document.querySelectorAll('.schip').forEach(function(b){b.classList.toggle('on',b.dataset.sub===sub);});
+function setSub(sub,noScroll){if(JBOOT){JBROWSE=true;JVIEW='shop';}VIEW.sub=sub;VIEW.fam=null;document.querySelectorAll('.schip').forEach(function(b){b.classList.toggle('on',b.dataset.sub===sub);});
   /* The filter bars count what is ON SCREEN. They were only redrawn by setCat, so a shelf opened from a link or a chip
      kept the whole aisle's counts ("Black 84" on a 35-style shelf) and could keep an aisle-only budget band live. */
   try{renderFitbar();renderColbar();renderBandbar();renderWarmbar();renderSortbar();renderFilterUI();}catch(e){}
@@ -5297,6 +5352,7 @@ function setCat(cat,doScroll){
   /* Any move into the catalogue leaves the gift page. Without this a category pick from the
      Categories menu rendered the grid behind a hidden storefront and the buyer saw nothing move. */
   if(giftViewOn())setGiftView(false);
+  if(JBOOT){JBROWSE=true;JVIEW='shop';}
   VIEW.cat=cat;VIEW.sub='all';VIEW.q='';VIEW.fam=null;
   var nw=document.getElementById('navwrap');if(nw)nw.classList.remove('searching');
   var si=document.getElementById('kitSearch');if(si)si.value='';
@@ -5658,7 +5714,8 @@ function buildStore(){
       category behind it opens with its own advisor. The pre-approved programs follow for buyers who want a
       whole kit in one tap. */
    catTilesHtml()+
-   '<div id="recohero"></div>'+
+   '<section class="progs" id="progs" aria-label="Starter programs"><div id="recohero"></div><div class="w"><div id="progsx"></div></div></section>'+
+   '<section class="advv" id="advv" aria-label="Advisor"><div class="w"><div id="advvin"></div></div></section>'+
    /* The studio itself renders here but is hidden until `?view=gifts` -- see setGiftView(). What
       the homepage shows is the one-line strip, directly under the programmes. */
    giftsSectionHtml()+
@@ -9240,12 +9297,14 @@ function railIcon(n){
 function railHtml(){
   return '<nav class="rail" id="rail" aria-label="Store sections">'+
     '<button type="button" class="railb on" data-rail="explore">'+railIcon('explore')+
-      '<span>Explore</span></button>'+
+      '<span>Shop</span></button>'+
     '<button type="button" class="railb railadv" data-rail="advisor">'+railIcon('advisor')+
       '<span>Advisor</span></button>'+
-    '<button type="button" class="railb" data-rail="boards">'+railIcon('boards')+
+    '<button type="button" class="railb" data-rail="programs">'+railIcon('boards')+
+      '<span>Programs</span></button>'+
+    '<button type="button" class="railb railx" data-rail="boards">'+railIcon('boards')+
       '<span>Boards</span><i class="railn" id="railN"></i></button>'+
-    '<button type="button" class="railb" data-rail="share">'+railIcon('share')+
+    '<button type="button" class="railb railx" data-rail="share">'+railIcon('share')+
       '<span>Share</span></button>'+
     '<button type="button" class="railb" data-rail="gifts">'+railIcon('gifts')+
       '<span>Gifts</span></button>'+
@@ -9256,14 +9315,17 @@ function railHtml(){
 /* Home = the store's front page, exactly as a first-time visitor lands on it: no board, no sheet,
    no gift view, no search, top of the page, and a clean address bar. */
 function goHome(){
-  try{closeBoards();}catch(e){}try{closeBoard();}catch(e){}try{closeProgram();}catch(e){}try{closeQuote();}catch(e){}try{closeAll();}catch(e){}
+  JVIEW='shop';JBROWSE=false;ADV_CUR='';
+  try{if(boardsOpen())closeBoards();}catch(e){}try{if(boardOpen())closeBoard();}catch(e){}try{closeProgram();}catch(e){}try{closeQuote();}catch(e){}try{closeAll();}catch(e){}
   try{setGiftView(false);}catch(e){}
   try{if(typeof sxDropHide==='function')sxDropHide();}catch(e){}
   var ts=document.getElementById('topSearch');
   if(ts&&ts.value){ts.value='';try{ts.dispatchEvent(new Event('input',{bubbles:true}));}catch(e){}}
   if(VIEW.q){VIEW.q='';try{renderGrid();}catch(e){}}
-  try{history.replaceState(null,'',location.pathname);}catch(e){}
-  window.scrollTo({top:0,behavior:'smooth'});setRail('explore');
+  /* the Shop front page is a real step: Back from it returns to the aisle, tab or shelf the buyer left */
+  try{if(location.search&&!VPOP&&!/[?&](b|board|list)=/.test(location.search))history.pushState({jdpv:1},'',location.pathname);else history.replaceState(history.state,'',location.pathname);}catch(e){}
+  VKEY=vKey();
+  window.scrollTo({top:0,behavior:'smooth'});setRail('explore');try{jvSync();}catch(e){}
 }
 function wireHome(){
   var h=document.getElementById('tbHome');if(!h||h.dataset.w)return;h.dataset.w='1';
@@ -9277,7 +9339,8 @@ function wireRail(){
     b.addEventListener('click',function(){
       var w=b.dataset.rail;
       if(w==='explore'){goHome();return;}
-      if(w==='advisor'){try{closeBoards();closeBoard();closeProgram();closeAll();setGiftView(false);}catch(e){}openAdvPicker();return;}
+      if(w==='advisor'){openAdvView('','rail');return;}
+      if(w==='programs'){openProgView('rail');return;}
       if(w==='boards'){closeBoard();closeProgram();openBoards();return;}
       if(w==='share'){shareList();return;}
       if(w==='gifts'){jdpTrack('gift_open',{src:'rail'});closeBoards();closeBoard();closeProgram();closeAll();setGiftView(true);return;}
@@ -9358,7 +9421,7 @@ function tbarHtml(){
 
       '<button type="button" class="tbboards tbquote" id="tbBoards" aria-label="Your quote">'+railIcon('quote')+
         '<span id="tbBoardsLbl">Quote</span><i class="tbqn" id="tbQN"></i></button>'+
-    '</div>'+catMenuHtml()+'</div>';
+    '</div>'+jvTabsHtml()+catMenuHtml()+'</div>';
 }
 function toggleCatMenu(force){
   var m=document.getElementById('catmenu'),b=document.getElementById('tbCats');
@@ -10269,9 +10332,9 @@ function setGiftView(on){
   try{
     document.body.classList.toggle('giftview',!!on);
     setRail(on?'gifts':'explore');
-    if(on){try{renderGifts();}catch(e){}}
+    if(on){JVIEW='shop';try{renderGifts();}catch(e){}}
     window.scrollTo({top:0,behavior:'auto'});
-    syncViewUrl();
+    syncViewUrl();try{jvSync();}catch(e){}
   }catch(e){}
 }
 function giftViewOn(){
@@ -10676,7 +10739,7 @@ function heroNextHtml(){
     /* HOW AN ENTERPRISE ORDER WORKS, in three steps they can see. The offer is the document their
        approver needs, not a mockup. RFQ upload for buyers who arrive with a spec already written. */
     '<div class="hnsteps"><div class="hnsh">How ordering works</div>'+
-      '<ol><li><span><b>Choose</b> a ready program, or let the advisor in any category pick for you</span></li><li><span><b>Set</b> how many people</span></li>'+
+      '<ol><li><span><b>Choose</b> a ready program, or let the Advisor pick for you</span></li><li><span><b>Set</b> how many people</span></li>'+
         '<li><span><b>Download</b> an itemized quote (PDF) for approval</span></li></ol>'+
       '<div class="hnbtns"><button type="button" class="hnsec" id="hnPrograms">See ready programs</button>'+
         '<button type="button" class="hnsec" id="hnRfq">Upload an RFQ or spec</button></div>'+
@@ -10721,7 +10784,7 @@ function wireHeroNext(){
   var p=document.getElementById('hnPrograms');
   if(p&&!p.dataset.w){p.dataset.w='1';p.addEventListener('click',function(){
     jdpTrack('hero_programs');
-    var r=document.getElementById('recohero');if(r)r.scrollIntoView({behavior:'smooth',block:'start'});});}
+    openProgView(false);});}
   var a=document.getElementById('hnAsk');
   if(a&&!a.dataset.w){a.dataset.w='1';a.addEventListener('click',function(){
     jdpTrack('hero_ask');openSourcing('');
@@ -11117,19 +11180,76 @@ function catHasAdvisor(c){try{if(typeof CADV==='undefined'||c==='carhartt')retur
    have one, a plain "Advisor" note. A category with an advisor opens on its first question, so the tile itself is
    the way in; no separate hub of loud Start buttons competing with the catalogue. */
 function catTilesHtml(){
+  /* ROUND 10: the catalogue is organised by SHELF. The front page is a directory a buyer scans in one look -- every
+     category with its own shelves listed under it, so "quarter-zips" or "safety vests" is one click from the front
+     page, not a category, a scroll and a chip. Categories still exist (their heading opens the whole aisle). */
   var cats=(typeof CATS!=='undefined'&&CATS.length)?CATS:[];
   if(!cats.length)return '';
-  var adv=caCats();
   return '<section class="excats entcats"><div class="w">'+
     '<div class="enthd"><h2 class="exh">Shop by category</h2>'+
-      (adv.length?'<p class="exsub">Each apparel category starts with a short advisor: answer two or three questions and we recommend the right piece for each group.</p>':'')+'</div>'+
-    '<div class="ectiles">'+cats.map(function(c){var a=adv.indexOf(c)>=0,img=catTileImg(c),n=(TOTALS&&TOTALS[c])||0;
-      return '<button type="button" class="ectile" '+(a?'data-advgo':'data-catgo')+'="'+esc(c)+'">'+
-        '<span class="ecimg">'+(img?('<img src="'+img+'" alt="" loading="lazy">'):'')+'</span>'+
-        '<span class="ectx"><b>'+esc(shortCat(c))+'</b><i>'+n+' style'+(n===1?'':'s')+(a?' · Advisor':'')+'</i></span>'+
-        '<span class="ecgo" aria-hidden="true">›</span></button>';}).join('')+
+      '<p class="exsub">Every shelf in the store, with your logo on every piece. Not sure where to start? <button type="button" class="jvlink" data-jv="adv">Get a recommendation \u2192</button></p></div>'+
+    '<div class="dirgrid">'+cats.map(function(c){var img=catTileImg(c),n=(TOTALS&&TOTALS[c])||0,
+        subs=subNames(c).filter(function(x){return ((BUCKETS[c]||{})[x]||[]).length;});
+      return '<div class="dircard"><button type="button" class="dirhd" data-catgo="'+esc(c)+'">'+
+          '<span class="dirimg">'+(img?('<img src="'+img+'" alt="" loading="lazy">'):'')+'</span>'+
+          '<span class="dirtx"><b>'+esc(shortCat(c))+'</b><i>'+n+' style'+(n===1?'':'s')+'</i></span><span class="dirgo">All <span aria-hidden="true">\u2192</span></span></button>'+
+        (subs.length>1?('<ul class="dirsubs">'+subs.map(function(x){return '<li><button type="button" data-shelf="'+esc(c)+'" data-shelfsub="'+esc(x)+'"><span>'+esc(x)+'</span><i>'+BUCKETS[c][x].length+'</i></button></li>';}).join('')+'</ul>'):'')+
+        '</div>';}).join('')+
     '</div></div></section>';
 }
+/* ===== ROUND 10 · VIEWS ===================================================================================== */
+function jvMode(){if(giftViewOn())return 'gifts';if((VIEW.q||'').trim()){JVIEW='shop';return 'aisle';}if(JVIEW==='adv')return 'adv';if(JVIEW==='prog')return 'prog';return JBROWSE?'aisle':'home';}
+function jvSync(){var h=document.documentElement,m=jvMode();
+  ['home','aisle','adv','prog','gifts'].forEach(function(x){h.classList.toggle('jv-'+x,m===x);});
+  var t={home:'shop',aisle:'shop',adv:'adv',prog:'prog',gifts:'gifts'}[m],rl={shop:'explore',adv:'advisor',prog:'programs',gifts:'gifts'}[t];
+  document.querySelectorAll('.jvtab').forEach(function(b){var on=b.dataset.jv===t;b.classList.toggle('on',on);if(on)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});
+  document.querySelectorAll('.railb').forEach(function(b){if(b.dataset.rail!=='quote')b.classList.toggle('on',b.dataset.rail===rl);});
+  h.classList.toggle('noprog',!document.querySelector('#recohero .recohero'));}
+function jvTabsHtml(){
+  return '<nav class="jvtabs" aria-label="Store"><div class="jvin">'+
+    '<button type="button" class="jvtab on" data-jv="shop">Shop</button>'+
+    '<button type="button" class="jvtab" data-jv="adv">'+caSvg('spark',15)+'Advisor</button>'+
+    '<button type="button" class="jvtab" data-jv="prog">Programs</button>'+
+    '<button type="button" class="jvtab" data-jv="gifts">Gifts</button>'+
+    '</div></nav>';}
+function jvClose(){
+  /* close only what is open: closeBoard() rewrites the address bar to the bare store URL even when no board is open,
+     which erased the history entry being left and broke the Back button between tabs */
+  try{if(boardsOpen())closeBoards();}catch(e){}try{if(boardOpen())closeBoard();}catch(e){}
+  try{var pv=document.getElementById('progv');if(pv&&pv.classList.contains('on'))closeProgram();}catch(e){}try{closeQuote();}catch(e){}try{closeAll();}catch(e){}try{closeAdvPicker();}catch(e){}
+  try{if(giftViewOn())setGiftView(false);}catch(e){}
+  if(VIEW.q){VIEW.q='';var ts=document.getElementById('topSearch'),ks=document.getElementById('kitSearch');if(ts)ts.value='';if(ks)ks.value='';try{renderGrid();}catch(e){}}}
+function openAdvView(c,src){jvClose();JVIEW='adv';ADV_CUR=(c&&caCfgFor(c))?c:'';renderAdvView();jvSync();syncViewUrl();window.scrollTo({top:0,behavior:'auto'});
+  if(!ADV_CUR)jdpTrack('adv_pick',{src:src||'tab'});}
+function renderAdvView(){var el=document.getElementById('advvin');if(!el)return;var g=ADV_CUR?caCfgFor(ADV_CUR):null;
+  if(g){el.innerHTML='<nav class="crumbs advcr" aria-label="You are here"><button type="button" class="crb" data-advhub="1"><span aria-hidden="true">\u2190</span> All advisors</button><span class="crsep" aria-hidden="true">/</span><b>'+esc(shortCat(ADV_CUR))+'</b>'+
+      '<button type="button" class="advbrowse" data-advshop="'+esc(ADV_CUR)+'">Browse all '+(TOTALS[ADV_CUR]||'')+' styles <span aria-hidden="true">\u2192</span></button></nav><div id="advhost"></div>';
+    renderCatAdvisor(document.getElementById('advhost'),g);return;}
+  el.innerHTML='<div class="advhd"><span class="ahey">'+caSvg('spark',16)+' Advisor</span><h1>Get a recommendation</h1>'+
+      '<p>Choose what you\u2019re buying. A few quick questions about your team, then the piece we\u2019d pick \u2014 with your logo on it and the reasons \u2014 plus a lower-cost and a premium option.</p></div>'+
+    '<div class="ahtiles">'+caHubTiles('')+'</div>'+
+    (document.querySelector('#recohero .recohero')?'<button type="button" class="advprog" data-jv="prog"><span><b>Outfitting several teams at once?</b><i>Start from a starter program \u2014 one kit per role, priced together.</i></span><span>See programs <span aria-hidden="true">\u2192</span></span></button>':'');
+  wireAdvGo(el);}
+function openProgView(src){jvClose();JVIEW='prog';
+  var x=document.getElementById('progsx'),n=parseInt(((document.getElementById('railN')||{}).textContent)||'0',10)||0;
+  if(x){x.innerHTML=n?('<button type="button" class="progboards" data-progboards="1">Your saved boards <i>'+n+'</i> <span aria-hidden="true">\u2192</span></button>'):'';}
+  jvSync();syncViewUrl();window.scrollTo({top:0,behavior:'auto'});if(src!==false)jdpTrack('hero_programs',{src:src||'tab'});}
+/* every aisle and shelf: Shop / Category / Shelf, and one line that opens the advisor for this aisle */
+function jvPost(){var hd=document.getElementById('gridhd');if(!hd||(VIEW.q||'').trim()||!VIEW.cat)return;
+  var shelf=VIEW.sub&&VIEW.sub!=='all',cr=hd.querySelector('.crumbs'),html='<nav class="crumbs" aria-label="You are here"><button type="button" class="crb" data-jv="shop">Shop</button><span class="crsep" aria-hidden="true">/</span>'+
+    (shelf?('<button type="button" class="crb" data-snall="1">'+esc(shortCat(VIEW.cat))+'</button><span class="crsep" aria-hidden="true">/</span><b>'+esc(VIEW.sub)+'</b>'):('<b>'+esc(shortCat(VIEW.cat))+'</b>'))+'</nav>';
+  if(cr)cr.outerHTML=html;else hd.insertAdjacentHTML('afterbegin',html);
+  hd.querySelectorAll('.crumbs [data-snall]').forEach(function(b){b.addEventListener('click',function(){jdpTrack('shelf_back',{c:VIEW.cat,s:VIEW.sub});backToAisle();});});
+  var g=(VIEW.cat!=='carhartt'&&!noAdvHere())?caCfgFor(VIEW.cat):null,gs=hd.querySelector('.gsub');
+  if(g&&gs){gs.insertAdjacentHTML('afterend','<button type="button" class="jvask" data-advgo="'+esc(VIEW.cat)+'" data-src="aisle">'+caSvg('spark',14)+'<span>Not sure which to choose? <b>Get a recommendation</b></span><span aria-hidden="true">\u2192</span></button>');wireAdvGo(hd);}}
+document.addEventListener('click',function(e){var t=e.target&&e.target.closest?e.target:null;if(!t)return;
+  var v=t.closest('[data-jv]');if(v){e.preventDefault();var w=v.dataset.jv;
+    if(w==='shop'){jdpTrack('logo_home',{src:'tab'});goHome();}else if(w==='adv')openAdvView('',v.closest('.jvtabs')?'tab':'link');else if(w==='prog')openProgView(v.closest('.jvtabs')?'tab':'link');
+    else if(w==='gifts'){jvClose();jdpTrack('gift_open',{src:'tab'});setGiftView(true);}return;}
+  var sh=t.closest('[data-shelf]');if(sh){jdpTrack('aisle',{c:sh.dataset.shelf,src:'home'});setCat(sh.dataset.shelf,false);setSub(sh.dataset.shelfsub);window.scrollTo({top:0,behavior:'auto'});return;}
+  if(t.closest('[data-advhub]')){ADV_CUR='';renderAdvView();syncViewUrl();window.scrollTo({top:0,behavior:'auto'});return;}
+  var as=t.closest('[data-advshop]');if(as){setCat(as.dataset.advshop,false);window.scrollTo({top:0,behavior:'auto'});return;}
+  if(t.closest('[data-progboards]')){try{openBoards();}catch(err){}return;}});
 function wireExplore(){
   var ts=document.getElementById('topSearch'),ks=document.getElementById('kitSearch');
   if(ts&&ks){
@@ -11867,12 +11987,10 @@ function quoteEmptyHtml(){
       '<button type="button" class="qbtn" id="qMore">Browse the catalogue</button><button type="button" class="qbtn" id="qRfq">Upload an RFQ</button></div></div></div>';
 }
 function quoteToCatalogue(){
-  closeQuote();setRail('explore');
-  var g=document.getElementById('excats')||document.querySelector('.excats')||document.getElementById('gridhd');
-  if(g)g.scrollIntoView({behavior:'smooth',block:'start'});
+  closeQuote();goHome();
   toast('Tap “+ Quote” on anything to add it');
 }
-function quoteToPrograms(){closeQuote();setRail('explore');var r=document.getElementById('recohero');if(r)r.scrollIntoView({behavior:'smooth',block:'start'});}
+function quoteToPrograms(){closeQuote();setRail('explore');openProgView(false);}
 function wireQuoteEdit(el){
   var m=document.getElementById('qMore');if(m)m.addEventListener('click',function(){jdpTrack('quote_more');quoteToCatalogue();});
   var p=document.getElementById('qProg');if(p)p.addEventListener('click',function(){jdpTrack('quote_prog');quoteToPrograms();});
@@ -12298,9 +12416,10 @@ function go(cfg){
           else if(found)openBoard(ALID);
           else toast('That board isn\u2019t available \u2014 it may have been renamed');});}refreshCartUI();if(curateOn())markCurCards();
       /* A view link only makes sense when a board is not already taking over the screen. */
+      JBOOT=1;
       if(!/[?&](b|board)=/.test(location.search)){try{applyViewLink();}catch(e){}}
       /* From here on, the address bar tracks the view. Not before -- see syncViewUrl. */
-      VURLOK=true;VHOME=VIEW.cat;VKEY=(giftViewOn()?'g':'')+'|'+(VIEW.q?'q':(VIEW.cat||''))+'|'+(VIEW.q?'':(VIEW.sub||''));
+      VURLOK=true;VHOME=VIEW.cat;VKEY=vKey();try{jvSync();}catch(e){}
       // Deep link: /kits/<slug>/?item=<key> (or #item=<key>) opens straight to that product. This MUST
       // run AFTER buildStore(). It used to fire synchronously, before the async ink probe resolved, so
       // the sheet opened against an unbuilt store and was wiped by the first render -- every ?item=
