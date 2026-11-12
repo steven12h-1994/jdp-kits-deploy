@@ -5189,3 +5189,93 @@ html.r11 .progboards{border:1px solid var(--r-line2)!important;border-radius:999
   html.r11 .ahtile .ahimg{width:92px!important;aspect-ratio:1/1!important}
   html.r11 .ahtile .ahtx{flex:1 1 0!important;padding:12px 14px!important}
   html.r11 .ahtile .ahgo{flex:1 1 100%!important;margin:0 14px!important;padding:10px 0 12px!important}}
+
+/* =====================================================================================================
+   ROUND 12 · THE FIRST SCREEN — three doors (catalogue · advisor · ready-made program), one line of assurance.
+   ===================================================================================================== */
+html.r11 .r12hero{background:linear-gradient(180deg,var(--r-tint) 0%,#fff 72%)!important;border-bottom:1px solid var(--r-line)!important;padding:0!important}
+html.r11 .r12hero>.w{padding-top:52px!important;padding-bottom:40px!important}
+html.r11 .r12head{max-width:780px!important;margin:0 0 30px!important}
+html.r11 .r12head h1{font-size:clamp(34px,4.2vw,54px)!important;font-weight:800!important;line-height:1.03!important;letter-spacing:-.035em!important;color:var(--r-ink)!important;margin:0 0 14px!important;text-transform:none!important}
+html.r11 .r12head .herosub{font-size:18px!important;line-height:1.55!important;color:var(--r-mut)!important;margin:0!important;max-width:36em!important}
+html.r11 .r12paths{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:20px!important}
+html.r11 .r12paths.n2{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+html.r11 .r12door{display:flex!important;flex-direction:column!important;align-items:stretch!important;text-align:left!important;padding:0!important;border:1px solid var(--r-line)!important;border-radius:18px!important;background:#fff!important;overflow:hidden!important;cursor:pointer!important;font:inherit!important;color:inherit!important;box-shadow:0 1px 2px rgba(13,17,23,.04)!important;transition:border-color .15s,box-shadow .15s,transform .15s!important}
+html.r11 .r12door:hover{border-color:var(--r-line2)!important;box-shadow:0 14px 34px -18px rgba(13,17,23,.35)!important;transform:translateY(-2px)!important}
+html.r11 .r12door:focus-visible{outline:3px solid color-mix(in srgb,var(--a) 45%,transparent)!important;outline-offset:2px!important}
+html.r11 .r12vis{display:block!important;position:relative!important;aspect-ratio:16/9!important;background:var(--r-surf)!important;overflow:hidden!important}
+html.r11 .r12door:hover .r12vis{background:var(--r-surf2)!important}
+html.r11 .r12st,html.r11 .r12st.mstage{display:block!important;background:transparent!important;box-shadow:none!important;border:0!important}
+html.r11 .r12st .g{mix-blend-mode:multiply!important}
+/* catalogue: three garments in a row */
+html.r11 .r12vshop{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;align-items:center!important;gap:2%!important;padding:4% 5%!important}
+html.r11 .r12vshop .r12st{width:100%!important;height:auto!important;aspect-ratio:1/1!important}
+/* advisor: its real first question */
+html.r11 .r12vadv{display:flex!important;flex-direction:column!important;justify-content:center!important;gap:10px!important;padding:5% 7%!important}
+html.r11 .r12q{display:block!important;background:#fff!important;border:1px solid var(--r-line)!important;border-radius:12px!important;padding:12px 14px!important;box-shadow:0 8px 20px -14px rgba(13,17,23,.3)!important}
+html.r11 .r12qh{display:flex!important;align-items:center!important;gap:6px!important;font-size:10.5px!important;font-weight:700!important;letter-spacing:.12em!important;text-transform:uppercase!important;color:var(--a)!important;margin-bottom:6px!important}
+html.r11 .r12q b{display:block!important;font-size:14.5px!important;font-weight:700!important;color:var(--r-ink)!important;letter-spacing:-.01em!important;margin-bottom:9px!important}
+html.r11 .r12qo{display:flex!important;flex-wrap:wrap!important;gap:6px!important}
+html.r11 .r12qo i,html.r11 .r12qr i{font-style:normal!important;font-size:12px!important;font-weight:500!important;color:var(--r-ink2)!important;border:1px solid var(--r-line)!important;border-radius:999px!important;padding:4px 10px!important;background:#fff!important;white-space:nowrap!important}
+html.r11 .r12qo i.on{border-color:var(--a)!important;background:color-mix(in srgb,var(--a) 9%,#fff)!important;color:var(--r-ink)!important;box-shadow:inset 0 0 0 1px var(--a)!important}
+html.r11 .r12qr{display:flex!important;gap:6px!important;justify-content:center!important}
+html.r11 .r12qr i{background:transparent!important;color:var(--r-mut)!important}
+html.r11 .r12qr i.on{background:var(--r-ink)!important;border-color:var(--r-ink)!important;color:#fff!important;font-weight:600!important}
+/* programs: the first kit's four pieces */
+html.r11 .r12vprog{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;align-items:center!important;gap:3%!important;padding:4% 5%!important}
+html.r11 .r12vprog .r12st,html.r11 .r12vprog .r12st.mstage{width:100%!important;height:auto!important;aspect-ratio:1/1!important;background:#fff!important;border-radius:10px!important;box-shadow:0 1px 2px rgba(13,17,23,.06)!important}
+html.r11 .r12vprog .r12st .g{mix-blend-mode:normal!important}
+html.r11 .r12tx{display:flex!important;flex-direction:column!important;gap:6px!important;padding:20px 22px 22px!important;flex:1 1 auto!important}
+html.r11 .r12k{font-size:11.5px!important;font-weight:700!important;letter-spacing:.13em!important;text-transform:uppercase!important;color:var(--r-mut2)!important}
+html.r11 .r12h{font-size:21px!important;font-weight:750!important;letter-spacing:-.02em!important;line-height:1.2!important;color:var(--r-ink)!important}
+html.r11 .r12p{font-size:14.5px!important;line-height:1.5!important;color:var(--r-mut)!important;flex:1 1 auto!important}
+html.r11 .r12cta{display:inline-flex!important;align-items:center!important;gap:8px!important;margin-top:10px!important;font-size:15px!important;font-weight:650!important;color:var(--a)!important}
+html.r11 .r12ar{transition:transform .15s!important}
+html.r11 .r12door:hover .r12ar{transform:translateX(4px)!important}
+/* assurance: one quiet line */
+html.r11 .r12assure{display:flex!important;flex-wrap:wrap!important;align-items:center!important;gap:10px 24px!important;margin-top:22px!important;font-size:13.5px!important;color:var(--r-mut)!important}
+html.r11 .r12ok{display:inline-flex!important;align-items:center!important;gap:7px!important;white-space:nowrap!important}
+html.r11 .r12ok svg{color:#16803c!important;flex:none!important}
+html.r11 .r12side{display:inline-flex!important;align-items:center!important;gap:10px!important;margin-left:auto!important;white-space:nowrap!important}
+html.r11 .r12lnk{background:none!important;border:0!important;padding:0!important;font:inherit!important;font-size:13.5px!important;font-weight:600!important;color:var(--r-ink2)!important;cursor:pointer!important;text-decoration:underline!important;text-decoration-color:var(--r-line2)!important;text-underline-offset:3px!important}
+html.r11 .r12lnk:hover{color:var(--r-ink)!important;text-decoration-color:var(--r-ink)!important}
+html.r11 .r12dot{color:var(--r-line2)!important}
+html.r11 .r12call,html.r11 .r12dot{display:none!important}
+@media(max-width:820px){html.r11 .r12call,html.r11 .r12dot{display:inline!important}}
+html.r11 .r12proof{display:none!important}
+html.r11 .r12ico{display:none!important}
+@media(max-width:1100px){html.r11 .r12side{margin-left:0!important}}
+@media(max-width:900px){
+  html.r11 .r12paths,html.r11 .r12paths.n2{grid-template-columns:minmax(0,1fr)!important;gap:12px!important}
+  html.r11 .r12door{display:grid!important;grid-template-columns:148px minmax(0,1fr)!important;flex-direction:row!important}
+  html.r11 .r12vis{aspect-ratio:auto!important;height:100%!important;min-height:132px!important}
+  html.r11 .r12vshop,html.r11 .r12vprog{grid-template-columns:repeat(2,minmax(0,1fr))!important;padding:10px!important;gap:4px!important;align-content:center!important}
+  html.r11 .r12vshop .r12s2{display:none!important}
+  html.r11 .r12vadv{padding:10px!important}
+  html.r11 .r12q{padding:9px 10px!important}
+  html.r11 .r12q b{font-size:12px!important;margin-bottom:6px!important}
+  html.r11 .r12qo i:nth-child(n+3){display:none!important}
+  html.r11 .r12qr{display:none!important}
+  html.r11 .r12tx{padding:14px 16px!important;gap:3px!important;justify-content:center!important}
+  html.r11 .r12h{font-size:17px!important}
+  html.r11 .r12p{font-size:13.5px!important;flex:none!important}
+  html.r11 .r12cta{margin-top:4px!important;font-size:14px!important}
+}
+@media(max-width:820px){html.r11 .r12proof{display:block!important;margin-top:14px!important}html.r11 .r12proof .hproof{margin:0!important}}
+@media(max-width:600px){
+  html.r11 .r12hero>.w{padding-top:26px!important;padding-bottom:26px!important}
+  html.r11 .r12head{margin-bottom:18px!important}
+  html.r11 .r12head h1{font-size:31px!important;margin-bottom:8px!important}
+  html.r11 .r12head .herosub{font-size:15.5px!important}
+  html.r11 .r12door{grid-template-columns:104px minmax(0,1fr)!important}
+  html.r11 .r12vis{min-height:118px!important}
+  html.r11 .r12vshop,html.r11 .r12vprog{grid-template-columns:minmax(0,1fr)!important;padding:8px!important}
+  html.r11 .r12vshop .r12s1,html.r11 .r12vprog .r12st:nth-child(n+2){display:none!important}
+  html.r11 .r12vadv{justify-content:center!important;align-items:center!important}
+  html.r11 .r12q{display:none!important}
+  html.r11 .r12ico{display:flex!important;align-items:center!important;justify-content:center!important;width:64px!important;height:64px!important;border-radius:50%!important;background:#fff!important;color:var(--a)!important;box-shadow:0 6px 16px -10px rgba(13,17,23,.4)!important}
+  html.r11 .r12k{display:none!important}
+  html.r11 .r12p{display:-webkit-box!important;-webkit-line-clamp:2!important;-webkit-box-orient:vertical!important;overflow:hidden!important}
+  html.r11 .r12assure{gap:8px 16px!important;font-size:12.5px!important}
+  html.r11 .r12side{flex-wrap:wrap!important;white-space:normal!important}
+}

@@ -5678,6 +5678,7 @@ function buildStore(){
    tbarHtml()+
    /* Same reasoning as the shots: the flex row is declared inline so a late stylesheet cannot
       leave the strip stacked under the headline at full width. */
+   (demo?(
    '<section class="hero"><div class="w heroin heroflex" style="display:flex;align-items:center;'+
      'gap:32px;justify-content:space-between;flex-wrap:wrap">'+
      '<div class="herotx" style="flex:1 1 320px;min-width:0">'+
@@ -5701,7 +5702,8 @@ function buildStore(){
    '</div>'+
    /* how ordering works: one calm row across the page, under the hero (kept, per Steven 2026-10-09) */
    (demo||!trustOn()?'':('<div class="w hnrow">'+heroNextHtml()+'</div>'))+
-   '</section>'+
+   '</section>'
+   ):r12HeroHtml())+
    /* The value strip is gone. It stacked three more claims directly beneath a hero that already
       carries three trust chips AND the sample offer -- six competing assertions above the fold, which
       reads as sales noise to an enterprise buyer rather than reassurance. Two of the three were weak
@@ -10915,6 +10917,7 @@ function renderRecoHero(){
      programs beside it was a fourth place to start. They stay as boards (Boards, and "+ Add a program" on
      the quote). A demo landing page keeps them -- it has no advisor in its hero. */
   el.innerHTML=recoHeroHtml();
+  try{r12Fill();}catch(e){}
   el.querySelectorAll('[data-reco]').forEach(function(b){
     b.addEventListener('click',function(){openProgram(b.dataset.reco);});});
   wireHeroNext();
@@ -11223,7 +11226,7 @@ function catTilesHtml(){
   return '<section class="excats entcats"><div class="w">'+
     '<div class="enthd"><div><div class="r11eyb">The catalogue</div><h2 class="exh">Shop by category</h2>'+
       '<p class="exsub">Every shelf in the store, with your logo on every piece.</p></div>'+
-      '<button type="button" class="jvlink r11hdlink" data-jv="adv">'+caSvg('spark',15)+'Not sure where to start? <b>Get a recommendation</b> <span aria-hidden="true">\u2192</span></button></div>'+
+      '</div>'+
     '<div class="dirgrid">'+cats.map(function(c){var n=(TOTALS&&TOTALS[c])||0,
         subs=subNames(c).filter(function(x){return ((BUCKETS[c]||{})[x]||[]).length;});
       return '<div class="dircard"><button type="button" class="dirhd" data-catgo="'+esc(c)+'">'+
@@ -11234,6 +11237,67 @@ function catTilesHtml(){
         '</div>';}).join('')+
     '</div></div></section>';
 }
+/* ===== ROUND 12 · THE FIRST SCREEN (Steven, 2026-11-12: "Homepage and initial screen ... needs to get much better ... I hate
+   the current 'How ordering works' section ... it is unclear and wordy! The enterprise customer can browse the catalog, let the
+   Advisor pick after answering some questions, or can start from a ready-made program").
+   The first screen is now one decision: three equal doors, each showing what is behind it -- the store's own garments with the
+   buyer's logo, the advisor's actual first question, the first program's pieces. One line of assurance underneath. The old
+   three-step box (choose / set / download) described a process instead of offering a choice; the doors make the choice itself. */
+function r12Shot(k,cls){var it=BYKEY[k];if(!it)return '<span class="r12st '+(cls||'')+'"></span>';
+  try{var o=overlayHtml(it,{decos:defaultDecos(k)},progColour(k),'front',browseCols(it),browsePlaces(it));
+    return '<span class="r12st mstage '+(cls||'')+'" style="position:relative;display:block;aspect-ratio:1/1;overflow:hidden">'+
+      '<img class="g ld" src="'+o.g+'" alt="" loading="eager" decoding="async" style="width:100%;height:100%;object-fit:contain;opacity:1">'+o.lg+'</span>';}
+  catch(e){return '<span class="r12st '+(cls||'')+'"></span>';}}
+function r12Counts(){var seen={},n=0;(CATS||[]).forEach(function(c){catKeysOf(c).forEach(function(k){if(!seen[k]){seen[k]=1;n++;}});});
+  /* name only categories this store really carries (a US store has no hi-vis) */
+  var W={tops:'polos',layers:'fleece',outerwear:'jackets',hivis:'hi-vis',bags:'bags'},ex=['tops','layers','outerwear','hivis','bags'].filter(function(c){return (CATS||[]).indexOf(c)>=0&&catKeysOf(c).length;}).map(function(c){return W[c];});
+  var exs=ex.length>1?(ex.slice(0,-1).join(', ')+' and '+ex[ex.length-1]):(ex[0]||'');
+  return {styles:n,cats:(CATS||[]).length,ex:exs};}
+function r12ProgName(n){return String(n||'').replace(/\s*\u00b7.*$/,'').replace(/\s+Program$/i,'').trim();}
+function r12HeroHtml(){
+  var ks=heroShots(),C=r12Counts(),T=JDP_TRUST,chk='<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.2 4.2L19 7"/></svg>',
+      arr='<span class="r12ar" aria-hidden="true">\u2192</span>';
+  var shopVis='<span class="r12vis r12vshop">'+(ks.length?ks.map(function(k,i){return r12Shot(k,'r12s'+i);}).join(''):'')+'</span>';
+  var advVis='<span class="r12vis r12vadv" aria-hidden="true"><span class="r12q"><span class="r12qh">'+caSvg('spark',14)+'Advisor</span>'+
+      '<b>Who are you outfitting?</b><span class="r12qo"><i>Office &amp; client-facing</i><i class="on">Outdoor crews</i><i>Warehouse</i><i>Drivers</i></span></span>'+
+      '<span class="r12qr"><i>Value</i><i class="on">Our pick</i><i>Premium</i></span><span class="r12ico">'+caSvg('spark',36)+'</span></span>';
+  var progVis='<span class="r12vis r12vprog" id="r12pv">'+[0,1,2,3].map(function(){return '<span class="r12st"></span>';}).join('')+'</span>';
+  function door(id,vis,kick,h,p,cta,pid){return '<button type="button" class="r12door" data-r12="'+id+'"'+(pid?' id="'+pid+'"':'')+'>'+vis+
+      '<span class="r12tx"><span class="r12k">'+kick+'</span><b class="r12h">'+h+'</b><span class="r12p"'+(id==='prog'?' id="r12pp"':'')+'>'+p+'</span>'+
+      '<span class="r12cta">'+cta+arr+'</span></span></button>';}
+  return '<section class="hero r12hero"><div class="w">'+
+    '<div class="r12head"><div class="r11eyb">Branded apparel &amp; workwear</div>'+
+      '<h1>'+esc(poss(CFG.client))+' team store</h1>'+
+      '<p class="herosub">Every piece is shown with your logo and priced at your quantity. Choose how you\u2019d like to start.</p></div>'+
+    '<div class="r12paths" id="r12paths">'+
+      door('shop',shopVis,'Browse','Shop the catalogue',C.styles+' styles across '+C.cats+' categories'+(C.ex?(' \u2014 '+C.ex):'')+'.','Browse the catalogue')+
+      door('adv',advVis,'Get advice','Let the Advisor pick','Answer a few quick questions. We pick the piece \u2014 plus a lower-cost and a premium option.','Start the Advisor')+
+      door('prog',progVis,'Start from a kit','Use a ready-made program','Complete kits built by role, priced per person. Swap or remove anything.','See ready programs','r12prog')+
+    '</div>'+
+    '<div class="r12assure"><span class="r12ok">'+chk+'Your logo on every piece</span><span class="r12ok">'+chk+'Priced at your quantity</span>'+
+      '<span class="r12ok">'+chk+'Itemized PDF quote for approval</span><span class="r12ok">'+chk+'No payment, no obligation</span>'+
+      (trustOn()?('<span class="r12side"><button type="button" class="r12lnk" data-r11="rfq">Have an RFQ or spec? Upload it</button><span class="r12dot" aria-hidden="true">\u00b7</span>'+
+        '<a class="r12lnk r12call" href="tel:'+T.tel+'">Call Steven '+T.phone+'</a></span>'):'')+
+    '</div>'+
+    '<div class="r12proof">'+homeProofHtml()+'</div>'+
+  '</div></section>';}
+/* the program door is filled once the programs are seeded (they arrive after the first paint) */
+function r12Fill(){var d=document.getElementById('r12prog');if(!d)return;
+  var ids=[];try{seedPrograms();ids=programIds();}catch(e){}
+  var wrap=document.getElementById('r12paths');
+  if(!ids.length){d.style.display='none';if(wrap)wrap.classList.add('n2');return;}
+  d.style.display='';if(wrap)wrap.classList.remove('n2');
+  var L=LISTS[ids[0]]||{},ks=Object.keys(L.items||{}).map(bkey).filter(function(k){return BYKEY[k];}).slice(0,4);
+  var pv=document.getElementById('r12pv');if(pv&&!pv.dataset.f){pv.dataset.f='1';pv.innerHTML=ks.map(function(k){return r12Shot(k);}).join('');}
+  var pp=Infinity;ids.forEach(function(id){try{var v=boardPerPerson(id);if(v&&v<pp)pp=v;}catch(e){}});
+  var names=ids.slice(0,3).map(function(id){return r12ProgName((LISTS[id]||{}).name);}).filter(Boolean);
+  var p=document.getElementById('r12pp');
+  if(p)p.textContent=(names.length?(names.join(', ')+' \u2014 '):'')+'complete kits by role, priced per person'+(isFinite(pp)?(', from '+money0(pp)):'')+'.';}
+document.addEventListener('click',function(e){var t=e.target&&e.target.closest?e.target.closest('[data-r12]'):null;if(!t)return;
+  var w=t.dataset.r12;
+  if(w==='shop'){jdpTrack('browse_hero');var g=document.querySelector('.entcats');if(g)window.scrollTo({top:window.scrollY+g.getBoundingClientRect().top-(window.innerWidth>820?150:70),behavior:'smooth'});}
+  else if(w==='adv'){jdpTrack('adv_hero');openAdvView('','hero');}
+  else if(w==='prog'){openProgView('hero');}});
 /* ===== ROUND 10 · VIEWS ===================================================================================== */
 function jvMode(){if(giftViewOn())return 'gifts';if((VIEW.q||'').trim()){JVIEW='shop';return 'aisle';}if(JVIEW==='adv')return 'adv';if(JVIEW==='prog')return 'prog';return JBROWSE?'aisle':'home';}
 function jvSync(){var h=document.documentElement,m=jvMode();
