@@ -3,7 +3,7 @@
    one-screen item customiser (colour → logo finish → quantity), a cart, and a one-tap copy-to-email quote.
    Choices persist on the device (localStorage). Deployed once at /kits/_app/store.js. */
 (function(){
-document.documentElement.classList.add('js');
+document.documentElement.classList.add('js','r11');
 var CATALOG_BASE="https://justdealspromotions.com/kits/_catalog";
 var CFG,CAT,CATVER='',BYKEY={},CART={},SLUG=(location.pathname.split('/').filter(Boolean).pop()||'kit');
 var LSKEY='jdpkit_'+SLUG;
@@ -5681,6 +5681,7 @@ function buildStore(){
    '<section class="hero"><div class="w heroin heroflex" style="display:flex;align-items:center;'+
      'gap:32px;justify-content:space-between;flex-wrap:wrap">'+
      '<div class="herotx" style="flex:1 1 320px;min-width:0">'+
+       (demo?'':'<div class="r11eyb">Branded apparel &amp; workwear</div>')+
        '<h1>'+esc(poss(CFG.client))+" team store</h1>"+
        '<p class="herosub">'+(demo?'This is a live sample. Every item shows exactly where your logo goes — swap in your brand and it becomes your team’s store. Live pricing, exact quote, no obligation.':'Branded apparel for your team, with your logo already applied. Get a recommendation, or browse the catalogue and build an itemized quote for approval.')+'</p>'+
        /* ENTERPRISE HERO (2026-10-13: "the page is way too busy ... looks salesy"). Two actions, no more: the
@@ -5781,8 +5782,8 @@ function buildStore(){
      '<div class="socclip" id="socClip"><behold-widget feed-id="'+esc(C.feed)+'"></behold-widget></div></div></section>'):'')+
    (CFG.demo?homeBandHtml():'')+
    (CFG.demo||!trustOn()?'':faqHtml())+
-   '<footer><div class="w">Just Deals Promotions'+(trustOn()?(' · '+(isUS()?'Family-owned since ':'Canadian since ')+JDP_TRUST.since+' · '+JDP_ADDR):'')+
-     '<br>Prepared for '+esc(CFG.client)+' · Concept visuals on representative product photography · Pricing confirmed by formal quote.</div></footer>'+
+   '<footer class="r11ft"><div class="w">'+r11FootCols()+'<div class="r11fbot">Just Deals Promotions'+(trustOn()?(' · '+(isUS()?'Family-owned since ':'Canadian since ')+JDP_TRUST.since+' · '+JDP_ADDR):'')+
+     '<br>Prepared for '+esc(CFG.client)+' · Concept visuals on representative product photography · Pricing confirmed by formal quote.</div></div></footer>'+
    '<div class="ov" id="ov"></div>'+
    '<div class="vmodal" id="vmodal"></div>'+
    '<div class="sheet" id="sheet"></div>'+
@@ -9391,8 +9392,27 @@ function catMenuHtml(){
         '<b>'+esc(shortCat(c))+'</b><i>'+((TOTALS&&TOTALS[c])||0)+'</i></button>';}).join('')+
     '</div></div>';
 }
+/* ===== ROUND 11 · ENTERPRISE DESIGN SYSTEM (Steven, 2026-11-12: "the design now is very ugly ... make it enterprise level").
+   A thin utility strip carries who supplies the store and how to reach a person, the way enterprise outfitters
+   (Patagonia ProCorporate, Grainger, Uline) carry account proof above the main bar -- so the hero no longer has to. */
+function r11UtilHtml(){
+  if(!trustOn())return '';var T=JDP_TRUST;
+  return '<div class="r11util"><div class="r11uin">'+
+    '<span class="r11ul">'+(CFG.demo?'Branded apparel &amp; workwear':('<b>'+esc(CFG.client||'')+'</b> team store'))+' <i aria-hidden="true">·</i> Supplied by Just Deals Promotions</span>'+
+    '<span class="r11ur"><span>'+(isUS()?'Family-owned since ':'Canadian since ')+T.since+'</span><i aria-hidden="true">·</i>'+
+      '<a href="'+T.reviewsUrl+'" target="_blank" rel="noopener noreferrer">★ '+T.rating.toFixed(1)+' on Google</a><i aria-hidden="true">·</i>'+
+      '<a href="tel:'+T.tel+'">Call '+T.phone+'</a></span></div></div>';}
+function r11FootCols(){
+  if(CFG.demo||!trustOn())return '';var T=JDP_TRUST;
+  return '<div class="r11fcols">'+
+    '<div class="r11fb"><b>Just Deals Promotions</b><p>Branded apparel and workwear for teams across Canada and the US — decorated with your logo, quoted line by line for approval.</p></div>'+
+    '<div><h4>This store</h4><button type="button" data-jv="shop">Shop the catalogue</button><button type="button" data-jv="adv">Get a recommendation</button>'+
+      '<button type="button" data-jv="prog">Ready programs</button><button type="button" data-jv="gifts">Employee gifts</button></div>'+
+    '<div><h4>Talk to a person</h4><p class="r11fp">Steven replies in '+esc(T.reply)+'.</p><a href="tel:'+T.tel+'">'+T.phone+'</a>'+
+      '<button type="button" data-r11="ask">Send us what you need</button><button type="button" data-r11="rfq">Upload an RFQ or spec</button></div>'+
+  '</div>';}
 function tbarHtml(){
-  return '<div class="tbar" id="tbar"><div class="tbin">'+
+  return '<div class="tbar" id="tbar">'+r11UtilHtml()+'<div class="tbin">'+
       /* THE LOGO GOES HOME. Steven, 2026-09-28: "when users click there logo they do not go to home
          screen!" It was a bare <img>. Every storefront buyer expects the top-left mark to be home. */
       '<a class="tbhome" id="tbHome" href="'+esc(location.pathname)+'" aria-label="'+esc((CFG.client||'Store')+' \u2014 home')+'">'+
@@ -9453,7 +9473,10 @@ function catKeysOf(cat){
 }
 /* A category tile shows its best foot: for Bags that is the duffel Steven listed first, not whichever
    bag happens to be cheapest. Falls through to the normal rule if the store does not carry it. */
-var CAT_TILE_PREF={bags:['st_nautilus110','st_nautilus70','nk_dh7709']};
+var CAT_TILE_PREF={bags:['st_nautilus110','st_nautilus70','nk_dh7709'],
+  /* ROUND 11: flat product shots lead the directory (a model photo on a studio backdrop reads as a grey box on the stage) */
+  tops:['st_sonora','st_nevadass','st_camino'],golf:['st_apollo','cq_spin_polo','st_camino','st_nevadass'],
+  layers:['cb_roamqz','cq_haven_qz'],outerwear:['softshell'],accessories:['sp_dw108','sp_dw342']};
 function catTileImg(cat){
   var keys=(CAT_TILE_PREF[cat]||[]).filter(function(k){return BYKEY[k]&&catKeysOf(cat).indexOf(k)>=0;}).concat(catKeysOf(cat));
   for(var i=0;i<keys.length;i++){
@@ -11179,21 +11202,35 @@ function catHasAdvisor(c){try{if(typeof CADV==='undefined'||c==='carhartt')retur
 /* SHOP BY CATEGORY (2026-10-13). One grid, every aisle, the same quiet tile -- name, style count, and for aisles that
    have one, a plain "Advisor" note. A category with an advisor opens on its first question, so the tile itself is
    the way in; no separate hub of loud Start buttons competing with the catalogue. */
+function r11CatShot(c){
+  /* the category's lead garment WITH THE BUYER'S LOGO ON IT, in a program colour -- the same overlay the hero uses */
+  var keys=(CAT_TILE_PREF[c]||[]).filter(function(k){return BYKEY[k]&&catKeysOf(c).indexOf(k)>=0;}).concat(catKeysOf(c));
+  for(var i=0;i<keys.length&&i<12;i++){var k=keys[i],it=BYKEY[k];if(!it||!(it.cols||[]).some(function(x){return x.front;}))continue;
+    try{var o=overlayHtml(it,{decos:defaultDecos(k)},progColour(k),'front',browseCols(it),browsePlaces(it));
+      return '<span class="dirimg r11pan"><span class="mstage r11shot" style="position:relative;display:block;aspect-ratio:1/1;overflow:hidden;max-width:100%">'+
+        '<img class="g ld" src="'+o.g+'" alt="" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:contain;opacity:1">'+o.lg+'</span></span>';}
+    catch(e){}}
+  var img=catTileImg(c);
+  return '<span class="dirimg">'+(img?('<img src="'+img+'" alt="" loading="lazy">'):'')+'</span>';}
 function catTilesHtml(){
   /* ROUND 10: the catalogue is organised by SHELF. The front page is a directory a buyer scans in one look -- every
      category with its own shelves listed under it, so "quarter-zips" or "safety vests" is one click from the front
-     page, not a category, a scroll and a chip. Categories still exist (their heading opens the whole aisle). */
+     page, not a category, a scroll and a chip. Categories still exist (their heading opens the whole aisle).
+     ROUND 11: each category leads with its garment carrying the buyer's own logo, cards in a row share one height,
+     and "Shop all" is pinned to the foot of every card. */
   var cats=(typeof CATS!=='undefined'&&CATS.length)?CATS:[];
   if(!cats.length)return '';
   return '<section class="excats entcats"><div class="w">'+
-    '<div class="enthd"><h2 class="exh">Shop by category</h2>'+
-      '<p class="exsub">Every shelf in the store, with your logo on every piece. Not sure where to start? <button type="button" class="jvlink" data-jv="adv">Get a recommendation \u2192</button></p></div>'+
-    '<div class="dirgrid">'+cats.map(function(c){var img=catTileImg(c),n=(TOTALS&&TOTALS[c])||0,
+    '<div class="enthd"><div><div class="r11eyb">The catalogue</div><h2 class="exh">Shop by category</h2>'+
+      '<p class="exsub">Every shelf in the store, with your logo on every piece.</p></div>'+
+      '<button type="button" class="jvlink r11hdlink" data-jv="adv">'+caSvg('spark',15)+'Not sure where to start? <b>Get a recommendation</b> <span aria-hidden="true">\u2192</span></button></div>'+
+    '<div class="dirgrid">'+cats.map(function(c){var n=(TOTALS&&TOTALS[c])||0,
         subs=subNames(c).filter(function(x){return ((BUCKETS[c]||{})[x]||[]).length;});
       return '<div class="dircard"><button type="button" class="dirhd" data-catgo="'+esc(c)+'">'+
-          '<span class="dirimg">'+(img?('<img src="'+img+'" alt="" loading="lazy">'):'')+'</span>'+
+          r11CatShot(c)+
           '<span class="dirtx"><b>'+esc(shortCat(c))+'</b><i>'+n+' style'+(n===1?'':'s')+'</i></span><span class="dirgo">All <span aria-hidden="true">\u2192</span></span></button>'+
-        (subs.length>1?('<ul class="dirsubs">'+subs.map(function(x){return '<li><button type="button" data-shelf="'+esc(c)+'" data-shelfsub="'+esc(x)+'"><span>'+esc(x)+'</span><i>'+BUCKETS[c][x].length+'</i></button></li>';}).join('')+'</ul>'):'')+
+        (subs.length>1?('<ul class="dirsubs">'+subs.map(function(x){return '<li><button type="button" data-shelf="'+esc(c)+'" data-shelfsub="'+esc(x)+'"><span>'+esc(x)+'</span><i>'+BUCKETS[c][x].length+'</i></button></li>';}).join('')+'</ul>'):'<div class="dirsubs dirnone"></div>')+
+        '<button type="button" class="dirall" data-catgo="'+esc(c)+'">Shop all '+esc(shortCat(c))+' <span aria-hidden="true">\u2192</span></button>'+
         '</div>';}).join('')+
     '</div></div></section>';
 }
@@ -11249,7 +11286,8 @@ document.addEventListener('click',function(e){var t=e.target&&e.target.closest?e
   var sh=t.closest('[data-shelf]');if(sh){jdpTrack('aisle',{c:sh.dataset.shelf,src:'home'});setCat(sh.dataset.shelf,false);setSub(sh.dataset.shelfsub);window.scrollTo({top:0,behavior:'auto'});return;}
   if(t.closest('[data-advhub]')){ADV_CUR='';renderAdvView();syncViewUrl();window.scrollTo({top:0,behavior:'auto'});return;}
   var as=t.closest('[data-advshop]');if(as){setCat(as.dataset.advshop,false);window.scrollTo({top:0,behavior:'auto'});return;}
-  if(t.closest('[data-progboards]')){try{openBoards();}catch(err){}return;}});
+  if(t.closest('[data-progboards]')){try{openBoards();}catch(err){}return;}
+  var r1=t.closest('[data-r11]');if(r1){if(r1.dataset.r11==='rfq'){jdpTrack('rfq_open');openRfq();}else{jdpTrack('help_ask');openSourcing('');}return;}});
 function wireExplore(){
   var ts=document.getElementById('topSearch'),ks=document.getElementById('kitSearch');
   if(ts&&ks){
