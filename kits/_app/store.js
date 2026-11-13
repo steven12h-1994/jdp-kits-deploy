@@ -1273,7 +1273,7 @@ function menuCard(key){
       (item.use?('<div class="muse">'+esc(item.use)+'</div>'):'')+
       /* Warmth sits directly under the fabric line and above the colours: it is the fact a
          winter buyer decides on, so it comes before the cosmetic choice. */
-      csa+fab+warm+
+      csa+(isJk(item)?jkSpecHtml(item):(fab+warm))+
       colourDots(item,key)+
       (item.layer==='promo'
         ? (kitContentsHtml(item)+
@@ -1287,6 +1287,7 @@ function menuCard(key){
         : incHtml(item,_dd,'card')+
           '<div class="mprice"><b>'+money(startP)+'</b> <small>/pc'+(hasDecoPlace(item)?' · logo included':' · blank')+'</small></div>'+
            '<div class="mvol">at '+moq()+' pcs'+(bestP<startP?(' · <b>'+money(bestP)+'</b>/pc at '+topcol+'+'):'')+'</div>')+
+      (isJk(item)?jkCmpBtn(key):'')+
       '</div></article>';
 }
 // A row of real colour swatches on each card — shows selection depth at a glance (conversion signal).
@@ -1688,7 +1689,7 @@ function grpPreviewN(){
 (function(){var t=null;try{window.addEventListener('resize',function(){clearTimeout(t);t=setTimeout(function(){
   try{if(GRP_N_USED&&grpPreviewN()!==GRP_N_USED&&VIEW&&VIEW.cat&&VIEW.sub==='all'&&!VIEW.q)renderGrid();}catch(e){}},220);});}catch(e){}})();
 /* Has the buyer narrowed the range themselves? Sort is excluded: re-ordering is not narrowing. */
-function narrowed(){return !!(VIEW.warm||VIEW.band||VIEW.col||(VIEW.fit&&VIEW.fit!=='all'));}
+function narrowed(){return !!(VIEW.warm||VIEW.jw||VIEW.wx||VIEW.band||VIEW.col||(VIEW.fit&&VIEW.fit!=='all'));}
 var VIEW={cat:null,sub:'all',q:'',world:'all',fit:'all',col:null,band:null,warm:null,sort:null};
 // Colour chosen while BROWSING, per item+fit. A shopper who picks navy on the grid should still be on
 // navy when the product opens — otherwise the swatch feels fake.
@@ -1953,8 +1954,10 @@ function warmFacts(it){
   if(w.ins&&w.gsm)out.push(w.ins+' '+w.gsm);
   else if(w.ins)out.push(w.ins);
   else if(w.gsm)out.push(w.gsm+' insulation');
-  if(w.wp)out.push((w.wp.indexOf('/')>0?w.wp+' waterproof / breathable':w.wp+' waterproof'));
-  if(!out.length&&w.flags&&w.flags.length)out.push(w.flags.slice(0,2).join(' · '));
+  /* waterproof means seam-sealed (Steven): an unsealed fabric rating is a fabric rating, not "waterproof" */
+  var _sealed=(w.flags||[]).indexOf('sealed seams')>=0;
+  if(w.wp)out.push(_sealed?(w.wp.indexOf('/')>0?w.wp+' waterproof / breathable':w.wp+' waterproof'):(String(w.wp).replace(/\s*fabric\s*$/i,'')+' fabric rating'));
+  if(!out.length&&w.flags&&w.flags.length)out.push(w.flags.filter(function(f){return f!=='sealed seams'||_sealed;}).map(function(f){return (f==='waterproof'&&!_sealed)?'water-resistant':f;}).filter(function(f,i,a){return a.indexOf(f)===i;}).slice(0,2).join(' · '));
   return out.join(' · ');
 }
 function warmCardHtml(it){
@@ -1971,6 +1974,8 @@ function warmOK(list){
    least two populated bands in view, otherwise it is a control that cannot change anything. */
 function renderWarmbar(){
   var el=document.getElementById('warmbar');if(!el)return;
+  if(JK_CATS[VIEW.cat]&&!(VIEW.q||'').trim())return jkWarmbar(el);
+  el.classList.remove('jkbar');VIEW.jw=VIEW.wx=null;
   var keys=(VIEW.sub==='all')?[].concat.apply([],subNames(VIEW.cat).map(function(s){return BUCKETS[VIEW.cat][s];}))
                              :((BUCKETS[VIEW.cat]||{})[VIEW.sub]||[]);
   if(['outerwear','vests','hivis','carhartt','fr'].indexOf(VIEW.cat)<0){el.innerHTML='';el.style.display='none';VIEW.warm=null;return;}
@@ -2007,6 +2012,7 @@ function renderBandbar(){
   var cnt={};BANDS.forEach(function(b){cnt[b[0]]=keys.filter(function(k){var u=shelfPrice(k);return u>=b[2]&&u<b[3];}).length;});
   var live=BANDS.filter(function(b){return cnt[b[0]]>0;});
   if(live.length<2||keys.length<6){el.innerHTML='';el.style.display='none';VIEW.band=null;return;}
+  if(JK_CATS[VIEW.cat])return jkBandbar(el,keys);el.classList.remove('jkbar');
   el.style.display='';
   el.innerHTML='<span class="fitlbl">Budget</span><button type="button" class="cfchip'+(VIEW.band?'':' on')+'" data-band="">Any</button>'+
     live.map(function(b){return '<button type="button" class="cfchip'+(VIEW.band===b[0]?' on':'')+'" data-band="'+b[0]+'">'+b[1]+' <i>'+cnt[b[0]]+'</i></button>';}).join('');
@@ -2020,6 +2026,7 @@ function renderColbar(){
   /* Bags are bought by type and budget, not by colour family: ten colour chips there were noise
      in front of the products (Steven, 2026-10-07, "too confusing and complicated"). */
   if(fams.length<3||keys.length<6||VIEW.cat==='bags'){el.innerHTML='';el.style.display='none';VIEW.col=null;return;}
+  if(JK_CATS[VIEW.cat])return jkColbar(el,keys);el.classList.remove('jkbar');
   el.style.display='';
   el.innerHTML='<span class="fitlbl">Colour</span>'+
     '<button type="button" class="cfchip'+(VIEW.col?'':' on')+'" data-fam="">Any</button>'+
@@ -2048,13 +2055,15 @@ function activeFilters(){
   if(VIEW.fit&&VIEW.fit!=='all')a.push({k:'fit',label:VIEW.fit==='womens'?'Ladies’':'Men’s'});
   if(VIEW.col)a.push({k:'col',label:VIEW.col.charAt(0).toUpperCase()+VIEW.col.slice(1),sw:famSwatch(VIEW.col)});
   if(VIEW.band){var b=BANDS.filter(function(x){return x[0]===VIEW.band;})[0];if(b)a.push({k:'band',label:b[1]});}
+  if(VIEW.jw){var w=JK_WB.filter(function(x){return x[0]===VIEW.jw;})[0];if(w)a.push({k:'jw',label:w[1]});}
+  if(VIEW.wx){var x2=JK_WXF.filter(function(x){return x[0]===VIEW.wx;})[0];if(x2)a.push({k:'wx',label:x2[1]});}
   if(VIEW.sort){var o=SORTS.filter(function(x){return x[0]===VIEW.sort;})[0];if(o)a.push({k:'sort',label:o[1]});}
   return a;
 }
 function clearFilter(k){
   if(k==='fit')VIEW.fit='all'; else if(k==='col')VIEW.col=null; else if(k==='band')VIEW.band=null;
-  else if(k==='sort')VIEW.sort=null;
-  renderFitbar();renderColbar();renderBandbar();renderSortbar();renderGrid();renderFilterUI();
+  else if(k==='sort')VIEW.sort=null; else if(k==='jw')VIEW.jw=null; else if(k==='wx')VIEW.wx=null;
+  renderFitbar();renderColbar();renderBandbar();renderSortbar();try{renderWarmbar();}catch(e){}renderGrid();renderFilterUI();
 }
 function positionPanel(){
   var p=document.getElementById('fpanel'),b=document.getElementById('fbtn');
@@ -2214,10 +2223,8 @@ var CATGUIDE={
      range, so the store cites insulation and waterproof figures and lets the buyer judge. */
   /* Shorter than it was: the warmth and budget chips now sit directly beneath this line, so the
      paragraph no longer has to describe a control the reader cannot see. */
-  outerwear:'Start with how cold they will be, not the price. Every jacket shows how warm it is '+
-            'built \u2014 uninsulated shell, insulated, or winter weight \u2014 with the maker\u2019s '+
-            'own published insulation and waterproof figures. Narrow by warmth or budget below; '+
-            'every price is per person with your logo already in it.'
+  /* round 15: one line -- the shelves, the card facts and the filters now carry what this paragraph used to explain */
+  outerwear:'Seven shelves, lightest to warmest. Every jacket shows its warmth and its rain protection the same way, and every price includes your logo.'
 };
 var SUBGUIDE={
   'Shells & Rainwear':'The lightest layer \u2014 cuts wind, sheds rain and packs down small. No '+
@@ -2289,6 +2296,7 @@ function wireCards(rootId){
     var lbl=card.querySelector('.cdnow');if(lbl)lbl.textContent=d.dataset.col;
   });});
   g.querySelectorAll('.mvid').forEach(function(b){b.addEventListener('click',function(e){e.stopPropagation();openVideo(b.dataset.vid,b.dataset.vname);});});
+  g.querySelectorAll('.jkcmp').forEach(function(b){b.addEventListener('click',function(e){e.stopPropagation();jkCmpToggle(b.dataset.cmpk);});b.addEventListener('keydown',function(e){e.stopPropagation();});});
   g.querySelectorAll('.mstage .g').forEach(function(im){if(im.complete)im.classList.add('ld');else im.addEventListener('load',function(){im.classList.add('ld');});});
   g.querySelectorAll('.mccard,.nextup').forEach(function(b){b.addEventListener('click',function(){setCat(b.dataset.cat,true);});
     b.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();setCat(b.dataset.cat,true);}});});
@@ -5255,11 +5263,11 @@ function famShelfHtml(sub,ks){var F=SHELF_FAM[sub],by={};ks.forEach(function(k){
    kinds with their own logo first, then refines. The tiles keep their listeners when moved (wireFam binds them). */
 function shelfTilesEl(){var c=VIEW.cat;if(!c||!BUCKETS[c]||(VIEW.q||'').trim()||VIEW.sub!=='all')return null;
   var subs=subNames(c).filter(function(x){return (BUCKETS[c][x]||[]).length;});if(subs.length<2)return null;
-  var d=document.createElement('div');d.className='famtop shelftop';
-  d.innerHTML='<div class="famrow shelfrow" role="group" aria-label="Shelves in '+esc(shortCat(c))+'">'+subs.map(function(x){var L=BUCKETS[c][x],
+  var d=document.createElement('div');d.className='famtop shelftop'+(c==='outerwear'?' jkshelves':'');var _jk=c==='outerwear';
+  d.innerHTML=(_jk?'<div class="jkscale" aria-hidden="true"><span>Lighter</span><i></i><span>Warmer</span></div>':'')+'<div class="famrow shelfrow'+(_jk?' n'+subs.length:'')+'" role="group" aria-label="Shelves in '+esc(shortCat(c))+'">'+subs.map(function(x){var L=BUCKETS[c][x],
       ps=L.map(famPrice).filter(function(p){return p>0;}),lo=ps.length?Math.min.apply(null,ps):0,lead=L.filter(function(k){return famPrice(k)>0;})[0]||L[0];
     return '<button type="button" class="famt" data-shelftile="'+esc(x)+'"><span class="famimg"><span class="capfl" aria-hidden="true"></span><span class="capst">'+caThumb(lead)+'</span></span>'+
-      '<span class="famtx"><b>'+esc(x)+'</b><em>'+L.length+' style'+(L.length===1?'':'s')+(lo?(' \u00b7 from '+money(lo)+'/pc'):'')+'</em></span></button>';}).join('')+'</div>';
+      '<span class="famtx"><b>'+esc(x)+'</b>'+(_jk&&JK_SHELF[x]?('<i class="jkbest">'+esc(JK_SHELF[x])+'</i>'):'')+(_jk&&jkShelfLvl(L)?('<span class="jkshw">'+jkMeter(jkShelfLvl(L),'sm')+'<span>'+esc(JK_WLAB[jkShelfLvl(L)])+'</span></span>'):'')+'<em>'+L.length+' style'+(L.length===1?'':'s')+(lo?(' \u00b7 from '+money(lo)+'/pc'):'')+'</em></span></button>';}).join('')+'</div>';
   d.querySelectorAll('[data-shelftile]').forEach(function(b){b.addEventListener('click',function(){jdpTrack('aisle',{c:c,src:'shelftile'});setSub(b.dataset.shelftile);});});
   return d;}
 function liftFamTop(){var ib=document.getElementById('inbar'),old=document.getElementById('famlift');
@@ -5270,7 +5278,129 @@ function liftFamTop(){var ib=document.getElementById('inbar'),old=document.getEl
 function wireFam(root){(root||document).querySelectorAll('[data-famsel]').forEach(function(b){if(b.dataset.fw)return;b.dataset.fw='1';
   b.addEventListener('click',function(){var v=b.dataset.famsel||null;VIEW.fam=(v&&VIEW.fam!==v)?v:null;jdpTrack('shelf_fam',{s:bslug(VIEW.sub||''),f:VIEW.fam||'all'});renderGrid();
     var g=document.querySelector('.famshelf');if(g){var hdr=document.querySelector('.tbar')||document.querySelector('.hdr'),y=g.getBoundingClientRect().top+window.scrollY-((hdr&&hdr.offsetHeight)||64)-12;if(window.scrollY>y)window.scrollTo({top:y,behavior:'smooth'});}});});}
-function renderGrid(){renderGridCore();try{liftFamTop();}catch(e){}try{jvPost();}catch(e){}try{syncInbar();}catch(e){}try{jvSync();}catch(e){}try{renderXpert();}catch(e){}}
+/* ===== ROUND 15 — THE JACKETS AISLE, BUILT FOR THE DECISION (Steven, 2026-11-13: "Jackets category when browsing
+   through the catalog is terrible ... make it enterprise level!"). Measured on the live aisle (109 jackets): the first
+   jacket sat 1,230px down, under a 4-line paragraph, seven shelf tiles laid out 5 + 2 and four rows of filter chips;
+   every card described itself differently (a warmth label on some, a truncated fabric string on others, nothing on
+   Sierra) so no two could be compared; 20 cards said "waterproof" on jackets whose seams are not sealed (Steven's rule:
+   waterproof means seam-sealed); the warmth filter covered only 97 of 109; and there was no way to filter by rain --
+   the second question every jacket buyer asks. Now:
+   - every jacket card carries the SAME two facts in the same place: a 5-step warmth meter and its rain protection;
+   - the shelves read as one scale, lighter to warmer, each saying what it is for;
+   - the filters are one compact row (fit, warmth, weather, colour, budget, sort);
+   - a buyer can tick up to three jackets and compare them side by side, the way a procurement lead decides.
+   Facts only: warmth comes from caWarmInfo (published fill, the maker's band, never a temperature) and weather from
+   jaFlags. */
+var JK_CATS={outerwear:1,vests:1};
+function isJk(it){if(!it||it.csa||it.layer==='promo')return false;var c=itemCategory(it);if(c==='outer'||c==='vest')return true;try{var m=classify(it).mega;return m==='outerwear'||m==='vests';}catch(e){return false;}}
+var JK_WLAB=['','No insulation','Light insulation','Mid-weight','Warm','Very warm'];
+function jkWarm(it){var W=null;try{W=caWarmInfo(it);}catch(e){W=null;}
+  var nm=String((it&&it.name)||'').toLowerCase();
+  /* no published fill: name the maker's own band (winter weight / insulated), never a made-up fill level */
+  if(W&&!W.knit&&W.lvl>=2)return {lvl:W.lvl,est:!!W.est,lab:W.est?(W.lvl>=4?'Winter weight':(W.lvl===2?'Light insulation':'Insulated')):JK_WLAB[W.lvl],tip:(W.detail||'')+(W.extra?(' · '+W.extra):'')};
+  if((!W||W.knit||!W.lvl)&&/puff|quilt|thermal|insulat|\bdown\b|parka/.test(nm))return {lvl:3,est:true,lab:'Insulated',tip:'Insulated, per the product name — fill weight not published'};
+  /* a fleece shacket or fleece vest has no fill but is not a bare shell either */
+  if(/fleece|sherpa/.test(nm))return {lvl:2,lab:'Fleece, no fill',tip:'Fleece body, no insulation layer'};
+  if(W&&!W.knit&&W.lvl===1)return {lvl:1,lab:JK_WLAB[1],tip:'No insulation layer'};
+  return null;}
+function jkWx(it){var F=[];try{F=jaFlags(it)||[];}catch(e){F=[];}
+  var has=function(x){return F.indexOf(x)>=0;};
+  if(has('sealed seams')&&(has('waterproof')||((it.warm||{}).wp)))return 'wp';
+  if(has('waterproof')||has('water-repellent'))return 'wr';
+  if(has('windproof')||has('wind-resistant'))return 'wind';
+  return '';}
+var JK_WX={wp:'Waterproof · sealed seams',wr:'Water-resistant',wind:'Wind-resistant'};
+function jkWxTip(it,x){var wp=String((it.warm||{}).wp||'');
+  if(x==='wp')return 'Seam-sealed'+(wp?(' · '+wp+' rating'):'')+' — rain does not get in through the seams';
+  if(x==='wr')return (wp?('Fabric rated '+wp+', seams not sealed'):'Sheds light rain and showers')+' — for rain that is part of the job, choose a sealed-seam jacket';
+  if(x==='wind')return 'Blocks wind; not rated for rain';return '';}
+function jkMeter(l,cls){var b='';for(var i=1;i<=5;i++)b+='<i'+(i<=l?' class="on"':'')+'></i>';return '<span class="jkm'+(cls?(' '+cls):'')+'" aria-hidden="true">'+b+'</span>';}
+function jkSpecHtml(it){var W=jkWarm(it),x=jkWx(it);
+  return '<div class="jkspec">'+
+    '<div class="jkr" title="'+esc(W?W.tip:'Warmth not published')+'"><span class="jkl">Warmth</span>'+(W?(jkMeter(W.lvl)+'<b>'+esc(W.lab)+'</b>'):'<b class="na">Not published</b>')+'</div>'+
+    '<div class="jkr" title="'+esc(jkWxTip(it,x))+'"><span class="jkl">Weather</span>'+(x?('<span class="jkx '+x+'" aria-hidden="true"></span><b>'+esc(JK_WX[x])+'</b>'):'<b class="na">Not rated for rain</b>')+'</div></div>';}
+/* the warmth filter on the jacket scale -- every jacket with a known warmth lands in one bucket */
+var JK_WB=[['shell','No insulation',function(l){return l===1;}],['light','Light',function(l){return l===2;}],['mid','Mid-weight',function(l){return l===3;}],['warm','Warm & very warm',function(l){return l>=4;}]];
+var JK_WXF=[['wp','Waterproof — sealed seams',function(x){return x==='wp';}],['wr','At least water-resistant',function(x){return x==='wp'||x==='wr';}]];
+function jkLvlOf(k){var it=BYKEY[k],W=it?jkWarm(it):null;return W?W.lvl:0;}
+function jkOK(list){if(!JK_CATS[VIEW.cat]||(!VIEW.jw&&!VIEW.wx))return list;
+  var bw=VIEW.jw?JK_WB.filter(function(b){return b[0]===VIEW.jw;})[0]:null,bx=VIEW.wx?JK_WXF.filter(function(b){return b[0]===VIEW.wx;})[0]:null;
+  return list.filter(function(k){var it=BYKEY[k];if(!it)return false;if(bw&&!bw[2](jkLvlOf(k)))return false;if(bx&&!bx[2](jkWx(it)))return false;return true;});}
+function jkKeysInView(){return (VIEW.sub==='all')?[].concat.apply([],subNames(VIEW.cat).map(function(s){return BUCKETS[VIEW.cat][s]||[];})):((BUCKETS[VIEW.cat]||{})[VIEW.sub]||[]);}
+function jkSel(id,lab,opts,cur){return '<label class="jksel'+(cur?' on':'')+'"><span>'+esc(lab)+'</span><select data-jkf="'+id+'" aria-label="'+esc(lab)+'"><option value="">Any</option>'+
+  opts.map(function(o){return '<option value="'+esc(o[0])+'"'+(cur===o[0]?' selected':'')+'>'+esc(o[1])+' ('+o[2]+')</option>';}).join('')+'</select></label>';}
+function jkWarmbar(el){var keys=jkKeysInView(),uk={};keys.forEach(function(k){uk[k]=1;});keys=Object.keys(uk);VIEW.warm=null;
+  var ow=JK_WB.map(function(b){return [b[0],b[1],keys.filter(function(k){return b[2](jkLvlOf(k));}).length];}).filter(function(o){return o[2];});
+  var ox=JK_WXF.map(function(b){return [b[0],b[1],keys.filter(function(k){return b[2](jkWx(BYKEY[k]||{}));}).length];}).filter(function(o){return o[2];});
+  if(!ow.some(function(o){return o[0]===VIEW.jw;}))VIEW.jw=null;if(!ox.some(function(o){return o[0]===VIEW.wx;}))VIEW.wx=null;
+  el.style.display='';el.classList.add('jkbar');
+  el.innerHTML=(ow.length>1?jkSel('jw','Warmth',ow,VIEW.jw):'')+(ox.length?jkSel('wx','Weather',ox,VIEW.wx):'');
+  el.querySelectorAll('select[data-jkf]').forEach(function(s){s.addEventListener('change',function(){VIEW[s.dataset.jkf]=s.value||null;
+    jdpTrack('filter',{f:s.dataset.jkf==='jw'?'warmth':'weather',v:s.value||'any'});renderWarmbar();renderGrid();try{renderFilterUI();}catch(e){}});});}
+function jkColbar(el,keys){var count={};keys.forEach(function(k){var it=BYKEY[k];if(!it)return;Object.keys(itemFam(it)).forEach(function(f){count[f]=(count[f]||0)+1;});});
+  var fams=COLFAM.map(function(c){return c[0];}).filter(function(f){return count[f]>1;});
+  if(fams.length<3){el.innerHTML='';el.style.display='none';VIEW.col=null;return;}
+  el.style.display='';el.classList.add('jkbar');
+  el.innerHTML=jkSel('col','Colour',fams.map(function(f){return [f,f.charAt(0).toUpperCase()+f.slice(1),count[f]];}),VIEW.col);
+  var s=el.querySelector('select');s.addEventListener('change',function(){VIEW.col=s.value||null;jdpTrack('filter',{f:'colour',v:VIEW.col||'any'});
+    if(VIEW.col)Object.keys(BYKEY).forEach(function(k){var it=BYKEY[k],m=it&&itemFam(it)[VIEW.col];if(m)BCOL[k+'|'+fitOf(it)]=m;});
+    renderColbar();renderGrid();try{renderFilterUI();}catch(e){}});}
+function jkBandbar(el,keys){var cnt={};BANDS.forEach(function(b){cnt[b[0]]=keys.filter(function(k){var u=shelfPrice(k);return u>=b[2]&&u<b[3];}).length;});
+  var live=BANDS.filter(function(b){return cnt[b[0]]>0;});
+  if(live.length<2){el.innerHTML='';el.style.display='none';VIEW.band=null;return;}
+  el.style.display='';el.classList.add('jkbar');
+  el.innerHTML=jkSel('band','Budget',live.map(function(b){return [b[0],b[1],cnt[b[0]]];}),VIEW.band);
+  var s=el.querySelector('select');s.addEventListener('change',function(){VIEW.band=s.value||null;jdpTrack('filter',{f:'band',v:VIEW.band||'any'});renderBandbar();renderGrid();try{renderFilterUI();}catch(e){}});}
+/* what each shelf is FOR, in a few words -- a summary of its SUBGUIDE line, no new claims */
+var JK_SHELF={'Shells & Rainwear':'Wind and rain, no insulation','Softshell Jackets':'Three-season stretch, light warmth',
+  'Shirt Jackets & Shackets':'Casual layer over a tee or hoodie','Insulated & Quilted':'Packable warmth for cold days',
+  'Work Jackets & Bombers':'Tough shells for the yard and site','3-in-1 Jackets':'Shell + zip-out liner, three seasons',
+  'Parkas & Winter Coats':'Deep winter, longer coverage'};
+function jkShelfLvl(L){var ls=L.map(jkLvlOf).filter(function(l){return l>0;}).sort(function(a,b){return a-b;});if(!ls.length)return 0;return ls[Math.floor(ls.length/2)];}
+/* ---- compare up to three ---------------------------------------------------------------------------------------- */
+var JK_CMP=[];try{JK_CMP=JSON.parse(sessionStorage.getItem('jdp_jkcmp')||'[]').filter(function(k){return BYKEY[k];}).slice(0,3);}catch(e){JK_CMP=[];}
+function jkCmpSave(){try{sessionStorage.setItem('jdp_jkcmp',JSON.stringify(JK_CMP));}catch(e){}}
+function jkCmpBtn(key){var on=JK_CMP.indexOf(key)>=0;return '<button type="button" class="jkcmp'+(on?' on':'')+'" data-cmpk="'+esc(key)+'" aria-pressed="'+on+'"><span class="jkbx" aria-hidden="true"></span>Compare</button>';}
+function jkCmpToggle(key){var i=JK_CMP.indexOf(key);
+  if(i>=0)JK_CMP.splice(i,1);else{if(JK_CMP.length>=3){toast('Compare up to 3 — remove one first');return;}JK_CMP.push(key);}
+  jkCmpSave();document.querySelectorAll('.jkcmp[data-cmpk="'+key+'"]').forEach(function(b){var on=JK_CMP.indexOf(key)>=0;b.classList.toggle('on',on);b.setAttribute('aria-pressed',on);});jkTray();}
+function jkTray(){var t=document.getElementById('jktray');
+  var show=JK_CMP.length>0&&document.documentElement.classList.contains('jkcat')&&!document.getElementById('jkcm');
+  if(!show){if(t)t.classList.remove('on');document.documentElement.classList.remove('jktrayon');return;}
+  if(!t){t=document.createElement('div');t.id='jktray';t.className='jktray';t.setAttribute('role','region');t.setAttribute('aria-label','Compare jackets');document.body.appendChild(t);
+    t.addEventListener('click',function(e){var x=e.target.closest('[data-cmpx]');if(x){jkCmpToggle(x.dataset.cmpx);return;}
+      if(e.target.closest('[data-cmpgo]')){jkCmpOpen();return;}if(e.target.closest('[data-cmpclr]')){var L=JK_CMP.slice();JK_CMP=[];jkCmpSave();L.forEach(function(k){document.querySelectorAll('.jkcmp[data-cmpk="'+k+'"]').forEach(function(b){b.classList.remove('on');b.setAttribute('aria-pressed','false');});});jkTray();}});}
+  t.innerHTML='<div class="jkti">'+[0,1,2].map(function(i){var k=JK_CMP[i];return k?('<span class="jktk"><span class="capst">'+caThumb(k)+'</span><button type="button" class="jktx" data-cmpx="'+esc(k)+'" aria-label="Remove '+esc(BYKEY[k].name)+'">×</button></span>'):'<span class="jktk empty" aria-hidden="true"></span>';}).join('')+
+    '<span class="jktt"><b>'+JK_CMP.length+' of 3 selected</b><i>'+(JK_CMP.length<2?'Pick one more to compare':'Side by side: warmth, weather, fabric, price')+'</i></span>'+
+    '<button type="button" class="jktgo" data-cmpgo="1"'+(JK_CMP.length<2?' disabled':'')+'>Compare '+JK_CMP.length+' <span aria-hidden="true">→</span></button><button type="button" class="jktc" data-cmpclr="1">Clear</button></div>';
+  t.classList.add('on');document.documentElement.classList.add('jktrayon');}
+function jkCmpOpen(){if(JK_CMP.length<2)return;jdpTrack('filter',{f:'compare',v:String(JK_CMP.length)});
+  var ks=JK_CMP.slice(),rows={},order=[];
+  ks.forEach(function(k){caFacts(BYKEY[k]).forEach(function(r){if(r[0]==='Warmth'||r[0]==='Weather'||r[0]==='Weight')return;if(!rows[r[0]]){rows[r[0]]={};order.push(r[0]);}rows[r[0]][k]=r[1];});});
+  var ORD=['Arc rating','Hi-vis','Fabric','Fit & sizes','Your logo'];order.sort(function(a,b){var i=ORD.indexOf(a),j=ORD.indexOf(b);return (i<0?99:i)-(j<0?99:j);});
+  var cell=function(h,b){return '<tr><th scope="row">'+esc(h)+'</th>'+ks.map(function(k){return '<td>'+b(k)+'</td>';}).join('')+'</tr>';};
+  var tiers=function(k){return caTiers(k).map(function(t){return '<span class="jkct"><i>'+t.q+'+</i><b>'+money(t.p)+'</b></span>';}).join('');};
+  /* "Warmest here" only on a published figure, and only when one jacket is clearly warmest -- never on an estimate */
+  var lvls=ks.map(jkLvlOf),mx=Math.max.apply(null,lvls),_wk=ks.filter(function(k,i){return lvls[i]===mx;}),_best=(_wk.length===1&&!(jkWarm(BYKEY[_wk[0]])||{}).est)?_wk[0]:'';
+  var h='<div class="jkcmbox" role="dialog" aria-modal="true" aria-label="Compare jackets"><div class="jkcmhd"><div><b>Compare '+ks.length+' jackets</b><i>Prices per piece with your logo · warmth and weather as the maker publishes them</i></div><button type="button" class="jkcmx" data-cmclose="1" aria-label="Close">×</button></div>'+
+    '<div class="jkcmsc"><table class="jkct'+ks.length+'"><thead><tr><th></th>'+ks.map(function(k){var it=BYKEY[k];return '<th scope="col"><span class="jkcmimg"><span class="capfl" aria-hidden="true"></span><span class="capst">'+caThumb(k)+'</span></span><b>'+esc(it.name)+'</b><em>'+esc(it.brand||it.sku||'')+(it.msku?(' · '+esc(it.msku)):'')+'</em></th>';}).join('')+'</tr></thead><tbody>'+
+      cell('Price',function(k){return '<div class="jkctiers">'+tiers(k)+'</div>';})+
+      cell('Warmth',function(k){var W=jkWarm(BYKEY[k]);return W?('<span class="jkcw">'+jkMeter(W.lvl)+'<b>'+esc(W.lab)+'</b>'+(k===_best?'<em class="best">Warmest here</em>':'')+'</span><small>'+esc(W.tip)+'</small>'):'<span class="na">Not published</span>';})+
+      cell('Weather',function(k){var it=BYKEY[k],x=jkWx(it);return x?('<span class="jkcw"><span class="jkx '+x+'" aria-hidden="true"></span><b>'+esc(JK_WX[x])+'</b></span><small>'+esc(jkWxTip(it,x))+'</small>'):'<span class="na">Not rated for rain</span>';})+
+      order.map(function(lab){return cell(lab,function(k){var v=rows[lab][k];return v?esc(v):'<span class="na">—</span>';});}).join('')+
+      cell('Colours',function(k){var cs=browseCols(BYKEY[k])||[];return '<span class="jkcc">'+cs.slice(0,10).map(function(c){return '<i style="background:'+esc(c.rgb||'#ccc')+'" title="'+esc(c.name||'')+'"></i>';}).join('')+'</span><small>'+cs.length+' colour'+(cs.length===1?'':'s')+'</small>';})+
+      '<tr class="jkcact"><th></th>'+ks.map(function(k){var inq=cartHasAny(k);return '<td><button type="button" class="jaall jkcadd'+(inq?' done':'')+'" data-cmadd="'+esc(k)+'">'+(inq?'✓ In your quote':'+ Add to quote')+'</button><button type="button" class="jalink" data-cmdet="'+esc(k)+'">Full details →</button><button type="button" class="jalink jkcrm" data-cmx="'+esc(k)+'">Remove</button></td>';}).join('')+'</tr>'+
+    '</tbody></table></div></div>';
+  var m=document.createElement('div');m.id='jkcm';m.className='jkcm';m.innerHTML='<div class="jkcmscrim" data-cmclose="1"></div>'+h;document.body.appendChild(m);
+  document.documentElement.classList.add('jkcmon');jkTray();
+  var close=function(){m.remove();document.documentElement.classList.remove('jkcmon');document.removeEventListener('keydown',esck);jkTray();};
+  var esck=function(e){if(e.key==='Escape')close();};document.addEventListener('keydown',esck);
+  m.addEventListener('click',function(e){var t=e.target;if(t.closest('[data-cmclose]')){close();return;}
+    var a=t.closest('[data-cmadd]');if(a){var k=a.dataset.cmadd;if(cartHasAny(k)){close();openQuote('compare');return;}toQuoteList();addToQuoteQuick(k);a.textContent='✓ In your quote';a.classList.add('done');return;}
+    var d=t.closest('[data-cmdet]');if(d){close();openSheet(d.dataset.cmdet);return;}
+    var x=t.closest('[data-cmx]');if(x){jkCmpToggle(x.dataset.cmx);close();if(JK_CMP.length>=2)jkCmpOpen();}});
+  var bx=m.querySelector('.jkcmx');if(bx)bx.focus();}
+function renderGrid(){try{document.documentElement.classList.toggle('jkcat',!!JK_CATS[VIEW.cat]&&!(VIEW.q||'').trim()&&JVIEW==='shop'&&JBROWSE!==false);}catch(e){}renderGridCore();try{liftFamTop();}catch(e){}try{jvPost();}catch(e){}try{syncInbar();}catch(e){}try{jvSync();}catch(e){}try{renderXpert();}catch(e){}try{jkTray();}catch(e){}}
 function renderGridCore(){
   var grid=document.getElementById('grid'),hd=document.getElementById('gridhd'),nr=document.getElementById('noResults');
   if(!grid)return;var q=(VIEW.q||'').trim().toLowerCase();
@@ -5297,7 +5427,7 @@ function renderGridCore(){
   // Ladies' includes UNISEX. A unisex hoodie is genuinely available to her — it simply isn't cut
   // separately — so excluding it hid 10 of the 21 Sweaters & Fleece styles from anyone shopping for
   // the women on their team. Items with neither flag are men's-only and stay hidden.
-  var fitOK=function(list){var L=(VIEW.fit==='womens')?list.filter(function(k){var i=BYKEY[k]||{};return hasLadies(i)||i.unisex;}):list;return sortList(warmOK(bandOK(colourOK(L))));};
+  var fitOK=function(list){var L=(VIEW.fit==='womens')?list.filter(function(k){var i=BYKEY[k]||{};return hasLadies(i)||i.unisex;}):list;return sortList(jkOK(warmOK(bandOK(colourOK(L)))));};
   var subs=subNames(VIEW.cat),csa=VIEW.cat==='hivis'?(isUS()?' <span class="csa">ANSI 107</span>':' <span class="csa">CSA Z96</span>'):'';
   var _shown=(VIEW.sub==='all'?fitOK(ALLKEYS.filter(function(k){return (BUCKETS[VIEW.cat]||{})&&subs.some(function(s){return BUCKETS[VIEW.cat][s].indexOf(k)>=0;});})).length:fitOK(BUCKETS[VIEW.cat][VIEW.sub]||[]).length);
   SHOWN=_shown;

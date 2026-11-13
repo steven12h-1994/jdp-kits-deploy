@@ -5398,3 +5398,137 @@ html.r11 .cpfloor svg{flex:none!important}
   html.r11 .ah4go{display:none!important}
   html.r11 .ah4res{padding:12px!important}
   html.r11 .cpnb{padding:14px 16px 18px!important;flex-direction:column!important}}
+
+/* =====================================================================================================
+   ROUND 15 · the Jackets aisle — spec strip, warmth scale, compact filters, compare
+   ===================================================================================================== */
+/* the same two facts on every jacket card, in the same place, so a row reads as a comparison */
+html.r11 .jkspec{display:flex!important;flex-direction:column!important;gap:5px!important;margin:8px 0 10px!important;padding:9px 10px!important;border-radius:10px!important;background:var(--r-surf)!important;min-height:56px!important}
+html.r11 .jkr{display:flex!important;align-items:center!important;gap:8px!important;font-size:12.5px!important;line-height:1.2!important;color:var(--r-ink2)!important;min-width:0!important}
+html.r11 .jkr b{font-weight:600!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+html.r11 .jkr b.na{font-weight:500!important;color:var(--r-mut2)!important}
+html.r11 .jkl{flex:none!important;width:58px!important;font-size:10.5px!important;font-weight:700!important;letter-spacing:.08em!important;text-transform:uppercase!important;color:var(--r-mut)!important}
+html.r11 .jkm{flex:none!important;display:inline-flex!important;gap:2px!important}
+html.r11 .jkm i{display:block!important;width:9px!important;height:9px!important;border-radius:2px!important;background:#d9dde2!important}
+html.r11 .jkm i.on{background:var(--r-ink)!important}
+html.r11 .jkm.sm i{width:7px!important;height:7px!important}
+html.r11 .jkx{flex:none!important;width:12px!important;height:12px!important;border-radius:50%!important;border:2px solid var(--r-mut2)!important;background:#fff!important}
+html.r11 .jkx.wp{border-color:#0b63b6!important;background:#0b63b6!important;box-shadow:inset 0 0 0 2px #fff!important}
+html.r11 .jkx.wr{border-color:#0b63b6!important;background:#fff!important}
+html.r11 .jkx.wind{border-color:var(--r-mut)!important;background:#fff!important;border-style:dashed!important}
+/* the card's old fabric / warmth lines are replaced on jackets; keep the rest of the card unchanged */
+html.r11 .jkcmp{display:inline-flex!important;align-items:center!important;gap:7px!important;margin-top:10px!important;padding:5px 10px 5px 8px!important;border:1px solid var(--r-line2)!important;border-radius:8px!important;background:#fff!important;font:inherit!important;font-size:12.5px!important;font-weight:600!important;color:var(--r-ink2)!important;cursor:pointer!important}
+html.r11 .jkcmp:hover{border-color:var(--r-ink)!important}
+html.r11 .jkbx{width:14px!important;height:14px!important;border:1.5px solid var(--r-mut)!important;border-radius:3px!important;background:#fff!important;display:inline-block!important;position:relative!important}
+html.r11 .jkcmp.on{border-color:var(--a)!important;color:var(--a)!important;background:var(--r-tint)!important}
+html.r11 .jkcmp.on .jkbx{border-color:var(--a)!important;background:var(--a)!important}
+html.r11 .jkcmp.on .jkbx::after{content:""!important;position:absolute!important;left:4px!important;top:1px!important;width:4px!important;height:8px!important;border:solid #fff!important;border-width:0 2px 2px 0!important;transform:rotate(45deg)!important}
+/* shelves as one warmth scale */
+html.r11 .jkscale{display:flex!important;align-items:center!important;gap:12px!important;margin:0 0 10px!important;font-size:11.5px!important;font-weight:700!important;letter-spacing:.1em!important;text-transform:uppercase!important;color:var(--r-mut)!important}
+html.r11 .jkscale i{flex:1!important;height:4px!important;border-radius:2px!important;background:linear-gradient(90deg,#cfe3f7,#8fb5dd 40%,#e9a25f 75%,#c8532a)!important}
+html.r11 .jkshelves .shelfrow.n7{display:grid!important;grid-template-columns:repeat(7,minmax(0,1fr))!important;gap:10px!important;overflow:visible!important}
+html.r11 .jkshelves .shelfrow.n6{display:grid!important;grid-template-columns:repeat(6,minmax(0,1fr))!important;gap:10px!important}
+html.r11 .jkshelves .famt{min-width:0!important}
+html.r11 .jkshelves .famimg{aspect-ratio:1/1!important}
+html.r11 .jkshelves .famtx{padding:10px 11px 12px!important;gap:4px!important}
+html.r11 .jkshelves .famtx b{font-size:14px!important;line-height:1.25!important}
+html.r11 .jkshelves .famtx .jkbest{display:block!important;font-style:normal!important;font-size:12px!important;line-height:1.35!important;color:var(--r-mut)!important}
+html.r11 .jkshw{display:flex!important;align-items:center!important;gap:6px!important;font-size:11.5px!important;font-weight:600!important;color:var(--r-ink2)!important;margin-top:2px!important}
+html.r11 .jkshelves .famtx em{font-size:11.5px!important}
+/* one compact filter row */
+html.r11.jkcat #inbar{display:flex!important;flex-direction:row!important;flex-wrap:wrap!important;align-items:center!important;justify-content:flex-start!important;gap:10px 12px!important;padding:14px 0!important}
+html.r11.jkcat #inbar .inrow1{display:contents!important}
+html.r11.jkcat #inbar .fitbar{margin:0!important;padding:0!important;border:0!important}
+html.r11.jkcat #inbar #fitbar{order:1!important}
+html.r11.jkcat #inbar #warmbar{order:2!important;display:flex!important;gap:10px!important}
+html.r11.jkcat #inbar #colbar{order:3!important}
+html.r11.jkcat #inbar #bandbar{order:4!important}
+html.r11.jkcat #inbar #sortbar{order:5!important;margin-left:auto!important}
+html.r11.jkcat #inbar .fithint{flex-basis:100%!important}
+html.r11 .jksel{position:relative!important;display:inline-flex!important;align-items:center!important;gap:8px!important;height:40px!important;padding:0 10px 0 12px!important;border:1px solid var(--r-line2)!important;border-radius:10px!important;background:#fff!important;cursor:pointer!important}
+html.r11 .jksel span{font-size:10.5px!important;font-weight:700!important;letter-spacing:.08em!important;text-transform:uppercase!important;color:var(--r-mut)!important}
+html.r11 .jksel select{appearance:none!important;-webkit-appearance:none!important;border:0!important;background:transparent!important;font:inherit!important;font-size:14px!important;font-weight:600!important;color:var(--r-ink)!important;padding:0 18px 0 0!important;cursor:pointer!important;max-width:210px!important;background-image:linear-gradient(45deg,transparent 50%,var(--r-mut) 50%),linear-gradient(135deg,var(--r-mut) 50%,transparent 50%)!important;background-position:calc(100% - 7px) 55%,calc(100% - 2px) 55%!important;background-size:5px 5px!important;background-repeat:no-repeat!important}
+html.r11 .jksel.on{border-color:var(--r-ink)!important;box-shadow:inset 0 0 0 1px var(--r-ink)!important}
+html.r11 .jksel:focus-within{border-color:var(--a)!important;box-shadow:0 0 0 3px color-mix(in srgb,var(--a) 20%,transparent)!important}
+/* compare tray */
+html.r11 .jktray{position:fixed!important;left:50%!important;bottom:18px!important;transform:translate(-50%,140%)!important;z-index:880!important;width:min(760px,calc(100% - 24px))!important;background:var(--r-ink)!important;color:#fff!important;border-radius:16px!important;box-shadow:0 18px 40px -12px rgba(13,17,23,.5)!important;transition:transform .22s ease!important;visibility:hidden!important}
+html.r11 .jktray.on{transform:translate(-50%,0)!important;visibility:visible!important}
+html.r11 .jkti{display:flex!important;align-items:center!important;gap:10px!important;padding:10px 12px!important}
+html.r11 .jktk{position:relative!important;flex:none!important;width:52px!important;height:52px!important;border-radius:10px!important;background:#fff!important;overflow:hidden!important}
+html.r11 .jktk.empty{background:transparent!important;border:1.5px dashed rgba(255,255,255,.3)!important}
+html.r11 .jktk .capst{position:absolute!important;inset:6%!important}
+html.r11 .jktx{position:absolute!important;top:2px!important;right:2px!important;width:18px!important;height:18px!important;border-radius:50%!important;border:0!important;background:var(--r-ink)!important;color:#fff!important;font-size:13px!important;line-height:18px!important;padding:0!important;cursor:pointer!important}
+html.r11 .jktt{flex:1!important;min-width:0!important;display:flex!important;flex-direction:column!important;gap:2px!important;padding-left:4px!important}
+html.r11 .jktt b{font-size:14px!important}
+html.r11 .jktt i{font-style:normal!important;font-size:12.5px!important;color:rgba(255,255,255,.7)!important}
+html.r11 .jktgo{flex:none!important;height:40px!important;padding:0 18px!important;border:0!important;border-radius:10px!important;background:var(--a)!important;color:#fff!important;font:inherit!important;font-size:14.5px!important;font-weight:650!important;cursor:pointer!important}
+html.r11 .jktgo[disabled]{background:rgba(255,255,255,.16)!important;color:rgba(255,255,255,.6)!important;cursor:default!important}
+html.r11 .jktc{flex:none!important;border:0!important;background:none!important;color:rgba(255,255,255,.75)!important;font:inherit!important;font-size:13px!important;cursor:pointer!important;text-decoration:underline!important}
+html.r11.jktrayon #jhBtn,html.r11.jktrayon .jhdock{bottom:104px!important}
+/* compare modal */
+html.r11 .jkcm{position:fixed!important;inset:0!important;z-index:990!important;display:flex!important;align-items:center!important;justify-content:center!important;padding:24px!important}
+html.r11 .jkcmscrim{position:absolute!important;inset:0!important;background:rgba(13,17,23,.55)!important}
+html.r11 .jkcmbox{position:relative!important;width:min(1120px,100%)!important;max-height:calc(100vh - 48px)!important;display:flex!important;flex-direction:column!important;background:#fff!important;border-radius:18px!important;overflow:hidden!important;box-shadow:0 30px 60px -20px rgba(13,17,23,.5)!important}
+html.r11 .jkcmhd{display:flex!important;align-items:flex-start!important;justify-content:space-between!important;gap:16px!important;padding:18px 22px!important;border-bottom:1px solid var(--r-line)!important}
+html.r11 .jkcmhd b{display:block!important;font-size:20px!important;font-weight:750!important;color:var(--r-ink)!important}
+html.r11 .jkcmhd i{font-style:normal!important;font-size:13px!important;color:var(--r-mut)!important}
+html.r11 .jkcmx{flex:none!important;width:38px!important;height:38px!important;border-radius:10px!important;border:1px solid var(--r-line2)!important;background:#fff!important;font-size:22px!important;line-height:1!important;cursor:pointer!important;color:var(--r-ink)!important}
+html.r11 .jkcmsc{overflow:auto!important}
+html.r11 .jkcmsc table{width:100%!important;border-collapse:separate!important;border-spacing:0!important;table-layout:fixed!important}
+html.r11 .jkcmsc th,html.r11 .jkcmsc td{padding:12px 14px!important;border-bottom:1px solid var(--r-line)!important;vertical-align:top!important;text-align:left!important;font-size:13.5px!important;line-height:1.45!important;color:var(--r-ink2)!important}
+html.r11 .jkcmsc tbody th{width:132px!important;font-size:11px!important;font-weight:700!important;letter-spacing:.08em!important;text-transform:uppercase!important;color:var(--r-mut)!important;background:#fff!important;position:sticky!important;left:0!important;z-index:1!important}
+html.r11 .jkcmsc thead th{position:sticky!important;top:0!important;background:#fff!important;z-index:2!important;border-bottom:1px solid var(--r-line2)!important}
+html.r11 .jkcmsc thead th:first-child{width:132px!important;left:0!important;z-index:3!important}
+html.r11 .jkcmsc thead th b{display:block!important;font-size:14.5px!important;font-weight:700!important;color:var(--r-ink)!important;margin-top:8px!important}
+html.r11 .jkcmsc thead th em{display:block!important;font-style:normal!important;font-size:12px!important;color:var(--r-mut)!important}
+html.r11 .jkcmimg{position:relative!important;display:block!important;width:100%!important;max-width:170px!important;aspect-ratio:1/1!important;border-radius:12px!important;overflow:hidden!important;background:radial-gradient(70% 70% at 50% 42%,#fff 0%,#fff 40%,color-mix(in srgb,var(--a) 12%,#eef1f5) 100%)!important}
+html.r11 .jkcmimg .capst{position:absolute!important;inset:7%!important}
+html.r11 .jkctiers{display:flex!important;flex-wrap:wrap!important;gap:6px!important}
+html.r11 .jkct{display:inline-flex!important;flex-direction:column!important;padding:5px 9px!important;border:1px solid var(--r-line)!important;border-radius:8px!important;min-width:64px!important}
+html.r11 .jkct i{font-style:normal!important;font-size:11px!important;color:var(--r-mut)!important}
+html.r11 .jkct b{font-size:14px!important;color:var(--r-ink)!important}
+html.r11 .jkcw{display:flex!important;align-items:center!important;flex-wrap:wrap!important;gap:6px 8px!important}
+html.r11 .jkcw b{font-weight:650!important;color:var(--r-ink)!important}
+html.r11 .jkcw .best{font-style:normal!important;font-size:11px!important;font-weight:700!important;color:#0a7a43!important;background:color-mix(in srgb,#0a7a43 9%,#fff)!important;padding:2px 7px!important;border-radius:999px!important}
+html.r11 .jkcmsc small{display:block!important;margin-top:4px!important;font-size:12px!important;color:var(--r-mut)!important}
+html.r11 .jkcmsc .na{color:var(--r-mut2)!important}
+html.r11 .jkcc{display:flex!important;flex-wrap:wrap!important;gap:4px!important}
+html.r11 .jkcc i{width:16px!important;height:16px!important;border-radius:50%!important;box-shadow:inset 0 0 0 1px rgba(0,0,0,.15)!important}
+html.r11 .jkcact td{display:table-cell!important;border-bottom:0!important}
+html.r11 .jkcact td .jaall{display:block!important;width:100%!important;margin-bottom:8px!important}
+html.r11 .jkcact td .jalink{margin-right:12px!important;font-size:13px!important}
+html.r11.jkcmon{overflow:hidden!important}
+@media(max-width:1180px){html.r11 .jkshelves .shelfrow.n7,html.r11 .jkshelves .shelfrow.n6{display:flex!important;overflow-x:auto!important;scroll-snap-type:x mandatory!important;padding-bottom:6px!important}
+  html.r11 .jkshelves .famt{flex:0 0 172px!important;scroll-snap-align:start!important}}
+@media(max-width:700px){html.r11 .jkshelves .famt{flex:0 0 150px!important}
+  html.r11 .jkshelves .famtx .jkbest{font-size:11.5px!important}
+  html.r11.jkcat #inbar{gap:8px!important}
+  html.r11.jkcat #inbar #fitbar{flex-basis:100%!important}
+  html.r11.jkcat #inbar #warmbar{display:contents!important}
+  html.r11 .jksel{flex:1 1 calc(50% - 4px)!important;min-width:0!important;height:44px!important}
+  html.r11 .jksel select{max-width:none!important;width:100%!important;min-width:0!important}
+  html.r11.jkcat #inbar #colbar,html.r11.jkcat #inbar #bandbar{flex:1 1 calc(50% - 4px)!important;display:flex!important}
+  html.r11.jkcat #inbar #sortbar{margin-left:0!important;flex:1 1 100%!important}
+  html.r11 .jkspec{padding:8px!important;min-height:52px!important}
+  html.r11 .jkl{width:auto!important;display:none!important}
+  html.r11 .jkr{font-size:12px!important}
+  html.r11 .jkm i{width:7px!important;height:7px!important}
+  html.r11 .jktray{bottom:72px!important;border-radius:14px!important}
+  html.r11 .jktk{width:42px!important;height:42px!important}
+  html.r11 .jktt i{display:none!important}
+  html.r11 .jktc{display:none!important}
+  html.r11 .jkcm{padding:0!important}
+  html.r11 .jkcmbox{max-height:100vh!important;height:100%!important;border-radius:0!important}
+  html.r11 .jkcmsc table{width:auto!important;min-width:100%!important}
+  html.r11 .jkcmsc thead th:not(:first-child),html.r11 .jkcmsc td{width:58vw!important;min-width:200px!important}
+  html.r11 .jkcmsc tbody th,html.r11 .jkcmsc thead th:first-child{width:86px!important;min-width:86px!important;padding:10px 8px!important;font-size:10px!important}}
+
+html.r11.jktrayon .ffloat,html.r11.jkcmon .ffloat{display:none!important}
+html.r11.jkcat #inbar #fitbar .fitlbl,html.r11.jkcat #inbar #sortbar .fitlbl{display:none!important}
+html.r11.jkcat #inbar .fitbar{flex:0 0 auto!important;width:auto!important}
+html.r11.jkcat .jksel select{max-width:165px!important;text-overflow:ellipsis!important}
+@media(max-width:700px){html.r11.jkcat .jksel select{max-width:none!important}html.r11.jkcat #inbar .fitbar{flex:1 1 calc(50% - 4px)!important}html.r11.jkcat #inbar #fitbar{flex-basis:100%!important}}
+html.r11 .menu>.mcard{min-width:0!important}
+html.r11 .jkspec,html.r11 .jkr b{min-width:0!important}
+@media(max-width:700px){html.r11 .jkr b{white-space:normal!important;overflow:visible!important}}
+@media(max-width:700px){html.r11.jkcat #inbar #fitbar{order:-1!important}}
