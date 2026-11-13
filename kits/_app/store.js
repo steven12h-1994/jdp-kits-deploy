@@ -3635,7 +3635,137 @@ function caSpec(it){var f=jaFlags(it),w=jaWarm(it),ws=it.warm||{},isJ=/jacket|pa
    the fill spelled out (body / sleeves, the way the makers publish it), and a sentence saying how it compares with our
    pick and why. The level comes only from catalogue facts: the warmth band, the published body-fill weight, and the
    winter rating; a shell that is bonded to fleece or sherpa is named, because it adds warmth the fill number misses. */
-var CA_WLAB=['','Shell only — no insulation','Light insulation','Mid-weight insulation','Warm','Very warm'],
+/* ===== JDP WARMTH RATING v2 (Steven, 2026-11-13: "Your warmth assessment on our jackets is very wrong ... research
+   and execute a better way of rating warmth") =========================================================================
+   What was wrong: the old meter read ONE number -- body fill in grams -- and most makers don't publish it. So 70% of
+   our jackets fell to a default "Insulated": a 40 gsm packable quilted jacket sat level with a heavy duck work coat,
+   while the Hurricane (100 g fill AND a fleece-bonded softshell) showed "Light". Linings, wind, hoods, coat length,
+   sleeves (vests) and the makers' own tested ratings counted for nothing.
+
+   How warmth is really rated (Carhartt's lab-tested Warmth Rating, ASTM F2732 on a heated manikin; Canada Goose TEI;
+   the insulation-gram guides): warmth is the WHOLE garment -- insulation, lining, shell, coverage -- and the right level
+   depends on how hard the wearer is working. So every jacket now gets ONE rating on a six-step scale, built the same
+   way every time from what its maker publishes:
+     1. insulation: the published fill (g/m2, body weighted with sleeves); where none is published, an estimate from
+        the stated construction (thin quilting / high-loft / heavyweight / down / zip-out liner) -- and it SAYS so;
+     2. lining: sherpa, fleece, flannel, micro-fleece bonding, brushed tricot add warmth;
+     3. build: a windproof shell, a hood, hip-to-thigh coverage add; a hybrid's stretch side panels and a vest's
+        missing sleeves take away;
+     4. a maker's own tested rating (Carhartt Levels 1-4) wins over our estimate.
+   Each rating carries its basis (tested / published fill / estimated), the reasons in words, and what it is FOR,
+   with an activity guide (moving vs standing) instead of a promised temperature. */
+var JW=[
+  {id:'shell',lab:'No insulation',short:'Wind & rain layer',use:'Blocks wind and rain only \u2014 wear it over a hoodie or fleece'},
+  {id:'light',lab:'Light',short:'Cool days to near freezing',use:'Cool days and shoulder seasons, or hard work in the cold'},
+  {id:'mid',lab:'Mid-weight',short:'Around freezing',use:'Around freezing \u2014 or a Canadian winter if the crew keeps moving'},
+  {id:'warm',lab:'Warm',short:'Canadian winter',use:'Winter work with a mix of moving and standing'},
+  {id:'vwarm',lab:'Very warm',short:'Long winter days outside',use:'Long winter days outside, or standing still in the cold'},
+  {id:'ext',lab:'Extreme cold',short:'Deep cold, standing still',use:'Deep cold, or hours outside with little movement'}];
+var JW_CUT=[28,80,140,190,245];      /* effective insulation (g/m2 equivalent) at which levels 1..5 begin */
+var JW_LIN={sherpa:[85,'sherpa-fleece lining'],blanket:[45,'blanket lining'],fleece:[40,'fleece lining'],mfleece:[28,'fleece-bonded shell'],flannel:[28,'flannel lining'],tricot:[12,'brushed lining']};
+var JW_CH={1:'Warm',2:'Warmer',3:'Warmest',4:'Extreme Warmth'},JW_CHMAP={1:[1,1],2:[2,2],3:[3,4],4:[5,5]};
+var JW_MEMO={};
+function jwTxt(it){var f=it.fab,w=it.warm||{};
+  var s=[it.name,w.ins,(typeof f==='string'?f:''),f&&f.knit,f&&f.weight,f&&(f.finishes||[]).join(' '),(w.c||{}).ins,(w.c||{}).lin,(w.c||{}).sys].join(' ');
+  return String(s).toLowerCase().replace(/button-?down/g,'');}
+function jwFill(it){var c=(it.warm||{}).c||{};if(c.fb)return {b:+c.fb,s:c.fs?+c.fs:null};return caFillG(it);}
+/* the insulation estimate when no fill weight is published -- named, never passed off as a maker figure */
+function jwBase(it,t,nm,w,c){
+  /* the warmth is the LINING (sherpa, flannel, fleece) -- counted as a lining below, never twice */
+  var _wi=String(c.ins||w.ins||'').toLowerCase();if(_wi&&/sherpa|flannel|fleece|blanket/.test(_wi)&&!/fill|quilt|thermal|insulat|polyfill|thinsulate|loft/.test(_wi))return {e:0,why:''};
+  if(/\bin-1\b|3-in-1|5-in-1|system/.test(nm)){var s=String(c.sys||w.ins||t);
+    if(c.eb)return {e:+c.eb,why:'zip-out liner \u2014 '+String(c.ew||'insulated')};
+    if(/fleece/.test(s)&&!/quilt|thermal|polyfill|insulat/.test(s))return {e:40,why:'fleece zip-out liner'};
+    if(/heavy|hd\b|arctic/.test(nm+' '+s))return {e:130,why:'heavyweight insulated liner'};
+    return {e:85,why:'insulated zip-out liner'};}
+  if(c.ins==='none'&&!c.sys)return {e:0,why:''};
+  if(/\bdown\b/.test(t)&&!/synthetic down|feather-?free|imitation down|faux down|down[- ]alternative/.test(t))return /packable/.test(t)?{e:80,why:'packable down fill'}:{e:110,why:'down fill'};
+  if(c.eb)return {e:+c.eb,why:String(c.ew||'insulation, weight not published in grams')};
+  if(c.loft==='thin')return {e:55,why:'light quilted insulation'};
+  if(c.loft==='heavy')return {e:150,why:'heavyweight insulation'};
+  if(c.loft==='high')return /packable/.test(t)||c.pack?{e:70,why:'packable high-loft fill'}:{e:90,why:'high-loft synthetic fill'};
+  var hi=/thermolex|high[- ]?loft|synthetic down|imitation down|puff|primaloft|thermoball|fellex|heatseeker/.test(t);
+  if(/heavyweight|heavy-duty|\bhd\b|arctic|extreme/.test(nm)&&(hi||/insulat|quilt|thermal/.test(t)))return {e:150,why:'heavyweight insulation'};
+  if(/freezer/.test(nm))return {e:140,why:'freezer-weight insulation'};
+  if(hi)return /packable/.test(t)?{e:70,why:'packable high-loft fill'}:{e:90,why:'high-loft synthetic fill'};
+  if(/thermal shell|quilt|thermal|insulat/.test(t)&&w.band!=='uninsulated')return {e:55,why:'light quilted insulation'};
+  if(w.band==='winter')return {e:130,why:'winter-weight insulation'};
+  if(w.band==='insulated'&&/sherpa|flannel|fleece[- ]lined|blanket/.test(t))return {e:0,why:''};
+  if(w.band==='insulated')return {e:70,why:'insulated'};
+  return {e:0,why:''};}
+function jwRate(it){if(!it)return null;var mk=it.key+'|'+(it._wv||0);if(JW_MEMO[mk]!==undefined)return JW_MEMO[mk];
+  var w=it.warm||{},c=w.c||{},t=jwTxt(it),nm=String(it.name||'').toLowerCase().replace(/button-?down/g,''),cat=itemCategory(it);
+  var vest=cat==='vest'||/\bvest\b/.test(nm),F=(function(){try{return jaFlags(it)||[];}catch(e){return w.flags||[];}})();
+  var knit=!w.band&&!c.mk&&!c.fb&&(cat==='fleece'||cat==='tee'||cat==='polo'||cat==='woven');
+  var parts=[],conf='fill',E=0,f=jwFill(it);
+  if(f&&f.b){E=f.s?(0.7*f.b+0.3*f.s):f.b;parts.push(f.b+' g fill'+(f.s?(' body, '+f.s+' g sleeves'):''));}
+  else{conf='est';var B=jwBase(it,t,nm,w,c);E=B.e;if(B.why)parts.push(B.why);}
+  /* a fleece or knit body with no fill: light warmth, never "no insulation" and never a jacket's insulation */
+  if(!E&&(knit||(/fleece|sherpa/.test(nm)&&!/lined|lining/.test(nm))||(!w.band&&/fleece|sweater-knit|interlock|knit|performance full-zip/.test(t)))&&!/softshell|soft shell|shell|rain|wind/.test(nm)){var gs=caGsm(it)||0,_fl=/fleece|sherpa/.test(nm)||/fleece/.test(t);E=(_fl||gs>=230)?40:(gs>=170?30:0);if(E)parts.push((_fl?'fleece':'knit')+' body, no fill');}
+  var lin=c.lin||(/sherpa/.test(t)?'sherpa':(/blanket/.test(t)?'blanket':(/micro ?fleece|bonded[^,.;]*fleece|fleece[- ]bonded|bonded to (?:a )?(?:polar|brushed)/.test(t)?'mfleece':(/polar fleece|fleece[- ]lined|fleece lining|fleece-lined/.test(t)?'fleece':(/flannel/.test(t)&&/lin/.test(t)?'flannel':(/brushed tricot|tricot|brushed back/.test(t)?'tricot':''))))));
+  if(/sherpa|fleece/.test(nm)&&!/lined|lining/.test(nm)&&(lin==='sherpa'||lin==='fleece')&&!/softshell/.test(nm))lin='';   /* the body IS the fleece -- counted above */
+  if(JW_LIN[lin]){E+=JW_LIN[lin][0];parts.push(JW_LIN[lin][1]);}
+  if(/\bduck\b|canvas/.test(t)&&E>0){E+=12;parts.push('heavy canvas shell');}
+  if(E>0){
+    if(F.indexOf('windproof')>=0||c.wind===true){E*=1.08;parts.push('windproof shell');}
+    var hood=c.hood?(c.hood!=='none'):(F.indexOf('removable hood')>=0||/\bhood(ed|y|ie)?\b/.test(nm));
+    if(hood&&!vest){E*=1.03;parts.push('hood');}
+    var len=c.len||(/parka|\bcoat\b|full-length|mid-length/.test(nm)?'thigh':'');
+    if(len==='thigh'||len==='parka'){E*=1.12;parts.push('hip-to-thigh length');}else if(len==='knee'){E*=1.18;parts.push('knee length');}
+    if(/hybrid/.test(nm)&&!/in-1/.test(nm)){E*=0.85;parts.push('insulated core, stretch side panels');}
+    if(vest){E=Math.max(E*0.6,28);parts.push('no sleeves \u2014 core warmth');}}
+  var i=0;for(var j=0;j<JW_CUT.length;j++)if(E>=JW_CUT[j])i=j+1;
+  if(w.band==='winter'&&conf==='est'&&!vest&&!c.tmp&&!c.mk)i=Math.max(i,2);
+  if(c.mk&&JW_CHMAP[c.mk]){var m=JW_CHMAP[c.mk];i=Math.min(Math.max(i,m[0]),m[1]);conf='tested';parts.unshift('Carhartt Warmth Rating '+c.mk+' \u2014 '+JW_CH[c.mk]);}
+  /* a maker's own temperature band (Stormtech prints one per jacket in its catalogue; Clique publishes some): shown in the
+     maker's words, and it sets the band our rating must sit in -- the maker's figure outranks our estimate */
+  if(c.tmp&&!c.mk){var _n=String(c.tmp).match(/[+-]?\d+(?:\.\d+)?/g)||[];if(_n.length){var _v=_n.map(parseFloat),_lo=Math.min.apply(null,_v),_hi=Math.max.apply(null,_v);
+    var _b=_lo>=0?[0,1]:(_lo>=-12?[1,3]:(_lo>=-20?[2,4]:[3,5]));i=Math.min(Math.max(i,_b[0]),_b[1]);if(conf==='est')conf='range';
+    parts.unshift((it.brand||it.sku||'The maker')+' rates it '+jwDeg(_hi)+' to '+jwDeg(_lo));}}
+  if(vest)i=Math.min(i,3);
+  if(!E&&!c.mk&&w.band!=='uninsulated'&&!/shell|rain|wind|softshell|soft shell|jacket|vest|coat|anorak|shacket|parka/.test(nm)){JW_MEMO[mk]=null;return null;}
+  var L=JW[i],R={i:i,E:Math.round(E),conf:conf,parts:parts,lab:L.lab,short:L.short,use:L.use,vest:vest,
+    basis:conf==='tested'?'Carhartt\u2019s own lab-tested rating':(conf==='range'?'Rated within the maker\u2019s published temperature range':(conf==='fill'?'Rated from the maker\u2019s published fill':(i===0?'No insulation, per the maker':'Estimated from the maker\u2019s construction \u2014 fill weight not published')))};
+  JW_MEMO[mk]=R;return R;}
+function jwDeg(x){return (x>0?'+':(x<0?'\u2212':''))+Math.abs(x)+'\u00b0C';}
+function jwWhy(R){if(!R)return '';return R.basis+(R.parts.length?(': '+R.parts.join(' \u00b7 ')):'')+'.';}
+/* the activity guide, the way a good rep asks it: how cold, and how much will they move? (guide only, never a promise) */
+var JW_GUIDE={rows:[['Cool','above 5\u00b0C'],['Around freezing','5 to \u22125\u00b0C'],['Winter','\u22125 to \u221215\u00b0C'],['Deep cold','below \u221215\u00b0C']],
+  cols:['Moving most of the day','Mix of moving and standing','Standing or sitting still'],
+  grid:[[0,1,1],[1,2,3],[2,3,4],[3,4,5]]};
+function jwMeter(l){var b='';for(var i=1;i<=5;i++)b+='<i'+(i<=l?' class="on"':'')+'></i>';return '<span class="jkm" aria-hidden="true">'+b+'</span>';}
+function jwGuideHtml(){
+  return '<div class="jwg"><div class="jwgh"><b>Which warmth do you need?</b><i>Find how cold it gets and how much your people move. Guide only \u2014 wind, layers underneath and the person all matter.</i></div>'+
+    '<div class="jwgsc"><table class="jwgt"><thead><tr><th scope="col"><span class="vh">Conditions</span></th>'+JW_GUIDE.cols.map(function(c){return '<th scope="col">'+esc(c)+'</th>';}).join('')+'</tr></thead><tbody>'+
+    JW_GUIDE.rows.map(function(r,ri){return '<tr><th scope="row"><b>'+esc(r[0])+'</b><i>'+esc(r[1])+'</i></th>'+JW_GUIDE.grid[ri].map(function(l){
+      return '<td><button type="button" class="jwgc" data-jwgo="'+JW[l].id+'">'+jwMeter(l)+'<b>'+esc(JW[l].lab)+'</b></button></td>';}).join('')+'</tr>';}).join('')+
+    '</tbody></table></div></div>';}
+function jwScaleHtml(){return '<ol class="jws">'+JW.map(function(L,i){return '<li>'+jwMeter(i)+'<b>'+esc(L.lab)+'</b><i>'+esc(L.use)+'</i></li>';}).join('')+'</ol>';}
+function jwOpen(src){var old=document.getElementById('jwm');if(old)old.remove();jdpTrack('filter',{f:'warmth_guide',v:src||''});
+  var m=document.createElement('div');m.id='jwm';m.className='jkcm jwm';
+  m.innerHTML='<div class="jkcmscrim" data-jwx="1"></div><div class="jkcmbox jwbox" role="dialog" aria-modal="true" aria-label="How we rate warmth">'+
+    '<div class="jkcmhd"><div><b>How we rate warmth</b><i>One scale for every jacket and vest, built the same way from what each maker publishes</i></div><button type="button" class="jkcmx" data-jwx="1" aria-label="Close">\u00d7</button></div>'+
+    '<div class="jwbody">'+jwGuideHtml()+
+    '<div class="jwcols"><div><h4>The scale</h4>'+jwScaleHtml()+'</div>'+
+    '<div><h4>What goes into a rating</h4><ul class="jwin">'+
+      '<li><b>Insulation.</b> The maker\u2019s published fill in grams per m\u00b2 \u2014 body and sleeves. 40\u201360 g is light, 80\u2013100 g the everyday cold-weather weight, 150 g and up heavy.</li>'+
+      '<li><b>Lining.</b> Sherpa, fleece and flannel linings add real warmth; a fleece-bonded softshell adds some.</li>'+
+      '<li><b>Build.</b> A windproof shell, a hood and hip-to-thigh length keep heat in. A vest has no sleeves, so it is rated for core warmth only.</li>'+
+      '<li><b>Tested ratings win.</b> Carhartt tests on a heated manikin (ASTM F2732); its Levels 1\u20134 are shown as Carhartt publishes them.</li>'+
+      '<li><b>Maker temperature ranges set the band.</b> Stormtech prints a range for most jackets (e.g. \u221210 to \u221230\u00b0C); we show it in their words and rate within it.</li>'+
+      '<li><b>Estimates say so.</b> Where a maker publishes neither, we rate from its stated construction and label it \u201cestimated\u201d.</li></ul>'+
+      '<p class="jwnote">Temperatures on a product are the maker\u2019s own figures; the table above is a guide, not a promise. Ask us before ordering for freezers or for long, still work outside.</p></div></div>'+
+    '</div></div>';
+  document.body.appendChild(m);document.documentElement.classList.add('jkcmon');
+  var close=function(){m.remove();document.documentElement.classList.remove('jkcmon');document.removeEventListener('keydown',ek);};
+  var ek=function(e){if(e.key==='Escape')close();};document.addEventListener('keydown',ek);
+  m.addEventListener('click',function(e){if(e.target.closest('[data-jwx]')){close();return;}
+    var g=e.target.closest('[data-jwgo]');if(g){close();var id=g.dataset.jwgo,t=JK_WB.filter(function(b){return b[2](JW.map(function(x){return x.id;}).indexOf(id));})[0];
+      if(t&&JK_CATS[VIEW.cat]){VIEW.jw=t[0];jdpTrack('filter',{f:'warmth',v:t[0]});try{renderWarmbar();}catch(x){}renderGrid();var fb=document.querySelector('.jklens')||document.getElementById('inbar');if(fb)fb.scrollIntoView({behavior:'smooth',block:'start'});}
+      else if(t){setCat('outerwear');VIEW.jw=t[0];renderGrid();}}});}
+if(typeof document!=='undefined')document.addEventListener('click',function(e){var b=e.target.closest&&e.target.closest('[data-jwhy]');if(b){e.preventDefault();e.stopPropagation();jwOpen(b.dataset.jwhy||'');}},true);
+
+var CA_WLAB=['','No insulation','Light','Mid-weight','Warm','Very warm','Extreme cold'],
     CA_KLAB=['','Light layer','Midweight','Heavyweight'];
 function caFillG(it){var g=String((it.warm||{}).gsm||''),m=g.match(/(\d{2,3})\s*g/g)||[];
   var n=m.map(function(x){return parseInt(x,10);});return n.length?{b:n[0],s:n[1]||null}:null;}
@@ -3643,34 +3773,24 @@ function caWarmInfo(it){var c=itemCategory(it),f=caFillG(it),ws=it.warm||{},fab=
   var shellTxt=String((fab.knit||'')+' '+(typeof it.fab==='string'?it.fab:'')+' '+(it.name||'')).toLowerCase();
   var nm=String(it.name||'').toLowerCase();
   /* a fleece vest has no fill: say so plainly, on the jacket/vest scale it is compared on */
-  if(!ws.band&&c==='vest'&&/fleece/.test(nm)){var gv=caGsm(it);return {lvl:2,max:5,lab:'Light — fleece, no fill',detail:gv?(gv+' gsm fleece'):'Fleece body, no insulation layer',extra:'',fill:0,est:true};}
   /* knits are rated by fabric weight; anything with a warmth band (a "Detachable Hood" bomber is not a hoodie) is a jacket */
   if(!ws.band&&(c==='fleece'||c==='tee'||c==='polo'||c==='woven')){var b=caWarmBand(it),g=caGsm(it);
     return {lvl:b,max:3,lab:CA_KLAB[b]||'—',detail:g?(g+' gsm fabric'):'',knit:true,g:g||0};}
-  var w=jaWarm(it),lvl=0;
-  if(w===1)lvl=1;
-  else if(w>=2){var fb=f?f.b:0;
-    lvl=fb?(fb<130?2:(fb<180?3:(fb<220?4:5))):3;
-    if(w===3)lvl=Math.max(lvl,fb>=200?5:4);}
-  var detail='';
-  if(lvl===1)detail='No insulation layer';
-  else if(f)detail='Fill: '+f.b+' g body'+(f.s?(' · '+f.s+' g sleeves'):'')+(ws.ins&&!/thermal shell/i.test(ws.ins)?(' ('+String(ws.ins).toLowerCase()+')'):'');
-  else if(ws.ins)detail=caCap(String(ws.ins))+' — fill weight not published';
-  else if(lvl)detail='Fill weight not published';
-  var extra=/bonded|micro ?fleece|sherpa|fleece[- ]lined/.test(shellTxt)?(/sherpa/.test(shellTxt)?'Sherpa-fleece lining adds warmth':'Fleece-bonded shell adds warmth'):'';
-  return {lvl:lvl,max:5,lab:CA_WLAB[lvl]||'—',detail:detail,extra:extra,fill:f?f.b:0,est:lvl>=2&&!f,freezer:!!it.freezer};}
+  /* jackets and vests: the v2 rating (lvl = 1..6 so a shell stays truthy; the meter draws lvl-1 of 5 bars) */
+  var R=jwRate(it);if(!R)return {lvl:0,max:6,lab:'—',detail:'',extra:'',fill:0};
+  var fl=jwFill(it);
+  return {lvl:R.i+1,max:6,lab:CA_WLAB[R.i+1],detail:jwWhy(R),extra:'',fill:fl&&fl.b?fl.b:0,E:R.E,est:R.conf==='est',conf:R.conf,freezer:!!it.freezer};}
 function caWarmVs(a,b){   /* how option b compares with our pick a, in words a buyer can act on */
   if(!a.lvl||!b.lvl)return '';
-  var why=(a.fill&&b.fill)?(' — '+b.fill+' g vs '+a.fill+' g body fill'):((a.g&&b.g&&a.knit)?(' — '+b.g+' vs '+a.g+' gsm'):'');
-  /* a level that rests on an unpublished fill weight is an estimate, and is worded as one */
-  var est=(a.est||b.est)&&!(a.fill&&b.fill),np=est?' (fill weight not published)':'';
+  var why=(a.fill&&b.fill)?(' — '+b.fill+' g vs '+a.fill+' g fill'):((a.g&&b.g&&a.knit)?(' — '+b.g+' vs '+a.g+' gsm'):'');
+  var est=!!(a.est||b.est),np=est?' (estimated — fill weight not published)':'';
   if(b.lvl>a.lvl)return {t:(est?'Likely warmer':'Warmer')+' than our pick'+why+np,c:'up'};
-  if(b.lvl<a.lvl)return {t:(b.lvl===1?'No insulation — ':'')+(est&&b.lvl>1?'Likely less warm':'Less warm')+' than our pick'+why+(b.extra&&!a.extra?(' (but '+b.extra.toLowerCase()+')'):'')+(b.lvl>1?np:''),c:'dn'};
-  if(a.fill&&b.fill&&Math.abs(a.fill-b.fill)>=20)return {t:(b.fill>a.fill?'A little warmer':'A little lighter')+why,c:b.fill>a.fill?'up':'dn'};
-  return {t:(a.lvl===1?'Same — neither is insulated':'About the same warmth as our pick'+((a.fill&&b.fill)?why:np)),c:'eq'};}
+  if(b.lvl<a.lvl)return {t:(b.lvl===1&&!a.knit?'No insulation — ':'')+(est&&b.lvl>1?'Likely less warm':'Less warm')+' than our pick'+why+(b.lvl>1?np:''),c:'dn'};
+  if(a.E&&b.E&&Math.abs(a.E-b.E)>=0.15*Math.max(a.E,b.E))return {t:(b.E>a.E?'A little warmer':'A little lighter')+' than our pick, same level'+why,c:b.E>a.E?'up':'dn'};
+  return {t:(a.lvl===1&&!a.knit?'Same — neither is insulated':'About the same warmth as our pick'+why),c:'eq'};}
 function caWarmCell(W,vs){if(!W.lvl)return '—';
-  var bars='';for(var i=1;i<=W.max;i++)bars+='<i'+(i<=W.lvl?' class="on"':'')+'></i>';
-  return '<span class="cwm"><span class="cwbar l'+W.lvl+(W.max===3?' k':'')+'" role="img" aria-label="Warmth '+W.lvl+' of '+W.max+'">'+bars+'</span><b>'+esc(W.lab)+'</b></span>'+
+  var bars='',_n=W.max===6?5:W.max,_on=W.max===6?W.lvl-1:W.lvl;for(var i=1;i<=_n;i++)bars+='<i'+(i<=_on?' class="on"':'')+'></i>';
+  return '<span class="cwm"><span class="cwbar l'+W.lvl+(W.max===3?' k':'')+'" role="img" aria-label="Warmth '+_on+' of '+_n+'">'+bars+'</span><b>'+esc(W.lab)+'</b></span>'+
     (W.detail?('<span class="cwd">'+esc(W.detail)+'</span>'):'')+(W.extra?('<span class="cwd">'+esc(W.extra)+'</span>'):'')+
     (W.freezer?'<span class="cwd">Freezer range — confirm against your temperatures</span>':'')+
     (vs&&vs.t?('<span class="cwvs '+vs.c+'">'+esc(vs.t)+'</span>'):'');}
@@ -4221,7 +4341,7 @@ ca:{
 'office|1|1':['st_stratus','rainier','st_scirocco','Sealed seams keep steady rain out, and the ultra-light shell packs into a work bag on dry days.'],
 'office|2|1':['st_scirocco','cs_l02185','st_vertex','A seam-sealed shell over office layers: dry in steady rain, with the warmth coming from what’s underneath.'],
 'office|3|1':['st_nostromo',null,'st_avalante3in1','Insulation and a sealed waterproof shell in one sleek jacket — no separate rain layer on winter commutes.'],
-'office|4|1':['cs_l06000',null,'st_denali','A seam-sealed shell with a zip-out liner: the full system for the wettest, coldest commutes, the shell alone for spring rain.'],
+'office|4|1':['st_avalante3in1','cs_l06000','st_denali','A seam-sealed, soft-touch shell with a zip-out high-loft liner — Stormtech rates it \u221210 to \u221230\u00b0C — polished for the office, the shell alone for spring rain.'],
 'drivers|1|0':['st_pacificawind','st_nautilusshell','st_greenwich','Light and unrestrictive for getting in and out of vehicles all day.'],
 'drivers|2|0':{p:'cs_l07200',ang:'Stretch and a micro-fleece backing: moves with drivers and techs, and takes the edge off cool mornings.',alts:[['softshell','Value','Balmy — the economical everyday softshell'],['st_cruise','Weather-ready','Hooded H2XTREME stretch softshell']]},
 'drivers|3|0':{p:'cs_cyclone',ang:'An insulated stretch softshell — warm, but not bulky behind the wheel. Hooded option: Hurricane L03170.',alts:[['cs_l03400','Value','Playmaker — a conventional insulated jacket with a detachable hood'],['st_orbiter','Technical','Stormtech Orbiter — insulated softshell, Thermolex fill']]},
@@ -4236,7 +4356,7 @@ ca:{
 'warehouse|4|0':['cs_l01110','cs_l01025','cs_l01115','Long cold stretches on the dock or in the yard: heavy-duty Thinsulate in a bomber cut that still lets them move.'],
 'warehouse|1|1':['cs_l02185',null,'st_scirocco','A seam-sealed rain shell for dock runs in the rain, light enough to leave on indoors.'],
 'warehouse|2|1':['cs_l02185',null,'st_scirocco','A seam-sealed shell over a hoodie: dry on the dock, not too warm inside.'],
-'warehouse|3|1':['cs_l06000','st_nostromo','cs_l01115','The liner zips out for indoor stretches, and the seam-sealed shell handles wet dock work.'],
+'warehouse|3|1':['cs_l01115','cs_l06000','st_magellan','A heavy-duty seam-sealed 3-in-1 with a 180 g insulated inner jacket: zip it out for indoor stretches, the shell handles wet dock work.'],
 'warehouse|4|1':['cs_l01115','cs_l06000','st_magellan','Heavy-duty 3-in-1: sealed shell and warm inner jacket together for long wet, cold stretches outside.'],
 'outdoor|1|0':{p:'cs_l07240',ang:'A stretch softshell stands up to a working day better than a thin windbreaker.',alts:[['st_sierrashell','Value','Budget lightweight shell'],['st_cruise','Weather-ready','Hooded H2XTREME stretch softshell']]},
 'outdoor|2|0':['cs_l07200','softshell','cs_l01055','Stretch softshell bonded to micro fleece: moves with active crews and takes the edge off cool mornings.'],
@@ -4254,7 +4374,7 @@ us:{
 'office|1|1':['st_stratus','st_squall','st_artimus','Sealed seams keep steady rain out, and the ultra-light shell packs into a work bag on dry days.'],
 'office|2|1':['st_scirocco','st_stratus','st_vertex','A seam-sealed shell over office layers: dry in steady rain, with the warmth coming from what’s underneath.'],
 'office|3|1':['st_nostromo',null,'st_atmosphere','Insulation and a sealed waterproof shell in one sleek jacket — no separate rain layer on winter commutes.'],
-'office|4|1':['st_atmosphere','st_oslo','st_denali','A sealed shell with a zip-out liner: the full system for the wettest, coldest commutes, the shell alone for spring rain.'],
+'office|4|1':['st_avalante3in1','st_atmosphere','st_denali','A seam-sealed, soft-touch shell with a zip-out high-loft liner — Stormtech rates it \u221210 to \u221230\u00b0C — polished for the office, the shell alone for spring rain.'],
 'drivers|1|0':['st_pacificawind','st_nautilusshell','st_greenwich','Light and unrestrictive for getting in and out of vehicles all day.'],
 'drivers|2|0':{p:'cq_tempest',ang:'A waterproof stretch softshell that moves with drivers and techs all day.',alts:[['cq_tempo','Value','Clique Tempo — the stretch softshell at a lower price'],['st_cruise','Weather-ready','Hooded H2XTREME stretch softshell']]},
 'drivers|3|0':{p:'cq_equinox',ang:'An insulated stretch softshell with a hood — warm, but not bulky behind the wheel.',alts:[['cq_hudson','Value puffer','Clique Hudson — an insulated puffer at a uniform-friendly price'],['st_orbiter','Technical','Stormtech Orbiter — insulated softshell, Thermolex fill']]},
@@ -4265,20 +4385,20 @@ us:{
 'drivers|4|1':['st_magellan',null,'st_matrix','Fully sealed 3-in-1 at jacket length: deep-winter warmth that still works behind the wheel.'],
 'warehouse|1|0':['st_axis','st_sierrashell','st_greenwich','A light woven shell that won’t overheat indoors between quick trips out.'],
 'warehouse|2|0':['st_greenwich','st_axis','st_cascades','A lightweight softshell for quick trips outside — warm enough on the dock, not too warm inside.'],
-'warehouse|3|0':{p:'st_narvik',ang:'An insulated hybrid: warm through the body for the dock, with less bulk for working indoors.',alts:[['cq_hudson','Value puffer','Clique Hudson insulated puffer'],['cq_equinox','Insulated softshell','Clique Equinox — hooded insulated softshell']]},
-'warehouse|4|0':['st_vortex',null,'st_magellan','A heavy-duty 3-in-1 parka for long cold stretches outside — the fleece comes out for indoor work.'],
+'warehouse|3|0':{p:'st_steelhead',ang:'A heavy-duty Taslan work jacket with diamond-quilt insulation and a snap-off insulated hood — Stormtech rates it \u221210 to \u221230\u00b0C — built for the dock and the yard.',alts:[['cq_hudson','Value puffer','Clique Hudson insulated puffer'],['st_explorerquilted','Technical','Stormtech Explorer — Thermolex fill, storm hood with face shield']]},
+'warehouse|4|0':['st_explorerparka','st_steelhead','st_fairbanks','Long cold stretches in the yard: parka length, high-loft fill and a sherpa lining — Stormtech rates it \u221210 to \u221230\u00b0C.'],
 'warehouse|1|1':['st_squall',null,'st_scirocco','Welded seams keep the rain out on dock runs, and it’s light enough to leave on indoors.'],
 'warehouse|2|1':['st_squall',null,'st_scirocco','A welded-seam rain jacket over a hoodie: dry on the dock, not too warm inside.'],
-'warehouse|3|1':['st_atmosphere','st_nostromo','st_avalante3in1','The liner zips out for indoor stretches, and the sealed shell handles wet dock work.'],
-'warehouse|4|1':['st_magellan',null,'st_matrix','A fully sealed 3-in-1: shell and liner together for long wet, cold stretches outside.'],
+'warehouse|3|1':['st_magellan','st_atmosphere','st_matrix','A fully sealed HD shell with a zip-out thermal liner — Stormtech rates it \u221210 to \u221230\u00b0C — liner out for indoor stretches.'],
+'warehouse|4|1':['st_explorerparka','st_magellan','st_fairbanks','Long wet, cold stretches outside: a sealed H2XTREME parka with high-loft fill and a sherpa lining.'],
 'outdoor|1|0':['st_greenwich','st_pacificawind','st_cascades','A light softshell stands up to a working day better than a thin windbreaker.'],
 'outdoor|2|0':{p:'st_cascades',ang:'A stretch H2XTREME softshell for active crews on cool days.',alts:[['cq_tempest','Value','Clique Tempest — waterproof stretch softshell'],['st_cruise','Weather-ready','Hooded H2XTREME stretch softshell']]},
 'outdoor|3|0':{p:'st_steelhead',ang:'Heavy-duty insulated work jacket with an HD 5000/5000 waterproof shell — the US counterpart to our Canadian Champion pick.',alts:[['st_tradesmith','Traditional canvas','Tradesmith — sherpa-lined canvas work jacket'],['st_flatiron','Value','Flatiron — diamond-quilted work jacket']]},
-'outdoor|4|0':['st_vortex',null,'st_denali','Hours outside in deep cold: a heavy-duty 3-in-1 parka, fleece in for the coldest days.'],
+'outdoor|4|0':['st_explorerparka','st_steelhead','st_fairbanks','Hours outside in deep cold: parka length, high-loft fill and a sherpa lining — Stormtech rates it \u221210 to \u221230\u00b0C.'],
 'outdoor|1|1':['st_squall',null,'st_artimus','Welded seams keep active crews dry in steady rain, at a price that works for a whole crew.'],
 'outdoor|2|1':['st_scirocco','st_squall','st_vertex','A seam-sealed shell over a fleece: dry all shift, and the layer underneath does the warming.'],
 'outdoor|3|1':['st_magellan','st_nostromo','st_denali','A fully sealed 3-in-1: shell plus a warm liner, and either piece works alone as the weather shifts.'],
-'outdoor|4|1':['st_denali','st_magellan',null,'Long wet, cold shifts: a parka with a sealed 10000/10000 shell and Thermolex fill.']}};
+'outdoor|4|1':['st_explorerparka','st_magellan','st_fairbanks','Long wet, cold shifts: a sealed H2XTREME parka with high-loft fill and a sherpa lining.']}};
 /* a curated row is either the original trio [pick, lower, premium, why] or, where the buyer is choosing between
    purposes, {p, ang, alts:[[key, label, line], ...], note, only} */
 function caRow(row){if(!row)return null;if(Array.isArray(row))return {pick:row[0],lo:row[1],hi:row[2],ang:row[3]};
@@ -5295,16 +5415,9 @@ function wireFam(root){(root||document).querySelectorAll('[data-famsel]').forEac
    jaFlags. */
 var JK_CATS={outerwear:1,vests:1};
 function isJk(it){if(!it||it.csa||it.layer==='promo')return false;var c=itemCategory(it);if(c==='outer'||c==='vest')return true;try{var m=classify(it).mega;return m==='outerwear'||m==='vests';}catch(e){return false;}}
-var JK_WLAB=['','No insulation','Light insulation','Mid-weight','Warm','Very warm'];
-function jkWarm(it){var W=null;try{W=caWarmInfo(it);}catch(e){W=null;}
-  var nm=String((it&&it.name)||'').toLowerCase();
-  /* no published fill: name the maker's own band (winter weight / insulated), never a made-up fill level */
-  if(W&&!W.knit&&W.lvl>=2)return {lvl:W.lvl,est:!!W.est,lab:W.est?(W.lvl>=4?'Winter weight':(W.lvl===2?'Light insulation':'Insulated')):JK_WLAB[W.lvl],tip:(W.detail||'')+(W.extra?(' · '+W.extra):'')};
-  if((!W||W.knit||!W.lvl)&&/puff|quilt|thermal|insulat|\bdown\b|parka/.test(nm))return {lvl:3,est:true,lab:'Insulated',tip:'Insulated, per the product name — fill weight not published'};
-  /* a fleece shacket or fleece vest has no fill but is not a bare shell either */
-  if(/fleece|sherpa/.test(nm))return {lvl:2,lab:'Fleece, no fill',tip:'Fleece body, no insulation layer'};
-  if(W&&!W.knit&&W.lvl===1)return {lvl:1,lab:JK_WLAB[1],tip:'No insulation layer'};
-  return null;}
+var JK_WLAB=['No insulation','Light','Mid-weight','Warm','Very warm','Extreme cold'];
+function jkWarm(it){var R=null;try{R=jwRate(it);}catch(e){R=null;}if(!R)return null;
+  return {lvl:R.i,lab:R.lab,short:R.short,use:R.use,est:R.conf==='est',conf:R.conf,tip:jwWhy(R)};}
 function jkWx(it){var F=[];try{F=jaFlags(it)||[];}catch(e){F=[];}
   var has=function(x){return F.indexOf(x)>=0;};
   if(has('sealed seams')&&(has('waterproof')||((it.warm||{}).wp)))return 'wp';
@@ -5319,24 +5432,26 @@ function jkWxTip(it,x){var wp=String((it.warm||{}).wp||'');
 function jkMeter(l,cls){var b='';for(var i=1;i<=5;i++)b+='<i'+(i<=l?' class="on"':'')+'></i>';return '<span class="jkm'+(cls?(' '+cls):'')+'" aria-hidden="true">'+b+'</span>';}
 function jkSpecHtml(it){var W=jkWarm(it),x=jkWx(it);
   return '<div class="jkspec">'+
-    '<div class="jkr" title="'+esc(W?W.tip:'Warmth not published')+'"><span class="jkl">Warmth</span>'+(W?(jkMeter(W.lvl)+'<b>'+esc(W.lab)+'</b>'):'<b class="na">Not published</b>')+'</div>'+
+    '<div class="jkr" title="'+esc(W?W.tip:'Warmth not published')+'"><span class="jkl">Warmth</span>'+(W?(jkMeter(W.lvl)+'<b>'+esc(W.lab)+'</b>'+(W.est&&W.lvl>0?'<em class="jkest" aria-label="estimated">est.</em>':'')):'<b class="na">Not published</b>')+'</div>'+
+    (W?('<div class="jku">'+esc(W.short)+'</div>'):'')+
     '<div class="jkr" title="'+esc(jkWxTip(it,x))+'"><span class="jkl">Weather</span>'+(x?('<span class="jkx '+x+'" aria-hidden="true"></span><b>'+esc(JK_WX[x])+'</b>'):'<b class="na">Not rated for rain</b>')+'</div></div>';}
 /* the warmth filter on the jacket scale -- every jacket with a known warmth lands in one bucket */
 /* round 16: four warmth tiers, named the way a buyer says them, used by the filter, the aisle's warmth row and the
    warmth groups inside every jacket shelf -- one vocabulary everywhere (Steven, 2026-11-13: the Hurricane and Cyclone
    are insulated, yet sat on a shelf whose tile said "No insulation") */
-var JK_WB=[['shell','No insulation',function(l){return l===1;}],['light','Light warmth',function(l){return l===2;}],['mid','Insulated',function(l){return l===3;}],['warm','Winter weight',function(l){return l>=4;}]];
-var JK_TIER={shell:{sub:'Wind and rain protection only \u2014 layer it over a hoodie or fleece',lv:1},light:{sub:'Light insulation or a fleece backing \u2014 cool mornings and shoulder seasons',lv:2},
-  mid:{sub:'Real insulation \u2014 cold days, commutes and time on site',lv:3},warm:{sub:'The warmest fill we carry \u2014 long days outside in the cold',lv:4}};
-function jkTierOf(l){return l>=4?'warm':(l===3?'mid':(l===2?'light':(l===1?'shell':'')));}
+var JK_WB=[['shell','No insulation',function(l){return l===0;}],['light','Light',function(l){return l===1;}],['mid','Mid-weight',function(l){return l===2;}],
+  ['warm','Warm',function(l){return l===3;}],['deep','Very warm & extreme',function(l){return l>=4;}]];
+var JK_TIER={shell:{sub:JW[0].use,lv:0,sh:JW[0].short},light:{sub:JW[1].use,lv:1,sh:JW[1].short},mid:{sub:JW[2].use,lv:2,sh:JW[2].short},
+  warm:{sub:JW[3].use,lv:3,sh:JW[3].short},deep:{sub:'Long winter days outside, deep cold, or standing still for hours',lv:5,sh:'Long days in deep cold'}};
+function jkTierOf(l){return l>=4?'deep':(l===3?'warm':(l===2?'mid':(l===1?'light':(l===0?'shell':''))));}
 function jkTierLab(l){var t=jkTierOf(l);for(var i=0;i<JK_WB.length;i++)if(JK_WB[i][0]===t)return JK_WB[i][1];return '';}
 /* a shelf's warmth is a RANGE: a softshell shelf runs from bare shells to insulated softshells */
-function jkRange(L){var ls=L.map(jkLvlOf).filter(function(l){return l>0;});if(!ls.length)return null;return {lo:Math.min.apply(null,ls),hi:Math.max.apply(null,ls)};}
+function jkRange(L){var ls=L.map(jkLvlOf).filter(function(l){return l>=0;});if(!ls.length)return null;return {lo:Math.min.apply(null,ls),hi:Math.max.apply(null,ls)};}
 function jkRangeMeter(R){var b='';for(var i=1;i<=5;i++)b+='<i'+(i>=R.lo&&i<=R.hi?' class="on"':'')+'></i>';return '<span class="jkm sm" aria-hidden="true">'+b+'</span>';}
 function jkRangeTxt(R){var a=jkTierLab(R.lo),b=jkTierLab(R.hi);return a===b?a:(a+' to '+b.toLowerCase());}
 /* warmth groups inside every jacket shelf -- the quarter-zip family pattern, keyed on warmth */
 (function(){var sh=(typeof MEGASUB!=='undefined'&&MEGASUB.outerwear)||[];sh.forEach(function(x){if(SHELF_FAM[x])return;
-  SHELF_FAM[x]={jk:1,noun:String(x).toLowerCase().replace(/ & .*$/,''),intro:'Grouped by how warm each one is built, from the maker\u2019s published insulation. Every price includes your logo.',
+  SHELF_FAM[x]={jk:1,noun:String(x).toLowerCase().replace(/ & .*$/,''),intro:'Grouped by our warmth rating \u2014 insulation, lining, wind protection and coverage, from what each maker publishes. Every price includes your logo.',
     fams:JK_WB.map(function(b){return {id:b[0],lab:b[1],sub:JK_TIER[b[0]].sub};}).concat([{id:'np',lab:'Warmth not published',sub:'The maker doesn\u2019t publish insulation for these \u2014 ask us for the spec'}]),map:{},
     rule:function(it){var W=jkWarm(it);return W?jkTierOf(W.lvl):'np';}};});})();
 function famShelfHtml(sub,ks){var F=SHELF_FAM[sub];if(F&&F.jk){var _by={};ks.forEach(function(k){_by[shelfFamOf(sub,k)]=1;});
@@ -5358,10 +5473,10 @@ function jkAdvHtml(){var g=caCfgFor(VIEW.cat);if(!g||noAdvHere())return '';var A
 function jkWarmRowHtml(c){var L=[];subNames(c).forEach(function(x){(BUCKETS[c][x]||[]).forEach(function(k){if(L.indexOf(k)<0)L.push(k);});});
   var row=JK_WB.map(function(b){var ks=L.filter(function(k){return b[2](jkLvlOf(k));});if(!ks.length)return '';var ps=ks.map(famPrice).filter(function(p){return p>0;}),lo=ps.length?Math.min.apply(null,ps):0,on=VIEW.jw===b[0];
       return '<button type="button" class="jkwt'+(on?' on':'')+'" data-jkwt="'+b[0]+'" aria-pressed="'+on+'">'+jkMeter(JK_TIER[b[0]].lv)+'<span class="jkwtx"><b>'+esc(b[1])+'</b><i>'+esc(JK_TIER[b[0]].sub)+'</i><em>'+ks.length+' style'+(ks.length===1?'':'s')+(lo?(' \u00b7 from '+money(lo)+'/pc'):'')+'</em></span></button>';}).join('');
-  return '<div class="jklens"><h3 class="jklh">Shop by warmth</h3><div class="jkwrow">'+row+'</div>'+(VIEW.jw?'<button type="button" class="jalink jkwclr" data-jkwt="">Show every warmth</button>':'')+'</div><h3 class="jklh">Or by style</h3>';}
+  return '<div class="jklens"><div class="jklhrow"><h3 class="jklh">Shop by warmth</h3><button type="button" class="jalink jkwhy" data-jwhy="aisle">Which warmth do I need? <span aria-hidden="true">\u2192</span></button></div><div class="jkwrow">'+row+'</div>'+(VIEW.jw?'<button type="button" class="jalink jkwclr" data-jkwt="">Show every warmth</button>':'')+'</div><h3 class="jklh">Or by style</h3>';}
 
 var JK_WXF=[['wp','Waterproof — sealed seams',function(x){return x==='wp';}],['wr','At least water-resistant',function(x){return x==='wp'||x==='wr';}]];
-function jkLvlOf(k){var it=BYKEY[k],W=it?jkWarm(it):null;return W?W.lvl:0;}
+function jkLvlOf(k){var it=BYKEY[k],W=it?jkWarm(it):null;return W?W.lvl:-1;}
 function jkOK(list){if(!JK_CATS[VIEW.cat]||(!VIEW.jw&&!VIEW.wx))return list;
   var bw=VIEW.jw?JK_WB.filter(function(b){return b[0]===VIEW.jw;})[0]:null,bx=VIEW.wx?JK_WXF.filter(function(b){return b[0]===VIEW.wx;})[0]:null;
   return list.filter(function(k){var it=BYKEY[k];if(!it)return false;if(bw&&!bw[2](jkLvlOf(k)))return false;if(bx&&!bx[2](jkWx(it)))return false;return true;});}
@@ -5395,7 +5510,7 @@ var JK_SHELF={'Shells & Rainwear':'Wind and rain, no insulation','Softshell Jack
   'Shirt Jackets & Shackets':'Casual layer over a tee or hoodie','Insulated & Quilted':'Packable warmth for cold days',
   'Work Jackets & Bombers':'Tough shells for the yard and site','3-in-1 Jackets':'Shell + zip-out liner, three seasons',
   'Parkas & Winter Coats':'Deep winter, longer coverage'};
-function jkShelfLvl(L){var ls=L.map(jkLvlOf).filter(function(l){return l>0;}).sort(function(a,b){return a-b;});if(!ls.length)return 0;return ls[Math.floor(ls.length/2)];}
+function jkShelfLvl(L){var ls=L.map(jkLvlOf).filter(function(l){return l>=0;}).sort(function(a,b){return a-b;});if(!ls.length)return 0;return ls[Math.floor(ls.length/2)];}
 /* ---- compare up to three ---------------------------------------------------------------------------------------- */
 var JK_CMP=[];try{JK_CMP=JSON.parse(sessionStorage.getItem('jdp_jkcmp')||'[]').filter(function(k){return BYKEY[k];}).slice(0,3);}catch(e){JK_CMP=[];}
 function jkCmpSave(){try{sessionStorage.setItem('jdp_jkcmp',JSON.stringify(JK_CMP));}catch(e){}}
@@ -5421,7 +5536,7 @@ function jkCmpOpen(){if(JK_CMP.length<2)return;jdpTrack('filter',{f:'compare',v:
   var tiers=function(k){return caTiers(k).map(function(t){return '<span class="jkct"><i>'+t.q+'+</i><b>'+money(t.p)+'</b></span>';}).join('');};
   /* "Warmest here" only on a published figure, and only when one jacket is clearly warmest -- never on an estimate */
   var lvls=ks.map(jkLvlOf),mx=Math.max.apply(null,lvls),_wk=ks.filter(function(k,i){return lvls[i]===mx;}),_best=(_wk.length===1&&!(jkWarm(BYKEY[_wk[0]])||{}).est)?_wk[0]:'';
-  var h='<div class="jkcmbox" role="dialog" aria-modal="true" aria-label="Compare jackets"><div class="jkcmhd"><div><b>Compare '+ks.length+' jackets</b><i>Prices per piece with your logo · warmth and weather as the maker publishes them</i></div><button type="button" class="jkcmx" data-cmclose="1" aria-label="Close">×</button></div>'+
+  var h='<div class="jkcmbox" role="dialog" aria-modal="true" aria-label="Compare jackets"><div class="jkcmhd"><div><b>Compare '+ks.length+' jackets</b><i>Prices per piece with your logo · warmth on one scale, from each maker\u2019s published build · <button type="button" class="jalink" data-jwhy="compare">How we rate warmth</button></i></div><button type="button" class="jkcmx" data-cmclose="1" aria-label="Close">×</button></div>'+
     '<div class="jkcmsc"><table class="jkct'+ks.length+'"><thead><tr><th></th>'+ks.map(function(k){var it=BYKEY[k];return '<th scope="col"><span class="jkcmimg"><span class="capfl" aria-hidden="true"></span><span class="capst">'+caThumb(k)+'</span></span><b>'+esc(it.name)+'</b><em>'+esc(it.brand||it.sku||'')+(it.msku?(' · '+esc(it.msku)):'')+'</em></th>';}).join('')+'</tr></thead><tbody>'+
       cell('Price',function(k){return '<div class="jkctiers">'+tiers(k)+'</div>';})+
       cell('Warmth',function(k){var W=jkWarm(BYKEY[k]);return W?('<span class="jkcw">'+jkMeter(W.lvl)+'<b>'+esc(W.lab)+'</b>'+(k===_best?'<em class="best">Warmest here</em>':'')+'</span><small>'+esc(W.tip)+'</small>'):'<span class="na">Not published</span>';})+
