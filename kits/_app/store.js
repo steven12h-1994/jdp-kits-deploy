@@ -2224,7 +2224,7 @@ var CATGUIDE={
   /* Shorter than it was: the warmth and budget chips now sit directly beneath this line, so the
      paragraph no longer has to describe a control the reader cannot see. */
   /* round 15: one line -- the shelves, the card facts and the filters now carry what this paragraph used to explain */
-  outerwear:'Seven shelves, lightest to warmest. Every jacket shows its warmth and its rain protection the same way, and every price includes your logo.'
+  outerwear:'Choose by warmth or by style. Every jacket shows its warmth and its rain protection the same way, and every price includes your logo.'
 };
 var SUBGUIDE={
   'Shells & Rainwear':'The lightest layer \u2014 cuts wind, sheds rain and packs down small. No '+
@@ -5243,7 +5243,7 @@ function shelfFamOf(sub,k){var F=SHELF_FAM[sub];if(!F)return '';if(F.map[k])retu
   if(/fleece|thermal|sherpa|polar|grid/.test(t))return 'warm';
   return 'perf';}
 function famPrice(k){var p=0;try{p=sxPrice(k);}catch(e){p=0;}return p||0;}
-function famShelfHtml(sub,ks){var F=SHELF_FAM[sub],by={};ks.forEach(function(k){var f=shelfFamOf(sub,k);(by[f]=by[f]||[]).push(k);});
+function famShelfHtml0(sub,ks){var F=SHELF_FAM[sub],by={};ks.forEach(function(k){var f=shelfFamOf(sub,k);(by[f]=by[f]||[]).push(k);});
   var fams=F.fams.filter(function(f){return (by[f.id]||[]).length;}),on=VIEW.fam&&by[VIEW.fam]?VIEW.fam:null;
   var lead=function(f){var L=(f.lead||[]).filter(function(k){return (by[f.id]||[]).indexOf(k)>=0;});return L[0]||by[f.id][0];};
   var range=function(L){var ps=L.map(famPrice).filter(Boolean);if(!ps.length)return '';var lo=Math.min.apply(null,ps),hi=Math.max.apply(null,ps);return money(lo)+(hi>lo+0.5?('–'+money(hi)):'');};
@@ -5264,11 +5264,13 @@ function famShelfHtml(sub,ks){var F=SHELF_FAM[sub],by={};ks.forEach(function(k){
 function shelfTilesEl(){var c=VIEW.cat;if(!c||!BUCKETS[c]||(VIEW.q||'').trim()||VIEW.sub!=='all')return null;
   var subs=subNames(c).filter(function(x){return (BUCKETS[c][x]||[]).length;});if(subs.length<2)return null;
   var d=document.createElement('div');d.className='famtop shelftop'+(c==='outerwear'?' jkshelves':'');var _jk=c==='outerwear';
-  d.innerHTML=(_jk?'<div class="jkscale" aria-hidden="true"><span>Lighter</span><i></i><span>Warmer</span></div>':'')+'<div class="famrow shelfrow'+(_jk?' n'+subs.length:'')+'" role="group" aria-label="Shelves in '+esc(shortCat(c))+'">'+subs.map(function(x){var L=BUCKETS[c][x],
+  d.innerHTML=(_jk?jkWarmRowHtml(c):'')+'<div class="famrow shelfrow'+(_jk?' n'+subs.length:'')+'" role="group" aria-label="Shelves in '+esc(shortCat(c))+'">'+subs.map(function(x){var L=BUCKETS[c][x],
       ps=L.map(famPrice).filter(function(p){return p>0;}),lo=ps.length?Math.min.apply(null,ps):0,lead=L.filter(function(k){return famPrice(k)>0;})[0]||L[0];
     return '<button type="button" class="famt" data-shelftile="'+esc(x)+'"><span class="famimg"><span class="capfl" aria-hidden="true"></span><span class="capst">'+caThumb(lead)+'</span></span>'+
-      '<span class="famtx"><b>'+esc(x)+'</b>'+(_jk&&JK_SHELF[x]?('<i class="jkbest">'+esc(JK_SHELF[x])+'</i>'):'')+(_jk&&jkShelfLvl(L)?('<span class="jkshw">'+jkMeter(jkShelfLvl(L),'sm')+'<span>'+esc(JK_WLAB[jkShelfLvl(L)])+'</span></span>'):'')+'<em>'+L.length+' style'+(L.length===1?'':'s')+(lo?(' \u00b7 from '+money(lo)+'/pc'):'')+'</em></span></button>';}).join('')+'</div>';
+      '<span class="famtx"><b>'+esc(x)+'</b>'+(_jk&&JK_SHELF[x]?('<i class="jkbest">'+esc(JK_SHELF[x])+'</i>'):'')+(_jk&&jkRange(L)?('<span class="jkshw">'+jkRangeMeter(jkRange(L))+'<span>'+esc(jkRangeTxt(jkRange(L)))+'</span></span>'):'')+'<em>'+L.length+' style'+(L.length===1?'':'s')+(lo?(' \u00b7 from '+money(lo)+'/pc'):'')+'</em></span></button>';}).join('')+'</div>';
   d.querySelectorAll('[data-shelftile]').forEach(function(b){b.addEventListener('click',function(){jdpTrack('aisle',{c:c,src:'shelftile'});setSub(b.dataset.shelftile);});});
+  d.querySelectorAll('[data-jkwt]').forEach(function(b){b.addEventListener('click',function(){var v=b.dataset.jkwt||null;VIEW.jw=(v&&VIEW.jw!==v)?v:null;jdpTrack('filter',{f:'warmth',v:VIEW.jw||'any',src:'tile'});
+    renderWarmbar();renderGrid();try{renderFilterUI();}catch(e){}var g=document.getElementById('inbar');if(g&&VIEW.jw){var y=g.getBoundingClientRect().top+window.scrollY-90;if(window.scrollY<y)window.scrollTo({top:y,behavior:'smooth'});}});});
   return d;}
 function liftFamTop(){var ib=document.getElementById('inbar'),old=document.getElementById('famlift');
   var t=document.querySelector('#grid .famtop')||shelfTilesEl();
@@ -5320,7 +5322,44 @@ function jkSpecHtml(it){var W=jkWarm(it),x=jkWx(it);
     '<div class="jkr" title="'+esc(W?W.tip:'Warmth not published')+'"><span class="jkl">Warmth</span>'+(W?(jkMeter(W.lvl)+'<b>'+esc(W.lab)+'</b>'):'<b class="na">Not published</b>')+'</div>'+
     '<div class="jkr" title="'+esc(jkWxTip(it,x))+'"><span class="jkl">Weather</span>'+(x?('<span class="jkx '+x+'" aria-hidden="true"></span><b>'+esc(JK_WX[x])+'</b>'):'<b class="na">Not rated for rain</b>')+'</div></div>';}
 /* the warmth filter on the jacket scale -- every jacket with a known warmth lands in one bucket */
-var JK_WB=[['shell','No insulation',function(l){return l===1;}],['light','Light',function(l){return l===2;}],['mid','Mid-weight',function(l){return l===3;}],['warm','Warm & very warm',function(l){return l>=4;}]];
+/* round 16: four warmth tiers, named the way a buyer says them, used by the filter, the aisle's warmth row and the
+   warmth groups inside every jacket shelf -- one vocabulary everywhere (Steven, 2026-11-13: the Hurricane and Cyclone
+   are insulated, yet sat on a shelf whose tile said "No insulation") */
+var JK_WB=[['shell','No insulation',function(l){return l===1;}],['light','Light warmth',function(l){return l===2;}],['mid','Insulated',function(l){return l===3;}],['warm','Winter weight',function(l){return l>=4;}]];
+var JK_TIER={shell:{sub:'Wind and rain protection only \u2014 layer it over a hoodie or fleece',lv:1},light:{sub:'Light insulation or a fleece backing \u2014 cool mornings and shoulder seasons',lv:2},
+  mid:{sub:'Real insulation \u2014 cold days, commutes and time on site',lv:3},warm:{sub:'The warmest fill we carry \u2014 long days outside in the cold',lv:4}};
+function jkTierOf(l){return l>=4?'warm':(l===3?'mid':(l===2?'light':(l===1?'shell':'')));}
+function jkTierLab(l){var t=jkTierOf(l);for(var i=0;i<JK_WB.length;i++)if(JK_WB[i][0]===t)return JK_WB[i][1];return '';}
+/* a shelf's warmth is a RANGE: a softshell shelf runs from bare shells to insulated softshells */
+function jkRange(L){var ls=L.map(jkLvlOf).filter(function(l){return l>0;});if(!ls.length)return null;return {lo:Math.min.apply(null,ls),hi:Math.max.apply(null,ls)};}
+function jkRangeMeter(R){var b='';for(var i=1;i<=5;i++)b+='<i'+(i>=R.lo&&i<=R.hi?' class="on"':'')+'></i>';return '<span class="jkm sm" aria-hidden="true">'+b+'</span>';}
+function jkRangeTxt(R){var a=jkTierLab(R.lo),b=jkTierLab(R.hi);return a===b?a:(a+' to '+b.toLowerCase());}
+/* warmth groups inside every jacket shelf -- the quarter-zip family pattern, keyed on warmth */
+(function(){var sh=(typeof MEGASUB!=='undefined'&&MEGASUB.outerwear)||[];sh.forEach(function(x){if(SHELF_FAM[x])return;
+  SHELF_FAM[x]={jk:1,noun:String(x).toLowerCase().replace(/ & .*$/,''),intro:'Grouped by how warm each one is built, from the maker\u2019s published insulation. Every price includes your logo.',
+    fams:JK_WB.map(function(b){return {id:b[0],lab:b[1],sub:JK_TIER[b[0]].sub};}).concat([{id:'np',lab:'Warmth not published',sub:'The maker doesn\u2019t publish insulation for these \u2014 ask us for the spec'}]),map:{},
+    rule:function(it){var W=jkWarm(it);return W?jkTierOf(W.lvl):'np';}};});})();
+function famShelfHtml(sub,ks){var F=SHELF_FAM[sub];if(F&&F.jk){var _by={};ks.forEach(function(k){_by[shelfFamOf(sub,k)]=1;});
+    if(Object.keys(_by).length<2)return '<div class="menu">'+ks.map(menuCard).join('')+'</div>';}
+  var h=famShelfHtml0(sub,ks);if(!(F&&F.jk))return h;
+  /* jacket shelves: compact warmth tiles (meter + words), not photo cards -- the jackets themselves follow straight after */
+  return h.replace('<div class="famtop">','<div class="famtop jkfam">').replace(/data-famsel="(\w+)" aria-pressed="(true|false)">/g,function(m,id){var t=JK_TIER[id];return m+(t?jkMeter(t.lv):'');});}
+/* the jacket advisor, made visible (Steven, 2026-11-13: "the jackets advisor should be more apparent"): one card at the top
+   of the aisle and of every jacket shelf -- its own garments with the buyer's logo, one button */
+function jkAdvHtml(){var g=caCfgFor(VIEW.cat);if(!g||noAdvHere())return '';var A=caSt(g.id),rd=caReady(g,A);
+  var q0=(g.qs||[])[0]||{},M=CA_PIC[g.id+'.'+q0.id]||{},ks=Object.keys(M).map(function(o){return M[o];}).filter(function(k){return BYKEY[k];}).slice(0,3);
+  var nm=g.id==='vests'?'vest':'jacket';
+  return '<div class="jkadv" role="region" aria-label="'+esc(g.label)+'"><div class="jkadvtx"><span class="jkadvey">'+caSvg('spark',14)+' '+esc(g.label)+'</span>'+
+    '<b>'+(rd?('Your '+nm+' picks are ready'):('Not sure which '+nm+'? We\u2019ll pick one for each group.'))+'</b>'+
+    '<i>'+(rd?'Hand-picked for your answers, with your logo on each \u2014 plus a lower-cost and a premium option.':(esc(caQword(g,A))+' quick questions \u2014 who wears it, how cold, how wet. You get our pick with your logo, plus a lower-cost and a premium option.'))+'</i></div>'+
+    (ks.length?('<div class="jkadvimg" aria-hidden="true">'+ks.map(function(k){return '<span class="jkadvk"><span class="capst">'+caThumb(k)+'</span></span>';}).join('')+'</div>'):'')+
+    '<button type="button" class="jkadvgo" data-advgo="'+esc(VIEW.cat)+'" data-src="aisle_banner">'+(rd?'See my picks':('Start the '+nm+' advisor'))+' <span aria-hidden="true">\u2192</span></button></div>';}
+/* the aisle's first choice is warmth: four tiles that filter the whole aisle, then the style shelves */
+function jkWarmRowHtml(c){var L=[];subNames(c).forEach(function(x){(BUCKETS[c][x]||[]).forEach(function(k){if(L.indexOf(k)<0)L.push(k);});});
+  var row=JK_WB.map(function(b){var ks=L.filter(function(k){return b[2](jkLvlOf(k));});if(!ks.length)return '';var ps=ks.map(famPrice).filter(function(p){return p>0;}),lo=ps.length?Math.min.apply(null,ps):0,on=VIEW.jw===b[0];
+      return '<button type="button" class="jkwt'+(on?' on':'')+'" data-jkwt="'+b[0]+'" aria-pressed="'+on+'">'+jkMeter(JK_TIER[b[0]].lv)+'<span class="jkwtx"><b>'+esc(b[1])+'</b><i>'+esc(JK_TIER[b[0]].sub)+'</i><em>'+ks.length+' style'+(ks.length===1?'':'s')+(lo?(' \u00b7 from '+money(lo)+'/pc'):'')+'</em></span></button>';}).join('');
+  return '<div class="jklens"><h3 class="jklh">Shop by warmth</h3><div class="jkwrow">'+row+'</div>'+(VIEW.jw?'<button type="button" class="jalink jkwclr" data-jkwt="">Show every warmth</button>':'')+'</div><h3 class="jklh">Or by style</h3>';}
+
 var JK_WXF=[['wp','Waterproof — sealed seams',function(x){return x==='wp';}],['wr','At least water-resistant',function(x){return x==='wp'||x==='wr';}]];
 function jkLvlOf(k){var it=BYKEY[k],W=it?jkWarm(it):null;return W?W.lvl:0;}
 function jkOK(list){if(!JK_CATS[VIEW.cat]||(!VIEW.jw&&!VIEW.wx))return list;
@@ -11767,7 +11806,8 @@ function jvPost(){var hd=document.getElementById('gridhd');if(!hd||(VIEW.q||'').
   if(cr)cr.outerHTML=html;else hd.insertAdjacentHTML('afterbegin',html);
   hd.querySelectorAll('.crumbs [data-snall]').forEach(function(b){b.addEventListener('click',function(){jdpTrack('shelf_back',{c:VIEW.cat,s:VIEW.sub});backToAisle();});});
   var g=(VIEW.cat!=='carhartt'&&!noAdvHere())?caCfgFor(VIEW.cat):null,gs=hd.querySelector('.gsub');
-  if(g&&gs){gs.insertAdjacentHTML('afterend','<button type="button" class="jvask" data-advgo="'+esc(VIEW.cat)+'" data-src="aisle">'+caSvg('spark',14)+'<span>Not sure which to choose? <b>Get a recommendation</b></span><span aria-hidden="true">\u2192</span></button>');wireAdvGo(hd);}}
+  if(g&&JK_CATS[VIEW.cat]){var _ob=hd.querySelector('.jkadv');if(_ob)_ob.remove();hd.insertAdjacentHTML('beforeend',jkAdvHtml());wireAdvGo(hd);}
+  else if(g&&gs){gs.insertAdjacentHTML('afterend','<button type="button" class="jvask" data-advgo="'+esc(VIEW.cat)+'" data-src="aisle">'+caSvg('spark',14)+'<span>Not sure which to choose? <b>Get a recommendation</b></span><span aria-hidden="true">\u2192</span></button>');wireAdvGo(hd);}}
 document.addEventListener('click',function(e){var t=e.target&&e.target.closest?e.target:null;if(!t)return;
   var v=t.closest('[data-jv]');if(v){e.preventDefault();var w=v.dataset.jv;
     if(w==='shop'){jdpTrack('logo_home',{src:'tab'});goHome();}else if(w==='adv')openAdvView('',v.closest('.jvtabs')?'tab':'link');else if(w==='prog')openProgView(v.closest('.jvtabs')?'tab':'link');

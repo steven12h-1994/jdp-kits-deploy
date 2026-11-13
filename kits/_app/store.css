@@ -5532,3 +5532,48 @@ html.r11 .menu>.mcard{min-width:0!important}
 html.r11 .jkspec,html.r11 .jkr b{min-width:0!important}
 @media(max-width:700px){html.r11 .jkr b{white-space:normal!important;overflow:visible!important}}
 @media(max-width:700px){html.r11.jkcat #inbar #fitbar{order:-1!important}}
+
+/* =====================================================================================================
+   ROUND 16 · jackets organised by warmth, advisor made visible
+   ===================================================================================================== */
+html.r11 .jkadv{display:flex!important;align-items:center!important;gap:22px!important;flex-basis:100%!important;width:100%!important;margin:18px 0 6px!important;padding:16px 18px 16px 22px!important;border-radius:16px!important;background:var(--r-ink)!important;color:#fff!important;position:relative!important;overflow:hidden!important}
+html.r11 .jkadv::before{content:""!important;position:absolute!important;inset:0!important;background:radial-gradient(60% 140% at 100% 0%,color-mix(in srgb,var(--a) 45%,transparent) 0%,transparent 70%)!important;pointer-events:none!important}
+html.r11 .jkadvtx{position:relative!important;flex:1!important;min-width:0!important;display:flex!important;flex-direction:column!important;gap:5px!important}
+html.r11 .jkadvey{display:inline-flex!important;align-items:center!important;gap:6px!important;font-size:11.5px!important;font-weight:700!important;letter-spacing:.12em!important;text-transform:uppercase!important;color:rgba(255,255,255,.75)!important}
+html.r11 .jkadvtx b{font-size:20px!important;font-weight:750!important;letter-spacing:-.01em!important;line-height:1.25!important}
+html.r11 .jkadvtx i{font-style:normal!important;font-size:14px!important;line-height:1.45!important;color:rgba(255,255,255,.78)!important;max-width:46em!important}
+html.r11 .jkadvimg{position:relative!important;flex:none!important;display:flex!important;gap:8px!important}
+html.r11 .jkadvk{position:relative!important;width:84px!important;height:84px!important;border-radius:12px!important;background:#fff!important;overflow:hidden!important;display:block!important}
+html.r11 .jkadvk .capst{position:absolute!important;inset:6%!important}
+html.r11 .jkadvgo{position:relative!important;flex:none!important;height:46px!important;padding:0 20px!important;border:0!important;border-radius:11px!important;background:var(--a)!important;color:#fff!important;font:inherit!important;font-size:15px!important;font-weight:650!important;cursor:pointer!important;box-shadow:0 0 0 1px rgba(255,255,255,.18)!important}
+html.r11 .jkadvgo:hover{filter:brightness(1.08)!important}
+/* the warmth lens */
+html.r11 .jklh{font-size:12px!important;font-weight:700!important;letter-spacing:.12em!important;text-transform:uppercase!important;color:var(--r-mut)!important;margin:4px 0 10px!important}
+html.r11 .jklens{margin-bottom:18px!important}
+html.r11 .jkwrow{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:10px!important}
+html.r11 .jkwt{display:flex!important;align-items:flex-start!important;gap:12px!important;padding:14px 14px 13px!important;border:1px solid var(--r-line)!important;border-radius:14px!important;background:#fff!important;text-align:left!important;cursor:pointer!important;font:inherit!important;color:var(--r-ink)!important}
+html.r11 .jkwt:hover{border-color:var(--r-line2)!important;box-shadow:var(--r-sh)!important}
+html.r11 .jkwt .jkm{margin-top:5px!important}
+html.r11 .jkwt.on{border-color:var(--r-ink)!important;box-shadow:inset 0 0 0 1px var(--r-ink)!important;background:var(--r-surf)!important}
+html.r11 .jkwtx{display:flex!important;flex-direction:column!important;gap:3px!important;min-width:0!important}
+html.r11 .jkwtx b{font-size:15px!important;font-weight:700!important}
+html.r11 .jkwtx i{font-style:normal!important;font-size:12.5px!important;line-height:1.4!important;color:var(--r-mut)!important}
+html.r11 .jkwtx em{font-style:normal!important;font-size:12px!important;font-weight:600!important;color:var(--r-ink2)!important;margin-top:2px!important}
+html.r11 .jkwclr{margin-top:8px!important;font-size:13px!important}
+@media(max-width:1000px){html.r11 .jkwrow{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  html.r11 .jkadvimg{display:none!important}}
+@media(max-width:700px){html.r11 .jkadv{flex-direction:column!important;align-items:stretch!important;gap:12px!important;padding:16px!important}
+  html.r11 .jkadvtx b{font-size:17px!important}
+  html.r11 .jkadvtx i{font-size:13px!important}
+  html.r11 .jkadvgo{width:100%!important}
+  html.r11 .jkwt{padding:11px!important;gap:9px!important}
+  html.r11 .jkwtx i{display:none!important}
+  html.r11 .jkwtx b{font-size:14px!important}}
+html.r11 .jkfam .famrow{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:10px!important;overflow:visible!important}
+html.r11 .jkfam .famt{flex-direction:row!important;align-items:flex-start!important;gap:12px!important;padding:13px 14px!important;min-width:0!important}
+html.r11 .jkfam .famt .jkm{margin-top:5px!important;flex:none!important}
+html.r11 .jkfam .famimg{display:none!important}
+html.r11 .jkfam .famtx{padding:0!important}
+html.r11 .jkfam .famintro{margin-bottom:12px!important}
+@media(max-width:1000px){html.r11 .jkfam .famrow{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+@media(max-width:700px){html.r11 .jkfam .famtx i{display:none!important}html.r11 .jkfam .famt{padding:11px!important}}
