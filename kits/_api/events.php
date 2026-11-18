@@ -220,8 +220,10 @@ function dash_feed(int $days): array {
             continue; }
         $kit = $S['kit']; $ev = $S['ev']; $first = (int)$ev[0]['t']; $last = (int)end($ev)['t'];
         /* where this visit came from: the contact token's send step, else the link's utm_source, else direct */
-        $src = 'direct'; foreach ($ev as $r) { if (!empty($r['ct']) && preg_match('/\.\d*([a-z]+\d*)$/', $r['ct'], $mm)) { $src = 'ct:' . $mm[1]; break; }
-            if (!empty($r['src'])) { $src = 'utm:' . $r['src']; } }
+        $src = 'direct'; $ctS = ''; $utm = '';
+        foreach ($ev as $r) { if (!$ctS && !empty($r['ct']) && preg_match('/\.\d*([a-z]+\d*)$/', $r['ct'], $mm)) $ctS = $mm[1]; if (!$utm && !empty($r['src'])) $utm = $r['src']; }
+        if ($utm !== '' && strpos($utm, 'nl') === 0) $src = 'utm:' . $utm;          // a newsletter edition beats the generic 'nl' step
+        elseif ($ctS !== '') $src = 'ct:' . $ctS; elseif ($utm !== '') $src = 'utm:' . $utm;
         $acts = 0; $brow = false; $strong = false;
         foreach ($ev as $r) { $e0 = $r['e'] ?? ''; if ($e0 === 'engaged') $brow = true;
             elseif (!in_array($e0, ['view', 'exit_show', 'market_hint', 'logo_home'], true)) { $acts++; $brow = true; }
@@ -296,6 +298,11 @@ function dash_feed(int $days): array {
     }
     /* --- leads --- */
     $contacts = jread(data_root() . '/_dash/contacts.json'); $marks = jread(data_root() . '/_dash/marks.json');
+    $sends = []; $sendN = []; $sf = data_root() . '/_dash/sends.jsonl'; $since = $now - $days * 86400;
+    if (is_file($sf)) { $fh = @fopen($sf, 'r'); if ($fh) { while (($ln = fgets($fh)) !== false) { $r = json_decode($ln, true); if (!is_array($r) || empty($r['kit'])) continue;
+        $sends[$r['kit']][] = $r; if ((int)$r['t'] >= $since) { $k2 = preg_match('/^nl/', $r['step']) ? 'utm:' . $r['step'] : 'ct:' . $r['step']; $sendN[$k2] = ($sendN[$k2] ?? 0) + 1; } } fclose($fh); } }
+    $calls = []; $lf = data_root() . '/_dash/marklog.jsonl';          // Steven's call outcomes, newest last
+    if (is_file($lf)) foreach (array_slice(file($lf, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [], -3000) as $ln) { $r = json_decode($ln, true); if (is_array($r) && !empty($r['kit'])) $calls[$r['kit']][] = $r; }
     $kn = kit_names(array_unique(array_merge(array_keys($L), array_column($live, 'kit'))));
     $leads = [];
     foreach ($L as $kit => $K) {
@@ -339,7 +346,7 @@ function dash_feed(int $days): array {
             if (!empty($o['k']) && isset($names[$o['k']])) $o['kn'] = $names[$o['k']];
             return $o; }, array_slice($tl, 0, 40));
         $mk = $marks[$kit] ?? null; $snoozed = $mk && ($mk['s'] ?? '') === 'snooze' && ($mk['t'] ?? 0) > $K['last'];
-        $called = $mk && ($mk['s'] ?? '') === 'called' && ($mk['t'] ?? 0) > $K['last'];
+        $called = $mk && in_array($mk['s'] ?? '', ['called', 'won'], true) && ($mk['t'] ?? 0) > $K['last'];
         $tier = ($score >= 45 || ($K['strong'] ?? 0) > $now - 7 * 86400) ? 'hot' : ($score >= 18 ? 'warm' : 'cool');   // a quote built this week is hot, full stop
         $leads[] = ['kit' => $kit, 'client' => $kn[$kit] ?? $kit, 'score' => round($score, 1), 'tier' => $tier, 'live' => $isLive,
             'first' => $K['first'], 'last' => $K['last'], 'sessions' => $K['sessions'], 'engaged' => $eng, 'days' => $dcount,
@@ -347,7 +354,8 @@ function dash_feed(int $days): array {
             'advisor' => $K['adv'] ?? new stdClass(), 'market' => $K['market'] ?? null, 'refs' => array_keys($K['ref'] ?? []),
             'devices' => array_keys($K['dev'] ?? []), 'timeline' => $tl, 'contact' => $contacts[$kit] ?? null, 'mark' => $mk,
             'quiet' => $snoozed || $called, 'people' => $ppl, 'forwarded' => $fwd, 'priced' => $priced, 'priced_total' => $K['qtot'] ?? null,
-            'sources' => array_keys($K['src'] ?? []), 'real' => $K['real'] ?? 0];
+            'sources' => array_keys($K['src'] ?? []), 'real' => $K['real'] ?? 0, 'calls' => array_slice(array_reverse($calls[$kit] ?? []), 0, 8),
+            'sends' => array_slice(array_reverse($sends[$kit] ?? []), 0, 12)];
     }
     usort($leads, static fn($a, $b) => ($a['quiet'] <=> $b['quiet']) ?: ($b['score'] <=> $a['score']));
     /* --- improvement rollups --- */
@@ -372,12 +380,13 @@ function dash_feed(int $days): array {
         'live' => $live, 'leads' => array_slice($leads, 0, 300),
         'sources' => array_map(static fn($v) => ['opens' => $v['opens'] ?? 0, 'browsed' => $v['browsed'] ?? 0, 'acted' => $v['acted'] ?? 0,
             'quotes' => $v['quotes'] ?? 0, 'stores' => array_keys($v['stores'] ?? []), 'qstores' => array_keys($v['qstores'] ?? [])], $SRC),
+        'sent_by_source' => $sendN,
         'improve' => ['funnel' => $imp['funnel'], 'advisor' => $adv, 'zero' => $z, 'searches' => array_slice($q, 0, 30, true),
             'products' => array_slice($pr, 0, 60), 'bounce' => array_slice($bounce, 0, 20), 'by_day' => $byDay,
             'refs' => array_slice($refs, 0, 15, true), 'devices' => $dev, 'markets' => $mkt]];
 }
 function dash_url(): string { return 'https://justdealspromotions.com/kits/_dash/#k=' . secret(); }
-if (isset($_GET['dash']) || isset($_GET['contacts']) || isset($_GET['mark']) || isset($_GET['signals']) || isset($_GET['seed']) || isset($_GET['stores'])) {
+if (isset($_GET['dash']) || isset($_GET['contacts']) || isset($_GET['mark']) || isset($_GET['signals']) || isset($_GET['seed']) || isset($_GET['stores']) || isset($_GET['sends']) || isset($_GET['outcomes'])) {
     header('Content-Type: application/json; charset=utf-8'); header('X-Robots-Tag: noindex');
     if (!key_ok()) { http_response_code(403); echo '{"ok":false,"error":"forbidden"}'; exit; }
     $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
@@ -402,6 +411,20 @@ if (isset($_GET['dash']) || isset($_GET['contacts']) || isset($_GET['mark']) || 
     if ($method !== 'POST') { http_response_code(405); echo '{"ok":false}'; exit; }
     $in = json_decode((string)file_get_contents('php://input', false, null, 0, 400000), true);
     if (!is_array($in)) { http_response_code(400); echo '{"ok":false,"error":"json"}'; exit; }
+    /* From the ops agent: every email it sent (POST ?sends=1 [{kit,step,to,t}]) and every outcome it knows of
+       (POST ?outcomes=1 [{kit,s:reply|quote|won|lost,note,t}]), so a company's page shows its whole path, sent -> won. */
+    if (isset($_GET['sends']) || isset($_GET['outcomes'])) {
+        $isS = isset($_GET['sends']); $f = dash_dir() . ($isS ? '/sends.jsonl' : '/marklog.jsonl'); $n = 0; $buf = '';
+        foreach ((array_is_list($in) ? $in : [$in]) as $r) { if (!is_array($r)) continue; $kit = slug((string)($r['kit'] ?? '')); if (!$kit) continue;
+            $t = (int)($r['t'] ?? time()); if ($t < 1700000000 || $t > time() + 600) $t = time();
+            if ($isS) { $step = preg_replace('/[^a-z0-9_\-]/', '', strtolower((string)($r['step'] ?? ''))); if ($step === '') continue;
+                $o = ['kit' => $kit, 'step' => substr($step, 0, 24), 'to' => sclean($r['to'] ?? '', 80), 't' => $t]; }
+            else { $st = (string)($r['s'] ?? ''); if (!in_array($st, ['reply', 'quote', 'won', 'lost', 'meeting'], true)) continue;
+                $o = ['kit' => $kit, 's' => $st, 'note' => sclean($r['note'] ?? '', 300), 't' => $t, 'by' => 'ops']; }
+            $buf .= json_encode($o, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n"; $n++; }
+        if ($buf !== '') @file_put_contents($f, $buf, FILE_APPEND | LOCK_EX);
+        echo json_encode(['ok' => true, 'saved' => $n]); exit;
+    }
     if (isset($_GET['contacts'])) {
         $f = dash_dir() . '/contacts.json'; $c = jread($f); $n = 0;
         foreach ($in as $kit => $row) { $kit = slug((string)$kit); if (!$kit || !is_array($row)) continue; $o = $c[$kit] ?? [];
@@ -416,6 +439,7 @@ if (isset($_GET['dash']) || isset($_GET['contacts']) || isset($_GET['mark']) || 
     $f = dash_dir() . '/marks.json'; $m = jread($f); $kit = slug((string)($in['kit'] ?? '')); $s = (string)($in['s'] ?? '');
     if (!$kit || !in_array($s, ['called', 'snooze', 'won', 'clear'], true)) { http_response_code(400); echo '{"ok":false}'; exit; }
     if ($s === 'clear') unset($m[$kit]); else $m[$kit] = ['s' => $s, 't' => time(), 'note' => sclean($in['note'] ?? '', 300)];
+    @file_put_contents(dash_dir() . '/marklog.jsonl', json_encode(['kit' => $kit, 's' => $s, 'note' => sclean($in['note'] ?? '', 300), 't' => time()], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n", FILE_APPEND | LOCK_EX);
     jwrite($f, $m); echo json_encode(['ok' => true, 'mark' => $m[$kit] ?? null]); exit;
 }
 
