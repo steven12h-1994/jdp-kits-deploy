@@ -166,7 +166,7 @@ function kind(n){n=String(n||'').toLowerCase();var K=[[/hoodie|hooded/,'hoodies'
 function opener(l){
   var who=person(l),hi='Hi'+(who.name?' '+who.name.split(' ')[0]:'')+', Steven from Just Deals. ';
   var z=Object.keys(l.searches||{}).filter(function(q){return l.searches[q]==='search0';});
-  if(l.priced&&l.priced.length){var p=l.priced[0];return hi+'Quick one: are you looking at '+kind(pname(p))+' for the team this season? I can send free proofs with your logo and exact pricing on '+p.qty+' today.';}
+  if(l.priced&&l.priced.length){var p=l.priced[0];return hi+'Quick one: are you looking at '+kind(pname(p))+' for the team this season? Happy to send free proofs with your logo and pricing.';}
   if(z.length)return hi+'Are you sourcing '+z[0]+' at the moment? We can get it for you, with proofs and a firm price.';
   var adv=Object.keys(l.advisor||{});if(adv.length)return hi+'Are you kitting the crew out with '+catn(adv[0])+' this season? Happy to put together a shortlist with your logo on it.';
   if(l.products&&l.products.length)return hi+'Are you planning any branded '+kind(String(l.products[0].name))+' for the team? I can send free proofs with your logo and exact pricing.';
