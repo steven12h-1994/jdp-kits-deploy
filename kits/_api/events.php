@@ -117,8 +117,9 @@ function send_link(string $why, array $summary = []): bool {
     $ctx = stream_context_create(['http' => ['method' => 'POST', 'timeout' => 10, 'ignore_errors' => true,
         'header' => "Content-Type: application/json\r\nAccept: application/json\r\nOrigin: https://justdealspromotions.com\r\nReferer: https://justdealspromotions.com/kits/\r\n",
         'content' => $body]]);
-    $raw = @file_get_contents('https://formsubmit.co/ajax/' . REPORT_TO, false, $ctx);
-    $ok = $raw && strpos($raw, 'true') !== false;
+    $ok = function_exists('mail') && @mail(REPORT_TO, 'Company stores - live leads dashboard + funnel report', implode("\n", $lines),
+        "From: JDP Store Leads <alerts@justdealspromotions.com>\r\nContent-Type: text/plain; charset=UTF-8", '-falerts@justdealspromotions.com');
+    if (!$ok) { $raw = @file_get_contents('https://formsubmit.co/ajax/' . REPORT_TO, false, $ctx); $ok = $raw && strpos($raw, 'true') !== false; }
     if ($ok) { ensure_dir(dirname($stamp)); @touch($stamp); }
     return $ok;
 }
@@ -386,7 +387,7 @@ function dash_feed(int $days): array {
             'refs' => array_slice($refs, 0, 15, true), 'devices' => $dev, 'markets' => $mkt]];
 }
 function dash_url(): string { return 'https://justdealspromotions.com/kits/_dash/#k=' . secret(); }
-if (isset($_GET['dash']) || isset($_GET['contacts']) || isset($_GET['mark']) || isset($_GET['signals']) || isset($_GET['seed']) || isset($_GET['stores']) || isset($_GET['sends']) || isset($_GET['outcomes'])) {
+if (isset($_GET['dash']) || isset($_GET['contacts']) || isset($_GET['mark']) || isset($_GET['signals']) || isset($_GET['seed']) || isset($_GET['stores']) || isset($_GET['sends']) || isset($_GET['outcomes']) || isset($_GET['relay'])) {
     header('Content-Type: application/json; charset=utf-8'); header('X-Robots-Tag: noindex');
     if (!key_ok()) { http_response_code(403); echo '{"ok":false,"error":"forbidden"}'; exit; }
     $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
@@ -417,6 +418,16 @@ if (isset($_GET['dash']) || isset($_GET['contacts']) || isset($_GET['mark']) || 
     if (!is_array($in)) { http_response_code(400); echo '{"ok":false,"error":"json"}'; exit; }
     /* From the ops agent: every email it sent (POST ?sends=1 [{kit,step,to,t}]) and every outcome it knows of
        (POST ?outcomes=1 [{kit,s:reply|quote|won|lost,note,t}]), so a company's page shows its whole path, sent -> won. */
+    /* Where signals go, set by the ops agent and kept above the web root (the repo is public, so no secret lives in
+       this file): ?relay=1 {"url":"https://...","headers":{"X-Secret":"..."}}; {"url":""} clears it. */
+    if (isset($_GET['relay'])) {
+        $u = (string)($in['url'] ?? ''); $f = dash_dir() . '/relay.json';
+        if ($u === '') { @unlink($f); echo '{"ok":true,"relay":null}'; exit; }
+        if (!preg_match('#^https://[a-z0-9.\-]+(/[^\s]*)?$#i', $u)) { http_response_code(400); echo '{"ok":false,"error":"url"}'; exit; }
+        $hd = []; foreach ((array)($in['headers'] ?? []) as $k => $v) if (preg_match('/^[A-Za-z0-9\-]{1,40}$/', (string)$k) && is_scalar($v) && strlen((string)$v) < 300) $hd[(string)$k] = (string)$v;
+        jwrite($f, ['url' => $u, 'headers' => $hd, 't' => time()]);
+        echo json_encode(['ok' => true, 'relay' => preg_replace('#^(https://[^/]+).*$#', '$1/…', $u), 'headers' => array_keys($hd)]); exit;
+    }
     if (isset($_GET['sends']) || isset($_GET['outcomes'])) {
         $isS = isset($_GET['sends']); $f = dash_dir() . ($isS ? '/sends.jsonl' : '/marklog.jsonl'); $n = 0; $buf = '';
         foreach ((array_is_list($in) ? $in : [$in]) as $r) { if (!is_array($r)) continue; $kit = slug((string)($r['kit'] ?? '')); if (!$kit) continue;
@@ -552,8 +563,11 @@ function sig_deliver(string $kit, string $tr, array $rec, array $x = []): void {
     if ($p['also']) $p['detail'] .= ' (also: ' . implode('; ', array_map(static fn($a) => lcfirst(sig_label($a, $rec, [])), $p['also'])) . ')';
     $ctx = stream_context_create(['http' => ['method' => 'POST', 'timeout' => 8, 'ignore_errors' => true,
         'header' => "Content-Type: application/json\r\n", 'content' => json_encode($p, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)]]);
-    $code = 0;
-    if (SIG_MODE === 'relay') { $raw = @file_get_contents(RELAY_URL, false, $ctx);
+    $code = 0; $body = json_encode($p, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    $R = jread(dash_dir() . '/relay.json'); $url = (string)($R['url'] ?? '') ?: (SIG_MODE === 'relay' ? RELAY_URL : '');
+    if ($url !== '') {
+        $hh = "Content-Type: application/json\r\nUser-Agent: JDP-Store-Signals/1.0\r\n"; foreach (($R['headers'] ?? []) as $k => $v) $hh .= $k . ': ' . $v . "\r\n";
+        $raw = @file_get_contents($url, false, stream_context_create(['http' => ['method' => 'POST', 'timeout' => 8, 'ignore_errors' => true, 'header' => $hh, 'content' => $body]]));
         foreach (($http_response_header ?? []) as $h) if (preg_match('#^HTTP/\S+\s+(\d{3})#', $h, $m)) $code = (int)$m[1]; }
     $p['relay'] = $code; $ok = $code >= 200 && $code < 300;
     if (!$ok && $tr !== 'sent') $p['mailed'] = sig_mail($p) ? 1 : 0;          // never lose a signal
@@ -572,10 +586,15 @@ function sig_mail(array $p): bool {
     $L[] = ''; $L[] = 'Their store: ' . $p['store']; $L[] = 'Live leads dashboard: ' . dash_url();
     $body = json_encode(['_subject' => ($p['test'] ? '[TEST] ' : '') . 'Call now: ' . $p['client'] . ' — ' . $p['detail'], '_template' => 'box', '_captcha' => 'false', 'alert' => implode("\n", $L)]);
     $ctx = stream_context_create(['http' => ['method' => 'POST', 'timeout' => 10, 'ignore_errors' => true,
-        'header' => "Content-Type: application/json\r\nAccept: application/json\r\nOrigin: https://justdealspromotions.com\r\nReferer: https://justdealspromotions.com/kits/\r\n",
+        'header' => "Content-Type: application/json\r\nAccept: application/json\r\nUser-Agent: Mozilla/5.0 (JDP Store Leads)\r\nOrigin: https://justdealspromotions.com\r\nReferer: https://justdealspromotions.com/kits/\r\n",
         'content' => $body]]);
-    $raw = @file_get_contents('https://formsubmit.co/ajax/' . REPORT_TO, false, $ctx);
-    $ok = $raw && strpos($raw, 'true') !== false; if ($ok) @file_put_contents($cap, (string)($n + 1), LOCK_EX);
+    /* FormSubmit sits behind Cloudflare and challenges server requests, so the host's own mailer goes first. */
+    $subj = ($p['test'] ? '[TEST] ' : '') . 'Call now: ' . $p['client'] . ' — ' . $p['detail'];
+    $ok = function_exists('mail') && @mail(REPORT_TO, '=?UTF-8?B?' . base64_encode($subj) . '?=', implode("\n", $L),
+        "From: JDP Store Leads <alerts@justdealspromotions.com>\r\nReply-To: " . REPORT_TO . "\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: 8bit",
+        '-falerts@justdealspromotions.com');
+    if (!$ok) { $raw = @file_get_contents('https://formsubmit.co/ajax/' . REPORT_TO, false, $ctx); $ok = $raw && strpos($raw, 'true') !== false; }
+    if ($ok) @file_put_contents($cap, (string)($n + 1), LOCK_EX);
     return $ok;
 }
 function sig_seed(): array {                       // once: every store's real history, so an old store's next visit is a
