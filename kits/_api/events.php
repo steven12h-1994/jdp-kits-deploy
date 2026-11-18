@@ -167,6 +167,8 @@ function kit_names(array $kits): array {
         if ($h && preg_match('/<script id=["\']?jdpcfg["\']?[^>]*>(.*?)<\/script>/s', $h, $m)) {
             $j = json_decode($m[1], true); if (is_array($j)) $n = sclean($j['client'] ?? '', 80);
         }
+        if ($n === '' && $h && preg_match('/"client"\s*:\s*"((?:[^"\\\\]|\\\\.){1,120})"/', $h, $m)) $n = sclean(json_decode('"' . $m[1] . '"') ?: '', 80);
+        if ($n === '' && $h && preg_match('/<title>([^<]{2,120})<\/title>/i', $h, $m)) $n = sclean(preg_replace('/\s*[\x{2014}\x{2013}|·-].*$/u', '', html_entity_decode($m[1])), 80);
         $c[$k] = ['n' => $n, 't' => time()]; $dirty = true;
     }
     if ($dirty) jwrite($f, $c);
@@ -183,7 +185,7 @@ function cat_names(): array {
 function dash_feed(int $days): array {
     $now = time(); $L = []; $live = []; $imp = ['funnel' => array_fill_keys(['view', 'engaged', 'search', 'sheet', 'add', 'checkout', 'sent'], 0)];
     $sess = []; $adv = []; $prod = []; $q = []; $q0 = []; $byDay = []; $refs = []; $dev = ['mobile' => 0, 'desktop' => 0];
-    $mkt = []; $kitSess = []; $internal = 0; $evn = 0;
+    $mkt = []; $kitSess = []; $internal = 0; $evn = 0; $SRC = [];
     for ($i = $days - 1; $i >= 0; $i--) {
         $day = gmdate('Y-m-d', $now - 86400 * $i);
         $f = data_root() . "/_events/$day.jsonl"; if (!is_file($f)) continue;
@@ -217,6 +219,15 @@ function dash_feed(int $days): array {
                 'first' => (int)$S['ev'][0]['t'], 'last' => (int)$last['t'], 'n' => count($S['ev']), 'ev' => array_slice($S['ev'], -6)];
             continue; }
         $kit = $S['kit']; $ev = $S['ev']; $first = (int)$ev[0]['t']; $last = (int)end($ev)['t'];
+        /* where this visit came from: the contact token's send step, else the link's utm_source, else direct */
+        $src = 'direct'; foreach ($ev as $r) { if (!empty($r['ct']) && preg_match('/\.\d*([a-z]+\d*)$/', $r['ct'], $mm)) { $src = 'ct:' . $mm[1]; break; }
+            if (!empty($r['src'])) { $src = 'utm:' . $r['src']; } }
+        $acts = 0; $brow = false; $strong = false;
+        foreach ($ev as $r) { $e0 = $r['e'] ?? ''; if ($e0 === 'engaged') $brow = true;
+            elseif (!in_array($e0, ['view', 'exit_show', 'market_hint', 'logo_home'], true)) { $acts++; $brow = true; }
+            if (in_array($e0, ['sent', 'checkout', 'quote_pdf', 'quote_share', 'quote_view', 'ca_add', 'program_quote', 'program_share', 'sheet_quote', 'board_quote'], true)) $strong = true; }
+        $SR = &$SRC[$src]; $SR['opens'] = ($SR['opens'] ?? 0) + 1; if ($brow) $SR['browsed'] = ($SR['browsed'] ?? 0) + 1;
+        if ($acts) { $SR['acted'] = ($SR['acted'] ?? 0) + 1; $SR['stores'][$kit] = 1; } if ($strong) { $SR['quotes'] = ($SR['quotes'] ?? 0) + 1; $SR['qstores'][$kit] = 1; } unset($SR);
         $day = gmdate('Y-m-d', $first);
         $seen = []; foreach ($ev as $r) $seen[$r['e']] = 1; if (!empty($seen['search0'])) $seen['search'] = 1;
         foreach ($imp['funnel'] as $st => $_) if (!empty($seen[$st])) $imp['funnel'][$st]++;
@@ -232,6 +243,8 @@ function dash_feed(int $days): array {
             $sc += $w * pow(0.5, max(0, $now - (int)$r['t']) / 3600 / LEAD_HALF_H);
         }
         $K = &$L[$kit];
+        if ($acts || $brow) $K['src'][$src] = max($K['src'][$src] ?? 0, $last);
+        if ($acts) $K['real'] = ($K['real'] ?? 0) + 1;
         $K['score'] = ($K['score'] ?? 0) + $sc; $K['sessions'] = ($K['sessions'] ?? 0) + 1;
         $eng = count($ev) > 1 || !empty($seen['engaged']); if ($eng) { $K['eng'] = ($K['eng'] ?? 0) + 1; $K['edays'][$day] = 1; }
         $K['days'][$day] = 1; $K['first'] = min($K['first'] ?? PHP_INT_MAX, $first); $K['last'] = max($K['last'] ?? 0, $last);
@@ -333,7 +346,8 @@ function dash_feed(int $days): array {
             'counts' => $n, 'signals' => $sig, 'products' => $top, 'searches' => array_slice($qs, 0, 8, true),
             'advisor' => $K['adv'] ?? new stdClass(), 'market' => $K['market'] ?? null, 'refs' => array_keys($K['ref'] ?? []),
             'devices' => array_keys($K['dev'] ?? []), 'timeline' => $tl, 'contact' => $contacts[$kit] ?? null, 'mark' => $mk,
-            'quiet' => $snoozed || $called, 'people' => $ppl, 'forwarded' => $fwd, 'priced' => $priced, 'priced_total' => $K['qtot'] ?? null];
+            'quiet' => $snoozed || $called, 'people' => $ppl, 'forwarded' => $fwd, 'priced' => $priced, 'priced_total' => $K['qtot'] ?? null,
+            'sources' => array_keys($K['src'] ?? []), 'real' => $K['real'] ?? 0];
     }
     usort($leads, static fn($a, $b) => ($a['quiet'] <=> $b['quiet']) ?: ($b['score'] <=> $a['score']));
     /* --- improvement rollups --- */
@@ -355,16 +369,27 @@ function dash_feed(int $days): array {
             if (!empty($o['k']) && isset($names[$o['k']])) $o['kn'] = $names[$o['k']]; return $o; }, $lv['ev']); }
     unset($lv);
     return ['ok' => true, 'now' => $now, 'days' => $days, 'events' => $evn, 'sessions' => count($sess), 'internal_sessions' => $internal, 'scanner_sessions' => $scan,
-        'live' => $live, 'leads' => array_slice($leads, 0, 80),
+        'live' => $live, 'leads' => array_slice($leads, 0, 300),
+        'sources' => array_map(static fn($v) => ['opens' => $v['opens'] ?? 0, 'browsed' => $v['browsed'] ?? 0, 'acted' => $v['acted'] ?? 0,
+            'quotes' => $v['quotes'] ?? 0, 'stores' => array_keys($v['stores'] ?? []), 'qstores' => array_keys($v['qstores'] ?? [])], $SRC),
         'improve' => ['funnel' => $imp['funnel'], 'advisor' => $adv, 'zero' => $z, 'searches' => array_slice($q, 0, 30, true),
             'products' => array_slice($pr, 0, 60), 'bounce' => array_slice($bounce, 0, 20), 'by_day' => $byDay,
             'refs' => array_slice($refs, 0, 15, true), 'devices' => $dev, 'markets' => $mkt]];
 }
 function dash_url(): string { return 'https://justdealspromotions.com/kits/_dash/#k=' . secret(); }
-if (isset($_GET['dash']) || isset($_GET['contacts']) || isset($_GET['mark']) || isset($_GET['signals']) || isset($_GET['seed'])) {
+if (isset($_GET['dash']) || isset($_GET['contacts']) || isset($_GET['mark']) || isset($_GET['signals']) || isset($_GET['seed']) || isset($_GET['stores'])) {
     header('Content-Type: application/json; charset=utf-8'); header('X-Robots-Tag: noindex');
     if (!key_ok()) { http_response_code(403); echo '{"ok":false,"error":"forbidden"}'; exit; }
     $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+    if (isset($_GET['stores'])) {                  // every company store, for the dashboard's search (names cached daily)
+        $root = dirname(__DIR__); $all = [];
+        foreach (@scandir($root) ?: [] as $d) if ($d[0] !== '_' && $d[0] !== '.' && strpos($d, 'zz-sigtest') !== 0 && slug($d) && is_file("$root/$d/index.html") && !in_array($d, DASH_KITS_SKIP, true)) $all[] = $d;
+        $c = jread(data_root() . '/_dash/names.json'); $miss = array_values(array_filter($all, static fn($k) => !isset($c[$k])));
+        if ($miss) kit_names(array_slice($miss, 0, 250)); $c = jread(data_root() . '/_dash/names.json');
+        $ct = jread(data_root() . '/_dash/contacts.json'); $out = [];
+        foreach ($all as $k) $out[] = ['kit' => $k, 'client' => ($ct[$k]['company'] ?? '') ?: (($c[$k]['n'] ?? '') ?: ucwords(str_replace('-', ' ', $k)))];
+        echo json_encode(['ok' => true, 'stores' => $out, 'pending_names' => max(0, count($miss) - 250)], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE); exit;
+    }
     if (isset($_GET['seed'])) { echo json_encode(sig_seed()); exit; }
     if (isset($_GET['signals'])) {                 // backup feed for the ops agent, newest last
         $since = (int)($_GET['since'] ?? (time() - 86400)); $out = [];
@@ -373,7 +398,7 @@ if (isset($_GET['dash']) || isset($_GET['contacts']) || isset($_GET['mark']) || 
             if (is_array($r) && (int)($r['t'] ?? 0) > $since) $out[] = $r; }
         echo json_encode(['ok' => true, 'signals' => array_slice($out, -500)], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE); exit;
     }
-    if (isset($_GET['dash'])) { staff_seen(); echo json_encode(dash_feed(max(1, min(60, (int)($_GET['days'] ?? 14)))), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE); exit; }
+    if (isset($_GET['dash'])) { staff_seen(); echo json_encode(dash_feed(max(1, min(90, (int)($_GET['days'] ?? 14)))), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE); exit; }
     if ($method !== 'POST') { http_response_code(405); echo '{"ok":false}'; exit; }
     $in = json_decode((string)file_get_contents('php://input', false, null, 0, 400000), true);
     if (!is_array($in)) { http_response_code(400); echo '{"ok":false,"error":"json"}'; exit; }
@@ -614,7 +639,14 @@ if (isset($in['ql']) && is_array($in['ql'])) { $ql = [];
     if ($ql) $rec['ql'] = $ql; }
 if (isset($in['tot']) && is_numeric($in['tot'])) $rec['tot'] = max(0, min(10000000, (int)round((float)$in['tot'])));
 if (isset($in['ref'])) { $h = strtolower((string)parse_url('http://' . preg_replace('#^[a-z]+://#i', '', (string)$in['ref']), PHP_URL_HOST)); if (preg_match('/^[a-z0-9.\-]{3,80}$/', $h)) $rec['ref'] = $h; }
-if (!empty($in['i']) || isset(staff_tags()[ip_tag()])) $rec['i'] = 1;     // staff / our own testing
+/* Our own traffic never scores. Three ways in: the store's staff flag (?jdpstaff=1 or a browser that opened the dashboard),
+   a network we have seen staff on in the last 60 days, or a client that is plainly not a person (scripts, headless and
+   preview bots). Agent browsers look like ordinary Chrome, so the agents open stores with ?jdpstaff=1, and the network a
+   staff-flagged visit comes from is remembered -- an agent that forgets the flag on a later visit is still caught. */
+$ua = (string)($_SERVER['HTTP_USER_AGENT'] ?? '');
+if (!empty($in['i']) || isset(staff_tags()[ip_tag()]) || $ua === ''
+    || preg_match('/curl|wget|python|httpx|aiohttp|go-http|java\/|okhttp|axios|node-fetch|headless|phantom|puppeteer|playwright|selenium|browserbase|\bbot\b|bot\/|bot;|spider|crawl|preview|scanner|monitor/i', $ua)) $rec['i'] = 1;
+if (!empty($in['i']) && !isset(staff_tags()[ip_tag()])) staff_seen();
 $dir = data_root() . '/_events';
 /* The weekly digest sends itself: the first event after seven days without one. */
 $wk = $dir . '/.digest';
