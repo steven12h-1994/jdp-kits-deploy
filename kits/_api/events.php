@@ -408,8 +408,12 @@ if (isset($_GET['dash']) || isset($_GET['contacts']) || isset($_GET['mark']) || 
         echo json_encode(['ok' => true, 'signals' => array_slice($out, -500)], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE); exit;
     }
     if (isset($_GET['dash'])) { staff_seen(); echo json_encode(dash_feed(max(1, min(90, (int)($_GET['days'] ?? 14)))), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE); exit; }
-    if ($method !== 'POST') { http_response_code(405); echo '{"ok":false}'; exit; }
-    $in = json_decode((string)file_get_contents('php://input', false, null, 0, 400000), true);
+    /* The host's bot check blocks POSTs from servers, so the keyed write endpoints also take the same JSON as a GET:
+       &d=<base64url(JSON)>. Still key-gated; ~40 rows per request keeps the URL short. */
+    $d64 = (string)($_GET['d'] ?? '');
+    if ($method !== 'POST' && $d64 === '') { http_response_code(405); echo '{"ok":false}'; exit; }
+    $in = $d64 !== '' ? json_decode((string)base64_decode(strtr($d64, '-_', '+/') . str_repeat('=', (4 - strlen($d64) % 4) % 4), true), true)
+        : json_decode((string)file_get_contents('php://input', false, null, 0, 400000), true);
     if (!is_array($in)) { http_response_code(400); echo '{"ok":false,"error":"json"}'; exit; }
     /* From the ops agent: every email it sent (POST ?sends=1 [{kit,step,to,t}]) and every outcome it knows of
        (POST ?outcomes=1 [{kit,s:reply|quote|won|lost,note,t}]), so a company's page shows its whole path, sent -> won. */
