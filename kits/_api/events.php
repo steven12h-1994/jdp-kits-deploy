@@ -32,6 +32,25 @@
  * is kept (it is the single most useful thing to learn) but anything that looks like an email
  * address or a phone number is removed before it is written.
  *
+ * DEAL SIGNALS (Steven, 2026-11-18: "re think the Store visits tracking that is optimal for steven to get new deals")
+ * The dashboard only helped when someone opened it. Now the write path itself spots the moments worth a call and
+ * pushes them out within seconds, as {"event":"store_signal",...} to the Make relay the Outbound Ops Manager listens
+ * on (it turns each one into Steven's alert email + a High Apollo task). If the relay POST fails, this file emails
+ * Steven directly so a signal is never silently lost. Triggers, each at most once per store per day:
+ *   first_visit       first real action ever in the store (a bare page load is not a visit -- scanners do that)
+ *   return            a real action on a new day
+ *   forwarded         a real action from a second device on a different network (the store was passed on)
+ *   quote             quote downloaded / shared / priced from a program, board or product sheet / quote opened with items
+ *   checkout_abandon  checkout opened and nothing sent ~20 min later
+ *   no_stock          searched for something the store does not show
+ *   sent              request sent (Steven already gets the FormSubmit email; ops uses it for the task)
+ * Who: outbound links carry an opaque contact token ?c= (ops owns the mapping); the store keeps it per kit and tags
+ * every event `ct`. A per-browser device id `did` + a salted network hash `ipt` (never the IP) tell a forward apart
+ * from the same person on their phone. What: quote events carry the lines (product, colour, qty) and the total.
+ * Backup feed: GET ?signals=1&since=<unix>&key=<k>.
+ * Scanners: sessions that never do anything but load the page score nothing; 3+ of them on one store inside 60 s
+ * (an email security gateway opening every link) are dropped from the dashboard altogether.
+ *
  * STORAGE  <account>/jdp-board-data/_events/<YYYY-MM-DD>.jsonl, above the document root and outside
  * the GitHub->SiteGround mirror, beside the boards this same host already keeps.
  */
@@ -42,6 +61,12 @@ header('X-Content-Type-Options: nosniff');
 const EV_OK        = ['view','search','search0','sheet','add','board','checkout','sent','source','aisle','alt','added_go','board_quote','hero_programs','hero_ask','faq_ask','sheet_quote','help_open','help_ask','logo_home','program','program_quote','program_switch','program_colour','program_people','program_adopt','program_share','gift_open','gift_variant','filter','filter_open','engaged','lead_focus','exit_show','quote_view','quote_pdf','quote_share','quote_qty','rfq_open','quote_open','quote_more','quote_prog','quote_remove','quote_line_qty','program_toggle','market','market_open','market_hint','band_quote','work_more','gift_lane','gift_quote','quote_sizes','quote_sizes_open','quote_nudge','search_go','search_slash','sheet_qty','sheet_sizes_open','xp_tab','xp_open','xp_add','xp_ask','ja_q','ja_swap','ja_add','pa_open','pa_q','pa_units','pa_swap','pa_add','pa_share','pa_ask','ca_q','ca_swap','ca_add','ca_start','ca_done','ca_reset','ca_add1','ca_col',
     'ca_result','ca_qty','ca_det','ca_choose','ca_skip','ca_all','adv_go','adv_hero','adv_pick','browse_hero','golf_extras'];
 const EV_PER_HOUR  = 900;        // per IP; a real buyer sends a few dozen
+const RELAY_URL    = 'https://hook.us2.make.com/4x3dsu8tre3t19rg747bzb7cbqwo7ejf';
+const SIG_MODE     = 'mail';     // 'mail' = email Steven directly (until the relay has a store_signal route); 'relay' = ops agent emails
+const SIG_MAIL_CAP = 60;         // fallback alert emails per day, if the relay is down
+const SIG_ABANDON  = 1200;       // checkout opened, nothing sent this long after -> checkout_abandon
+const SCAN_WIN     = 60;         // 3+ page-load-only sessions on one store inside this many seconds = a scanner
+const SIG_ACTION_SKIP = ['view', 'exit_show', 'market_hint'];   // not something a person chose to do
 
 function data_root(): string { return dirname(__DIR__, 3) . '/jdp-board-data'; }
 function ensure_dir(string $d): bool { return is_dir($d) || (@mkdir($d, 0775, true) && is_dir($d)); }
@@ -105,7 +130,7 @@ function send_link(string $why, array $summary = []): bool {
  * Staff traffic is kept out: the store marks a browser that has opened this dashboard (same origin) or used
  * ?jdpstaff=1, and the server remembers the network the dashboard was opened from. */
 const DASH_KITS_SKIP = ['demo', '_lib', '_app', '_dash', '_catalog', '_api'];
-const LEAD_W = ['view' => 1, 'engaged' => 3, 'search' => 2, 'search0' => 3, 'sheet' => 2, 'add' => 6, 'board' => 4,
+const LEAD_W = ['view' => 0, 'engaged' => 3, 'search' => 2, 'search0' => 3, 'sheet' => 2, 'add' => 6, 'board' => 4,
     'checkout' => 14, 'sent' => 30, 'quote_view' => 6, 'quote_pdf' => 12, 'quote_share' => 10, 'quote_qty' => 3,
     'quote_sizes' => 4, 'quote_sizes_open' => 2, 'rfq_open' => 6, 'program' => 3, 'program_quote' => 8,
     'program_adopt' => 6, 'program_share' => 8, 'program_people' => 3, 'ca_start' => 3, 'ca_result' => 4, 'ca_add' => 10,
@@ -166,7 +191,7 @@ function dash_feed(int $days): array {
         while (($line = fgets($fh)) !== false) {
             $r = json_decode($line, true); if (!is_array($r)) continue;
             $kit = (string)($r['kit'] ?? ''); $e = (string)($r['e'] ?? ''); $t = (int)($r['t'] ?? 0);
-            if ($kit === '' || in_array($kit, DASH_KITS_SKIP, true) || strpos($kit, 'test') === 0) continue;
+            if ($kit === '' || in_array($kit, DASH_KITS_SKIP, true) || strpos($kit, 'test') === 0 || strpos($kit, 'zz-sigtest') === 0) continue;
             if (isset(DASH_SINCE[$kit]) && $t < DASH_SINCE[$kit]) continue;
             $sid = $kit . '|' . ($r['sid'] ?? '');
             if (!empty($r['i'])) { $sess[$sid]['i'] = 1; }
@@ -174,6 +199,17 @@ function dash_feed(int $days): array {
         }
         fclose($fh);
     }
+    /* Scanners: an email security gateway opens every link in a message within seconds, from one place, and does
+       nothing else. A session that only ever loaded the page is never a lead (view scores 0); three or more of
+       them on one store inside SCAN_WIN seconds are dropped from every count, so they cannot pad the funnel either. */
+    $bare = [];
+    foreach ($sess as $sid => $S) { if (!empty($S['i'])) continue; $only = true;
+        foreach ($S['ev'] as $r) if (($r['e'] ?? '') !== 'view') { $only = false; break; }
+        if ($only) $bare[$S['kit']][] = [(int)$S['ev'][0]['t'], $sid]; }
+    $scan = 0;
+    foreach ($bare as $kit => $rows) { usort($rows, static fn($a, $b) => $a[0] <=> $b[0]); $n = count($rows);
+        for ($a = 0; $a < $n; $a++) { $b = $a; while ($b + 1 < $n && $rows[$b + 1][0] - $rows[$a][0] <= SCAN_WIN) $b++;
+            if ($b - $a >= 2) for ($j = $a; $j <= $b; $j++) { if (isset($sess[$rows[$j][1]])) { unset($sess[$rows[$j][1]]); $scan++; } } } }
     $names = cat_names();
     foreach ($sess as $sid => $S) {
         if (!empty($S['i'])) { $internal++;                               // staff: live feed only, flagged
@@ -210,6 +246,11 @@ function dash_feed(int $days): array {
             if ($e === 'market' && !empty($r['v'])) $K['market'] = $r['v'];
             if ($e === 'view' && !empty($r['ref'])) $K['ref'][$r['ref']] = 1;
             if ($e === 'view' && isset($r['m'])) $K['dev'][$r['m'] ? 'mobile' : 'desktop'] = 1;
+        }
+        foreach ($ev as $r) {
+            if (!empty($r['ct'])) $K['ct'][$r['ct']] = max($K['ct'][$r['ct']] ?? 0, (int)$r['t']);
+            if (!empty($r['did'])) $K['did'][$r['did']] = $r['ipt'] ?? '';
+            if (!empty($r['ql']) && (int)$r['t'] >= ($K['qlt'] ?? 0)) { $K['ql'] = $r['ql']; $K['qtot'] = $r['tot'] ?? null; $K['qlt'] = (int)$r['t']; }
         }
         $K['tl'] = array_merge($K['tl'] ?? [], array_map(static fn($r) => $r + ['s' => substr($sid, -4)], $ev));
         unset($K);
@@ -269,6 +310,15 @@ function dash_feed(int $days): array {
         elseif ($qs) $sig[] = ['i', 'Searched: “' . implode('”, “', array_slice(array_keys($qs), 0, 3)) . '”'];
         $K['prod'] = $K['prod'] ?? []; arsort($K['prod']); $top = [];
         foreach (array_slice($K['prod'] ?? [], 0, 6, true) as $k => $v) $top[] = ['k' => $k, 'name' => $names[$k] ?? $k, 'w' => $v];
+        $nets = array_unique(array_filter(array_values($K['did'] ?? [])));
+        $fwd = count($K['did'] ?? []) > 1 && count($nets) > 1;
+        if ($fwd) $sig[] = ['h', 'Opened by ' . count($K['did']) . ' different people / devices — it was passed on'];
+        $ppl = []; $cp = (($contacts[$kit] ?? [])['people'] ?? []);
+        foreach (($K['ct'] ?? []) as $tok => $tt) { $p = $cp[$tok] ?? []; $ppl[] = ['ct' => $tok, 'last' => $tt] + array_intersect_key($p, ['name' => 1, 'title' => 1, 'phone' => 1, 'email' => 1]); }
+        $priced = [];
+        foreach (($K['ql'] ?? []) as $l) $priced[] = ['name' => $names[$l['k'] ?? ''] ?? ($l['k'] ?? ''), 'colour' => $l['col'] ?? '', 'qty' => $l['q'] ?? 0];
+        if ($priced) $sig[] = ['h', 'Priced ' . implode(', ', array_map(static fn($l) => $l['qty'] . ' × ' . $l['name'], array_slice($priced, 0, 3)))
+            . (count($priced) > 3 ? ' +' . (count($priced) - 3) . ' more' : '') . (!empty($K['qtot']) ? ' — about $' . number_format((float)$K['qtot']) : '')];
         $tl = $K['tl']; usort($tl, static fn($a, $b) => $b['t'] <=> $a['t']);
         $tl = array_map(static function ($r) use ($names) {
             $o = ['t' => (int)$r['t'], 'e' => $r['e'], 's' => $r['s']];
@@ -283,7 +333,7 @@ function dash_feed(int $days): array {
             'counts' => $n, 'signals' => $sig, 'products' => $top, 'searches' => array_slice($qs, 0, 8, true),
             'advisor' => $K['adv'] ?? new stdClass(), 'market' => $K['market'] ?? null, 'refs' => array_keys($K['ref'] ?? []),
             'devices' => array_keys($K['dev'] ?? []), 'timeline' => $tl, 'contact' => $contacts[$kit] ?? null, 'mark' => $mk,
-            'quiet' => $snoozed || $called];
+            'quiet' => $snoozed || $called, 'people' => $ppl, 'forwarded' => $fwd, 'priced' => $priced, 'priced_total' => $K['qtot'] ?? null];
     }
     usort($leads, static fn($a, $b) => ($a['quiet'] <=> $b['quiet']) ?: ($b['score'] <=> $a['score']));
     /* --- improvement rollups --- */
@@ -304,17 +354,25 @@ function dash_feed(int $days): array {
             foreach (['k', 'c', 'q', 'v', 'src'] as $f) if (isset($r[$f]) && $r[$f] !== '') $o[$f] = $r[$f];
             if (!empty($o['k']) && isset($names[$o['k']])) $o['kn'] = $names[$o['k']]; return $o; }, $lv['ev']); }
     unset($lv);
-    return ['ok' => true, 'now' => $now, 'days' => $days, 'events' => $evn, 'sessions' => count($sess), 'internal_sessions' => $internal,
+    return ['ok' => true, 'now' => $now, 'days' => $days, 'events' => $evn, 'sessions' => count($sess), 'internal_sessions' => $internal, 'scanner_sessions' => $scan,
         'live' => $live, 'leads' => array_slice($leads, 0, 80),
         'improve' => ['funnel' => $imp['funnel'], 'advisor' => $adv, 'zero' => $z, 'searches' => array_slice($q, 0, 30, true),
             'products' => array_slice($pr, 0, 60), 'bounce' => array_slice($bounce, 0, 20), 'by_day' => $byDay,
             'refs' => array_slice($refs, 0, 15, true), 'devices' => $dev, 'markets' => $mkt]];
 }
 function dash_url(): string { return 'https://justdealspromotions.com/kits/_dash/#k=' . secret(); }
-if (isset($_GET['dash']) || isset($_GET['contacts']) || isset($_GET['mark'])) {
+if (isset($_GET['dash']) || isset($_GET['contacts']) || isset($_GET['mark']) || isset($_GET['signals']) || isset($_GET['seed'])) {
     header('Content-Type: application/json; charset=utf-8'); header('X-Robots-Tag: noindex');
     if (!key_ok()) { http_response_code(403); echo '{"ok":false,"error":"forbidden"}'; exit; }
     $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+    if (isset($_GET['seed'])) { echo json_encode(sig_seed()); exit; }
+    if (isset($_GET['signals'])) {                 // backup feed for the ops agent, newest last
+        $since = (int)($_GET['since'] ?? (time() - 86400)); $out = [];
+        $f = sig_dir() . '/signals.jsonl';
+        if (is_file($f)) foreach (file($f, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $ln) { $r = json_decode($ln, true);
+            if (is_array($r) && (int)($r['t'] ?? 0) > $since) $out[] = $r; }
+        echo json_encode(['ok' => true, 'signals' => array_slice($out, -500)], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE); exit;
+    }
     if (isset($_GET['dash'])) { staff_seen(); echo json_encode(dash_feed(max(1, min(60, (int)($_GET['days'] ?? 14)))), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE); exit; }
     if ($method !== 'POST') { http_response_code(405); echo '{"ok":false}'; exit; }
     $in = json_decode((string)file_get_contents('php://input', false, null, 0, 400000), true);
@@ -324,6 +382,9 @@ if (isset($_GET['dash']) || isset($_GET['contacts']) || isset($_GET['mark'])) {
         foreach ($in as $kit => $row) { $kit = slug((string)$kit); if (!$kit || !is_array($row)) continue; $o = $c[$kit] ?? [];
             foreach (['name', 'company', 'title', 'email', 'phone', 'website', 'notes', 'source', 'status', 'team', 'opened', 'opens', 'reply'] as $fl)
                 if (array_key_exists($fl, $row)) { $v = sclean($row[$fl], $fl === 'notes' || $fl === 'reply' ? 600 : 200); if ($v === '') unset($o[$fl]); else $o[$fl] = $v; }
+            if (isset($row['people']) && is_array($row['people'])) foreach ($row['people'] as $tok => $p) { $tok = ctok($tok); if (!$tok || !is_array($p)) continue;
+                $q = $o['people'][$tok] ?? []; foreach (['name', 'title', 'phone', 'email'] as $pf) if (array_key_exists($pf, $p)) { $v = sclean($p[$pf], 120); if ($v === '') unset($q[$pf]); else $q[$pf] = $v; }
+                $o['people'][$tok] = $q; }
             $o['t'] = time(); $c[$kit] = $o; $n++; }
         jwrite($f, $c); echo json_encode(['ok' => true, 'saved' => $n, 'total' => count($c)]); exit;
     }
@@ -335,6 +396,7 @@ if (isset($_GET['dash']) || isset($_GET['contacts']) || isset($_GET['mark'])) {
 
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET') {
     header('Content-Type: application/json; charset=utf-8');
+    if (!empty($_GET['tick'])) { sig_sweep(); echo '{"ok":true}'; exit; }
     if (!empty($_GET['send'])) { echo json_encode(['ok' => true, 'sent' => send_link('Your live leads dashboard link for the JDP company stores. Bookmark it: it shows which companies are in their store right now and who to call first.')]); exit; }
     if (empty($_GET['report'])) { http_response_code(400); echo '{"ok":false}'; exit; }
     if (!key_ok()) { http_response_code(403); echo '{"ok":false,"error":"forbidden"}'; exit; }
@@ -405,6 +467,130 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET') {
     exit;
 }
 
+/* ---- deal signals ---------------------------------------------------------------------------- */
+function ctok($v): string { $v = (string)$v; return preg_match('/^[A-Za-z0-9][A-Za-z0-9._\-]{2,31}$/', $v) ? $v : ''; }
+function sig_dir(): string { $d = data_root() . '/_dash/sig'; ensure_dir($d); return $d; }
+function sig_label(string $tr, array $rec, array $x): string {
+    switch ($tr) {
+        case 'first_visit': return 'Opened their store for the first time and is looking around';
+        case 'return': return 'Came back to their store on a new day';
+        case 'forwarded': return 'Their store was opened by a second person on a different network — it was passed on';
+        case 'quote': $m = ['quote_pdf' => 'Downloaded a quote PDF', 'quote_share' => 'Shared their quote with someone', 'program_share' => 'Shared a program with someone',
+            'program_quote' => 'Priced a ready-made program', 'board_quote' => 'Asked for a quote on a board', 'sheet_quote' => 'Started a quote from a product', 'quote_view' => 'Opened their quote'];
+            return $m[$rec['e']] ?? 'Built a quote';
+        case 'checkout_abandon': return 'Opened checkout and did not send the request';
+        case 'no_stock': return 'Searched for “' . ($rec['q'] ?? '') . '” and the store showed nothing';
+        case 'sent': return 'Sent a quote request';
+    }
+    return $tr;
+}
+function sig_lines(array $ql): array {
+    $names = cat_names(); $o = [];
+    foreach ($ql as $l) $o[] = ['name' => $names[$l['k'] ?? ''] ?? ($l['k'] ?? ''), 'colour' => $l['col'] ?? '', 'qty' => (int)($l['q'] ?? 0)];
+    return $o;
+}
+function sig_deliver(string $kit, string $tr, array $rec, array $x = []): void {
+    $kn = kit_names([$kit])[$kit] ?? $kit; $ct = (string)($x['ct'] ?? ($rec['ct'] ?? ''));
+    $ql = $x['ql'] ?? ($rec['ql'] ?? []); $tot = $x['tot'] ?? ($rec['tot'] ?? null);
+    $test = strpos($kit, 'zz-sigtest') === 0;
+    $p = ['event' => 'store_signal', 'test' => $test, 'kit' => $kit, 'client' => $kn, 'store' => 'https://justdealspromotions.com/kits/' . $kit . '/',
+        'ct' => $ct, 'trigger' => $tr, 'detail' => sig_label($tr, $rec, $x), 'lines' => $ql ? sig_lines($ql) : [], 'total' => $tot !== null ? (int)round((float)$tot) : null,
+        'q' => $tr === 'no_stock' ? (string)($rec['q'] ?? '') : '', 'also' => $x['also'] ?? [], 't' => (int)$rec['t']];
+    if ($p['also']) $p['detail'] .= ' (also: ' . implode('; ', array_map(static fn($a) => lcfirst(sig_label($a, $rec, [])), $p['also'])) . ')';
+    $ctx = stream_context_create(['http' => ['method' => 'POST', 'timeout' => 8, 'ignore_errors' => true,
+        'header' => "Content-Type: application/json\r\n", 'content' => json_encode($p, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)]]);
+    $code = 0;
+    if (SIG_MODE === 'relay') { $raw = @file_get_contents(RELAY_URL, false, $ctx);
+        foreach (($http_response_header ?? []) as $h) if (preg_match('#^HTTP/\S+\s+(\d{3})#', $h, $m)) $code = (int)$m[1]; }
+    $p['relay'] = $code; $ok = $code >= 200 && $code < 300;
+    if (!$ok && $tr !== 'sent') $p['mailed'] = sig_mail($p) ? 1 : 0;          // never lose a signal
+    @file_put_contents(sig_dir() . '/signals.jsonl', json_encode($p, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n", FILE_APPEND | LOCK_EX);
+}
+function sig_mail(array $p): bool {
+    $cap = sig_dir() . '/mail_' . gmdate('Ymd') . '.n'; $n = is_file($cap) ? (int)@file_get_contents($cap) : 0;
+    if ($n >= SIG_MAIL_CAP) return false;
+    $who = ''; $c = jread(dash_dir() . '/contacts.json');
+    if ($p['ct'] && !empty($c[$p['kit']]['people'][$p['ct']])) { $q = $c[$p['kit']]['people'][$p['ct']];
+        $who = trim(($q['name'] ?? '') . (!empty($q['title']) ? ', ' . $q['title'] : '') . (!empty($q['phone']) ? ' · ' . $q['phone'] : '')); }
+    $L = [($p['test'] ? '[TEST] ' : '') . $p['client'] . ': ' . $p['detail'], ''];
+    if ($who) $L[] = 'Who: ' . $who;
+    foreach ($p['lines'] as $l) $L[] = '  ' . $l['qty'] . ' x ' . $l['name'] . ($l['colour'] ? ' (' . $l['colour'] . ')' : '');
+    if ($p['total']) $L[] = 'About $' . number_format($p['total']) . ' before setup, freight and tax';
+    $L[] = ''; $L[] = 'Their store: ' . $p['store']; $L[] = 'Live leads dashboard: ' . dash_url();
+    $body = json_encode(['_subject' => ($p['test'] ? '[TEST] ' : '') . 'Call now: ' . $p['client'] . ' — ' . $p['detail'], '_template' => 'box', '_captcha' => 'false', 'alert' => implode("\n", $L)]);
+    $ctx = stream_context_create(['http' => ['method' => 'POST', 'timeout' => 10, 'ignore_errors' => true,
+        'header' => "Content-Type: application/json\r\nAccept: application/json\r\nOrigin: https://justdealspromotions.com\r\nReferer: https://justdealspromotions.com/kits/\r\n",
+        'content' => $body]]);
+    $raw = @file_get_contents('https://formsubmit.co/ajax/' . REPORT_TO, false, $ctx);
+    $ok = $raw && strpos($raw, 'true') !== false; if ($ok) @file_put_contents($cap, (string)($n + 1), LOCK_EX);
+    return $ok;
+}
+function sig_seed(): array {                       // once: every store's real history, so an old store's next visit is a
+    $lk = @fopen(sig_dir() . '/.seedlock', 'c'); if (!$lk || !flock($lk, LOCK_EX | LOCK_NB)) return ['ok' => false, 'busy' => true];
+    if (is_file(sig_dir() . '/.seeded')) { flock($lk, LOCK_UN); return ['ok' => true, 'already' => true]; }   // "return", not a "first visit"
+    @set_time_limit(120); $first = []; $days = [];
+    for ($i = 89; $i >= 0; $i--) { $f = data_root() . '/_events/' . gmdate('Y-m-d', time() - 86400 * $i) . '.jsonl'; if (!is_file($f)) continue;
+        $fh = @fopen($f, 'r'); if (!$fh) continue;
+        while (($ln = fgets($fh)) !== false) { $r = json_decode($ln, true); if (!is_array($r) || !empty($r['i'])) continue;
+            $e = (string)($r['e'] ?? ''); $k = (string)($r['kit'] ?? ''); if ($k === '' || in_array($e, SIG_ACTION_SKIP, true)) continue;
+            $t = (int)($r['t'] ?? 0); $first[$k] = min($first[$k] ?? PHP_INT_MAX, $t); $days[$k][gmdate('Y-m-d', $t)] = 1; }
+        fclose($fh); }
+    $n = 0; foreach ($first as $k => $t) { $f = sig_dir() . '/' . $k . '.json'; if (is_file($f) || !slug($k)) continue;
+        jwrite($f, ['first' => $t, 'days' => array_slice($days[$k], -60, null, true), 'seeded' => 1]); $n++; }
+    @touch(sig_dir() . '/.seeded'); flock($lk, LOCK_UN);
+    return ['ok' => true, 'stores_with_history' => count($first), 'seeded' => $n];
+}
+/* One locked state file per store: which triggers fired on which day, the days with real activity, the devices seen,
+   and checkouts waiting to see whether they get sent. */
+function sig_check(array $rec): void {
+    if (!empty($rec['i'])) return; $kit = $rec['kit'];
+    if (!is_file(sig_dir() . '/.seeded') && empty(sig_seed()['ok'])) return;   // load history first: no false "first visit"s
+    if (in_array($kit, DASH_KITS_SKIP, true) || (strpos($kit, 'test') === 0)) return;
+    $e = $rec['e']; $day = gmdate('Y-m-d', $rec['t']); $fire = [];
+    $f = sig_dir() . '/' . $kit . '.json'; $fh = @fopen($f, 'c+'); if (!$fh) return; flock($fh, LOCK_EX);
+    $S = json_decode((string)stream_get_contents($fh), true); if (!is_array($S)) $S = [];
+    $once = static function (string $tr) use (&$S, $day, &$fire, $rec) { if (($S['fired'][$tr] ?? '') === $day) return; $S['fired'][$tr] = $day; $fire[] = [$tr, []]; };
+    $action = !in_array($e, SIG_ACTION_SKIP, true);
+    if ($action) {
+        if (empty($S['first'])) { $S['first'] = $rec['t']; $S['fired']['first_visit'] = $day; $fire[] = ['first_visit', []]; }
+        elseif (empty($S['days'][$day])) $once('return');
+        $S['days'][$day] = 1; if (count($S['days']) > 60) $S['days'] = array_slice($S['days'], -60, null, true);
+        /* A forward: a device we have not seen, on a network we have not seen, that did NOT arrive on the same contact
+           token as before (the same person opening our email on their phone carries the same token). */
+        if (!empty($rec['did'])) { $devs = $S['devs'] ?? []; $ct = $rec['ct'] ?? ''; $ip = $rec['ipt'] ?? '';
+            if ($devs && !isset($devs[$rec['did']]) && $ip !== '' && !in_array($ip, array_column($devs, 0), true)
+                && ($ct === '' || !in_array($ct, array_column($devs, 1), true))) $once('forwarded');
+            $devs[$rec['did']] = [$ip, $ct]; $S['devs'] = array_slice($devs, -20, null, true); }
+    }
+    if (in_array($e, ['quote_pdf', 'quote_share', 'program_share', 'program_quote', 'board_quote', 'sheet_quote'], true) || ($e === 'quote_view' && (int)($rec['n'] ?? 0) > 0)) $once('quote');
+    if ($e === 'search0') $once('no_stock');
+    if ($e === 'checkout') $S['pend'][$rec['sid']] = ['t' => $rec['t'], 'ct' => $rec['ct'] ?? '', 'ql' => $rec['ql'] ?? [], 'tot' => $rec['tot'] ?? null];
+    if ($e === 'sent') { unset($S['pend'][$rec['sid']]); $fire[] = ['sent', []]; }
+    if (!empty($S['pend'])) { $px = data_root() . '/_dash/sig/_pend.json'; $P = jread($px); $P[$kit] = min(array_column($S['pend'], 't')); jwrite($px, $P); }
+    ftruncate($fh, 0); rewind($fh); fwrite($fh, json_encode($S, JSON_UNESCAPED_SLASHES)); fflush($fh); flock($fh, LOCK_UN); fclose($fh);
+    if (!$fire) return;
+    /* One buying moment is one alert: when an event trips several triggers at once (a first visit that is also a quote
+       download), send the strongest and name the rest in the same message. */
+    $rank = ['sent' => 0, 'checkout_abandon' => 1, 'quote' => 2, 'forwarded' => 3, 'no_stock' => 4, 'return' => 5, 'first_visit' => 6];
+    usort($fire, static fn($a, $b) => ($rank[$a[0]] ?? 9) <=> ($rank[$b[0]] ?? 9));
+    $top = array_shift($fire); $also = array_map(static fn($f) => $f[0], $fire);
+    sig_deliver($kit, $top[0], $rec, $top[1] + ($also ? ['also' => $also] : []));
+}
+/* Abandoned checkouts are noticed lazily, on whatever event arrives next anywhere in the fleet (or ?tick=1). */
+function sig_sweep(): void {
+    $px = data_root() . '/_dash/sig/_pend.json'; if (!is_file($px)) return; $P = jread($px); $now = time(); $todo = [];
+    foreach ($P as $kit => $t) if ($t < $now - SIG_ABANDON) $todo[] = $kit; if (!$todo) return;
+    foreach ($todo as $kit) {
+        $f = sig_dir() . '/' . $kit . '.json'; $fh = @fopen($f, 'c+'); if (!$fh) continue; flock($fh, LOCK_EX);
+        $S = json_decode((string)stream_get_contents($fh), true); if (!is_array($S)) $S = []; $fire = null; $day = gmdate('Y-m-d');
+        foreach (($S['pend'] ?? []) as $sid => $pd) if ($pd['t'] < $now - SIG_ABANDON) { unset($S['pend'][$sid]);
+            if (($S['fired']['checkout_abandon'] ?? '') !== $day) { $S['fired']['checkout_abandon'] = $day; $fire = $pd; } }
+        ftruncate($fh, 0); rewind($fh); fwrite($fh, json_encode($S, JSON_UNESCAPED_SLASHES)); fflush($fh); flock($fh, LOCK_UN); fclose($fh);
+        $P = jread($px); if (empty($S['pend'])) unset($P[$kit]); else $P[$kit] = min(array_column($S['pend'], 't')); jwrite($px, $P);
+        if ($fire) sig_deliver($kit, 'checkout_abandon', ['t' => $fire['t'], 'e' => 'checkout', 'ct' => $fire['ct']], $fire);
+    }
+}
+
 /* ---- write: one anonymous event --------------------------------------------------------------- */
 $raw = file_get_contents('php://input', false, null, 0, 4096) ?: '';
 $in = json_decode($raw, true);
@@ -420,6 +606,13 @@ foreach (['c' => 24, 'src' => 32, 'p' => 40, 'f' => 16] as $fl => $mx) if (isset
 if (isset($in['v']) && is_scalar($in['v'])) { $v = preg_replace('/[^a-z0-9_.\- ]/', '', strtolower(substr((string)$in['v'], 0, 24))); if ($v !== '') $rec['v'] = $v; }
 if (isset($in['r']) && is_numeric($in['r'])) $rec['r'] = max(0, min(999, (int)$in['r']));
 if (isset($in['m'])) $rec['m'] = $in['m'] ? 1 : 0;
+if (isset($in['ct']) && ($ct = ctok($in['ct'])) !== '') $rec['ct'] = $ct;
+if (isset($in['did']) && preg_match('/^[a-z0-9]{8,32}$/', (string)$in['did'])) { $rec['did'] = (string)$in['did']; $rec['ipt'] = ip_tag(); }
+if (isset($in['ql']) && is_array($in['ql'])) { $ql = [];
+    foreach (array_slice($in['ql'], 0, 12) as $l) { if (!is_array($l)) continue; $k = slug((string)($l['k'] ?? ''), 60); if (!$k) continue;
+        $ql[] = ['k' => $k, 'col' => sclean($l['col'] ?? '', 30), 'q' => max(0, min(100000, (int)($l['q'] ?? 0)))]; }
+    if ($ql) $rec['ql'] = $ql; }
+if (isset($in['tot']) && is_numeric($in['tot'])) $rec['tot'] = max(0, min(10000000, (int)round((float)$in['tot'])));
 if (isset($in['ref'])) { $h = strtolower((string)parse_url('http://' . preg_replace('#^[a-z]+://#i', '', (string)$in['ref']), PHP_URL_HOST)); if (preg_match('/^[a-z0-9.\-]{3,80}$/', $h)) $rec['ref'] = $h; }
 if (!empty($in['i']) || isset(staff_tags()[ip_tag()])) $rec['i'] = 1;     // staff / our own testing
 $dir = data_root() . '/_events';
@@ -434,3 +627,7 @@ if (ensure_dir($dir)) {
     @file_put_contents($dir . '/' . gmdate('Y-m-d') . '.jsonl', json_encode($rec, JSON_UNESCAPED_SLASHES) . "\n", FILE_APPEND | LOCK_EX);
 }
 http_response_code(204);
+/* The buyer's browser has its answer; spot deal signals after the response so nothing waits on the relay. */
+if (function_exists('fastcgi_finish_request')) @fastcgi_finish_request();
+@ignore_user_abort(true);
+try { sig_check($rec); sig_sweep(); } catch (\Throwable $t) { }
