@@ -183,8 +183,17 @@ function cat_names(): array {
         $n[$it['key']] = trim(($it['name'] ?? '') . ' · ' . ($it['brand'] ?? $it['sku'] ?? ''), ' ·');
     return $n;
 }
-function dash_feed(int $days): array {
-    $now = time(); $L = []; $live = []; $imp = ['funnel' => array_fill_keys(['view', 'engaged', 'search', 'sheet', 'add', 'checkout', 'sent'], 0)];
+const STAGE_EVAL = ['sheet', 'search', 'search0', 'aisle', 'adv_go', 'ca_start', 'ca_q', 'ca_result', 'ca_det', 'ca_choose', 'program', 'gift_open', 'gift_lane', 'xp_open', 'filter', 'shelf_fam', 'twin', 'alt'];
+const STAGE_PRICE = ['add', 'quote_view', 'quote_open', 'quote_pdf', 'quote_share', 'quote_qty', 'quote_sizes', 'quote_line_qty', 'checkout', 'program_quote', 'program_share',
+    'program_adopt', 'sheet_quote', 'sheet_qty', 'board_quote', 'band_quote', 'gift_quote', 'ca_add', 'ca_add1', 'xp_add', 'rfq_open'];
+/* buying stage from what a person did: 1 browsing, 2 evaluating, 3 pricing, 4 requested a quote */
+function stage_of(string $e): int { if ($e === 'sent') return 4; if (in_array($e, STAGE_PRICE, true)) return 3; if (in_array($e, STAGE_EVAL, true)) return 2;
+    return in_array($e, ['view', 'exit_show', 'market_hint', 'logo_home'], true) ? 0 : 1; }
+function dash_feed(int $days, string $only = ''): array {
+    $now = time(); $L = []; $live = [];
+    if ($days <= 0) { $fs = glob(data_root() . '/_events/????-??-??.jsonl') ?: []; sort($fs);       // all time
+        $d0 = $fs ? strtotime(basename($fs[0], '.jsonl') . ' 00:00:00 UTC') : $now; $days = (int)min(3650, max(1, ceil(($now - $d0) / 86400) + 1)); }
+    $WK = []; $PQ = []; $imp = ['funnel' => array_fill_keys(['view', 'engaged', 'search', 'sheet', 'add', 'checkout', 'sent'], 0)];
     $sess = []; $adv = []; $prod = []; $q = []; $q0 = []; $byDay = []; $refs = []; $dev = ['mobile' => 0, 'desktop' => 0];
     $mkt = []; $kitSess = []; $internal = 0; $evn = 0; $SRC = [];
     for ($i = $days - 1; $i >= 0; $i--) {
@@ -195,6 +204,7 @@ function dash_feed(int $days): array {
             $r = json_decode($line, true); if (!is_array($r)) continue;
             $kit = (string)($r['kit'] ?? ''); $e = (string)($r['e'] ?? ''); $t = (int)($r['t'] ?? 0);
             if ($kit === '' || in_array($kit, DASH_KITS_SKIP, true) || strpos($kit, 'test') === 0 || strpos($kit, 'zz-sigtest') === 0) continue;
+            if ($only !== '' && $kit !== $only) continue;
             if (isset(DASH_SINCE[$kit]) && $t < DASH_SINCE[$kit]) continue;
             $sid = $kit . '|' . ($r['sid'] ?? '');
             if (!empty($r['i'])) { $sess[$sid]['i'] = 1; }
@@ -229,7 +239,13 @@ function dash_feed(int $days): array {
         foreach ($ev as $r) { $e0 = $r['e'] ?? ''; if ($e0 === 'engaged') $brow = true;
             elseif (!in_array($e0, ['view', 'exit_show', 'market_hint', 'logo_home'], true)) { $acts++; $brow = true; }
             if (in_array($e0, ['sent', 'checkout', 'quote_pdf', 'quote_share', 'quote_view', 'ca_add', 'program_quote', 'program_share', 'sheet_quote', 'board_quote'], true)) $strong = true; }
+        $stg = 0; $sql = null; foreach ($ev as $r) { $stg = max($stg, stage_of((string)($r['e'] ?? ''))); if (!empty($r['ql'])) $sql = $r; }
+        if ($acts) { $wk = gmdate('o-\WW', $first); $W = &$WK[$wk]; $W['visits'] = ($W['visits'] ?? 0) + 1; $W['stores'][$kit] = 1;
+            if ($stg >= 3) $W['pricing'] = ($W['pricing'] ?? 0) + 1; if ($stg >= 4) $W['requests'] = ($W['requests'] ?? 0) + 1; unset($W); }
+        if ($sql) foreach ($sql['ql'] as $ln) { $kk = $ln['k'] ?? ''; if ($kk === '') continue; $PQ[$kk]['qty'] = ($PQ[$kk]['qty'] ?? 0) + (int)($ln['q'] ?? 0); $PQ[$kk]['stores'][$kit] = 1; }
+        foreach ($ev as $r) if (in_array($r['e'] ?? '', ['sheet', 'add'], true) && !empty($r['k'])) $SRC[$src]['prod'][$r['k']] = ($SRC[$src]['prod'][$r['k']] ?? 0) + 1;
         $SR = &$SRC[$src]; $SR['opens'] = ($SR['opens'] ?? 0) + 1; if ($brow) $SR['browsed'] = ($SR['browsed'] ?? 0) + 1;
+        if ($stg >= 3) { $SR['pricing'] = ($SR['pricing'] ?? 0) + 1; } if ($stg >= 4) { $SR['requests'] = ($SR['requests'] ?? 0) + 1; }
         if ($acts) { $SR['acted'] = ($SR['acted'] ?? 0) + 1; $SR['stores'][$kit] = 1; } if ($strong) { $SR['quotes'] = ($SR['quotes'] ?? 0) + 1; $SR['qstores'][$kit] = 1; } unset($SR);
         $day = gmdate('Y-m-d', $first);
         $seen = []; foreach ($ev as $r) $seen[$r['e']] = 1; if (!empty($seen['search0'])) $seen['search'] = 1;
@@ -248,6 +264,8 @@ function dash_feed(int $days): array {
         $K = &$L[$kit];
         if ($acts || $brow) $K['src'][$src] = max($K['src'][$src] ?? 0, $last);
         if ($acts) $K['real'] = ($K['real'] ?? 0) + 1;
+        if ($stg > ($K['stage'] ?? 0)) $K['stage'] = $stg; if ($stg >= 2) $K['st_t'][$stg] = max($K['st_t'][$stg] ?? 0, $last);
+        if ($sql) { $sig2 = json_encode($sql['ql']); if (($K['qsig'] ?? '') !== $sig2) { $K['quotes'][] = ['t' => (int)$sql['t'], 'ql' => $sql['ql'], 'tot' => $sql['tot'] ?? null]; $K['qsig'] = $sig2; } }
         $K['score'] = ($K['score'] ?? 0) + $sc; $K['sessions'] = ($K['sessions'] ?? 0) + 1;
         $eng = count($ev) > 1 || !empty($seen['engaged']); if ($eng) { $K['eng'] = ($K['eng'] ?? 0) + 1; $K['edays'][$day] = 1; }
         $K['days'][$day] = 1; $K['first'] = min($K['first'] ?? PHP_INT_MAX, $first); $K['last'] = max($K['last'] ?? 0, $last);
@@ -345,7 +363,7 @@ function dash_feed(int $days): array {
             $o = ['t' => (int)$r['t'], 'e' => $r['e'], 's' => $r['s']];
             foreach (['k', 'c', 'q', 'v', 'src', 'n', 'p', 'r'] as $f) if (isset($r[$f]) && $r[$f] !== '') $o[$f] = $r[$f];
             if (!empty($o['k']) && isset($names[$o['k']])) $o['kn'] = $names[$o['k']];
-            return $o; }, array_slice($tl, 0, 40));
+            return $o; }, array_slice($tl, 0, $only !== '' ? 3000 : 40));
         $mk = $marks[$kit] ?? null; $snoozed = $mk && ($mk['s'] ?? '') === 'snooze' && ($mk['t'] ?? 0) > $K['last'];
         $called = $mk && in_array($mk['s'] ?? '', ['called', 'won'], true) && ($mk['t'] ?? 0) > $K['last'];
         $tier = ($score >= 45 || ($K['strong'] ?? 0) > $now - 7 * 86400) ? 'hot' : ($score >= 18 ? 'warm' : 'cool');   // a quote built this week is hot, full stop
@@ -356,7 +374,10 @@ function dash_feed(int $days): array {
             'devices' => array_keys($K['dev'] ?? []), 'timeline' => $tl, 'contact' => $contacts[$kit] ?? null, 'mark' => $mk,
             'quiet' => $snoozed || $called, 'people' => $ppl, 'forwarded' => $fwd, 'priced' => $priced, 'priced_total' => $K['qtot'] ?? null,
             'sources' => array_keys($K['src'] ?? []), 'real' => $K['real'] ?? 0, 'calls' => array_slice(array_reverse($calls[$kit] ?? []), 0, 8),
-            'sends' => array_slice(array_reverse($sends[$kit] ?? []), 0, 12)];
+            'sends' => array_slice(array_reverse($sends[$kit] ?? []), 0, $only !== '' ? 200 : 12),
+            'stage' => $K['stage'] ?? 0, 'stage_t' => $K['st_t'] ?? new stdClass(), 'devices_n' => count($K['did'] ?? []),
+            'quotes' => array_map(static fn($x) => ['t' => $x['t'], 'tot' => $x['tot'], 'lines' => array_map(static fn($l) => ['name' => $names[$l['k'] ?? ''] ?? ($l['k'] ?? ''), 'colour' => $l['col'] ?? '', 'qty' => (int)($l['q'] ?? 0)], $x['ql'])],
+                array_slice(array_reverse($K['quotes'] ?? []), 0, $only !== '' ? 50 : 3))];
     }
     usort($leads, static fn($a, $b) => ($a['quiet'] <=> $b['quiet']) ?: ($b['score'] <=> $a['score']));
     /* --- improvement rollups --- */
@@ -378,9 +399,15 @@ function dash_feed(int $days): array {
             if (!empty($o['k']) && isset($names[$o['k']])) $o['kn'] = $names[$o['k']]; return $o; }, $lv['ev']); }
     unset($lv);
     return ['ok' => true, 'now' => $now, 'days' => $days, 'events' => $evn, 'sessions' => count($sess), 'internal_sessions' => $internal, 'scanner_sessions' => $scan,
-        'live' => $live, 'leads' => array_slice($leads, 0, 300),
-        'sources' => array_map(static fn($v) => ['opens' => $v['opens'] ?? 0, 'browsed' => $v['browsed'] ?? 0, 'acted' => $v['acted'] ?? 0,
-            'quotes' => $v['quotes'] ?? 0, 'stores' => array_keys($v['stores'] ?? []), 'qstores' => array_keys($v['qstores'] ?? [])], $SRC),
+        'live' => $live, 'leads' => array_slice($leads, 0, 2000),
+        'weeks' => array_map(static fn($w) => ['visits' => $w['visits'] ?? 0, 'pricing' => $w['pricing'] ?? 0, 'requests' => $w['requests'] ?? 0, 'stores' => count($w['stores'] ?? [])], (function () use ($WK) { ksort($WK); return $WK; })()),
+        'demand' => (function () use ($prod, $PQ, $names) { $o = []; foreach (array_unique(array_merge(array_keys($prod), array_keys($PQ))) as $k)
+            $o[] = ['k' => $k, 'name' => $names[$k] ?? $k, 'opened' => count($prod[$k]['sheet'] ?? []), 'added' => count($prod[$k]['add'] ?? []), 'priced_qty' => $PQ[$k]['qty'] ?? 0, 'priced_by' => count($PQ[$k]['stores'] ?? [])];
+            usort($o, static fn($a, $b) => ($b['priced_by'] <=> $a['priced_by']) ?: ($b['opened'] <=> $a['opened'])); return array_slice($o, 0, 40); })(),
+        'sources' => array_map(static function ($v) use ($names) { $pp = $v['prod'] ?? []; arsort($pp);
+            return ['opens' => $v['opens'] ?? 0, 'browsed' => $v['browsed'] ?? 0, 'acted' => $v['acted'] ?? 0, 'pricing' => $v['pricing'] ?? 0, 'requests' => $v['requests'] ?? 0,
+            'quotes' => $v['quotes'] ?? 0, 'stores' => array_keys($v['stores'] ?? []), 'qstores' => array_keys($v['qstores'] ?? []),
+            'top' => array_map(static fn($k) => $names[$k] ?? $k, array_slice(array_keys($pp), 0, 3))]; }, $SRC),
         'sent_by_source' => $sendN,
         'relay' => (function () { $R = jread(dash_dir() . '/relay.json'); return empty($R['url']) ? null : ['host' => (string)parse_url($R['url'], PHP_URL_HOST), 'headers' => array_keys($R['headers'] ?? []), 't' => $R['t'] ?? 0]; })(),
         'improve' => ['funnel' => $imp['funnel'], 'advisor' => $adv, 'zero' => $z, 'searches' => array_slice($q, 0, 30, true),
@@ -409,7 +436,12 @@ if (isset($_GET['dash']) || isset($_GET['contacts']) || isset($_GET['mark']) || 
             if (is_array($r) && (int)($r['t'] ?? 0) > $since) $out[] = $r; }
         echo json_encode(['ok' => true, 'signals' => array_slice($out, -500)], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE); exit;
     }
-    if (isset($_GET['dash'])) { staff_seen(); echo json_encode(dash_feed(max(1, min(90, (int)($_GET['days'] ?? 14)))), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE); exit; }
+    if (isset($_GET['dash'])) { staff_seen(); $dd = (int)($_GET['days'] ?? 0); $dd = $dd <= 0 ? 0 : min(3650, $dd);
+        $co = slug((string)($_GET['company'] ?? ''));
+        if ($co !== '') { echo json_encode(dash_feed(0, $co), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE); exit; }
+        $cf = dash_dir() . '/cache_' . $dd . '.json';                 // one scan per 45 s, however many tabs are open
+        if (is_file($cf) && filemtime($cf) > time() - 45) { readfile($cf); exit; }
+        $out = json_encode(dash_feed($dd), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE); @file_put_contents($cf, $out, LOCK_EX); echo $out; exit; }
     /* The host's bot check blocks POSTs from servers, so the keyed write endpoints also take the same JSON as a GET:
        &d=<base64url(JSON)>. Still key-gated; ~40 rows per request keeps the URL short. */
     $d64 = (string)($_GET['d'] ?? '');
