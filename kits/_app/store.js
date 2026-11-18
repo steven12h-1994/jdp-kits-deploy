@@ -8187,6 +8187,7 @@ function jdpTrack(e,x){
     if(!jdpKit()||CFG&&CFG.notrack)return;
     var p={kit:jdpKit(),e:e,sid:jdpSid(),did:jdpDid()};if(x)for(var k in x)p[k]=x[k];
     var ct=jdpCt();if(ct)p.ct=ct;
+    try{if(navigator.webdriver||/HeadlessChrome|Browserbase/i.test(navigator.userAgent))p.i=1;}catch(_){}   // automated browsers are never a lead
     if(JDP_QL_EV[e])jdpQuoteLines(p);
     if(jdpStaff())p.i=1;                                 // our own visits never score as a lead
     var body=JSON.stringify(p),url=apiBase()+'/events.php';
