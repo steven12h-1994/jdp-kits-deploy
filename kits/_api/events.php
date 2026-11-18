@@ -382,6 +382,7 @@ function dash_feed(int $days): array {
         'sources' => array_map(static fn($v) => ['opens' => $v['opens'] ?? 0, 'browsed' => $v['browsed'] ?? 0, 'acted' => $v['acted'] ?? 0,
             'quotes' => $v['quotes'] ?? 0, 'stores' => array_keys($v['stores'] ?? []), 'qstores' => array_keys($v['qstores'] ?? [])], $SRC),
         'sent_by_source' => $sendN,
+        'relay' => (function () { $R = jread(dash_dir() . '/relay.json'); return empty($R['url']) ? null : ['host' => (string)parse_url($R['url'], PHP_URL_HOST), 'headers' => array_keys($R['headers'] ?? []), 't' => $R['t'] ?? 0]; })(),
         'improve' => ['funnel' => $imp['funnel'], 'advisor' => $adv, 'zero' => $z, 'searches' => array_slice($q, 0, 30, true),
             'products' => array_slice($pr, 0, 60), 'bounce' => array_slice($bounce, 0, 20), 'by_day' => $byDay,
             'refs' => array_slice($refs, 0, 15, true), 'devices' => $dev, 'markets' => $mkt]];
