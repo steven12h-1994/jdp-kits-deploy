@@ -209,8 +209,22 @@ function homeHtml(){
      c=(l.calls||[]).filter(function(x){return x.by!=='ops';})[0]||c;
      return'<div class="row"><button class="lnk" data-find="'+esc(co(l))+'">'+esc(co(l))+'</button><span class="mu">'+esc(outcomeTxt(c))+' · '+clock(c.t)+'</span><span class="sp"></span><button class="btn sm" data-kit2="'+esc(l.kit)+'" data-undo="1">Back on the list</button></div>';}).join('')+'</details>';
   h+=sourcesHtml();
+  h+=relayHtml();
   return h;
 }
+/* where alerts go: set once by Steven, stored above the web root (never in chat or the public repo) */
+function relayHtml(){var R=D.relay;
+  return'<details class="more"'+(R?'':' open')+'><summary>Alert webhook '+(R?'<span class="pill live">connected · '+esc(R.host)+'</span>':'<span class="pill hot">not set</span>')+'</summary>'
+   +'<div class="card"><p class="lede" style="margin-top:0">Buying signals are sent here, so the Outbound Ops Manager can email you and create the Apollo task. Until it is set, signals are emailed to you directly. Paste it once; the secret is stored on the server and never shown again.</p>'
+   +'<form id="relayf" style="display:grid;gap:8px;max-width:640px">'
+   +'<label>Webhook URL<br><input name="url" type="url" required placeholder="https://…" style="width:100%;border:1px solid #d5d9de;border-radius:8px;padding:8px 10px"></label>'
+   +'<div style="display:flex;gap:8px;flex-wrap:wrap"><label style="flex:1;min-width:200px">Secret header name<br><input name="hn" placeholder="e.g. X-Webhook-Secret" style="width:100%;border:1px solid #d5d9de;border-radius:8px;padding:8px 10px"></label>'
+   +'<label style="flex:2;min-width:240px">Secret value<br><input name="hv" type="password" autocomplete="off" style="width:100%;border:1px solid #d5d9de;border-radius:8px;padding:8px 10px"></label></div>'
+   +'<div class="acts2"><button class="btn pri" type="submit">Save</button>'+(R?'<button class="btn" type="button" data-relayoff="1">Disconnect</button>':'')+'</div></form></div></details>';}
+document.addEventListener('submit',function(ev){if(ev.target.id!=='relayf')return;ev.preventDefault();var f=ev.target,hd={};
+  if(f.elements.hn.value.trim())hd[f.elements.hn.value.trim()]=f.elements.hv.value;
+  api('relay=1',{url:f.elements.url.value.trim(),headers:hd}).then(function(j){toast(j.ok?'Saved. Signals now go to '+String(j.relay||''):'That URL was not accepted');load();});});
+document.addEventListener('click',function(ev){if(!ev.target.closest('[data-relayoff]'))return;api('relay=1',{url:''}).then(function(){toast('Disconnected');load();});});
 function sourcesHtml(){
   var S=D.sources||{};Object.keys(D.sent_by_source||{}).forEach(function(k){if(!S[k])S[k]={opens:0,acted:0,quotes:0,stores:[]};});var keys=Object.keys(S).filter(function(k){return S[k].opens||(D.sent_by_source||{})[k];});
   if(!keys.length)return'';
