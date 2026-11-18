@@ -25,16 +25,7 @@ h2{font-size:17px;margin:28px 0 4px;letter-spacing:-.01em}h2:first-child{margin-
 .btn:hover{background:var(--soft)}.btn.pri{background:var(--ink);border-color:var(--ink);color:#fff}.btn.call{background:var(--ok);border-color:var(--ok);color:#fff}.btn.sm{padding:4px 9px;font-size:12.5px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:10px}
 .card.hot{border-left:4px solid var(--hot)}.card.warm{border-left:4px solid var(--warm)}.card.cool{border-left:4px solid var(--line)}.card.quiet{opacity:.6}
-.ch{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.ch h3{margin:0;font-size:17px}
-.num{width:24px;height:24px;border-radius:50%;background:var(--ink);color:#fff;font-size:12px;font-weight:700;display:inline-flex;align-items:center;justify-content:center}
-.lnk.big{font-size:17px;font-weight:700;color:var(--ink);text-decoration:none}.lnk.big:hover{text-decoration:underline}
-.why{margin-top:6px;font-size:15px;font-weight:600}
-.say{margin-top:10px;background:#f2f6ff;border:1px solid #dbe5fb;border-radius:10px;padding:10px 12px;font-size:14px;line-height:1.5}.say span{display:block;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#1a56c4;margin-bottom:2px}
-.lab{font-size:12.5px;color:var(--sub);font-weight:600;align-self:center;margin-right:2px}.btn.won{border-color:var(--ok);color:var(--ok)}
-.card.leaving{opacity:.35;transition:opacity .2s}
-.hero{display:flex;align-items:baseline;gap:22px;flex-wrap:wrap;margin:0 0 14px}.hero>div{font-size:15px}.hero b{font-size:26px;letter-spacing:-.02em;margin-right:4px}.hero .mu{font-size:12.5px;flex:1;min-width:240px}
-.facts{display:flex;gap:16px;flex-wrap:wrap;margin-top:8px;font-size:13px;color:var(--sub)}.facts b{color:var(--ink)}
-.who div{margin-top:4px}.sub{margin-top:14px;font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--mute)}.mu{color:var(--mute)}
+.ch{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.ch h3{margin:0;font-size:16px}
 .pill{font-size:11.5px;font-weight:700;border-radius:999px;padding:2px 9px}.pill.hot{background:var(--hotbg);color:var(--hot)}.pill.warm{background:var(--warmbg);color:var(--warm)}.pill.cool{background:var(--coolbg);color:var(--cool)}
 .pill.live{background:var(--okbg);color:var(--ok)}.when{margin-left:auto;color:var(--mute);font-size:12.5px;white-space:nowrap}
 .who{margin-top:6px;font-size:13.5px}.who b{font-weight:600}.who span{color:var(--sub)}
@@ -54,6 +45,24 @@ details.more>summary{cursor:pointer;font-weight:600;font-size:15px;margin:28px 0
 .gate{max-width:460px;margin:12vh auto;text-align:center;padding:0 20px}
 .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;padding:9px 16px;border-radius:9px;opacity:0;transition:.2s;pointer-events:none;font-size:13px}.toast.on{opacity:1;transform:translateX(-50%)}
 @media (max-width:640px){.bar{padding:10px 14px}main{padding:16px 14px}.when{margin-left:0;width:100%}}
+
+.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin:2px 0 8px}.kpi{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.kpi b{display:block;font-size:26px;letter-spacing:-.02em;line-height:1.1}.kpi span{color:var(--sub);font-size:12.5px}.kpi.h b{color:var(--hot)}
+.list{display:grid;gap:6px}
+.acc{display:grid;grid-template-columns:minmax(150px,1.3fr) auto minmax(0,2fr) minmax(0,1.2fr) 70px;align-items:center;gap:12px;width:100%;text-align:left;background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px 14px;cursor:pointer}
+.acc:hover{border-color:#c8cdd3;background:#fcfcfd}.acc .nm{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.acc .dt{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.acc .mt{font-size:12px;color:var(--sub);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.acc .ag{font-size:12px;color:var(--mute);text-align:right;white-space:nowrap}
+.acc>.dot{justify-self:start}
+.two{display:grid;grid-template-columns:3fr 2fr;gap:12px;align-items:start}
+.trend{display:flex;gap:6px;align-items:flex-end;background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px 14px 8px;overflow-x:auto}
+.wk{display:flex;flex-direction:column;align-items:center;gap:4px;min-width:38px}.wk span{font-size:11px;color:var(--mute)}.bars{display:flex;gap:2px;align-items:flex-end;height:62px}
+.bars i,.leg i{display:inline-block;width:8px;border-radius:2px 2px 0 0}.v{background:#9aa4b2}.p{background:var(--warm)}.r{background:var(--hot)}
+.leg{font-size:12px;color:var(--sub);margin-top:6px}.leg i{height:9px;margin:0 4px 0 10px;border-radius:2px}
+.facts{display:flex;gap:16px;flex-wrap:wrap;margin-top:8px;font-size:13px;color:var(--sub)}.facts b{color:var(--ink)}
+.sub{margin-top:16px;font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--mute)}.mu{color:var(--mute)}
+.hero{display:flex;align-items:baseline;gap:16px;margin:0 0 12px}.hero b{font-size:24px;margin-right:4px}
+.in{width:100%;border:1px solid #d5d9de;border-radius:8px;padding:8px 10px}
+@media (max-width:820px){.kpis{grid-template-columns:repeat(2,1fr)}.acc{grid-template-columns:1fr auto;}.acc .dt,.acc .mt{grid-column:1/-1}.acc .ag{grid-row:1;grid-column:2}.two{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -62,18 +71,19 @@ details.more>summary{cursor:pointer;font-weight:600;font-size:15px;margin:28px 0
 <script>
 (function(){
 'use strict';
-/* STORE LEADS v3 -- rebuilt from first principles (Steven, 2026-11-18: "re-think the dashboard from first principles and
-   re create it. apollo is for tasks, not the dashboard").
-   The page exists for one person and one job: win deals from store activity. So it answers, in this order:
-     1. WHO DO I CALL NOW, AND WHAT DO I SAY?  A queue, not a report. Each card is a ready call: the person, their
-        phone, why now, an opener built from what they did (never mentioning that we saw it), what they priced.
-        One tap logs the outcome and the card leaves the queue until that company does something new.
-     2. WHAT IS GOING ON WITH COMPANY X?  Search any company or person: every visit in plain English, people, what
-        they priced, where they came from, and every call outcome logged here.
-     3. IS THE OUTREACH WORKING?  Per email / newsletter edition: link opens -> real visits -> quote actions.
-   Only real people count: email scanners, bare page loads and our own agents never appear. Tasks live in Apollo. */
+/* STORE LEADS v4 -- company-store data only (Steven, 2026-11-18: "the dashboard is purely company store data ... I want to
+   see all time ... think from first principles as a top 1% b2b revenue architect").
+   Calls, outcomes and scripts live in Apollo, so nothing here asks Steven to do anything. The page reads store behaviour
+   the way a revenue team reads intent data:
+     1. WHO IS IN MARKET, AND HOW FAR ALONG?  Every account by buying stage (requested a quote > pricing > evaluating
+        > browsing), newest first, with what they priced, how many people, and which email brought them.
+     2. WHO PRICED AND WENT QUIET?  Stalled deals are the cheapest revenue there is.
+     3. WHAT DOES THE MARKET WANT?  Products priced and opened across every store, and searches we could not answer.
+     4. WHICH OUTREACH CREATES BUYERS?  Per email step and newsletter edition: sent -> real visits -> pricing -> requests.
+     5. ONE COMPANY, ALL TIME.  Search any company: its whole history in plain English.
+   Only real people count: email scanners, bare page loads and our own agents never appear. Default window: all time. */
 var API='/kits/_api/events.php';
-var KEY='',D=null,STORES=[],Q='',DAYS=+(localStorage.getItem('jdp_dash_days2')||30),ALL=false,LAST_OK=0,TIMER=null,OPEN={};
+var KEY='',D=null,STORES=[],Q='',DAYS=+(localStorage.getItem('jdp_dash_days4')||0),ALL=false,LAST_OK=0,TIMER=null,OPEN={};
 try{
   var m=/[#&]k=([a-f0-9]{32,})/i.exec(location.hash);
   if(m){localStorage.setItem('jdp_dash_key',m[1]);history.replaceState(null,'',location.pathname);}
@@ -113,7 +123,7 @@ function say(r){var e=r.e,c=catn(r.c),q=r.q||'',v=r.v||'';
   return null;}
 var SRCN={'ct:e0':'Store email','ct:e4':'Day-4 follow-up','ct:e10':'Day-10 follow-up','ct:cl':'Call-ladder email','ct:li':'LinkedIn','ct:nl':'Newsletter','ct:nu':'Nurture email','direct':'No tag (typed, bookmarked or forwarded)'};
 function srcn(s){if(SRCN[s])return SRCN[s];if(s.indexOf('utm:')===0){var u=s.slice(4);return(/^nl/.test(u)?'Newsletter · ':'Link tag · ')+u;}return s.replace(/^ct:/,'Email step ');}
-function telh(p){var n=String(p||'').split(/ext|\bx\s*\d|,|\//i)[0].replace(/[^\d+]/g,'');return n.length>=7?'tel:'+n:'';}
+function telh(p){var n=String(p||'').split(/\(|ext|\bx\s*\d|,|\//i)[0].replace(/[^\d+]/g,'');return n.length>=7?'tel:'+n:'';}
 /* ---- data ---- */
 function api(qs,body){
   var o=body?{method:'POST',body:JSON.stringify(body),headers:{'Content-Type':'text/plain'}}:{cache:'no-store'};
@@ -131,163 +141,146 @@ function gate(msg){
   $('sendlink').onclick=function(){fetch(API+'?send=1').then(function(r){return r.json();}).then(function(j){toast(j.sent?'Sent. Check your inbox.':'Already sent within the hour. Check your inbox.');});};
 }
 
-/* ---- helpers on a lead ---- */
-function isReal(l){return (l.real||0)>0||(l.priced&&l.priced.length)||(l.signals||[]).some(function(s){return s[0]==='h';});}
-function person(l){
-  var c=l.contact||{},p=(l.people||[]).filter(function(x){return x.name;}).sort(function(a,b){return b.last-a.last;})[0];
-  return {name:(p&&p.name)||c.name||'',title:(p&&p.title)||c.title||'',phone:(p&&p.phone)||c.phone||'',email:(p&&p.email)||c.email||''};}
+
+/* ---- helpers ---- */
+var STG=['','Browsing','Evaluating','Pricing','Requested a quote'],STC=['','cool','cool','warm','hot'];
+function isReal(l){return (l.real||0)>0||(l.stage||0)>=2;}
 function co(l){return (l.contact&&l.contact.company)||l.client;}
 function storeUrl(kit){return'https://justdealspromotions.com/kits/'+encodeURIComponent(kit)+'/?jdpstaff=1';}
+function win(){return DAYS?'the last '+DAYS+' days':'all time';}
+function pname(n){return String(n||'').split(' · ')[0];}
+function kind(n){n=String(n||'').toLowerCase();var K=[[/hoodie|hooded/,'hoodies'],[/quarter|1\/4|half-zip|1\/2/,'quarter-zips'],[/polo/,'polos'],[/vest/,'vests'],[/parka|softshell|jacket|shell|bomber|3-in-1/,'jackets'],
+  [/t-shirt|\btee\b/,'t-shirts'],[/crew|sweatshirt|fleece/,'fleece'],[/shirt/,'shirts'],[/toque|beanie/,'toques'],[/cap|hat\b/,'caps'],[/pant|jogger|bib|coverall/,'work pants'],[/backpack|duffel|bag|cooler/,'bags'],[/hard hat/,'hard hats'],[/mug|bottle|tumbler/,'drinkware']];
+  for(var i=0;i<K.length;i++)if(K[i][0].test(n))return K[i][1];return'';}
+function interests(l){var o=[];(l.products||[]).forEach(function(p){var k=kind(p.name);if(k&&o.indexOf(k)<0)o.push(k);});
+  Object.keys(l.advisor||{}).forEach(function(c){var k=catn(c);if(o.indexOf(k)<0)o.push(k);});return o.slice(0,4);}
+function quoteTxt(q){if(!q)return'';return q.lines.slice(0,3).map(function(p){return p.qty+' × '+pname(p.name)+(p.colour?' ('+p.colour+')':'');}).join(', ')+(q.lines.length>3?' +'+(q.lines.length-3)+' more':'')+(q.tot?' · about $'+Math.round(q.tot).toLocaleString():'');}
 function visits(l){
   var by={},order=[];(l.timeline||[]).forEach(function(r){var k=r.s||'?';if(!by[k]){by[k]={t:r.t,lines:[]};order.push(k);}
     var s=say(r);if(s&&by[k].lines.indexOf(s)<0)by[k].lines.push(s);by[k].t=Math.max(by[k].t,r.t);});
   return order.map(function(k){return by[k];}).filter(function(v){return v.lines.length;}).sort(function(a,b){return b.t-a.t;});}
-function has(l,e){return (l.counts||{})[e]||0;}
-function pname(p){return String(p.name||'').split(' · ')[0];}
-/* why this company is worth a call right now: the single strongest thing, in a few words */
-function why(l){
-  if(has(l,'sent'))return'Sent a quote request';
-  if(has(l,'checkout'))return'Opened checkout and stopped';
-  if(has(l,'quote_pdf'))return'Downloaded a quote';
-  if(l.forwarded)return'Passed the store on to a colleague';
-  if(has(l,'quote_share')||has(l,'program_share'))return'Shared a quote';
-  if(l.priced&&l.priced.length)return'Priced '+l.priced[0].qty+' × '+pname(l.priced[0]);
-  if(has(l,'ca_add')||has(l,'ca_add1'))return'Took an advisor recommendation';
-  var z=Object.keys(l.searches||{}).filter(function(q){return l.searches[q]==='search0';});if(z.length)return'Looked for “'+z[0]+'”, which the store doesn’t show';
-  if(l.days>1)return'Came back on '+l.days+' different days';
-  if(has(l,'add'))return'Added products to a quote';
-  if(has(l,'sheet'))return'Looked at '+has(l,'sheet')+' product'+(has(l,'sheet')>1?'s':'');
-  return'Browsed their store';}
-/* the garment type only, never the model name, so the call never reads like we watched them browse */
-function kind(n){n=String(n||'').toLowerCase();var K=[[/hoodie|hooded/,'hoodies'],[/quarter|1\/4|half-zip|1\/2/,'quarter-zips'],[/polo/,'polos'],[/vest/,'vests'],[/parka|softshell|jacket|shell|bomber|3-in-1/,'jackets'],
-  [/t-shirt|\btee\b/,'t-shirts'],[/crew|sweatshirt|fleece/,'fleece'],[/shirt/,'shirts'],[/toque|beanie/,'toques'],[/cap|hat\b/,'caps'],[/pant|jogger|bib|coverall/,'work pants'],[/backpack|duffel|bag|cooler/,'bags'],[/hard hat/,'hard hats']];
-  for(var i=0;i<K.length;i++)if(K[i][0].test(n))return K[i][1];return'branded gear';}
-/* an opener that follows their interest without ever saying we watched them */
-function opener(l){
-  var who=person(l),hi='Hi'+(who.name?' '+who.name.split(' ')[0]:'')+', Steven from Just Deals. ';
-  var z=Object.keys(l.searches||{}).filter(function(q){return l.searches[q]==='search0';});
-  if(l.priced&&l.priced.length){var p=l.priced[0];return hi+'Quick one: are you looking at '+kind(pname(p))+' for the team this season? Happy to send free proofs with your logo and pricing.';}
-  if(z.length)return hi+'Are you sourcing '+z[0]+' at the moment? We can get it for you, with proofs and a firm price.';
-  var adv=Object.keys(l.advisor||{});if(adv.length)return hi+'Are you kitting the crew out with '+catn(adv[0])+' this season? Happy to put together a shortlist with your logo on it.';
-  if(l.products&&l.products.length)return hi+'Are you planning any branded '+kind(String(l.products[0].name))+' for the team? I can send free proofs with your logo and exact pricing.';
-  return hi+'Is branded gear for the team on your list this season? I can send free proofs with your logo, no obligation.';}
-var OUT=[['talked','Talked: interested','called'],['vm','Left a voicemail','called'],['no','Not interested','snooze'],['won','Won the order','won']];
-function outcomeTxt(c){var o=OUT.filter(function(x){return x[0]===c.note;})[0];return o?o[1]:({called:'Called',snooze:'Not now',won:'Won the order',clear:'Put back on the list',reply:'They replied',quote:'Quote sent',lost:'Lost',meeting:'Meeting booked'}[c.s]||c.s)+(c.note&&!o?' · '+c.note:'');}
-function outcomesHtml(){return'<div class="acts2"><span class="lab">How did it go?</span>'+OUT.map(function(o){return'<button class="btn sm'+(o[0]==='won'?' won':'')+'" data-out="'+o[0]+'" data-s="'+o[2]+'">'+o[1]+'</button>';}).join('')+'</div>';}
-function pricedHtml(l){return (l.priced&&l.priced.length)?'<div class="priced">They priced '+l.priced.map(function(p){return'<b>'+p.qty+'</b> × '+esc(pname(p))+(p.colour?' ('+esc(p.colour)+')':'');}).join(', ')+(l.priced_total?' · about <b>$'+Math.round(l.priced_total).toLocaleString()+'</b>':'')+'</div>':'';}
-function callCard(l,i){
-  var who=person(l),tel=telh(who.phone);
-  return'<article class="card '+l.tier+'" data-kit="'+esc(l.kit)+'"><div class="ch"><span class="num">'+(i+1)+'</span><h3><button class="lnk big" data-find="'+esc(co(l))+'">'+esc(co(l))+'</button></h3>'
-   +(l.live?'<span class="pill live"><span class="dot"></span> In the store now</span>':'')+'<span class="when">'+ago(l.last)+'</span></div>'
-   +'<div class="why">'+esc(why(l))+'</div>'
-   +'<div class="who">'+(who.name?'<b>'+esc(who.name)+'</b>'+(who.title?' <span>· '+esc(who.title)+'</span>':''):'<span>No contact name on file</span>')
-     +(tel?' <a class="btn call sm" href="'+esc(tel)+'">Call '+esc(who.phone)+'</a>':(who.phone?' <span>· '+esc(who.phone)+'</span>':''))
-     +(who.email?' <a class="btn sm" href="mailto:'+esc(who.email)+'">Email</a>':'')+'</div>'
-   +'<div class="say"><span>Say</span>'+esc(opener(l))+'</div>'+pricedHtml(l)+outcomesHtml()+'</article>';}
+function rowHtml(l){
+  var st=l.stage||1,q=(l.quotes||[])[0],it=interests(l);
+  return'<button class="acc" data-co="'+esc(l.kit)+'"><span class="nm">'+esc(co(l))+'</span>'
+   +'<span class="pill '+STC[st]+'">'+STG[st]+'</span>'+(l.live?'<span class="pill live"><span class="dot"></span> now</span>':'')
+   +'<span class="dt">'+(q?esc(quoteTxt(q)):it.length?'Looking at '+esc(it.join(', ')):'')+'</span>'
+   +'<span class="mt">'+(l.devices_n>1?l.devices_n+' people · ':'')+(l.real||0)+' visit'+((l.real||0)===1?'':'s')+(l.sources&&l.sources.length?' · '+esc(srcn(l.sources[0])):'')+'</span>'
+   +'<span class="ag">'+ago(l.last)+'</span></button>';}
+function bar(v,max,cls){return'<i class="'+cls+'" style="height:'+(max?Math.max(v?3:0,Math.round(60*v/max)):0)+'px" title="'+v+'"></i>';}
 /* ---- render ---- */
 function render(){
   if(!D){$('app').innerHTML='<div class="gate"><p>Loading…</p></div>';return;}
   $('app').innerHTML='<div class="top"><div class="bar"><div class="brand"><i></i>Store Leads</div>'
    +'<label class="q"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>'
-   +'<input id="q" type="search" placeholder="Search any company or person…" autocomplete="off" value="'+esc(Q)+'"></label>'
-   +'<div class="ctl"><select id="days" aria-label="Time window">'+[[7,'Last 7 days'],[30,'Last 30 days'],[90,'Last 90 days']].map(function(o){return'<option value="'+o[0]+'"'+(o[0]===DAYS?' selected':'')+'>'+o[1]+'</option>';}).join('')+'</select>'
+   +'<input id="q" type="search" placeholder="Search any company…" autocomplete="off" value="'+esc(Q)+'"></label>'
+   +'<div class="ctl"><select id="days" aria-label="Time window">'+[[0,'All time'],[90,'Last 90 days'],[30,'Last 30 days'],[7,'Last 7 days']].map(function(o){return'<option value="'+o[0]+'"'+(o[0]===DAYS?' selected':'')+'>'+o[1]+'</option>';}).join('')+'</select>'
    +'<span><span class="dot"></span> '+clock(D.now)+'</span></div></div></div><main id="body"></main>';
   D._painted=1;paintBody();
 }
-function paintBody(){var el=$('body');if(!el)return;var y=window.scrollY;el.innerHTML=Q.trim()?searchHtml(Q.trim()):homeHtml();window.scrollTo(0,y);}
+var CO=null,COK='';
+function paintBody(){var el=$('body');if(!el)return;var y=window.scrollY;
+  el.innerHTML=COK?companyHtml():Q.trim()?searchHtml(Q.trim()):homeHtml();window.scrollTo(0,COK?0:y);}
 function homeHtml(){
-  var leads=D.leads||[],queue=leads.filter(function(l){return isReal(l)&&!l.quiet;});
-  var rk={hot:0,warm:1,cool:2};queue.sort(function(a,b){return (b.live-a.live)||(rk[a.tier]-rk[b.tier])||(b.score-a.score);});
-  var t0=new Date();t0.setHours(0,0,0,0);t0=t0/1000;
-  var done=leads.filter(function(l){return (l.calls||[]).some(function(c){return c.t>=t0&&c.by!=='ops';});});
-  var h='<div class="hero"><div><b>'+queue.length+'</b> to call</div><div><b>'+done.length+'</b> done today</div>'
-   +'<div class="mu">Real buyers only, last '+DAYS+' days. Email scanners, page loads and our own visits are left out.</div></div>';
-  var show=ALL?queue:queue.slice(0,10);
-  h+=show.length?show.map(callCard).join(''):'<div class="empty">Nobody to call right now. When a buyer does something in their store, they appear here and you get an email.</div>';
-  if(!ALL&&queue.length>10)h+='<button class="btn" data-all="1">Show all '+queue.length+'</button>';
-  if(done.length)h+='<details class="more"><summary>Done today ('+done.length+')</summary>'+done.map(function(l){var c=(l.calls||[])[0]||{};
-     c=(l.calls||[]).filter(function(x){return x.by!=='ops';})[0]||c;
-     return'<div class="row"><button class="lnk" data-find="'+esc(co(l))+'">'+esc(co(l))+'</button><span class="mu">'+esc(outcomeTxt(c))+' · '+clock(c.t)+'</span><span class="sp"></span><button class="btn sm" data-kit2="'+esc(l.kit)+'" data-undo="1">Back on the list</button></div>';}).join('')+'</details>';
-  h+=sourcesHtml();
-  h+=relayHtml();
+  var leads=(D.leads||[]).filter(isReal),live=(D.live||[]).filter(function(s){return!s.staff;});
+  var by=[0,0,0,0,0];leads.forEach(function(l){by[l.stage||1]++;});
+  leads.sort(function(a,b){return (b.live-a.live)||((b.stage||0)-(a.stage||0))||(b.last-a.last);});
+  var now=D.now,quiet=leads.filter(function(l){return(l.stage||0)>=3&&now-l.last>14*86400;}).sort(function(a,b){return b.last-a.last;});
+  var h='<div class="kpis">'+[[leads.length,'accounts with real buyers'],[by[4],'requested a quote'],[by[3],'pricing'],[by[2],'evaluating'],[live.length,'in a store now']].map(function(k,i){
+     return'<div class="kpi'+(i===1?' h':'')+'"><b>'+k[0]+'</b><span>'+k[1]+'</span></div>';}).join('')+'</div><p class="lede">'+esc(win().replace(/^./,function(c){return c.toUpperCase();}))+'. Only people doing things: email scanners, bare page loads and our own visits are left out.</p>';
+  if(live.length)h+='<h2>In a store right now</h2>'+live.map(function(s){var last=(s.ev||[]).map(say).filter(Boolean).pop();
+     return'<button class="acc" data-co="'+esc(s.kit)+'"><span class="dot"></span><span class="nm">'+esc(s.client)+'</span><span class="dt">'+esc(last||'Browsing')+'</span><span class="ag">'+ago(s.last)+'</span></button>';}).join('');
+  h+='<h2>Accounts by buying stage</h2><p class="lede">Furthest along first, then most recent. Click any account for its full history.</p>';
+  var show=ALL?leads:leads.slice(0,25);
+  h+=show.length?'<div class="list">'+show.map(rowHtml).join('')+'</div>':'<div class="empty">No real buyer activity in this window.</div>';
+  if(!ALL&&leads.length>25)h+='<button class="btn" data-all="1">Show all '+leads.length+'</button>';
+  if(quiet.length)h+='<h2>Priced, then went quiet</h2><p class="lede">Reached the pricing stage, then no visit for 14 days or more.</p><div class="list">'+quiet.slice(0,15).map(rowHtml).join('')+'</div>';
+  h+=demandHtml()+sourcesHtml()+trendHtml()+relayHtml();
   return h;
 }
-/* where alerts go: set once by Steven, stored above the web root (never in chat or the public repo) */
-function relayHtml(){var R=D.relay;
-  return'<details class="more"'+(R?'':' open')+'><summary>Alert webhook '+(R?'<span class="pill live">connected · '+esc(R.host)+'</span>':'<span class="pill hot">not set</span>')+'</summary>'
-   +'<div class="card"><p class="lede" style="margin-top:0">Buying signals are sent here, so the Outbound Ops Manager can email you and create the Apollo task. Until it is set, signals are emailed to you directly. Paste it once; the secret is stored on the server and never shown again.</p>'
-   +'<form id="relayf" style="display:grid;gap:8px;max-width:640px">'
-   +'<label>Webhook URL<br><input name="url" type="url" required placeholder="https://…" style="width:100%;border:1px solid #d5d9de;border-radius:8px;padding:8px 10px"></label>'
-   +'<div style="display:flex;gap:8px;flex-wrap:wrap"><label style="flex:1;min-width:200px">Secret header name<br><input name="hn" placeholder="e.g. X-Webhook-Secret" style="width:100%;border:1px solid #d5d9de;border-radius:8px;padding:8px 10px"></label>'
-   +'<label style="flex:2;min-width:240px">Secret value<br><input name="hv" type="password" autocomplete="off" style="width:100%;border:1px solid #d5d9de;border-radius:8px;padding:8px 10px"></label></div>'
-   +'<div class="acts2"><button class="btn pri" type="submit">Save</button>'+(R?'<button class="btn" type="button" data-relayoff="1">Disconnect</button>':'')+'</div></form></div></details>';}
-document.addEventListener('submit',function(ev){if(ev.target.id!=='relayf')return;ev.preventDefault();var f=ev.target,hd={};
-  if(f.elements.hn.value.trim())hd[f.elements.hn.value.trim()]=f.elements.hv.value;
-  api('relay=1',{url:f.elements.url.value.trim(),headers:hd}).then(function(j){toast(j.ok?'Saved. Signals now go to '+String(j.relay||''):'That URL was not accepted');load();});});
-document.addEventListener('click',function(ev){if(!ev.target.closest('[data-relayoff]'))return;api('relay=1',{url:''}).then(function(){toast('Disconnected');load();});});
+function demandHtml(){
+  var P=(D.demand||[]).filter(function(p){return p.priced_by||p.opened;}).slice(0,15),Z=((D.improve||{}).zero||[]).slice(0,12);
+  if(!P.length&&!Z.length)return'';
+  var h='<h2>What the market wants</h2><p class="lede">Across every store, '+esc(win())+'.</p><div class="two">';
+  if(P.length)h+='<table class="src"><tr><th>Product</th><th class="n">Companies pricing it</th><th class="n">Pieces priced</th><th class="n">Opened</th></tr>'
+    +P.map(function(p){return'<tr><td>'+esc(pname(p.name))+'</td><td class="n"><b>'+p.priced_by+'</b></td><td class="n">'+(p.priced_qty||0).toLocaleString()+'</td><td class="n">'+p.opened+'</td></tr>';}).join('')+'</table>';
+  if(Z.length)h+='<table class="src"><tr><th>Searched for, store showed nothing</th><th class="n">Times</th></tr>'+Z.map(function(z){return'<tr><td>“'+esc(z.q)+'”</td><td class="n">'+z.n+'</td></tr>';}).join('')+'</table>';
+  return h+'</div>';
+}
 function sourcesHtml(){
-  var S=D.sources||{};Object.keys(D.sent_by_source||{}).forEach(function(k){if(!S[k])S[k]={opens:0,acted:0,quotes:0,stores:[]};});var keys=Object.keys(S).filter(function(k){return S[k].opens||(D.sent_by_source||{})[k];});
-  if(!keys.length)return'';
-  keys.sort(function(a,b){return(S[b].acted-S[a].acted)||(S[b].opens-S[a].opens);});
-  var nm={};STORES.forEach(function(s){nm[s.kit]=s.client;});(D.leads||[]).forEach(function(l){nm[l.kit]=co(l);});
-  return'<h2>Is the outreach working?</h2><p class="lede">Each email step and newsletter edition, last '+DAYS+' days. Link opens are every click, minus obvious email-scanner bursts. Real visits and quote actions are people doing something.</p>'
-   +'<table class="src"><tr><th>Came from</th><th class="n">Emails sent</th><th class="n">Link opens</th><th class="n">Real visits</th><th class="n">Quote actions</th><th>Companies that did something</th></tr>'
-   +keys.map(function(k){var v=S[k],st=v.stores||[];
-     var sn=(D.sent_by_source||{})[k];
-     return'<tr><td>'+esc(srcn(k))+'</td><td class="n">'+(sn!=null?sn:'<span class="mu">–</span>')+'</td><td class="n">'+v.opens+'</td><td class="n"><b>'+(v.acted||0)+'</b></td><td class="n">'+(v.quotes||0)+'</td><td>'
-       +(st.length?st.slice(0,8).map(function(s){return'<button class="lnk" data-find="'+esc(nm[s]||s)+'">'+esc(nm[s]||s)+'</button>';}).join(', ')+(st.length>8?' +'+(st.length-8)+' more':''):'<span class="mu">none yet</span>')+'</td></tr>';}).join('')
-   +'</table>';
+  var S=D.sources||{},SN=D.sent_by_source||{};Object.keys(SN).forEach(function(k){if(!S[k])S[k]={opens:0,acted:0,pricing:0,requests:0,stores:[],top:[]};});
+  var keys=Object.keys(S).filter(function(k){return S[k].opens||SN[k];});if(!keys.length)return'';
+  keys.sort(function(a,b){return((S[b].pricing||0)-(S[a].pricing||0))||((S[b].acted||0)-(S[a].acted||0));});
+  function per(v,n){return n?(Math.round(1000*v/n)/10)+'':'–';}
+  return'<h2>Which outreach creates buyers</h2><p class="lede">Each email step and newsletter edition, '+esc(win())+'. Real visits and pricing are people doing something; "per 100 sent" is the number to compare.</p>'
+   +'<table class="src"><tr><th>Came from</th><th class="n">Sent</th><th class="n">Real visits</th><th class="n">Pricing</th><th class="n">Requests</th><th class="n">Real visits per 100 sent</th><th>What they looked at</th></tr>'
+   +keys.map(function(k){var v=S[k],n=SN[k];
+     return'<tr><td>'+esc(srcn(k))+'</td><td class="n">'+(n!=null?n.toLocaleString():'<span class="mu">–</span>')+'</td><td class="n"><b>'+(v.acted||0)+'</b></td><td class="n">'+(v.pricing||0)+'</td><td class="n">'+(v.requests||0)+'</td>'
+       +'<td class="n">'+per(v.acted||0,n)+'</td><td>'+esc((v.top||[]).map(pname).join(', '))+'</td></tr>';}).join('')+'</table>';
 }
-/* a company, in full */
-function companyHtml(l){
-  var who=person(l),tel=telh(who.phone),V=visits(l),ppl=(l.people||[]).filter(function(p){return p.name;});
-  var h='<article class="card co '+l.tier+'" data-kit="'+esc(l.kit)+'"><div class="ch"><h3>'+esc(co(l))+'</h3>'
-   +(l.live?'<span class="pill live"><span class="dot"></span> In the store now</span>':'')
-   +'<span class="when"><a class="btn sm" href="'+esc(storeUrl(l.kit))+'" target="_blank" rel="noopener">Open their store</a></span></div>'
-   +'<div class="facts"><span><b>'+(l.real||0)+'</b> real visit'+((l.real||0)===1?'':'s')+'</span><span>last active <b>'+ago(l.last)+'</b></span>'
-     +(l.forwarded?'<span><b>Shared</b> with a colleague</span>':'')+(l.sources&&l.sources.length?'<span>came from <b>'+l.sources.map(srcn).map(esc).join(', ')+'</b></span>':'')+'</div>';
-  if(who.name||ppl.length)h+='<div class="who">'+(ppl.length?ppl:[who]).map(function(p){var t=telh(p.phone);return'<div><b>'+esc(p.name)+'</b>'+(p.title?' <span>· '+esc(p.title)+'</span>':'')
-     +(t?' <a class="btn call sm" href="'+esc(t)+'">Call '+esc(p.phone)+'</a>':'')+(p.email?' <a class="btn sm" href="mailto:'+esc(p.email)+'">Email</a>':'')+'</div>';}).join('')+'</div>';
-  if(!l.quiet&&isReal(l))h+='<div class="say"><span>Say</span>'+esc(opener(l))+'</div>';
-  h+=pricedHtml(l);
-  if(!l.quiet&&isReal(l))h+=outcomesHtml();
-  if((l.sends||[]).length)h+='<div class="sub">Emails we sent</div>'+l.sends.map(function(x){return'<div class="visit"><b>'+esc(when(x.t))+'</b><div>'+esc(srcn((/^nl/.test(x.step)?'utm:':'ct:')+x.step))+(x.to?' to '+esc(x.to):'')+'</div></div>';}).join('');
-  if((l.calls||[]).length)h+='<div class="sub">Calls and outcomes</div>'+l.calls.map(function(c){return'<div class="visit"><b>'+esc(when(c.t))+'</b><div>'+esc(outcomeTxt(c))+'</div></div>';}).join('');
-  h+='<div class="sub">What they did, visit by visit</div>'+(V.length?V.slice(0,20).map(function(v){return'<div class="visit"><b>'+esc(when(v.t))+'</b>'+v.lines.slice(0,12).map(function(x){return'<div>'+esc(x)+'</div>';}).join('')+'</div>';}).join(''):'<div class="mu">Only page loads so far, nothing a person chose to do.</div>');
-  if(l.quiet)h+='<div class="acts2"><button class="btn sm" data-mark="clear">Put back on the call list</button></div>';
-  return h+'</article>';
+function trendHtml(){
+  var W=D.weeks||{},ks=Object.keys(W).slice(-16);if(ks.length<2)return'';
+  var mx=Math.max.apply(null,ks.map(function(k){return W[k].visits;}).concat([1]));
+  return'<h2>Week by week</h2><p class="lede">Real visits, visits that reached pricing, and quote requests.</p><div class="trend">'+ks.map(function(k){var w=W[k];
+    return'<div class="wk" title="'+esc(k)+': '+w.visits+' real visits at '+w.stores+' companies, '+w.pricing+' pricing, '+w.requests+' requests"><div class="bars">'+bar(w.visits,mx,'v')+bar(w.pricing,mx,'p')+bar(w.requests,mx,'r')+'</div><span>'+esc(k.slice(5))+'</span></div>';}).join('')
+   +'</div><div class="leg"><i class="v"></i> real visits <i class="p"></i> pricing <i class="r"></i> requests</div>';
 }
+function relayHtml(){var R=D.relay;
+  return'<details class="more"><summary>Settings · alert webhook '+(R?'<span class="pill live">connected · '+esc(R.host)+'</span>':'<span class="pill hot">not set</span>')+'</summary>'
+   +'<div class="card"><p class="lede" style="margin-top:0">Where buying signals are sent so the Outbound Ops Manager can alert you and update Apollo. Paste it once; the secret is stored on the server and never shown again.</p>'
+   +'<form id="relayf" style="display:grid;gap:8px;max-width:640px">'
+   +'<label>Webhook URL<br><input name="url" type="url" required placeholder="https://…" class="in"></label>'
+   +'<div style="display:flex;gap:8px;flex-wrap:wrap"><label style="flex:1;min-width:200px">Secret header name<br><input name="hn" placeholder="e.g. X-Webhook-Secret" class="in"></label>'
+   +'<label style="flex:2;min-width:240px">Secret value<br><input name="hv" type="password" autocomplete="off" class="in"></label></div>'
+   +'<div class="acts2"><button class="btn pri" type="submit">Save</button>'+(R?'<button class="btn" type="button" data-relayoff="1">Disconnect</button>':'')+'</div></form></div></details>';}
 function searchHtml(q){
   var t=q.toLowerCase(),leads=D.leads||[],seen={},hits=[];
-  leads.forEach(function(l){var c=l.contact||{},hay=[l.client,l.kit,c.company,c.name].concat((l.people||[]).map(function(p){return p.name;})).join(' ').toLowerCase();
-    if(hay.indexOf(t)>=0){hits.push(l);seen[l.kit]=1;}});
-  var rest=STORES.filter(function(s){return!seen[s.kit]&&(s.client+' '+s.kit).toLowerCase().indexOf(t)>=0;}).slice(0,40);
-  var n=hits.length+rest.length;
-  var h='<div class="hero"><div><b>'+n+'</b> result'+(n===1?'':'s')+' for “'+esc(q)+'”</div><div class="mu">Activity covers the last '+DAYS+' days. Change the window at the top to look further back.</div><button class="btn sm" data-clear="1">Back to the call list</button></div>';
-  h+=hits.map(companyHtml).join('');
-  if(rest.length)h+=rest.map(function(s){return'<div class="row"><b>'+esc(s.client)+'</b><span class="mu">No real visits in the last '+DAYS+' days</span><span class="sp"></span><a class="btn sm" href="'+esc(storeUrl(s.kit))+'" target="_blank" rel="noopener">Open their store</a></div>';}).join('');
+  leads.forEach(function(l){var c=l.contact||{},hay=[l.client,l.kit,c.company].join(' ').toLowerCase();if(hay.indexOf(t)>=0){hits.push(l);seen[l.kit]=1;}});
+  hits.sort(function(a,b){return((b.stage||0)-(a.stage||0))||(b.last-a.last);});
+  var rest=STORES.filter(function(s){return!seen[s.kit]&&(s.client+' '+s.kit).toLowerCase().indexOf(t)>=0;}).slice(0,40),n=hits.length+rest.length;
+  var h='<div class="hero"><div><b>'+n+'</b> result'+(n===1?'':'s')+' for “'+esc(q)+'”</div><button class="btn sm" data-clear="1">Clear</button></div><div class="list">'+hits.map(rowHtml).join('')
+   +rest.map(function(s){return'<button class="acc" data-co="'+esc(s.kit)+'"><span class="nm">'+esc(s.client)+'</span><span class="dt mu">No real visits '+(DAYS?'in '+esc(win()):'yet')+'</span></button>';}).join('')+'</div>';
   if(!n)h+='<div class="empty">'+(STORES.length?'No company store matches that.':'Loading the store list…')+'</div>';
   return h;
 }
+/* one company, all time, fetched on its own so the history is complete */
+function openCo(kit){COK=kit;CO=null;paintBody();window.scrollTo(0,0);try{history.replaceState(null,'',location.pathname+'?co='+encodeURIComponent(kit));}catch(e){}
+  api('dash=1&company='+encodeURIComponent(kit)).then(function(d){if(COK!==kit)return;CO=(d.leads||[])[0]||{kit:kit,none:1};paintBody();});}
+function companyHtml(){
+  var s=STORES.filter(function(x){return x.kit===COK;})[0],name=s?s.client:COK;
+  var h='<button class="btn sm" data-back="1">← All accounts</button>';
+  if(!CO)return h+'<div class="empty">Loading the full history…</div>';
+  var l=CO;if(l.none)return h+'<article class="card"><div class="ch"><h3>'+esc(name)+'</h3><span class="when"><a class="btn sm" href="'+esc(storeUrl(COK))+'" target="_blank" rel="noopener">Open their store</a></span></div><p class="lede">No real visits yet.</p></article>';
+  var st=l.stage||1,V=visits(l),it=interests(l),qs=l.quotes||[],srch=Object.keys(l.searches||{});
+  h+='<article class="card co"><div class="ch"><h3>'+esc(co(l)||name)+'</h3><span class="pill '+STC[st]+'">'+STG[st]+'</span>'+(l.live?'<span class="pill live"><span class="dot"></span> In the store now</span>':'')
+   +'<span class="when"><a class="btn sm" href="'+esc(storeUrl(l.kit))+'" target="_blank" rel="noopener">Open their store</a></span></div>'
+   +'<div class="facts"><span>first seen <b>'+esc(when(l.first))+'</b></span><span>last active <b>'+ago(l.last)+'</b></span><span><b>'+(l.real||0)+'</b> real visits on <b>'+(l.days||1)+'</b> day'+((l.days||1)===1?'':'s')+'</span>'
+     +'<span><b>'+(l.devices_n||1)+'</b> '+((l.devices_n||1)===1?'person':'people / devices')+'</span>'+(l.sources&&l.sources.length?'<span>came from <b>'+l.sources.map(srcn).map(esc).join(', ')+'</b></span>':'')+'</div>';
+  if(qs.length)h+='<div class="sub">What they priced</div>'+qs.map(function(q){return'<div class="visit"><b>'+esc(when(q.t))+'</b><div>'+esc(quoteTxt(q))+'</div></div>';}).join('');
+  if(it.length)h+='<div class="sub">Interested in</div><div>'+esc(it.join(', '))+'</div>';
+  if(srch.length)h+='<div class="sub">Searched for</div><div>'+srch.map(function(x){return'“'+esc(x)+'”'+(l.searches[x]==='search0'?' <span class="mu">(nothing shown)</span>':'');}).join(', ')+'</div>';
+  h+='<div class="sub">Every visit</div>'+(V.length?V.map(function(v){return'<div class="visit"><b>'+esc(when(v.t))+'</b>'+v.lines.slice(0,15).map(function(x){return'<div>'+esc(x)+'</div>';}).join('')+'</div>';}).join(''):'<div class="mu">Only page loads so far.</div>');
+  return h+'</article>';
+}
 /* ---- events ---- */
 var qT=null;
-function setQ(v){Q=v;var i=$('q');if(i&&i.value!==v)i.value=v;paintBody();try{history.replaceState(null,'',location.pathname+(Q.trim()?'?q='+encodeURIComponent(Q.trim()):''));}catch(e){}}
+function setQ(v){Q=v;COK='';var i=$('q');if(i&&i.value!==v)i.value=v;paintBody();try{history.replaceState(null,'',location.pathname+(Q.trim()?'?q='+encodeURIComponent(Q.trim()):''));}catch(e){}}
 document.addEventListener('input',function(ev){if(ev.target.id!=='q')return;var v=ev.target.value;clearTimeout(qT);qT=setTimeout(function(){setQ(v);},120);});
-document.addEventListener('change',function(ev){if(ev.target.id==='days'){DAYS=+ev.target.value;localStorage.setItem('jdp_dash_days2',DAYS);load();}});
+document.addEventListener('change',function(ev){if(ev.target.id==='days'){DAYS=+ev.target.value;localStorage.setItem('jdp_dash_days4',DAYS);load();}});
 document.addEventListener('click',function(ev){
-  var t=ev.target.closest('[data-out],[data-mark],[data-all],[data-find],[data-clear],[data-undo]');if(!t)return;
+  var t=ev.target.closest('[data-co],[data-all],[data-clear],[data-back],[data-relayoff]');if(!t)return;
+  if(t.dataset.co){openCo(t.dataset.co);return;}
   if(t.dataset.all){ALL=true;paintBody();return;}
-  if(t.dataset.find){setQ(t.dataset.find);window.scrollTo(0,0);return;}
-  if(t.dataset.clear){setQ('');return;}
-  var kit=t.dataset.kit2||(t.closest('[data-kit]')||{dataset:{}}).dataset.kit;if(!kit)return;
-  var s,note='';
-  if(t.dataset.out){s=t.dataset.s;note=t.dataset.out;}else if(t.dataset.undo){s='clear';}else s=t.dataset.mark;
-  var card=t.closest('.card');if(card&&s!=='clear')card.classList.add('leaving');
-  api('mark=1',{kit:kit,s:s,note:note}).then(function(){toast(s==='clear'?'Back on the call list':note==='won'?'Nice one. Logged as won':'Logged');load();});
+  if(t.dataset.clear||t.dataset.back){setQ(t.dataset.back?Q:'');return;}
+  if(t.dataset.relayoff)api('relay=1',{url:''}).then(function(){toast('Disconnected');load();});
 });
+document.addEventListener('submit',function(ev){if(ev.target.id!=='relayf')return;ev.preventDefault();var f=ev.target,hd={};
+  if(f.elements.hn.value.trim())hd[f.elements.hn.value.trim()]=f.elements.hv.value;
+  api('relay=1',{url:f.elements.url.value.trim(),headers:hd}).then(function(j){toast(j.ok?'Saved':'That URL was not accepted');load();});});
 document.addEventListener('visibilitychange',function(){if(!document.hidden&&Date.now()-LAST_OK>15000)load();});
+try{var cm=/[?&]co=([a-z0-9_\-]+)/.exec(location.search);if(cm)COK=cm[1];}catch(e){}
 
-load();loadStores();TIMER=setInterval(function(){if(!document.hidden)load();},30000);
+load();loadStores();TIMER=setInterval(function(){if(!document.hidden&&!COK)load();},45000);
+if(COK)openCo(COK);
 })();
 </script>
 </body>
