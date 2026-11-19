@@ -1,6 +1,6 @@
 {
   "generator": "client-app",
-  "version": "1795113769",
+  "version": "1795113425",
   "slug": "direct-locksmith",
   "client": "Direct Locksmith",
   "files": [
@@ -12,6 +12,7 @@
     "img/lg_full_d01b22.png",
     "img/lg_full_dark.png",
     "img/lg_full_white.png",
-    "img/logo-white.png"
+    "img/logo-white.png",
+    "img/lg_full_ondark.png"
   ]
 }
