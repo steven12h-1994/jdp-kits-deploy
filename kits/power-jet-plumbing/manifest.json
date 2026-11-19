@@ -1,6 +1,6 @@
 {
   "generator": "client-app",
-  "version": "1795113329",
+  "version": "1795113689",
   "slug": "power-jet-plumbing",
   "client": "Power Jet Plumbing",
   "files": [
@@ -11,7 +11,6 @@
     "img/lg_full_brand.png",
     "img/lg_full_dark.png",
     "img/lg_full_white.png",
-    "img/logo-white.png",
-    "img/lg_full_ondark.png"
+    "img/logo-white.png"
   ]
 }

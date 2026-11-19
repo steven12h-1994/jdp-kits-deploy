@@ -1,6 +1,6 @@
 {
   "generator": "client-app",
-  "version": "1795113297",
+  "version": "1795113308",
   "slug": "bloor-street-fitness",
   "client": "Bloor Street Fitness",
   "files": [
@@ -8,8 +8,8 @@
     "client.json",
     "img/favicon.png",
     "img/lg_full_brand.png",
-    "img/lg_full_da3a2d.png",
     "img/lg_full_dark.png",
+    "img/lg_full_db3a2d.png",
     "img/lg_full_white.png",
     "img/logo-white.png"
   ]
