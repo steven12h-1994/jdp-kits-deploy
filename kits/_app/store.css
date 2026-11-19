@@ -5617,3 +5617,12 @@ html.r11 .jwnote{margin:14px 0 0!important;padding:10px 12px!important;border-ra
 @media(max-width:700px){html.r11 .jku{margin-left:0!important;white-space:normal!important}}
 @media(max-width:600px){html.r11 .jkwt{flex-direction:column!important;align-items:flex-start!important;gap:6px!important}html.r11 .jkwt .jkm{margin-top:0!important}html.r11 .jklhrow{align-items:center!important}html.r11 .jkwhy{font-size:13px!important}}
 @media(max-width:600px){html.r11 .jwgt{min-width:0!important;border-spacing:4px!important}html.r11 .jwgt thead th{font-size:11px!important}html.r11 .jwgc{padding:8px!important}html.r11 .jwgc b{font-size:12.5px!important}html.r11 .jwgt tbody th{white-space:normal!important;width:74px!important}}
+/* round 18: the maker's temperature rating, shown in the maker's figure */
+html.r11 .jku.jkt{color:var(--r-ink)!important;display:flex!important;gap:6px!important;align-items:baseline!important}
+html.r11 .jku.jkt b{font-weight:700!important;font-size:12px!important;color:var(--r-ink)!important}
+html.r11 .jku.jkt span{font-size:10.5px!important;color:var(--r-mut2)!important;text-transform:uppercase!important;letter-spacing:.04em!important}
+html.r11 .jkctm,html.r11 .cwt{display:block!important;font-size:12.5px!important;font-weight:600!important;color:var(--r-ink)!important;margin:3px 0 2px!important}
+html.r11 .jkwtx u{display:block!important;text-decoration:none!important;font-size:11.5px!important;font-weight:600!important;color:var(--r-ink)!important;margin:1px 0 2px!important}
+html.r11 .jwgt th.mk{background:var(--r-tint)!important}
+html.r11 .jwgt th.mk em{display:block!important;font-style:normal!important;font-size:10.5px!important;font-weight:600!important;color:var(--a)!important;text-transform:uppercase!important;letter-spacing:.04em!important;margin-top:2px!important}
+@media(max-width:700px){html.r11 .jku.jkt{flex-wrap:wrap!important}}
