@@ -3332,6 +3332,7 @@ function caKeys(list){var out=[],seen={};list.forEach(function(p){((BUCKETS[p[0]
    recommendations"). Those brands stay in the store to browse; the advisor recommends from the program brands. With
    no Carhartt left to recommend, the Carhartt aisle no longer opens with an advisor. */
 var CA_NOREC=/carhartt|nike|adidas|north face/i;
+var NO_SELL=/north face/i;   /* brands not carried in any store (Steven, 2026-11-20) */
 function caRecOk(k){var it=BYKEY[k]||{};return !CA_NOREC.test((it.brand||'')+' '+(it.sku||''));}
 function caPool(cfg,A,role){return (cfg.pool(A,role)||[]).filter(caRecOk);}
 function caCfg(){
@@ -3726,19 +3727,34 @@ function jwRate(it){if(!it)return null;var mk=it.key+'|'+(it._wv||0);if(JW_MEMO[
          construction places it inside. Reading the cold end as the rating would put a bare softshell level with a
          170 g insulated jacket. */
   var TM=null;
+  if(c.wl)parts.push(jwMaker(it)+' warmth level '+c.wl+' of 5');   /* the maker's own published level (Ground Force, wasip.com) */
   if(c.tmp&&!c.mk){var _n=String(c.tmp).match(/[+-]?\d+(?:\.\d+)?/g)||[];if(_n.length){var _v=_n.map(parseFloat),_lo=Math.min.apply(null,_v),_hi=Math.max.apply(null,_v),_by=jwMaker(it);
     if(_v.length===1){i=jwTmpLvl(_lo);conf='rated';TM={lo:_lo,one:true,by:_by};parts.unshift(_by+' rates it to '+jwDeg(_lo));}
+    /* round 19: a range published for ONE jacket (Clique) is that jacket's rating -- its cold end sets the level */
+    else if(c.tprod){_lo=Math.round(_lo);_hi=Math.round(_hi);i=jwTmpLvl(_lo);conf='rated';TM={lo:_lo,hi:_hi,one:false,prod:true,by:_by};parts.unshift(_by+' rates it '+jwDeg(_hi)+' to '+jwDeg(_lo));}
+    /* round 19 (Steven, 2026-11-20: "Stormtech temperature ratings are too broad ... the Denali Parka would be very warm and
+       extreme"): a band is shared by many jackets, so the jacket gets OUR estimate inside it (warm.c.et, written by
+       st_est.py from the protection features Stormtech lists), never colder than the band's cold end */
+    else if(c.et!=null&&!vest){var _e=Math.max(+c.et,_lo);i=jwTmpLvl(_e);conf='pred';TM={lo:_e,one:true,est:true,band:[_hi,_lo],by:_by};
+      parts.unshift('about '+jwDeg(_e)+', inside '+_by+'\u2019s '+jwDeg(_hi)+' to '+jwDeg(_lo)+' band'+((c.ewhy||[]).length?(' \u2014 '+c.ewhy.slice(0,4).join(', ')):''));}
     else{var _b=_lo>=5?[0,1]:[jwTmpLvl(_hi),jwTmpLvl(_lo)];i=Math.min(Math.max(i,_b[0]),_b[1]);if(conf==='est')conf='range';TM={lo:_lo,hi:_hi,one:false,by:_by};
       parts.unshift(_by+' places it in its '+jwDeg(_hi)+' to '+jwDeg(_lo)+' band');}}}
+  /* round 19: no maker figure at all (hi-vis) -- our estimate from a maker-rated jacket built the same way (warm.c.et + warm.c.etwin) */
+  else if(c.et!=null&&!c.mk&&!vest){i=jwTmpLvl(+c.et);conf='pred';TM={lo:+c.et,one:true,est:true,twin:c.etwin||'',by:jwMaker(it)};
+    parts.unshift('about '+jwDeg(+c.et)+(c.etwin?(' \u2014 built like the '+c.etwin+', which its maker rates to '+jwDeg(+(c.etwt!=null?c.etwt:c.et))):'')+((c.ewhy||[]).length?(' ('+c.ewhy.slice(0,3).join(', ')+')'):''));}
   if(vest)i=Math.min(i,3);
   if(!E&&!c.mk&&w.band!=='uninsulated'&&!/shell|rain|wind|softshell|soft shell|jacket|vest|coat|anorak|shacket|parka/.test(nm)){JW_MEMO[mk]=null;return null;}
   var L=JW[i],R={i:i,E:Math.round(E),conf:conf,parts:parts,tm:TM,lab:L.lab,short:L.short,use:L.use,vest:vest,
-    basis:conf==='tested'?'Carhartt\u2019s own lab-tested rating':(conf==='rated'?'Rated from the maker\u2019s published temperature rating':(conf==='range'?'Rated within the maker\u2019s published temperature range':(conf==='fill'?'Rated from the maker\u2019s published fill':(i===0?'No insulation, per the maker':'Estimated from the maker\u2019s construction \u2014 fill weight not published'))))};
+    basis:conf==='tested'?'Carhartt\u2019s own lab-tested rating':(conf==='pred'?(TM&&TM.band?'Our estimate inside the maker\u2019s published band':'Our estimate from a maker-rated jacket built the same way'):conf==='rated'?'Rated from the maker\u2019s published temperature rating':(conf==='range'?'Rated within the maker\u2019s published temperature range':(conf==='fill'?'Rated from the maker\u2019s published fill':(i===0?'No insulation, per the maker':'Estimated from the maker\u2019s construction \u2014 fill weight not published'))))};
   JW_MEMO[mk]=R;return R;}
 /* the guide's temperature bands (middle column): above 5 / 5 to -5 / -5 to -15 / -15 to -25 / below -25 */
 function jwTmpLvl(t){return t>=5?1:(t>=-5?2:(t>=-15?3:(t>=-25?4:5)));}
 function jwMaker(it){var b=String(it.brand||it.sku||'').replace(/\s*\(.*$/,'');return b||'The maker';}
-function jwTmpTxt(R){if(!R||!R.tm)return '';return R.tm.one?('Rated to '+jwDeg(R.tm.lo)):(jwDeg(R.tm.hi)+' to '+jwDeg(R.tm.lo));}
+function jwTmpTxt(R){if(!R||!R.tm)return '';return R.tm.est?('Est. to about '+jwDeg(R.tm.lo)):(R.tm.one?('Rated to '+jwDeg(R.tm.lo)):(jwDeg(R.tm.hi)+' to '+jwDeg(R.tm.lo)));}
+/* one wording for a temperature everywhere: headline, small label, and the line used in comparisons */
+function jwTmHead(T){return T.est?('Est. about '+jwDeg(T.lo)):(T.one||T.prod?('Rated to '+jwDeg(T.lo)):(jwDeg(T.hi)+' to '+jwDeg(T.lo)));}
+function jwTmTag(T){return T.est?'our estimate':(T.one?'maker rating':(T.prod?'maker range '+jwDeg(T.hi)+' to '+jwDeg(T.lo):T.by+' band'));}
+function jwTmLine(T){return T.est?('our estimate about '+jwDeg(T.lo)+(T.band?(' (inside '+T.by+'\u2019s '+jwDeg(T.band[0])+' to '+jwDeg(T.band[1])+' band)'):'')):(T.by+': '+(T.one||T.prod?('rated to '+jwDeg(T.lo)):('band '+jwDeg(T.hi)+' to '+jwDeg(T.lo))));}
 function jwDeg(x){return (x>0?'+':(x<0?'\u2212':''))+Math.abs(x)+'\u00b0C';}
 function jwWhy(R){if(!R)return '';return R.basis+(R.parts.length?(': '+R.parts.join(' \u00b7 ')):'')+'.';}
 /* the activity guide, the way a good rep asks it: how cold, and how much will they move? (guide only, never a promise) */
@@ -3791,12 +3807,13 @@ function caWarmInfo(it){var c=itemCategory(it),f=caFillG(it),ws=it.warm||{},fab=
   /* jackets and vests: the v2 rating (lvl = 1..6 so a shell stays truthy; the meter draws lvl-1 of 5 bars) */
   var R=jwRate(it);if(!R)return {lvl:0,max:6,lab:'—',detail:'',extra:'',fill:0};
   var fl=jwFill(it);
-  return {lvl:R.i+1,max:6,lab:CA_WLAB[R.i+1],detail:jwWhy(R),extra:'',fill:fl&&fl.b?fl.b:0,E:R.E,est:R.conf==='est',conf:R.conf,freezer:!!it.freezer,tm:R.tm,why2:R.tm?R.parts.slice(1).join(' \u00b7 '):'',tmp:R.tm?(R.tm.by+': '+(R.tm.one?('rated to '+jwDeg(R.tm.lo)):('band '+jwDeg(R.tm.hi)+' to '+jwDeg(R.tm.lo)))):''};}
+  return {lvl:R.i+1,max:6,lab:CA_WLAB[R.i+1],detail:jwWhy(R),extra:'',fill:fl&&fl.b?fl.b:0,E:R.E,est:R.conf==='est',conf:R.conf,freezer:!!it.freezer,tm:R.tm,why2:R.tm?R.parts.slice(1).join(' \u00b7 '):'',tmp:R.tm?jwTmLine(R.tm):''};}
 function caWarmVs(a,b){   /* how option b compares with our pick a, in words a buyer can act on */
   if(!a.lvl||!b.lvl)return '';
   /* both makers publish a single rating: compare the figures they print */
-  if(a.tm&&b.tm&&a.tm.one&&b.tm.one&&!a.knit){var d=a.tm.lo-b.tm.lo,f=' \u2014 makers\u2019 ratings '+jwDeg(b.tm.lo)+' vs '+jwDeg(a.tm.lo);
-    if(d>0)return {t:'Rated '+d+'\u00b0C colder than our pick'+f,c:'up'};if(d<0)return {t:'Not rated as cold as our pick'+f,c:'dn'};return {t:'Same maker rating as our pick ('+jwDeg(a.tm.lo)+')',c:'eq'};}
+  var _fig=function(T){return T&&(T.one||T.prod);};
+  if(_fig(a.tm)&&_fig(b.tm)&&!a.knit){var d=Math.round(a.tm.lo-b.tm.lo),_es=a.tm.est||b.tm.est,f=' \u2014 '+(_es?'figures ':'makers\u2019 ratings ')+jwDeg(b.tm.lo)+' vs '+jwDeg(a.tm.lo)+(_es?' (includes our estimate)':'');
+    if(d>0)return {t:(_es?'About ':'Rated ')+d+'\u00b0C colder than our pick'+f,c:'up'};if(d<0)return {t:(_es?'About '+(-d)+'\u00b0C less cold than our pick':'Not rated as cold as our pick')+f,c:'dn'};return {t:'Same '+(_es?'figure':'maker rating')+' as our pick ('+jwDeg(a.tm.lo)+')',c:'eq'};}
   var why=(a.fill&&b.fill)?(' — '+b.fill+' g vs '+a.fill+' g fill'):((a.g&&b.g&&a.knit)?(' — '+b.g+' vs '+a.g+' gsm'):'');
   var est=!!(a.est||b.est),np=est?' (estimated — fill weight not published)':'';
   if(b.lvl>a.lvl)return {t:(est?'Likely warmer':'Warmer')+' than our pick'+why+np,c:'up'};
@@ -4400,7 +4417,7 @@ us:{
 'drivers|4|1':['st_magellan',null,'st_matrix','Fully sealed 3-in-1 at jacket length: deep-winter warmth that still works behind the wheel.'],
 'warehouse|1|0':['st_axis','st_sierrashell','st_greenwich','A light woven shell that won’t overheat indoors between quick trips out.'],
 'warehouse|2|0':['st_greenwich','st_axis','st_cascades','A lightweight softshell for quick trips outside — warm enough on the dock, not too warm inside.'],
-'warehouse|3|0':{p:'st_steelhead',ang:'A heavy-duty Taslan work jacket with diamond-quilt insulation and a snap-off insulated hood — Stormtech rates it \u221210 to \u221230\u00b0C — built for the dock and the yard.',alts:[['cq_hudson','Value puffer','Clique Hudson insulated puffer'],['st_explorerquilted','Technical','Stormtech Explorer — Thermolex fill, storm hood with face shield']]},
+'warehouse|3|0':{p:'st_explorerquilted',ang:'A bomber-length Thermolex jacket with an insulated storm hood and face shield: warm enough for long dock stretches without the bulk of a parka indoors \u2014 in Stormtech\u2019s \u221210 to \u221230\u00b0C band, our estimate about \u221225\u00b0C.',alts:[['cq_hudson','Value puffer','Clique Hudson insulated puffer'],['st_steelhead','Heavy-duty','Stormtech Steelhead HD \u2014 heavy Taslan shell, insulated storm flap, for the yard']]},
 'warehouse|4|0':['st_explorerparka','st_steelhead','st_fairbanks','Long cold stretches in the yard: parka length, high-loft fill and a sherpa lining — Stormtech rates it \u221210 to \u221230\u00b0C.'],
 'warehouse|1|1':['st_squall',null,'st_scirocco','Welded seams keep the rain out on dock runs, and it’s light enough to leave on indoors.'],
 'warehouse|2|1':['st_squall',null,'st_scirocco','A welded-seam rain jacket over a hoodie: dry on the dock, not too warm inside.'],
@@ -5429,10 +5446,14 @@ function wireFam(root){(root||document).querySelectorAll('[data-famsel]').forEac
    Facts only: warmth comes from caWarmInfo (published fill, the maker's band, never a temperature) and weather from
    jaFlags. */
 var JK_CATS={outerwear:1,vests:1};
-function isJk(it){if(!it||it.csa||it.layer==='promo')return false;var c=itemCategory(it);if(c==='outer'||c==='vest')return true;try{var m=classify(it).mega;return m==='outerwear'||m==='vests';}catch(e){return false;}}
+/* round 19 (Steven, 2026-11-20: "show warmth in hi-vis jackets"): a hi-vis JACKET is rated like any jacket; hi-vis tees,
+   hoodies, vests, pants and bibs are not */
+function isHvJk(it){if(!it||!it.csa)return false;var n=String(it.name||'').toLowerCase();
+  return /jacket|parka|coat|bomber|soft ?shell|anorak|shacket/.test(n)&&!/\bvest\b|hood(ie|y)\b(?!.*jacket)|t-?shirt|\bpants?\b|\bbib|overall|coverall/.test(n);}
+function isJk(it){if(isHvJk(it))return true;if(!it||it.csa||it.layer==='promo')return false;var c=itemCategory(it);if(c==='outer'||c==='vest')return true;try{var m=classify(it).mega;return m==='outerwear'||m==='vests';}catch(e){return false;}}
 var JK_WLAB=['No insulation','Light','Mid-weight','Warm','Very warm','Extreme cold'];
 function jkWarm(it){var R=null;try{R=jwRate(it);}catch(e){R=null;}if(!R)return null;
-  return {lvl:R.i,lab:R.lab,short:R.short,use:R.use,est:R.conf==='est',conf:R.conf,tip:jwWhy(R),tm:R.tm,tmp:jwTmpTxt(R)};}
+  return {lvl:R.i,lab:R.lab,short:R.short,use:R.use,est:R.conf==='est'||R.conf==='pred',conf:R.conf,tip:jwWhy(R),tm:R.tm,tmp:jwTmpTxt(R)};}
 function jkWx(it){var F=[];try{F=jaFlags(it)||[];}catch(e){F=[];}
   var has=function(x){return F.indexOf(x)>=0;};
   if(has('sealed seams')&&(has('waterproof')||((it.warm||{}).wp)))return 'wp';
@@ -5447,8 +5468,8 @@ function jkWxTip(it,x){var wp=String((it.warm||{}).wp||'');
 function jkMeter(l,cls){var b='';for(var i=1;i<=5;i++)b+='<i'+(i<=l?' class="on"':'')+'></i>';return '<span class="jkm'+(cls?(' '+cls):'')+'" aria-hidden="true">'+b+'</span>';}
 function jkSpecHtml(it){var W=jkWarm(it),x=jkWx(it);
   return '<div class="jkspec">'+
-    '<div class="jkr" title="'+esc(W?W.tip:'Warmth not published')+'"><span class="jkl">Warmth</span>'+(W?(jkMeter(W.lvl)+'<b>'+esc(W.lab)+'</b>'+(W.est&&W.lvl>0?'<em class="jkest" aria-label="estimated">est.</em>':'')):'<b class="na">Not published</b>')+'</div>'+
-    (W?(W.tm?('<div class="jku jkt" title="'+esc(W.tm.one?(W.tm.by+' rates it to '+jwDeg(W.tm.lo)):(W.tm.by+' catalogue band '+jwDeg(W.tm.hi)+' to '+jwDeg(W.tm.lo)+' \u2014 the cold end assumes layers underneath'))+'"><b>'+esc(W.tm.one?('Rated to '+jwDeg(W.tm.lo)):(jwDeg(W.tm.hi)+' to '+jwDeg(W.tm.lo)))+'</b><span>'+esc(W.tm.one?'maker rating':(W.tm.by+' band'))+'</span></div>'):('<div class="jku">'+esc(W.short)+'</div>')):'')+
+    '<div class="jkr" title="'+esc(W?W.tip:'Warmth not published')+'"><span class="jkl">Warmth</span>'+(W?(jkMeter(W.lvl)+'<b>'+esc(W.lab)+'</b>'+(W.est&&W.lvl>0&&!(W.tm&&W.tm.est)?'<em class="jkest" aria-label="estimated">est.</em>':'')):'<b class="na">Not published</b>')+'</div>'+
+    (W?(W.tm?('<div class="jku jkt'+(W.tm.est?' est':'')+'" title="'+esc(W.tip)+'"><b>'+esc(jwTmHead(W.tm))+'</b><span>'+esc(jwTmTag(W.tm))+'</span></div>'):('<div class="jku">'+esc(W.short)+'</div>')):'')+
     '<div class="jkr" title="'+esc(jkWxTip(it,x))+'"><span class="jkl">Weather</span>'+(x?('<span class="jkx '+x+'" aria-hidden="true"></span><b>'+esc(JK_WX[x])+'</b>'):'<b class="na">Not rated for rain</b>')+'</div></div>';}
 /* the warmth filter on the jacket scale -- every jacket with a known warmth lands in one bucket */
 /* round 16: four warmth tiers, named the way a buyer says them, used by the filter, the aisle's warmth row and the
@@ -5466,7 +5487,7 @@ function jkRange(L){var ls=L.map(jkLvlOf).filter(function(l){return l>=0;});if(!
 function jkRangeMeter(R){var b='';for(var i=1;i<=5;i++)b+='<i'+(i>=R.lo&&i<=R.hi?' class="on"':'')+'></i>';return '<span class="jkm sm" aria-hidden="true">'+b+'</span>';}
 function jkRangeTxt(R){var a=jkTierLab(R.lo),b=jkTierLab(R.hi);return a===b?a:(a+' to '+b.toLowerCase());}
 /* warmth groups inside every jacket shelf -- the quarter-zip family pattern, keyed on warmth */
-(function(){var sh=(typeof MEGASUB!=='undefined'&&MEGASUB.outerwear)||[];sh.forEach(function(x){if(SHELF_FAM[x])return;
+(function(){var sh=((typeof MEGASUB!=='undefined'&&MEGASUB.outerwear)||[]).concat(['Hi-Vis Jackets','Winter Parkas']);sh.forEach(function(x){if(SHELF_FAM[x])return;
   SHELF_FAM[x]={jk:1,noun:String(x).toLowerCase().replace(/ & .*$/,''),intro:'Grouped by our warmth rating \u2014 insulation, lining, wind protection and coverage, from what each maker publishes. Every price includes your logo.',
     fams:JK_WB.map(function(b){return {id:b[0],lab:b[1],sub:JK_TIER[b[0]].sub};}).concat([{id:'np',lab:'Warmth not published',sub:'The maker doesn\u2019t publish insulation for these \u2014 ask us for the spec'}]),map:{},
     rule:function(it){var W=jkWarm(it);return W?jkTierOf(W.lvl):'np';}};});})();
@@ -5555,7 +5576,7 @@ function jkCmpOpen(){if(JK_CMP.length<2)return;jdpTrack('filter',{f:'compare',v:
   var h='<div class="jkcmbox" role="dialog" aria-modal="true" aria-label="Compare jackets"><div class="jkcmhd"><div><b>Compare '+ks.length+' jackets</b><i>Prices per piece with your logo · warmth on one scale, from each maker\u2019s published build · <button type="button" class="jalink" data-jwhy="compare">How we rate warmth</button></i></div><button type="button" class="jkcmx" data-cmclose="1" aria-label="Close">×</button></div>'+
     '<div class="jkcmsc"><table class="jkct'+ks.length+'"><thead><tr><th></th>'+ks.map(function(k){var it=BYKEY[k];return '<th scope="col"><span class="jkcmimg"><span class="capfl" aria-hidden="true"></span><span class="capst">'+caThumb(k)+'</span></span><b>'+esc(it.name)+'</b><em>'+esc(it.brand||it.sku||'')+(it.msku?(' · '+esc(it.msku)):'')+'</em></th>';}).join('')+'</tr></thead><tbody>'+
       cell('Price',function(k){return '<div class="jkctiers">'+tiers(k)+'</div>';})+
-      cell('Warmth',function(k){var W=jkWarm(BYKEY[k]);return W?('<span class="jkcw">'+jkMeter(W.lvl)+'<b>'+esc(W.lab)+'</b>'+(k===_best?'<em class="best">Warmest here</em>':'')+'</span>'+(W.tm?('<span class="jkctm">'+esc(W.tm.by+': '+(W.tm.one?('rated to '+jwDeg(W.tm.lo)):('band '+jwDeg(W.tm.hi)+' to '+jwDeg(W.tm.lo))))+'</span>'):'')+'<small>'+esc(W.tip)+'</small>'):'<span class="na">Not published</span>';})+
+      cell('Warmth',function(k){var W=jkWarm(BYKEY[k]);return W?('<span class="jkcw">'+jkMeter(W.lvl)+'<b>'+esc(W.lab)+'</b>'+(k===_best?'<em class="best">Warmest here</em>':'')+'</span>'+(W.tm?('<span class="jkctm">'+esc(W.tm.est?('Our estimate: about '+jwDeg(W.tm.lo)):(W.tm.by+': '+(W.tm.one||W.tm.prod?('rated to '+jwDeg(W.tm.lo)):('band '+jwDeg(W.tm.hi)+' to '+jwDeg(W.tm.lo)))))+'</span>'):'')+'<small>'+esc(W.tip)+'</small>'):'<span class="na">Not published</span>';})+
       cell('Weather',function(k){var it=BYKEY[k],x=jkWx(it);return x?('<span class="jkcw"><span class="jkx '+x+'" aria-hidden="true"></span><b>'+esc(JK_WX[x])+'</b></span><small>'+esc(jkWxTip(it,x))+'</small>'):'<span class="na">Not rated for rain</span>';})+
       order.map(function(lab){return cell(lab,function(k){var v=rows[lab][k];return v?esc(v):'<span class="na">—</span>';});}).join('')+
       cell('Colours',function(k){var cs=browseCols(BYKEY[k])||[];return '<span class="jkcc">'+cs.slice(0,10).map(function(c){return '<i style="background:'+esc(c.rgb||'#ccc')+'" title="'+esc(c.name||'')+'"></i>';}).join('')+'</span><small>'+cs.length+' colour'+(cs.length===1?'':'s')+'</small>';})+
@@ -13091,6 +13112,8 @@ function go(cfg){
     /* a style added from a US price list carries ca:false until its Canadian vendor cost is in -- a Canadian
        store never shows a product it cannot price */
     else cat.items=(cat.items||[]).filter(function(it){return it.ca!==false;});
+    /* round 19 (Steven, 2026-11-20: "North face remove from company store we do not want"): never sold in any store */
+    cat.items=(cat.items||[]).filter(function(it){return !NO_SELL.test(String(it.brand||it.sku||''))&&!/^tnf_/.test(it.key);});
     (cat.items||[]).forEach(function(it){BYKEY[it.key]=it;});
     // Learn each logo's ink BEFORE first paint so garments render a thread colour that actually reads.
     Promise.all((cfg.logos||[]).map(probeInk)).then(function(){
