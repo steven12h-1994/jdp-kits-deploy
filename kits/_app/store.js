@@ -1248,7 +1248,7 @@ function menuCard(key){
   var rec=((key===CFG.feature||item.rec)&&(item.layer==='promo'||hasDecoPlace(item))&&!(VIEW.cat!=='carhartt'&&isCarhartt(item)))?'<span class="mrec">Recommended</span>':'';   /* Carhartt is badged only in its own aisle (it is cross-listed on the quarter-zip shelf, never recommended there) */   // a blank is never badged as our pick
   // Class badge: a specific published class reads bold; styles whose maker publishes only the generic
   // "meets CSA" claim (no class number) render muted — we never invent a class.
-  var csa=item.csa?'<span class="mcsa'+(/^Meets/.test(item.csa)?' gen':'')+'" title="'+(/^Meets/.test(item.csa)?'Certified high-visibility apparel — ask us to confirm the exact class for your job':'Certified high-visibility rating')+'">🛡 '+esc(item.csa)+'</span>':'';
+  var csa=(item.csa||item.csano)?hvPillHtml(item):'';
   // A typographic spec line, not a badge: fabric is information, not a safety rating, and the
   // emoji pill it shared with the CSA rating read as clip-art on a B2B storefront.
   var _fl=fabCardLine(item);
@@ -1410,7 +1410,7 @@ function classifyHivis(n){
   if(/\bshorts?\b/.test(n))return {mega:'hivis',sub:'Rain & Gear'};
   if(/shirt jacket|shacket/.test(n))return {mega:'hivis',sub:'Hi-Vis Jackets'};
   if(/vest/.test(n))return {mega:'hivis',sub:'Safety Vests'};
-  if(/hood|sweatshirt|sweater|crewneck|fleece|pullover/.test(n))return {mega:'hivis',sub:'Sweatshirts & Hoodies'};
+  if(/hood|sweatshirt|sweater|crewneck|fleece|pullover/.test(n)&&!/jacket|bomber|soft ?shell|parka|\bcoat\b/.test(n))return {mega:'hivis',sub:'Sweatshirts & Hoodies'};
   if(/tee|t-shirt|shirt|polo/.test(n))return {mega:'hivis',sub:'Hi-Vis T-Shirts'};
   if(/jacket|bomber|soft ?shell|coat|shell|3-?in-?1|6-?in-?1/.test(n))return {mega:'hivis',sub:'Hi-Vis Jackets'};
   return {mega:'hivis',sub:'Hi-Vis Jackets'};
@@ -4200,7 +4200,7 @@ function renderCatAdvisor(el,cfg){
       '<h3 class="xph">'+(!ok.length?'We’ll source this one for you':cfg.roles?('Your '+esc(cfg.kitName||'kit')+' — '+ok.length+' piece'+(ok.length===1?'':'s')):(ok.length>1?('Your '+esc(_onShelf&&cfg.nounSub?cfg.nounSub[VIEW.sub]:cfg.noun)+' program — '+ok.length+' groups'):('Our recommendation for your '+esc(_onShelf&&cfg.nounSub?cfg.nounSub[VIEW.sub]+'s':cfg.noun))))+'</h3>'+
         '<p class="cabandsub">'+(ok.some(function(x){return x.cur;})?('Hand-picked from the '+nS+' '+esc(cfg.nounPl||cfg.noun)+' in this store for exactly your answers'):('Chosen from the '+nS+' '+esc(cfg.noun2||cfg.noun)+' in this store against your answers'))+' — each shown with your logo, priced at your headcount.</p>'+
         (ok.length?caKpis(cfg,A,P):'')+'</div><div class="cainner">'+
-      '<div class="casum"><span class="casuml">Picked for</span>'+caAllQs(cfg,A).map(function(qq){var v=A[qq.id],t=qq.multi?(v||[]).map(function(z){return caAnsLab(qq,z);}).join(', '):caAnsLab(qq,v),as=caHidden(cfg,A,qq);
+      (cfg.brief?(function(){try{return cfg.brief(A,P)||'';}catch(e){return '';}})():'')+'<div class="casum"><span class="casuml">Picked for</span>'+caAllQs(cfg,A).map(function(qq){var v=A[qq.id],t=qq.multi?(v||[]).map(function(z){return caAnsLab(qq,z);}).join(', '):caAnsLab(qq,v),as=caHidden(cfg,A,qq);
           return t?('<button type="button" class="casumc'+(as?' as':'')+'" data-caedit="'+esc(qq.id)+'" title="'+(as?'We assumed this — tap to change':'Change: '+esc(qq.q))+'">'+esc(t)+' <span aria-hidden="true">✎</span></button>'):'';}).join('')+
         '<span class="casumh">Tap any answer to change it.</span></div>'+
       (caTogs(cfg,A).length?('<div class="catog">'+caTogs(cfg,A).map(function(g){var on=A[g.id]==='1';
@@ -4596,69 +4596,135 @@ CADV.push({id:'tops',tile:'Polo, tee or button-up, picked for each group',one:'s
    (5-point breakaway) wherever a vest could snag. Polyester holds its fluorescent colour; cotton hi-vis fades out
    of compliance with washing. Hi-vis has to be the OUTER layer. Logos go on the background panel, never over
    the retroreflective tape. */
-var CA_HV_JOB=[
-  {id:'road',lab:'Road & traffic',sub:'Roadside, flaggers, traffic control'},
-  {id:'site',lab:'Construction site',sub:'Trades and site crews'},
-  {id:'yard',lab:'Warehouse & yard',sub:'Forklifts, loading docks'},
-  {id:'night',lab:'Night & low light',sub:'Utilities, dawn and dusk shifts'},
-  {id:'visit',lab:'Visitors & occasional',sub:'Guests, inspectors, events'}];
-CADV.push({id:'hivis',tile:'The CSA class and piece each crew needs',one:'piece',label:'Hi-vis advisor',noun:'hi-vis gear',noun2:'pieces',
-  h:'Which hi-vis do your crews need? Start with the hazard.',
-  sub:'Tell us where they work and what you’re buying. We’ll recommend a compliant piece for each crew.',
-  overWhy:'the class and conditions these crews need',
-  applies:function(c,s){return c==='hivis'&&!/Hard Hats/.test(s)||(c==='vests'&&/Hi-Vis/.test(s));},
-  preset:function(A,c,s){if(!A.kind){if(/Vests/.test(s))A.kind='vest';else if(/T-Shirts/.test(s))A.kind='tee';else if(/Sweatshirts/.test(s))A.kind='layer';else if(/Jackets|Parkas|Rain/.test(s))A.kind='jacket';}},
-  who:true,
-  qs:[{id:'who',q:'Where do they work?',short:'Where they work',hint:'Pick every crew',multi:true,wide:true,opts:CA_HV_JOB},
-      {id:'kind',q:'What are you buying?',short:'What you need',opts:[{id:'vest',lab:'Safety vests',sub:'Over their own clothes'},{id:'tee',lab:'Hi-vis shirts',sub:'Worn as the top layer'},{id:'layer',lab:'Hoodies & sweatshirts',sub:'Warmth and visibility'},{id:'jacket',lab:'Jackets & parkas',sub:'Cold and wet weather'}]},
-      {id:'snag',q:'Near machinery or anything a vest could catch on?',short:'Snag hazards',def:'1',when:function(A){return A.kind==='vest';},opts:[{id:'1',lab:'Yes',sub:'Conveyors, equipment, fencing'},{id:'0',lab:'No',sub:'Open ground, nothing to snag'}]},
-      {id:'season',q:'What weather do they work in?',short:'The weather',when:function(A){return A.kind&&A.kind!=='vest';},opts:[{id:'hot',lab:'Hot summer',sub:'Light and breathable'},{id:'mild',lab:'Spring & fall',sub:'Cool mornings'},{id:'cold',lab:'Cold winter',sub:'Insulated'},{id:'wet',lab:'Rain is part of the job',sub:'Waterproof'}]}],
-  fact:function(it,A){var c=caClass(it),n={vest:'safety vest',tee:'hi-vis shirt',layer:'hi-vis layer',jacket:'hi-vis jacket'}[A.kind||'vest'],nm=it.name||'';
-    return caArt((c?('CSA Class '+c+' '):'CSA Z96 ')+n)+(/tear-?away|breakaway/i.test(nm)?' that tears away if it snags':(/long[- ]sleeve/i.test(nm)?' with long sleeves':''))+
-      (((A&&A.who||[]).indexOf('night')>=0&&c!==3)?'. For night and low-light work, pair it with hi-vis pants or bibs to reach Class 3':'');},
-  pool:function(A){var K=A.kind||'vest';
-    if(K==='vest')return caKeys([['hivis','Safety Vests']]);
-    if(K==='tee')return caKeys([['hivis','Hi-Vis T-Shirts']]);
-    if(K==='layer')return caKeys([['hivis','Sweatshirts & Hoodies']]).filter(function(k){return !/jacket|bomber|softshell/i.test(BYKEY[k].name);});
-    return caKeys([['hivis','Hi-Vis Jackets'],['hivis','Winter Parkas'],['hivis','Rain & Gear'],['hivis','Sweatshirts & Hoodies']]).filter(function(k){var n=BYKEY[k].name;return /jacket|parka|bomber|softshell|coat/i.test(n)&&!/pant|overall|bib/i.test(n);});},
-  score:function(it,A,role,p){
-    var K=A.kind||'vest',n=(it.name||'').toLowerCase(),c=caClass(it),s=0,cot=caCotton(it)>=60||/cotton/i.test(n),lng=/long[- ]sleeve/.test(n);
-    var strict=(role==='road'||role==='site'||role==='night');
-    if(c===1&&strict)return null;                                // Class 2 is the minimum near traffic and vehicles
-    if(role==='night'&&c===3)s+=14;                              // night and low light: Class 3 where the garment can carry it
-    s+=c>=2?24:(c===1?0:6);                                      // a stated class beats "meets CSA Z96"
-    if(K==='vest'){var tear=/tear-?away|breakaway/.test(n);
-      if(A.snag==='1'&&!tear)return null;
-      if(tear)s+=10;if(/pocket|surveyor/.test(n)&&(role==='site'||role==='road'))s+=6;if(/mesh/.test(n)&&role!=='night')s+=4;
-      if(role==='visit')s+=Math.max(0,20-p);}
-    else{
-      if(cot)s-=10;else s+=10;                                   // polyester holds its fluorescent colour
-      if(K==='tee'){var wantLong=(role==='night'||role==='road'||A.season==='cold');if(wantLong&&lng)s+=14;if(!wantLong&&lng)s-=8;if(A.season==='hot'&&!lng)s+=6;}
-      if(K==='jacket'){var cold=A.season==='cold'?3:(A.season==='hot'||A.season==='mild'||A.season==='wet'?1:2);
-        var js=jaScore(it,'site',cold,A.season==='wet'?1:0,'x',p);if(js==null)return null;s+=js;}
-      if(K==='layer'&&A.season==='hot'&&/hooded t-shirt/i.test(n))s+=10;
-      if(K==='layer'&&A.season==='cold'&&/sweatshirt|hoodie/i.test(n))s+=8;
-    }
-    if(/[4-6]XL/.test(jaMaxSize(it)))s+=4;
-    return s;},
-  why:function(it,A,role){var out=[],c=caClass(it),n=it.name||'';
-    if(role==='night'&&c!==3)out.push((c?('CSA Z96 Class '+c):'Meets CSA Z96')+' — for night work, wear it with hi-vis pants or bibs to reach Class 3');
-    else out.push(c?('CSA Z96 Class '+c+(c>=3?' — for night, highway and low-light work':(c>=2?' — the minimum near moving traffic':' — low-speed areas only'))):'Meets CSA Z96 — check the class against your site rules');
-    if(/tear-?away|breakaway/i.test(n))out.push('5-point tear-away — breaks free if it snags');
-    else if(/zipper/i.test(n))out.push('Zip front');
-    var pk=/(\d+)\s*pockets?/i.exec(n);if(pk)out.push(pk[1]+' pockets');else if(/surveyor/i.test(n))out.push('Surveyor pockets for tools and tablets');
-    if(A.kind==='jacket'){var j=jaWhy(it,'site').filter(function(x){return !/CSA hi-vis/.test(x);});out=out.concat(j.slice(0,2));}
-    else if(/cotton/i.test(n)||caCotton(it)>=60)out.push('Cotton: soft, but hi-vis colour fades faster — replace sooner');
-    else if(A.kind!=='vest')out.push('Polyester holds its fluorescent colour wash after wash');
-    if(/long[- ]sleeve/i.test(n))out.push('Long sleeves for arm visibility and sun cover');
-    var mx=jaMaxSize(it);if(mx&&out.length<4)out.push('Sizes up to '+mx);
-    return out.slice(0,4);},
-  tips:function(A){var t=['Hi-vis must be the outer layer — a vest under a jacket doesn’t count.',
-      'Flaggers, highway and night work call for CSA Class 3: sleeves AND leg bands. Pair a Class 2 long-sleeve or jacket with hi-vis pants, or ask Steven to spec it.',
-      'Your logo goes on the background panel, clear of the reflective tape — we never print over it.'];
-    if(A.kind!=='vest')t.push('Cotton hi-vis fades out of compliance sooner than polyester; plan to replace it more often.');
-    return t;}
-});
+/* ===== HI-VIS & SAFETY v2 (round 20 -- Steven, 2026-11-22: "Hi-Vis & Safety Advisor and category overall is terrible ...
+   make the Hi-Vis & Safety Advisor section and advisor enterprise level"). A hi-vis buyer is buying COMPLIANCE first: the
+   class the crew must wear is set by how fast the nearest traffic moves and how good the light is (CSA Z96 selection
+   guidance, as CCOHS publishes it: under 40 km/h -> Class 2, Class 1 only in some low-risk areas; 40-80 km/h -> Class 2,
+   Class 3 in low light or bad weather; over 80 km/h -> Class 2 by day, Class 3 in low light). Class 3 is never one
+   garment in CSA terms: it is a Class 2 top whose bands encircle the arms, worn with pants or bibs whose bands encircle
+   the legs. So the advisor works out the class first, then builds the crew's outfit piece by piece and checks that the
+   outfit -- not just each garment -- reaches it. Every pick carries a class the MAKER publishes; a garment whose class we
+   don't know is never recommended. This sub-advisor ranks ONE kind of piece; the crew kit (id 'hivis') drives it. */
+function hvCsa(it){return String((it&&it.csa)||'');}
+function hvDark(col){return /black|navy|charcoal|grey|gray|tan|brown/i.test(String(col||''));}
+/* the class the maker publishes for the colour we would show -- black & navy versions often certify a class lower */
+function hvCls(it,col){var t=hvCsa(it),m=/Z96[^·(]*?Class (\d)/.exec(t),c=m?+m[1]:0;
+  if(col&&it&&it.csac&&it.csac[col]!=null)return +it.csac[col];      /* the maker's class for exactly this colour */
+  if(col&&hvDark(col)){var x=/(black|navy)[^:·]*:\s*(?:CSA Z96 )?(?:Class (\d)|(not (?:CSA )?certified|no class))/i.exec(t);if(x)c=x[2]?+x[2]:0;}
+  return c;}
+function hvLvl(it){var m=/Z96[^·]*?Level (\d|FR)/.exec(hvCsa(it));return m?(m[1]==='FR'?0:+m[1]):0;}
+function hvAnsi(it){var m=/ANSI(?:\/ISEA)? 107[^·(]*/.exec(hvCsa(it));return m?m[0].replace(/\s+$/,''):'';}
+function hvExc(it){if(it&&it.csac){var C=hvCls(it),g={};Object.keys(it.csac).forEach(function(n){var c=+it.csac[n];if(c<C)(g[c]=g[c]||[]).push(n);});
+    return Object.keys(g).sort().reverse().map(function(c){return g[c].join(' & ')+': '+(+c?('Class '+c):'not certified');}).join(' · ');}
+  var m=/(black|navy)[^·]*:\s*[^·]+/i.exec(hvCsa(it));return m?m[0].replace(/^\w/,function(c){return c.toUpperCase();}):'';}
+function hvCond(it){var m=/worn with a [^·]+/i.exec(hvCsa(it));return m?m[0].trim():'';}
+function hvBottom(it){return /\bpants?\b|\bbibs?\b|overall|coverall|\bshorts?\b/i.test((it&&it.name)||'');}
+function hvShorts(it){return /\bshorts?\b/i.test((it&&it.name)||'');}
+/* sleeves that can carry arm bands: a long-sleeve shirt, a hoodie or sweatshirt, any jacket or coat -- never a vest or a short-sleeve tee */
+function hvSleeved(it){var n=String((it&&it.name)||'').toLowerCase();if(/\bvest\b/.test(n)||hvBottom(it)&&!/coverall/.test(n))return false;
+  if(/t-?shirt|\btee\b/.test(n))return /long[- ]sleeve/.test(n);
+  return /hood|sweatshirt|crewneck|pullover|jacket|parka|coat|soft ?shell|bomber|shacket|coverall/.test(n);}
+/* bottoms carry leg bands when the maker certifies them: a certified hi-vis pant, bib or overall (CSA's bib-overall Class 2
+   itself requires leg bands); shorts never complete a Class 3 outfit */
+function hvLegs(it){return hvBottom(it)&&!hvShorts(it)&&hvCls(it)>=2;}
+function hvFam(col){col=String(col||'');if(/lime|yellow|green/i.test(col)&&!/orange/i.test(col))return 'lime';if(/orange|red/i.test(col))return 'orange';if(hvDark(col))return 'dark';return '';}
+function hvHasFam(it,f){return (it.cols||[]).some(function(c){return hvFam(c.name)===f;});}
+function hvColFor(it,lime){var f=lime?'lime':'orange',L=(it.cols||[]).slice(),k=function(x){return (it.csac&&it.csac[x.name]!=null)?+it.csac[x.name]:1;};
+  L.sort(function(a,b){return k(b)-k(a);});   /* within a colour family, the colourway the maker certifies highest */
+  var c=L.filter(function(x){return hvFam(x.name)===f&&k(x)>=2;})[0]||L.filter(function(x){return (hvFam(x.name)==='orange'||hvFam(x.name)==='lime')&&k(x)>=2;})[0]||L.filter(function(x){return hvFam(x.name)===f;})[0]||L[0];return c?c.name:'';}
+function hvHasFam2(it,f){return (it.cols||[]).some(function(c){return hvFam(c.name)===f&&hvCls(it,c.name)>=2;});}
+function hvBlank(it){return /^Supplied blank/i.test(String((it&&it.method)||''));}
+/* the two answers that decide the class */
+var HV_SPD=[{id:'low',lab:'Slow vehicles & equipment',sub:'Up to 40 km/h — yards, docks, lots, plant floors'},
+  {id:'mid',lab:'Traffic up to 80 km/h',sub:'Site roads, city streets, rural roads'},
+  {id:'high',lab:'Fast traffic, over 80 km/h',sub:'Highways and high-speed roads'}];
+var HV_LT=[{id:'day',lab:'Daylight, clear weather',sub:'Good light for the whole shift'},
+  {id:'low',lab:'Dawn, dusk, night or bad weather',sub:'Low light, fog, rain or snow'}];
+function hvNeed(A){var s=A.spd||'mid',l=A.lt||'low',c=(s!=='low'&&l==='low')?3:2;return {c:c,l2:l==='low',spd:s,lt:l};}
+function hvNeedTxt(N){var k=N.spd+'|'+N.lt;return ({
+  'low|day':'Vehicles under 40 km/h in good light is the lowest-risk case in CSA Z96’s guidance. Class 2 is the recommendation; Class 1 is acceptable only in some low-risk areas, so every pick here is Class 2.',
+  'low|low':'The vehicles are slow, but the light isn’t good. Class 2 covers it, and Level 2 reflective tape (the brightest) where the maker offers it, because retroreflective tape does the work once daylight fades.',
+  'mid|day':'For traffic of 40–80 km/h in daylight, CSA Z96’s guidance starts at Class 2. Move up to Class 3 if the background is busy or the job keeps their eyes off the traffic.',
+  'mid|low':'For traffic of 40–80 km/h in low light or bad weather, CSA Z96’s guidance points to Class 3: a Class 2 top with bands around the arms, worn with pants or bibs with bands around the legs.',
+  'high|day':'For traffic over 80 km/h, CSA Z96’s guidance is Class 2 in full daylight and Class 3 once the light drops. If a shift can run into dusk, plan for Class 3.',
+  'high|low':'Traffic over 80 km/h in low light or at night is the highest-risk case in CSA Z96’s guidance: Class 3, with Level 2 reflective tape.'})[k]||'';}
+function hvClsTxt(it,col){var c=hvCls(it,col),l=hvLvl(it);return c?('CSA Z96 Class '+c+(l?(' · Level '+l):'')):'';}
+/* the shelves each kind of piece is chosen from */
+function hvPoolOf(K){var nm=function(k){return String((BYKEY[k]||{}).name||'');};
+  if(K==='vest')return caKeys([['hivis','Safety Vests']]).filter(function(k){return !hvBlank(BYKEY[k]);});
+  if(K==='tee')return caKeys([['hivis','Hi-Vis T-Shirts']]).filter(function(k){return !hvBlank(BYKEY[k]);});
+  if(K==='layer')return caKeys([['hivis','Sweatshirts & Hoodies']]).filter(function(k){return !/jacket|bomber|soft ?shell|parka|coat/i.test(nm(k))&&!hvBlank(BYKEY[k]);});
+  if(K==='jacket')return caKeys([['hivis','Hi-Vis Jackets'],['hivis','Winter Parkas'],['hivis','Sweatshirts & Hoodies']]).filter(function(k){var n=nm(k);return /jacket|parka|bomber|soft ?shell|coat|shacket/i.test(n)&&!/rain/i.test(n)&&!hvBottom(BYKEY[k]);});
+  if(K==='rain')return caKeys([['hivis','Rain & Gear'],['hivis','Hi-Vis Jackets']]).filter(function(k){var n=nm(k);return /rain/i.test(n)&&/jacket|coat/i.test(n);});
+  if(K==='pants')return caKeys([['hivis','Pants, Bibs & Coveralls'],['hivis','Rain & Gear']]).filter(function(k){return hvBottom(BYKEY[k]);});
+  return [];}
+function hvWx(A){var w=parseInt(A.wx,10);return isNaN(w)?2:w;}
+function hvWarmLvl(it){var W=null;try{W=jkWarm(it);}catch(e){W=null;}return W?W.lvl:0;}
+var HV_KIND={vest:'safety vest',tee:'hi-vis shirt',layer:'hi-vis sweatshirt',jacket:'hi-vis jacket',rain:'hi-vis rain jacket',pants:'pair of hi-vis pants'};
+function hvScore(it,A,K,p){
+  var n=String(it.name||'').toLowerCase(),need=+A.need||2,lime=A.lime==='1',col=hvColFor(it,lime),c=hvCls(it,col),wx=hvWx(A),s=0,top=K!=='pants';
+  if(!c)return null;                                                        // a class we can't confirm is never recommended
+  if(hvBlank(it)&&top)return null;                                          // the buyer is buying branded hi-vis
+  if(top){if(c<2)return null;}                                              // Class 2 is the floor for every crew here
+  else{if(hvShorts(it)&&(need>=3||wx>=2))return null;if(need>=3&&!hvLegs(it))return null;}
+  s+=20;var lv=hvLvl(it);if(N_L2(A)){if(lv===2)s+=8;else if(lv===1)s-=4;}
+  if(need>=3&&top&&hvSleeved(it))s+=18;
+  if(!hvHasFam2(it,lime?'lime':'orange')&&!(K==='pants'&&hvHasFam(it,lime?'lime':'orange')))s-=25;
+  var cot=caCotton(it)>=60||/cotton/.test(n);
+  if(K==='tee'||K==='layer')s+=cot?-10:10;                                  // polyester holds its fluorescent colour; cotton fades
+  if(K==='vest'){var tear=/tear-?away|breakaway/.test(n);if(tear)s+=14;
+    if(/surveyor|pocket/.test(n)&&A.spd!=='low')s+=3;
+    if(/quilted|insulated/.test(n))s+=(wx>=3)?16:-24;
+    if(/mesh/.test(n))s+=(wx<=0)?6:-2;}
+  if(K==='tee'){var lng=/long[- ]sleeve/.test(n),wl=need>=3||wx>=2;s+=lng?(wl?14:-6):(wl?-8:6);if(/hood/.test(n))s-=4;}
+  if(K==='layer'){if(/hooded t-shirt/.test(n))s+=wx<=1?10:-12;if(/full-zip/.test(n))s+=3;}
+  if(K==='jacket'){var L=hvWarmLvl(it),want=wx<=1?0:wx,pref=Math.max(0,wx);if(L<want)return null;   // never under-warm; a shell is fine in mild weather
+    s+=(L===pref)?30:(L===pref+1?12:(L===pref-1?18:-12*Math.abs(L-pref)));if(it.sys||/in-1/.test(n))s+=wx>=2?8:0;
+    if(A.rain==='1'){var x=jkWx(it);if(x==='wp')s+=24;else return null;}}
+  if(K==='rain'){var x2=jkWx(it);if(x2==='wp')s+=24;else if(x2==='wr')s-=12;else return null;if(/full-length|raincoat/.test(n))s-=6;}
+  if(K==='pants'){var rp=/rain/.test(n),ins=/insulated|winter/.test(n);
+    if(A.rain==='1'){if(rp)s+=22;}else if(rp)s-=10;
+    if(wx>=3){if(ins)s+=22;}else if(ins)s-=22;
+    if(/coverall/.test(n))s-=12;                                              // a one-piece is a different buy -- offered, not defaulted
+    if(/cargo/.test(n)&&!rp&&wx<=2)s+=10;}
+  if(/[4-6]XL/.test(jaMaxSize(it)||''))s+=4;
+  return s;}
+function N_L2(A){return A.l2==='1'||A.l2===true;}
+function hvWhy(it,A,K){var out=[],need=+A.need||2,lime=A.lime==='1',col=hvColFor(it,lime),c=hvCls(it,col),n=String(it.name||'').toLowerCase(),an=hvAnsi(it),ex=hvExc(it);
+  var ct=hvClsTxt(it,col);
+  if(K==='pants')out.push(hvCond(it)?(ct+' '+hvCond(it)+' — the outfit check above confirms it'):(need>=3?(ct+' — bands around both legs complete the Class 3 outfit'):(ct+' — leg bands add visibility from every side')));
+  else if(need>=3&&hvSleeved(it))out.push(ct+' with arm bands — the top half of a Class 3 outfit');
+  else if(need>=3)out.push(ct+' — no sleeves, so it can’t carry the arm bands Class 3 needs (see below)');
+  else out.push(ct+' — meets the Class 2 your crews need');
+  if(N_L2(A)&&hvLvl(it)===2)out.push('Level 2 reflective tape — the brightest performance level, for low light');
+  if(an&&out.length<4)out.push('Also certified '+an.replace('ANSI 107','ANSI/ISEA 107')+' for U.S. sites');
+  if(/tear-?away|breakaway/.test(n))out.push('5-point tear-away — breaks free if it snags on equipment');
+  if(K==='jacket'||K==='rain'){var W=null;try{W=jkWarm(it);}catch(e){}var x=jkWx(it);
+    if(W&&W.lvl&&K==='jacket')out.push(W.lab+(W.tmp?(' · '+W.tmp):''));
+    if(x==='wp')out.push('Waterproof with sealed seams');else if(x==='wr'&&out.length<4)out.push('Water-resistant — for showers, not steady rain');
+    if((it.sys||/in-1/.test(n))&&out.length<4)out.push('Zip-out layers — one jacket from fall to deep winter');}
+  if((K==='tee'||K==='layer')&&out.length<4)out.push((caCotton(it)>=60||/cotton/.test(n))?'Cotton: soft, but the fluorescent colour fades sooner':'Polyester holds its fluorescent colour wash after wash');
+  if(ex&&out.length<4)out.push(ex.replace(/:\s*/,' versions: ')+' — we show the hi-vis colour');
+  var mx=jaMaxSize(it);if(mx&&out.length<4)out.push('Sizes up to '+mx);
+  return out.slice(0,4);}
+function hvFact(it,A,K){var lime=A.lime==='1',col=hvColFor(it,lime),c=hvCls(it,col),n=String(it.name||'').toLowerCase(),lv=hvLvl(it);
+  var noun=K==='pants'?(/coverall/.test(n)?'coverall':(/bib|overall/.test(n)?((/insulated|winter/.test(n)?'insulated ':'')+(/rain/.test(n)?'rain ':'')+'bib overall'):(/rain/.test(n)?'pair of rain pants':'pair of work pants'))):(HV_KIND[K]||'hi-vis piece');
+  var f='a CSA Class '+c+(lv?(' Level '+lv):'')+' '+noun;
+  if(/tear-?away|breakaway/.test(n))f+=' that tears away if it snags';
+  else if(K==='jacket'&&(it.sys||/in-1/.test(n)))f+=' with zip-out layers';
+  else if(K==='pants'&&hvLegs(it))f+=' with bands around both legs';
+  else if(K==='tee'&&/long[- ]sleeve/.test(n))f+=' with sleeves that carry arm bands';
+  return f;}
+function hvK(role,A){return HV_KIND[role]?role:(HV_KIND[A&&A.kind]?A.kind:'vest');}
+CADV.push({id:'hvpart',tile:'',one:'piece',label:'Hi-vis piece',noun:'hi-vis gear',noun2:'pieces',h:'',sub:'',qs:[],
+  applies:function(){return false;},
+  pool:function(A,role){return hvPoolOf(hvK(role,A));},
+  score:function(it,A,role,p){return hvScore(it,A,hvK(role,A),p);},
+  curate:function(A,role){return hvCurate(A,hvK(role,A));},
+  curOk:function(it,A,role){var K=hvK(role,A);return hvScore(it,A,K,0)!=null&&(K==='pants'||hvHasFam2(it,A.lime==='1'?'lime':'orange'));},
+  why:function(it,A,role){return hvWhy(it,A,hvK(role,A));},
+  fact:function(it,A,role){return hvFact(it,A,hvK(role,A));},
+  tips:function(){return [];}});
 /* FLEECE & SWEATERS. Research (Swag.com corporate hoodie guide, SanMar Canada fleece range, Cutter & Buck
    buyer's guide): who wears it decides the style -- the quarter-zip is the corporate default (layers over a
    polo, embroiders cleanly left chest), hoodies get worn off-shift, crewnecks read cleaner than a hoodie;
@@ -5305,6 +5371,147 @@ CADV.push({id:'bags',tile:'Backpack, duffel or cooler — by what it has to carr
   'bags.use':{laptop:'st_roadwarrior',site:'st_deluge',travel:'st_nautilus70',cooler:'st_aquacooler24'},
   'bags.for':{staff:'st_aquabp22',gift:'st_saturna24',event:'st_aquacooler12'}};
   Object.keys(M).forEach(function(k){CA_PIC[k]=M[k];});CA_METER['uniform.wx']='Warmth';})();
+/* ===== THE HI-VIS CREW KIT (round 20). Two questions set the class (traffic speed, light), the buyer ticks the pieces, and
+   weather/rain shape the jacket and pants. The result leads with the requirement and an OUTFIT check -- the one thing a
+   safety manager has to sign off -- then one decision card per piece with a lower-cost and a premium option. */
+var HV_PARTS=[{id:'vest',lab:'Safety vests',sub:'Over their own clothes or a jacket'},
+  {id:'tee',lab:'Hi-vis shirts',sub:'Short or long sleeve, worn as the top layer'},
+  {id:'layer',lab:'Hoodies & sweatshirts',sub:'Warmth and visibility in one'},
+  {id:'jacket',lab:'Jackets & parkas',sub:'Softshell, insulated and 3-in-1'},
+  {id:'rain',lab:'Rain jackets',sub:'Seam-sealed, for rain that’s part of the job'},
+  {id:'pants',lab:'Pants & bibs',sub:'Leg bands — part of every Class 3 outfit'}];
+var HV_WX=[{id:'0',lab:'Hot summer',sub:'Above 20\u00b0C — light and breathable'},{id:'1',lab:'Mild',sub:'5 to 20\u00b0C — a chill in the morning'},
+  {id:'2',lab:'Cool',sub:'5 to \u22125\u00b0C — around freezing'},{id:'3',lab:'Cold winter',sub:'\u22125 to \u221215\u00b0C'},{id:'4',lab:'Deep winter',sub:'Below \u221215\u00b0C, hours outside'}];
+var HV_ROLE={vest:'hvvest',tee:'hvtee',layer:'hvlayer',jacket:'hvjacket',rain:'hvrain',pants:'hvpants'};
+function hvHas(A,p){return (A.parts||[]).indexOf(p)>=0;}
+function hvAnsOf(K){return function(A){var N=hvNeed(A);return {kind:K,need:N.c,l2:N.l2?'1':'',spd:N.spd,lt:N.lt,wx:A.wx==null||A.wx===''?'2':A.wx,
+  rain:(hvHas(A,'rain')||A.rain==='1')?'1':'0',lime:A.lime||''};};}
+function hvPiece(K){return {adv:'hvpart',role:function(){return K;},ans:hvAnsOf(K)};}
+/* CURATED PICKS -- the piece a hi-vis specialist would hand this crew, with the lower-cost and the premium step either side.
+   Keyed kind|class|condition; the ranking only fills a slot this store can't show. Every pick and alternative below carries
+   a maker-published class; the hard rules (class floor, leg bands, warmth, sealed seams) still apply to each of them. */
+var HV_CUR={
+  'vest|std':{p:'tvest',ang:'Ground Force’s 5-point tear-away: CSA Class 2 and ANSI Class 2. It breaks free if it snags, and your logo goes on the chest panel.',
+    alts:[['ff_zipvest','Level 2 tape','ForceField zip-up tear-away — Level 2 tape, the brighter tape for dawn, dusk and night'],['ff_siteboss','Surveyor’s pockets','Siteboss heavy-duty surveyor’s vest — Class 2 Level 2, pockets for tools, a tablet and paperwork']]},
+  'vest|std|l2':{p:'ff_zipvest',ang:'A zip-up 5-point tear-away with Level 2 tape — the brighter tape for low light — that breaks free if it snags.',
+    alts:[['tvest','Lower cost','Ground Force 5-point tear-away — Class 2, tape level not published'],['ff_siteboss','Surveyor’s pockets','Siteboss heavy-duty surveyor’s vest — Class 2 Level 2, pockets for tools, a tablet and paperwork']]},
+  'vest|cold':{p:'cs_l01225',ang:'A quilted hi-vis vest — Class 2 Level 2 — that keeps the core warm and stays the outer layer over a hoodie.',
+    alts:[['tvest','Lower cost','A tear-away vest worn over the crew’s own winter jacket'],['ff_siteboss','Surveyor’s pockets','Siteboss surveyor’s vest over a winter jacket — Class 2 Level 2']]},
+  'tee|short':{p:'tt1',ang:'Polyester holds its fluorescent colour wash after wash. CSA Class 2, ANSI Class 2.',
+    alts:[['cs_s05980','Level 2 tape','Lumen — segmented reflective stripes, Class 2 Level 2'],['cs_s05960','Moisture-wicking','Watchman — moisture-wicking polyester, Class 2 Level 2']]},
+  'tee|short|l2':{p:'cs_s05980',ang:'Segmented reflective stripes at Level 2 — the brighter tape for low light — on a CSA Class 2 tee.',
+    alts:[['tt1','Ground Force','Ground Force polyester traffic tee — CSA Class 2, ANSI Class 2'],['cs_s05960','Moisture-wicking','Watchman — moisture-wicking polyester, Class 2 Level 2']]},
+  'tee|long':{p:'cs_s05982',ang:'Long sleeves carry the arm bands a Class 3 outfit needs, with Level 2 segmented stripes. CSA Class 2 in yellow and orange.',
+    alts:[['tt2','Also ANSI Class 3','Ground Force long-sleeve traffic tee — CSA Class 2, ANSI Class 3 for U.S. sites'],['ff_hvlstee','Chest pocket','ForceField long-sleeve tee with a chest pocket, Level 2 tape']]},
+  'layer|warm':{p:'hoodie',ang:'A hi-vis hoodie that stays the outer layer: CSA Class 2, ANSI Class 3, sleeves that carry arm bands.',
+    alts:[['cs_s05985','Lighter','Glow long-sleeve hooded tee — Class 2 Level 2, for milder days'],['cs_l01380','Full-zip · Level 2','Infinity full-zip hoodie — Level 2 tape and a detachable hood']]},
+  'layer|warm|l2':{p:'cs_l01380',ang:'A full-zip hi-vis hoodie with Level 2 tape — the brighter tape for low light — and a detachable hood. CSA Class 2.',
+    alts:[['hoodie','Lower cost','Ground Force traffic hoodie — CSA Class 2, ANSI Class 3'],['ff_hvseghoodie','Segmented tape','ForceField hoodie with segmented reflective tape, Level 2']]},
+  'layer|light':{p:'cs_s05985',ang:'A long-sleeve hooded tee with Level 2 stripes: sun and light-chill cover without a sweatshirt’s weight.',
+    alts:[['hoodie','Warmer','Ground Force traffic hoodie for cooler days'],['ff_hvsegcrew','Crewneck','ForceField segmented-tape crewneck sweatshirt, Level 2']]},
+  'jacket|w0':{p:'tj2',ang:'A softshell traffic jacket: wind and showers, no insulation, sleeves that carry arm bands.',
+    alts:[['cs_l01305','Level 2 tape','Shield stretch softshell — Class 2 Level 2'],['ff_hvsegsoft','Segmented tape','ForceField segmented-tape softshell, Level 2']]},
+  'jacket|w1':{p:'tj2',ang:'A softshell traffic jacket for mild days: wind and showers, light warmth, sleeves that carry arm bands.',
+    alts:[['cs_l01305','Level 2 tape','Shield stretch softshell — Class 2 Level 2'],['ff_hvsegsoft','Segmented tape','ForceField segmented-tape softshell, Level 2']]},
+  'jacket|w2':{p:'cs_l01220',ang:'A quilted hi-vis jacket that Canada Sportswear rates to −5°C, with Level 2 tape — for days around freezing.',
+    alts:[['freezer','Lower cost','Ground Force quilted traffic jacket — about −5°C, our estimate'],['ff_hvminer','Waterproof','ForceField insulated miner’s jacket — waterproof, Level 2']]},
+  'jacket|w2|wet':{p:'ff_hvminer',ang:'Wet days around freezing: an insulated jacket with a waterproof shell and Level 2 tape — about −5°C, our estimate.',
+    alts:[['rain','Shell over a hoodie','A seam-sealed rain jacket worn over a hi-vis hoodie'],['tj3','Warmer 3-in-1','Ground Force 3-in-1 — waterproof shell with a zip-out liner, about −15°C (our estimate)']]},
+  'jacket|w3':{p:'tj3',ang:'A 3-in-1 for cold winters: a waterproof shell plus a zip-out liner — about −15°C, our estimate — worn from fall to winter.',
+    alts:[['tp1','Lower cost · parka','Winter Traffic Parka — longer cover, about −15°C (our estimate)'],['cs_l01310','Maker-rated −22°C','Freightliner insulated softshell — Canada Sportswear rates it to −22°C, Level 2']]},
+  'jacket|w3|wet':{p:'tj3',ang:'Rain or wet snow and cold: a waterproof 3-in-1 shell with a zip-out liner — about −15°C, our estimate.',
+    alts:[['cs_l01277','Maker-rated −22°C','Peterbuilt 3-in-1 bomber — waterproof, Canada Sportswear rates it to −22°C'],['ff_hv3in1','Level 2 tape','ForceField 3-in-1 parka with a removable puffer, waterproof, Level 2']]},
+  'jacket|w4':{p:'ff_driver',ang:'Deep winter: 200 g/m² insulation in a waterproof shell with Level 2 tape — about −22°C, our estimate.',
+    alts:[['cs_l01310','Maker-rated −22°C','Freightliner insulated softshell — Canada Sportswear rates it to −22°C'],['cs_l01250','Maker-rated −27°C','Armour parka — Canada Sportswear rates it to −27°C, Level 2']]},
+  'jacket|w4|wet':{p:'ff_driver',ang:'Deep winter with wet snow: 200 g/m² insulation in a waterproof shell with Level 2 tape — about −22°C, our estimate.',
+    alts:[['tj6','6-in-1 system','Ground Force 6-in-1 — waterproof, the shell, the liner or both'],['cs_l01275','Maker-rated −22°C','Kenworth 5-in-1 parka — waterproof, Canada Sportswear rates it to −22°C']]},
+  'rain':{p:'rain',ang:'A seam-sealed hi-vis rain jacket — rain doesn’t get in through the seams — with sleeves that carry arm bands.',
+    alts:[['cs_l01205','Full length','Storm full-length raincoat — Class 2 Level 2, longer cover'],['ff_hvrainjkt','Level 2 tape','ForceField rain jacket with a snap-off hood, Level 2']]},
+  'rain|l2':{p:'ff_hvrainjkt',ang:'A seam-sealed hi-vis rain jacket with Level 2 tape for low light and a snap-off hood.',
+    alts:[['rain','Ground Force','Ground Force hi-vis rain jacket — CSA Class 2, ANSI Class 3'],['cs_l01205','Full length','Storm full-length raincoat — Class 2 Level 2, longer cover']]},
+  'pants|std':{p:'ff_hvcargo',ang:'Ripstop cargo work pants with bands around both legs — Class 3 Level 2 when worn with a CSA Class 2 top, by the maker’s rating.',
+    alts:[['ff_flagcov','Coverall','ForceField flagger’s coverall — CSA Class 3 Level 2 on its own'],['ff_hvrainbib','Rain bib','ForceField rain bib — Class 3 with a Class 2 top, waterproof']]},
+  'pants|wet':{p:'ff_hvrainbib',ang:'A rain bib overall with bands around both legs — Class 3 Level 2 when worn with a CSA Class 2 top — that keeps the waist covered when they bend.',
+    alts:[['rp90','Rain pants','Ground Force rain pants — waist style, Class 3 leg bands'],['ff_flagcov','Coverall','ForceField flagger’s coverall — CSA Class 3 Level 2 on its own']]},
+  'pants|cold':{p:'ff_winterbib',ang:'An insulated hi-vis bib overall for winter — CSA Class 2 Level 2, with the leg bands a Class 3 outfit needs.',
+    alts:[['ff_hvrainbib','Shell bib','ForceField rain bib over their own winter layers'],['cs_p01255','Canada Sportswear','Cabover insulated overall — Class 2 Level 2']]}};
+function hvCurate(A,K){var need=+A.need||2,wx=hvWx(A),wet=A.rain==='1',c=[];
+  var l2=N_L2(A)?'|l2':'';
+  if(K==='vest')c=[K+'|'+(wx>=3?'cold':'std')+l2,K+'|'+(wx>=3?'cold':'std')];
+  else if(K==='tee')c=[K+'|'+(need>=3||wx>=2?'long':'short')+l2,K+'|'+(need>=3||wx>=2?'long':'short')];
+  else if(K==='layer')c=[K+'|'+(wx>=2?'warm':'light')+l2,K+'|'+(wx>=2?'warm':'light')];
+  else if(K==='jacket')c=[K+'|w'+Math.max(1,wx)+(wet?'|wet':''),K+'|w'+Math.max(1,wx)];
+  else if(K==='rain')c=[K+l2,K];
+  else if(K==='pants')c=[K+'|'+(wx>=3?'cold':(wet?'wet':'std'))+'|'+need,K+'|'+(wx>=3?'cold':(wet?'wet':'std'))];
+  for(var i=0;i<c.length;i++){var r=HV_CUR[c[i]];if(r)return caRow(r);}return null;}
+/* the outfit check: does what they're buying, worn together, reach the class? */
+function hvOutfit(A,P){var N=hvNeed(A),lime=A.lime==='1',ok=(P||[]).filter(function(x){return !x.none&&x.main&&BYKEY[x.main.k]&&x.role!=='fr';});
+  var it=function(x){return BYKEY[x.main.k];},cl=function(x){return hvCls(it(x),CA_COL[x.main.k]||hvColFor(it(x),lime));};
+  var tops=ok.filter(function(x){return x.role!=='hvpants';}),bots=ok.filter(function(x){return x.role==='hvpants';});
+  var arms=ok.filter(function(x){return hvSleeved(it(x))&&cl(x)>=2;}),legs=bots.filter(function(x){return hvLegs(it(x));});
+  var st=N.c<3?(tops.concat(bots).every(function(x){return cl(x)>=2||x.role==='hvpants';})?'ok':'low'):(arms.length&&legs.length?'ok':(!legs.length&&!arms.length?'both':(!legs.length?'legs':'arms')));
+  return {N:N,ok:ok,tops:tops,bots:bots,arms:arms,legs:legs,st:st};}
+function hvOuter(L){var r=['hvjacket','hvrain','hvlayer','hvtee','hvpants'];return L.slice().sort(function(a,b){return r.indexOf(a.role)-r.indexOf(b.role);})[0];}
+function hvBriefHtml(A,P){var O=hvOutfit(A,P),N=O.N,lime=A.lime==='1';if(!O.ok.length)return '';
+  var tile=function(x){var I=BYKEY[x.main.k],col=CA_COL[x.main.k]||hvColFor(I,lime),c=hvCls(I,col),bot=x.role==='hvpants',
+      over=!bot&&N.c>=3&&!hvSleeved(I)&&O.arms.length,
+      tag=bot?(hvLegs(I)?'Leg bands':'No leg bands'):(N.c>=3?(hvSleeved(I)?'Arm bands':(over?('Worn over the '+({hvlayer:'hoodie',hvjacket:'jacket',hvtee:'long-sleeve shirt',hvrain:'rain jacket',hvpants:'coverall'}[hvOuter(O.arms).role]||'sleeved top')):'No sleeves')):''),good=bot?hvLegs(I):(N.c<3||hvSleeved(I)||!!over);
+    return '<button type="button" class="hvot" data-xpopen="'+esc(x.main.k)+'"><span class="hvoti capst">'+caThumb(x.main.k,col)+'</span><span class="hvott"><b>'+esc(caShort(I.name))+'</b>'+
+      '<i>Class '+c+(hvLvl(I)?(' · Level '+hvLvl(I)):'')+'</i>'+(tag?('<em class="'+(good?'y':'n')+'">'+(good?'\u2713 ':'')+esc(tag)+'</em>'):'')+'</span></button>';};
+  var res,act='';
+  if(O.st==='ok')res='<div class="hvres ok"><span class="hvrk">\u2713</span><span><b>'+(N.c>=3?'Worn together, this outfit is CSA Class 3':'Every piece is CSA Class 2 or higher')+'</b><i>'+(N.c>=3?('Arm bands from the '+esc(caShort(BYKEY[hvOuter(O.arms).main.k].name))+', leg bands from the '+esc(caShort(BYKEY[O.legs[0].main.k].name))+'.'):'Each meets the class your crews need on its own.')+'</i></span></div>';
+  else{var miss={legs:'Class 3 needs bands around the legs too — add hi-vis pants or bibs.',arms:'Class 3 needs bands around the arms — a vest or a short-sleeve shirt has none. Add a hoodie, a jacket or a long-sleeve shirt, and wear the vest over it.',
+      both:'On its own this is a Class 2 outfit. Class 3 adds bands around the arms and the legs: a sleeved hi-vis top (hoodie, jacket or long-sleeve shirt) and hi-vis pants or bibs.',low:'One piece is below Class 2 — swap it for a Class 2 option below.'}[O.st];
+    res='<div class="hvres warn"><span class="hvrk">!</span><span><b>Not Class 3 yet</b><i>'+esc(miss)+'</i></span></div>';
+    var add=[];if((O.st==='legs'||O.st==='both')&&!hvHas(A,'pants'))add.push(['pants','Add pants or bibs']);
+    if((O.st==='arms'||O.st==='both')){var p=hvWx(A)>=2?'layer':'tee';if(!hvHas(A,p))add.push([p,p==='layer'?'Add a hi-vis hoodie':'Add a long-sleeve hi-vis shirt']);}
+    act=add.length?('<div class="hvadd">'+add.map(function(a){return '<button type="button" class="jaall" data-hvadd="'+a[0]+'">+ '+esc(a[1])+'</button>';}).join('')+'</div>'):'';}
+  return '<section class="hvreq" aria-label="The class your crews need"><div class="hvreqh"><span class="hvreqk">'+caSvg('badge',16)+' Your crews need</span>'+
+      '<b class="hvreqc">CSA Z96 Class '+N.c+'</b>'+(N.l2?'<span class="hvreql">Level 2 tape</span>':'')+'</div>'+
+    '<p class="hvreqw">'+esc(hvNeedTxt(N))+'</p>'+
+    '<div class="hvout"><span class="hvoutl">The outfit</span><div class="hvots">'+O.tops.concat(O.bots).map(tile).join('<span class="hvplus" aria-hidden="true">+</span>')+'</div>'+res+act+'</div>'+
+    '<p class="hvsrc">Based on CSA Z96 selection guidance as published by CCOHS. Your hazard assessment and provincial rules decide the class — we confirm every garment’s class in writing on your quote.</p></section>';}
+CADV.push((function(){var K=kitMk({id:'hivis',tile:'Works out the CSA class your crews need — then every piece to meet it',one:'piece',label:'Hi-vis advisor',
+  noun:'hi-vis outfit',noun2:'pieces',nounPl:'pieces',kitName:'hi-vis outfit',
+  qWord:function(A){return (A.parts&&A.parts.length)?nwords(caQs(this,A).length):'Four or five';},
+  h:'Which hi-vis do your crews need? We’ll work out the class first.',
+  sub:'Two questions set the CSA Z96 class. Then tick the pieces — every pick meets that class, with your logo, priced per person.',
+  overWhy:'the class your crews need',
+  applies:function(c,s){return (c==='hivis'&&!/Hard Hats/.test(s||''))||(c==='vests'&&/Hi-Vis/.test(s||''));},
+  preset:function(A,c,s){if(A.parts&&A.parts.length)return;var m=/Vests/.test(s)?'vest':/T-Shirts/.test(s)?'tee':/Sweatshirts/.test(s)?'layer':/Jackets|Parkas/.test(s)?'jacket':/Rain/.test(s)?'rain':/Pants/.test(s)?'pants':'';if(m)A.parts=[m];},
+  qs:[{id:'spd',q:'How fast is the traffic nearest to where they work?',short:'Traffic',def:'mid',hint:'Count anything that moves under its own power — cars, trucks, forklifts, loaders.',opts:HV_SPD},
+      {id:'lt',q:'What light do they work in?',short:'Light',def:'low',hint:'Fluorescent colour does the work in daylight; reflective tape takes over at dusk and after dark.',opts:HV_LT},
+      {id:'parts',q:'What does the crew need?',short:'The pieces',multi:true,preHint:'Tick every piece — each gets its own pick. Class 3 includes the legs, so add pants or bibs if you need it.',opts:HV_PARTS},
+      {id:'wx',q:'What weather are you buying for?',short:'Weather',hint:'Buying for the whole year? Pick the coldest season — the jacket is chosen for it.',
+        when:function(A){return (A.parts||[]).some(function(p){return p!=='rain';});},opts:HV_WX},
+      {id:'rain',q:'Is rain or wet snow part of the job?',short:'Rain',def:'0',when:function(A){return (hvHas(A,'jacket')||hvHas(A,'pants'))&&!hvHas(A,'rain');},
+        opts:[{id:'0',lab:'Mostly dry',sub:'The odd shower'},{id:'1',lab:'Yes, rain or wet snow',sub:'We’ll pick seam-sealed waterproof pieces'}]}],
+  roleLabs:{hvvest:'The vest',hvtee:'The shirt',hvlayer:'The sweatshirt',hvjacket:'The jacket',hvrain:'The rain jacket',hvpants:'The pants or bibs'},
+  pieces:{hvvest:hvPiece('vest'),hvtee:hvPiece('tee'),hvlayer:hvPiece('layer'),hvjacket:hvPiece('jacket'),hvrain:hvPiece('rain'),hvpants:hvPiece('pants')},
+  roles:function(A){var self=this;return HV_PARTS.filter(function(p){return hvHas(A,p.id);}).map(function(p){return HV_ROLE[p.id];}).filter(function(r){return caPool(self,A,r).length;});},
+  brief:function(A,P){return hvBriefHtml(A,P);},
+  note:function(){return 'Every pick carries the class its maker publishes for the colour shown. Black and navy versions of some styles certify a class lower, so the outfit check uses the hi-vis colour.';},
+  tips:function(A){var t=['Hi-vis has to be the outer layer: a vest worn under a jacket doesn’t count, and nothing — a backpack, a tool belt, a high glove — should cover the tape.',
+      'CSA Z96 limits how much of a garment a logo can cover and keeps logos off the reflective tape. We size and place every logo to the standard and show it on your free proof.'];
+    if(hvHas(A,'tee')||hvHas(A,'layer'))t.push('Polyester holds its fluorescent colour; cotton hi-vis fades sooner. Replace any hi-vis that is faded, soiled or torn, or whose tape no longer reflects.');
+    else t.push('Replace any hi-vis that is faded, soiled or torn, or whose tape no longer reflects — it no longer gives the visibility it was certified for.');
+    if(hvNeed(A).c>=3)t.push('Class 3 is an outfit: the top’s arm bands and the pants’ leg bands count together. Order both for everyone who needs Class 3.');
+    t.push('Some crews also face arc flash or flash fire: their hi-vis must be FR-rated itself. Switch on “Some crews need FR clothing” for those crews.');
+    return t;}});
+  K.toggles=[{id:'lime',lab:'Show in yellow-lime',sub:'Orange is shown first — pick the colour with the most contrast against where they work'},
+    {id:'fr',lab:'Some crews need FR clothing',sub:'Arc flash, flash fire or hot work — we add an FR hi-vis row'}];
+  return K;})());
+(function(){var K=null;CADV.forEach(function(c){if(c.id==='hivis'&&c.virtual)K=c;});if(K)(K.qs||[]).forEach(function(q){
+    if(q.id==='parts')Object.defineProperty(q,'preHint',{get:function(){var N=hvNeed(caSt('hivis'));return N.c>=3?'Your crews need Class 3, which includes bands around the legs — so add pants or bibs. Tick every piece; each gets its own pick.':'Your crews need Class 2 — every piece meets it on its own. Tick every piece; each gets its own pick.';}});
+    if(q.id==='wx')Object.defineProperty(q,'hint',{get:function(){var A=caSt('hivis');return hvHas(A,'jacket')?'Buying for the whole year? Pick the coldest season — the jacket is chosen for it.':'Buying for the whole year? Pick the season they wear these pieces most.';}});});})();
+(function(){CA_PIC['hivis.parts']={vest:'tvest',tee:'tt2',layer:'hoodie',jacket:'tj3',rain:'rain',pants:'rp90'};
+  CA_PIC['hivis.wx']={0:'tt1',1:'tj2',2:'freezer',3:'tj3',4:'tp6'};CA_METER['hivis.wx']='Warmth';
+  CA_ICO.spd40='<circle cx="12" cy="12" r="9.2"/><text x="12" y="15.3" text-anchor="middle" font-size="8.6" font-weight="700" font-family="Inter,Arial,sans-serif" fill="currentColor" stroke="none">40</text>';
+  CA_ICO.spd80='<circle cx="12" cy="12" r="9.2"/><text x="12" y="15.3" text-anchor="middle" font-size="8.6" font-weight="700" font-family="Inter,Arial,sans-serif" fill="currentColor" stroke="none">80</text>';
+  CA_ICO.spd100='<circle cx="12" cy="12" r="9.2"/><text x="12" y="15" text-anchor="middle" font-size="7" font-weight="700" font-family="Inter,Arial,sans-serif" fill="currentColor" stroke="none">80+</text>';
+  CA_ICO.sunclr='<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.5M12 19v2.5M4.6 4.6l1.8 1.8M17.6 17.6l1.8 1.8M2.5 12H5M19 12h2.5M4.6 19.4l1.8-1.8M17.6 6.4l1.8-1.8"/>';
+  CA_ICO_Q['spd|low']='spd40';CA_ICO_Q['spd|mid']='spd80';CA_ICO_Q['spd|high']='spd100';CA_ICO_Q['lt|day']='sunclr';CA_ICO_Q['lt|low']='moon';
+  CA_ICO_Q['rain|0']='dry';CA_ICO_Q['rain|1']='rain';})();
 /* QUARTER-ZIP ADVISOR REMOVED (Steven, 2026-11-10 10:20: "the quarter zip advisor is overkill and actually too much. I want
    it removed. I prefer to send them to a quarter zip link where they clearly see all the quarter zip options"). The
    Quarter & Half-Zips shelf opens straight on the four fabric families and every style -- no advisor block of any kind
@@ -11938,6 +12145,7 @@ function advGoV(g,c,src){var A=caSt(g.id);
   if(!caReady(g,A)){A._m='q';var L=caQs(g,A),k=0;while(k<L.length-1&&(L[k].multi?(A[L[k].id]||[]).length:(A[L[k].id]!=null&&A[L[k].id]!=='')))k++;A._i=k;}else A._m='res';
   caSave();jdpTrack('adv_go',{c:c,src:src||''});try{closeAdvPicker();}catch(e){}openAdvView(c,src);}
 function advCrumbBtn(g){if(!g.virtual)return '<button type="button" class="advbrowse" data-advshop="'+esc(ADV_CUR)+'">Browse all '+(TOTALS[ADV_CUR]||'')+' styles <span aria-hidden="true">\u2192</span></button>';
+  if(g.id==='hivis')return '<button type="button" class="advbrowse" data-advshop="hivis">Browse all hi-vis <span aria-hidden="true">\u2192</span></button>';
   if(g.id==='uniform')return document.querySelector('#recohero .recohero')?'<button type="button" class="advbrowse" data-jv="prog">See ready-made programs <span aria-hidden="true">\u2192</span></button>':'';
   return (typeof CATS!=='undefined'&&CATS.indexOf('tops')>=0)?'<button type="button" class="advbrowse" data-advshop="tops">Browse all shirts <span aria-hidden="true">\u2192</span></button>':'';}
 function openAdvView(c,src){jvClose();JVIEW='adv';ADV_CUR=(c&&caCfgFor(c))?c:'';renderAdvView();jvSync();syncViewUrl();window.scrollTo({top:0,behavior:'auto'});
@@ -13152,6 +13360,82 @@ function go(cfg){
     });
   }).catch(function(e){document.getElementById('app').innerHTML='<p style="padding:60px;text-align:center">Could not load the catalogue. Please refresh.</p>';});
 }
+function hvPillHtml(item){var t=String(item.csa||''),c=hvCls(item),l=hvLvl(item),an=hvAnsi(item),ex=hvExc(item),us=isUS(),cd=hvCond(item);
+  if(item.csano)return '<span class="mcsa gen" title="The maker publishes no CSA Z96 certification for this style">🛡 '+(item.ansi?(esc(String(item.ansi).replace('ANSI/ISEA 107','ANSI 107'))+' · '):'')+'Not CSA Z96 certified</span>';
+  if(cd)ex=cd.charAt(0).toUpperCase()+cd.slice(1)+(ex?(' · '+ex):'');
+  if(!c)return '<span class="mcsa gen" title="Certified to CSA Z96 — the maker doesn’t publish the class; we confirm it on your quote">🛡 CSA Z96 · class confirmed on quote</span>';
+  var main='CSA Z96 Class '+c+(l?(' · Level '+l):''),ansi=an?an.replace(/\s*\(.*$/,'').replace(/Type [ROP] /,''):'';
+  var txt=us&&ansi?(ansi+' · '+main):(main+(ansi?(' · '+ansi):''));
+  return '<span class="mcsa" title="'+esc(t)+'">🛡 '+esc(txt)+'</span>'+(ex?('<span class="mcsx">'+esc(ex.replace(/:\s*/,': '))+'</span>'):'');}
+/* a vest or a tee has no insulation to rate: "No insulation · No insulation, per the maker" told the buyer nothing, twice */
+var _caFacts20=caFacts;caFacts=function(it){return (_caFacts20(it)||[]).filter(function(r){return !(r[0]==='Warmth'&&/^No insulation/.test(String(r[1]||'')));});};
+/* ===== ROUND 20 WIRING: the hi-vis crew kit inside the shared advisor machinery, and the Hi-Vis & Safety aisle itself. */
+FR_ROLES.hivis=['hvvest','hvtee','hvlayer','hvjacket','hvrain','hvpants'];
+var _caFrOn20=caFrOn;caFrOn=function(cfg,A){if(cfg&&cfg.id==='hivis')return A.fr==='1';return _caFrOn20(cfg,A);};
+var _caProof20=caProofHtml;caProofHtml=function(cfg){if(cfg&&cfg.id==='hivis'){var ks=['tvest','tt2','tj6'].filter(function(k){return BYKEY[k];});
+    if(ks.length>=2)return '<div class="caproof" aria-hidden="true"><div class="caprow">'+ks.map(function(k){return '<span class="caprf"><span class="capst">'+caThumb(k)+'</span></span>';}).join('')+'</div><span class="capcap">Every pick shown with your logo</span></div>';}
+  return _caProof20(cfg);};
+/* the outfit check's one-tap fix: add the missing piece and re-run */
+var _caClick20=caClick;caClick=function(e,el,cfg){var b=e.target&&e.target.closest?e.target.closest('[data-hvadd]'):null;
+  if(b&&el.contains(b)&&cfg&&cfg.id==='hivis'){var A=caSt(cfg.id),p=b.dataset.hvadd;A.parts=(A.parts||[]).slice();if(A.parts.indexOf(p)<0)A.parts.push(p);
+    CA_PICK={};if(caReady(cfg,A))A._m='res';else{A._m='q';A._i=caFirstOpen(caQs(cfg,A),A);}
+    caSave();jdpTrack('ca_q',{c:'hivis',q:'hvadd',v:p});renderCatAdvisor(el,cfg);return;}
+  return _caClick20(e,el,cfg);};
+/* the colour switch: every hi-vis pick shows (and goes on the quote) in orange, or in yellow-lime */
+var _caColOf20=caColOf;caColOf=function(k){var it=BYKEY[k];if(!CA_COL[k]&&it&&it.csa&&CA_CUR_ADV==='hivis'){var c=hvColFor(it,caSt('hivis').lime==='1');if(c)return c;}return _caColOf20(k);};
+/* the aisle banner speaks hi-vis: the class first */
+var _jkAdv20=jkAdvHtml;jkAdvHtml=function(){if(VIEW.cat!=='hivis')return _jkAdv20();var g=caCfgFor('hivis');if(!g||noAdvHere())return '';var A=caSt(g.id),rd=caReady(g,A);
+  var ks=['tvest','tt2','tj6'].filter(function(k){return BYKEY[k];});
+  return '<div class="jkadv hvadv" role="region" aria-label="Hi-vis advisor"><div class="jkadvtx"><span class="jkadvey">'+caSvg('spark',14)+' Hi-vis advisor</span>'+
+    '<b>'+(rd?'Your hi-vis outfit is ready':'Not sure which class your crews need? We’ll work it out.')+'</b>'+
+    '<i>'+(rd?'Every piece meets the class you need, with your logo — plus a lower-cost and a premium option.':'Two questions set the CSA Z96 class. Then pick the pieces: every pick meets it, with your logo, plus a lower-cost and a premium option.')+'</i></div>'+
+    (ks.length?('<div class="jkadvimg" aria-hidden="true">'+ks.map(function(k){return '<span class="jkadvk"><span class="capst">'+caThumb(k)+'</span></span>';}).join('')+'</div>'):'')+
+    '<button type="button" class="jkadvgo" data-advgo="hivis" data-src="aisle_banner">'+(rd?'See my outfit':'Find my class')+' <span aria-hidden="true">\u2192</span></button></div>';};
+/* ---- the aisle's filters: CSA class and hi-vis colour replace the generic colour families (no "Green 23" on a hi-vis aisle) */
+JK_CATS.hivis=1;
+var HV_CF=[['3','Class 3'],['2','Class 2'],['1','Class 1']];
+var HV_COLF=[['orange','Hi-vis orange'],['lime','Hi-vis yellow-lime'],['dark','Black or navy base']];
+function hvKeysInView(){var ks=(VIEW.sub==='all')?[].concat.apply([],subNames(VIEW.cat).map(function(s){return BUCKETS[VIEW.cat][s]||[];})):((BUCKETS[VIEW.cat]||{})[VIEW.sub]||[]),u={};
+  return ks.filter(function(k){if(u[k])return false;u[k]=1;return true;});}
+var _jkWarmbar20=jkWarmbar;jkWarmbar=function(el){_jkWarmbar20(el);if(VIEW.cat!=='hivis'){VIEW.hvc=null;return;}
+  var keys=hvKeysInView(),oc=HV_CF.map(function(o){return [o[0],o[1],keys.filter(function(k){return String(hvCls(BYKEY[k]||{}))===o[0];}).length];}).filter(function(o){return o[2];});
+  if(!oc.some(function(o){return o[0]===VIEW.hvc;}))VIEW.hvc=null;
+  if(oc.length>1){el.style.display='';el.classList.add('jkbar');el.insertAdjacentHTML('afterbegin',jkSel('hvc','CSA class',oc,VIEW.hvc));
+    var s=el.querySelector('select[data-jkf="hvc"]');s.addEventListener('change',function(){VIEW.hvc=s.value||null;jdpTrack('filter',{f:'csa_class',v:VIEW.hvc||'any'});renderWarmbar();renderGrid();try{renderFilterUI();}catch(e){}});}};
+var _jkColbar20=jkColbar;jkColbar=function(el,keys){if(VIEW.cat!=='hivis'){VIEW.hvcol=null;return _jkColbar20(el,keys);}VIEW.col=null;
+  var oc=HV_COLF.map(function(o){return [o[0],o[1],keys.filter(function(k){return BYKEY[k]&&hvHasFam(BYKEY[k],o[0]);}).length];}).filter(function(o){return o[2];});
+  if(oc.length<2){el.innerHTML='';el.style.display='none';VIEW.hvcol=null;return;}
+  el.style.display='';el.classList.add('jkbar');el.innerHTML=jkSel('hvcol','Colour',oc,VIEW.hvcol);
+  var s=el.querySelector('select');s.addEventListener('change',function(){VIEW.hvcol=s.value||null;jdpTrack('filter',{f:'hv_colour',v:VIEW.hvcol||'any'});
+    if(VIEW.hvcol)hvKeysInView().forEach(function(k){var it=BYKEY[k],c=it&&(it.cols||[]).filter(function(x){return hvFam(x.name)===VIEW.hvcol;})[0];if(c)BCOL[k+'|'+fitOf(it)]=c.name;});
+    renderColbar();renderGrid();try{renderFilterUI();}catch(e){}});};
+var _jkOK20=jkOK;jkOK=function(list){var L=_jkOK20(list);if(VIEW.cat!=='hivis')return L;
+  if(VIEW.hvc)L=L.filter(function(k){return String(hvCls(BYKEY[k]||{}))===VIEW.hvc;});
+  if(VIEW.hvcol)L=L.filter(function(k){return BYKEY[k]&&hvHasFam(BYKEY[k],VIEW.hvcol);});
+  return L;};
+var _actF20=activeFilters;activeFilters=function(){var a=_actF20();if(VIEW.cat!=='hivis')return a;
+  if(VIEW.hvc)a.unshift({k:'hvc',label:'CSA Class '+VIEW.hvc});
+  if(VIEW.hvcol){var o=HV_COLF.filter(function(x){return x[0]===VIEW.hvcol;})[0];if(o)a.push({k:'hvcol',label:o[1]});}
+  return a;};
+var _clrF20=clearFilter;clearFilter=function(k){if(k==='hvc'||k==='all')VIEW.hvc=null;if(k==='hvcol'||k==='all')VIEW.hvcol=null;return _clrF20(k);};
+/* ---- the aisle's opening: which class, in one look, from the standard's own guidance -- then the way to get it worked out */
+hivisIntroHtml=function(){var us=isUS();
+  var row=function(sp,sub,d,n){return '<tr><th scope="row"><b>'+sp+'</b><i>'+sub+'</i></th><td>'+d+'</td><td>'+n+'</td></tr>';},
+      cls=function(c,x){return '<span class="hvcl c'+c+'">Class '+c+'</span>'+(x?('<i>'+x+'</i>'):'');};
+  return '<section class="hvintro2" aria-label="Which hi-vis class do your crews need?">'+
+    '<div class="hvi2h"><div><span class="hvi2k">'+caSvg('badge',15)+' CSA Z96'+(us?' · ANSI/ISEA 107':'')+' certified</span>'+
+      '<h2>Which class do your crews need?</h2>'+
+      '<p>The class is set by how fast the nearest traffic moves and how good the light is. Every style here shows the class its maker publishes'+(us?', and the ANSI/ISEA 107 class where it has one':'')+'.</p></div>'+
+      '<div class="hvi2cta"><button type="button" class="jaall" data-advgo="hivis" data-src="hv_intro">Work out my class \u2192</button><button type="button" class="jalink" data-r11="ask">Ask Steven to spec it</button></div></div>'+
+    '<div class="hvi2b"><table class="hvmx"><thead><tr><th>Nearest traffic</th><th>Daylight</th><th>Dawn, dusk, night or bad weather</th></tr></thead><tbody>'+
+      row('Up to 40 km/h','Yards, docks, lots, plant floors',cls(2,'Class 1 only in some low-risk areas'),cls(2,'Level 2 tape'))+
+      row('40–80 km/h','Site roads, city and rural roads',cls(2,'Class 3 if the background is busy'),cls(3,'Level 2 tape'))+
+      row('Over 80 km/h','Highways',cls(2,'Class 3 if a shift runs into dusk'),cls(3,'Level 2 tape'))+
+    '</tbody></table>'+
+    '<div class="hvi2s"><div class="hvi2c"><b>Class 3 is an outfit</b><p>A Class 2 top with bands around the arms <span>+</span> pants or bibs with bands around the legs. A vest alone is never Class 3.</p></div>'+
+      '<div class="hvi2c"><b>Level 2 is the brighter tape</b><p>Fluorescent colour works in daylight; reflective tape takes over at dusk and after dark. Choose Level 2 for low light.</p></div>'+
+      '<div class="hvi2c"><b>Colour follows the background</b><p>Orange and yellow-lime are both certified. Pick the one with the most contrast against where they work. Black and navy versions of some styles certify a class lower.</p></div></div></div>'+
+    '<p class="hvi2src">From CSA Z96 selection guidance, as published by CCOHS. Your hazard assessment and provincial rules decide — we confirm every garment’s class in writing on your quote.</p></section>';};
 var cel=document.getElementById('jdpcfg');
 if(cel){try{go(JSON.parse(cel.textContent));}catch(e){}}
 else{fetch('client.json?v='+Date.now()).then(function(r){return r.json();}).then(go).catch(function(){document.getElementById('app').innerHTML='<p style="padding:60px;text-align:center">Client config not found.</p>';});}
