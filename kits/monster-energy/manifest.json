@@ -1,0 +1,18 @@
+{
+  "generator": "client-app",
+  "version": "1795450467",
+  "slug": "monster-energy",
+  "client": "Monster Energy",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_43974a.png",
+    "img/lg_full_a9cf40.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png",
+    "img/lg_full_ondark.png"
+  ]
+}
