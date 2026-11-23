@@ -1,0 +1,16 @@
+{
+  "generator": "client-app",
+  "version": "1795464497",
+  "slug": "miller-waste-systems",
+  "client": "Miller Waste Systems Inc.",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_895431.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}
