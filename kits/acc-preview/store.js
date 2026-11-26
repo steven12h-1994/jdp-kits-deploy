@@ -13882,7 +13882,7 @@ function gaChk(){return '<svg viewBox="0 0 24 24" width="14" height="14" fill="n
 function gaProof(cfg){var ks=(cfg.proof||[]).filter(function(k){return BYKEY[k];});if(cfg.id==='gifts'&&isUS())ks=['vest','st_nautilus70','cbc_traverse_qz'].filter(function(k){return BYKEY[k];});
   if(ks.length<2)return '';
   return '<div class="caproof" aria-hidden="true"><div class="caprow">'+ks.slice(0,3).map(function(k){return '<span class="caprf"><span class="capst">'+gaShot(k)+'</span></span>';}).join('')+'</div>'+
-    '<span class="capcap">'+(cfg.cat?'Your logo included in every price':'Every pick priced per person')+'</span></div>';}
+    '<span class="capcap">'+(cfg.id==='bags'?'Every bag shown with your logo':(cfg.cat?'Your logo included in every price':'Every pick priced per person'))+'</span></div>';}
 function gaHtml(cfg){var A=gaA(cfg.id),qs=cfg.qs(),ready=gaReady(cfg,A)&&A._m!=='q';
   if(ready)return gaResultHtml(cfg,A);
   var i=Math.min(A._i!=null?A._i:gaStepNow(cfg,A),qs.length-1),q=qs[i];
