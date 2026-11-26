@@ -5738,6 +5738,6 @@ html.r11 .jwgt th.mk em{display:block!important;font-style:normal!important;font
 .gav .cpctier span{flex:1 1 0;min-width:0}
 .gav .cpctier span b{font-size:13px}
 .gav .gaadd1{display:flex!important;width:100%!important;justify-content:center}
-/* ROUND 22 — six-tile essentials group on the advisor hub: three across, then two, then one */
-.ah4gt.n6{grid-template-columns:repeat(3,minmax(0,1fr))!important}
-@media(max-width:1000px){html.r11 .ah4gt.n6{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+/* ROUND 22 — six-tile essentials group on the advisor hub: three across, two on smaller screens */
+html .ah4gt.n6,html.r11 .ah4gt.n6{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+@media(max-width:1000px){html .ah4gt.n6,html.r11 .ah4gt.n6{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
