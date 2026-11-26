@@ -13479,11 +13479,12 @@ function gaSeedPromo(){if(GA_PROMO_SEEN||!CFG)return;GA_PROMO_SEEN=true;
    not the first thing a buyer should see on a shelf of $150 executive kits. Stable: only the named items move. */
 var ACC_LEAD={drinkware:{'Water Bottles':['sp_dw334','sp_dw335','sp_dw329','sp_dw339','sp_dw336'],'Tumblers & Cups':['sp_dw332','sp_dw343','sp_dw342','sp_dw403'],'Mugs':['sp_dw422','sp_dw802','sp_dw800']},
   giftsets:{'Welcome Kits':['sp_bb192','sp_bb196','sp_bb197','sp_bb199'],'Desk & Tech Sets':['sp_gf947','sp_gf951','sp_gf969','sp_gf977','sp_gf945','sp_gf953'],
-    'Travel Sets':['sp_bb905','sp_bb897','sp_gf7414','sp_gf950'],'Home & Comfort':['sp_gf142','sp_gf141','sp_gf145','sp_lf132','sp_lf144','sp_lf129','sp_lf110','sp_lf136','sp_lf124']},
-  notebooks:{'Everyday Journals':['sp_st4143','sp_st4864','sp_st4862','sp_st4865','sp_st3202'],'Premium & Leather':['sp_st4660','sp_st601','sp_st4670','sp_st604'],
-    'Padfolios & Portfolios':['sp_st403','sp_st3356','sp_st321','sp_st4039'],'Journal & Pen Sets':['sp_gf1092','sp_gf4179','sp_st3283','sp_sc402','sp_st4235']},
-  pens:{'Everyday Pens':['sp_g2008','sp_g1282','sp_g1103','sp_g2009'],'Metal & Stylus Pens':['sp_i138','sp_g3386','sp_g3387','sp_g3388','sp_g3108'],
-    'Executive Pens':['sp_g3148','sp_g3112','sp_g3373','sp_g3113','sp_g3151','sp_g3149'],'Pen Packs':['sp_i158','sp_g1297','sp_i157']},
+    'Travel Sets':['sp_bb905','sp_bb897','sp_gf7414','sp_gf954','sp_gf950'],'Home & Comfort':['sp_gf142','sp_gf141','sp_gf145','sp_lf127','sp_lf129','sp_lf110','sp_lf122','sp_lf124'],
+    'Kitchen & Entertaining':['sp_lf131','sp_lf138','sp_lf132','sp_lf140','sp_lf144','sp_lf118','sp_lf134','sp_lf146','sp_lf136','sp_dw341']},
+  notebooks:{'Everyday Journals':['sp_st4143','sp_st324','sp_st4864','sp_st4862','sp_st326','sp_st4865','sp_st3202'],'Premium & Leather':['sp_st4660','sp_st601','sp_st4670','sp_st604'],
+    'Padfolios & Portfolios':['sp_st403','sp_st3356','sp_st321','sp_st4039','sp_st4238'],'Journal & Pen Sets':['sp_gf4678','sp_gf1092','sp_gf4179','sp_st4471','sp_st3283','sp_sc402','sp_st4235','sp_st3285']},
+  pens:{'Everyday Pens':['sp_g2008','sp_g1282','sp_g1103','sp_g2009'],'Metal & Stylus Pens':['sp_i138','sp_g3386','sp_g3115','sp_g3387','sp_g3388','sp_g3108','sp_g4057'],
+    'Executive Pens':['sp_g3148','sp_g3112','sp_g3373','sp_g3113','sp_g3151','sp_g3149'],'Pen Packs':['sp_i158','sp_i163','sp_g1297','sp_g1296','sp_i157','sp_g1299']},
   tech:{'Charging':['sp_t92','sp_t150','sp_t148','sp_t1460'],'Trackers & Cases':['sp_lf113','sp_bg709']}};
 var _gaBB=buildBuckets;buildBuckets=function(){gaSeedPromo();_gaBB();
   try{Object.keys(ACC_LEAD).forEach(function(m){var AC=BUCKETS[m];if(!AC)return;Object.keys(ACC_LEAD[m]).forEach(function(s){var a=AC[s];if(!a)return;var L=ACC_LEAD[m][s];
@@ -13493,10 +13494,10 @@ var _gaBB=buildBuckets;buildBuckets=function(){gaSeedPromo();_gaBB();
       if(!a.some(function(k){var it=BYKEY[k];return it&&(it.eol||it.oos);}))return;
       BUCKETS[m][s]=a.filter(function(k){var it=BYKEY[k];return !(it&&(it.eol||it.oos));}).concat(a.filter(function(k){var it=BYKEY[k];return it&&(it.eol||it.oos);}));});});}catch(e){}};
 /* Totes and briefs are their own buy -- a laptop tote is not shopped beside a 110-litre duffel */
-bagSub=function(n){if(/cooler|lunch/.test(n))return 'Coolers & Lunch';if(/\btote\b|\bbrief\b/.test(n))return 'Totes & Briefcases';
+bagSub=function(n){if(/cooler|lunch/.test(n))return 'Coolers & Lunch';if(/\btote\b|\bbrief\b|crossbody|fanny|sling/.test(n))return 'Totes & Crossbody Bags';
   if(/duffel|duffle|tool bag|weekender/.test(n))return 'Duffels & Tool Bags';return 'Backpacks';};
-MEGASUB.bags=['Backpacks','Duffels & Tool Bags','Totes & Briefcases','Coolers & Lunch','Travel Accessories'];
-MEGASUB.drinkware=['Water Bottles','Tumblers & Cups','Mugs'];MEGASUB.giftsets=['Welcome Kits','Desk & Tech Sets','Travel Sets','Home & Comfort'];
+MEGASUB.bags=['Backpacks','Duffels & Tool Bags','Totes & Crossbody Bags','Coolers & Lunch','Travel Accessories'];
+MEGASUB.drinkware=['Water Bottles','Tumblers & Cups','Mugs'];MEGASUB.giftsets=['Welcome Kits','Desk & Tech Sets','Travel Sets','Home & Comfort','Kitchen & Entertaining'];
 MEGASUB.notebooks=['Everyday Journals','Premium & Leather','Padfolios & Portfolios','Journal & Pen Sets'];MEGASUB.pens=['Everyday Pens','Metal & Stylus Pens','Executive Pens','Pen Packs'];
 MEGASUB.tech=['Charging','Trackers & Cases'];delete MEGASUB.accessories;
 
@@ -13513,7 +13514,7 @@ function gaOk(k,q){var it=BYKEY[k];if(!it||it.eol||it.oos)return false;
 function gaTiers(k){var it=BYKEY[k];if(!it)return [];
   if(gaPromo(k))return (it.tiers||[]).slice(0,4).map(function(t){return {q:t.q,p:t.p};});
   var cs=(CFG.pricing&&CFG.pricing.cols)||[12,48,144];return cs.map(function(q){return {q:q,p:gaUnit(k,q)};});}
-function gaKind(k){var it=BYKEY[k];if(!it)return '';if(it.layer==='bags'||(it.layer==='promo'&&it.psub==='Bags'))return 'bag';
+function gaKind(k){var it=BYKEY[k];if(!it)return '';if(it.layer==='bags'||(it.layer==='promo'&&(it.psub==='Bags'||(it.pmega==='bags'&&it.psub!=='Travel Accessories'))))return 'bag';
   if(it.layer==='promo')return it.sku==='Gift Set'?'kit':(it.dwtype?'drink':'thing');return 'wear';}
 function gaDecoTxt(k){var it=BYKEY[k];if(!it)return '';var d=it.deflogo;
   if(d)return d.m+(d.loc?(', '+d.loc):'')+(d.sz?(' · up to '+d.sz):'');
@@ -13550,7 +13551,7 @@ function gaA(id){var S=gaLoad();return S[id]=S[id]||{};}
 var GA_QTY=[{id:'u25',lab:'Fewer than 25',sub:'A team or a few clients',lo:1,hi:24},{id:'25',lab:'25 – 49',sub:'A department',lo:25,hi:49},
   {id:'50',lab:'50 – 99',sub:'A whole office',lo:50,hi:99},{id:'100',lab:'100 – 249',sub:'Company-wide',lo:100,hi:249},{id:'250',lab:'250 or more',sub:'Every location',lo:250,hi:1e9}];
 function gaQtyBand(id){var L=GA_QTY.concat(typeof GA_PQTY!=='undefined'?GA_PQTY:[]);for(var i=0;i<L.length;i++)if(L[i].id===id)return L[i];return null;}
-function gaUW(cfg,A){A=A||gaA(cfg.id);return cfg.id==='gifts'?'person':(cfg.id==='giftsets'?'kit':(cfg.id==='pens'?(A.use==='pack'?'pack':'pen'):'piece'));}
+function gaUW(cfg,A){A=A||gaA(cfg.id);return cfg.id==='gifts'?'person':(cfg.id==='giftsets'?'kit':(cfg.id==='pens'?(A.use==='pack'?'pack':'pen'):(cfg.id==='bags'?'bag':'piece')));}
 function gaUWs(cfg,A){var w=gaUW(cfg,A);return w==='person'?'people':w+'s';}
 /* The count: the buyer's own number if they typed one here, else their store headcount when it falls in the band they
    picked, else the bottom of the band. Never a number they didn't give us. */
@@ -13723,19 +13724,19 @@ var DW_CUR={
   'outdoor|gift':{p:['sp_dw335'],lo:['sp_dw329'],hi:[]},
   'outdoor|event':{p:['sp_dw334','sp_dw329'],lo:['sp_dw336'],hi:['sp_dw335']}};
 var NB_CUR={
-  'meet|only':{p:['sp_st4143','sp_st4864','sp_st4865'],lo:['sp_st3202','sp_st4213'],hi:['sp_st4862','sp_st4660']},
-  'meet|set':{p:['sp_st3283','sp_st3284','sp_gf1092'],lo:['sp_sc402'],hi:['sp_gf1092','sp_st4235','sp_gf4179']},
+  'meet|only':{p:['sp_st4143','sp_st324','sp_st4864','sp_st4865'],lo:['sp_st4159','sp_st3202','sp_st4213'],hi:['sp_st4862','sp_st326','sp_st4660']},
+  'meet|set':{p:['sp_st3283','sp_st4471','sp_st3284','sp_gf1092'],lo:['sp_st3285','sp_sc402'],hi:['sp_gf1092','sp_st4235','sp_gf4179']},
   'client|only':{p:['sp_st4660','sp_st601','sp_st4670'],lo:['sp_st4864','sp_st4862'],hi:['sp_st4670','sp_st604']},
-  'client|set':{p:['sp_gf4179','sp_gf1092','sp_st4349'],lo:['sp_gf1092','sp_st4235'],hi:['sp_st4349']},
+  'client|set':{p:['sp_gf4678','sp_gf4179','sp_gf1092','sp_st4349'],lo:['sp_gf4179','sp_gf1092','sp_st4235'],hi:['sp_st4349','sp_gf4678']},
   'event|only':{p:['sp_st3202','sp_ec3090','sp_st4213'],lo:[],hi:['sp_st4143']},
-  'event|set':{p:['sp_sc402','sp_st3283'],lo:[],hi:['sp_st3284','sp_gf1092']},
-  'present|only':{p:['sp_st403','sp_st3356','sp_st321'],lo:[],hi:['sp_st4039','sp_st321','sp_st3356']},
-  'present|set':{p:['sp_st403','sp_st3356','sp_st321'],lo:[],hi:['sp_st4039','sp_st321','sp_st3356']}};
+  'event|set':{p:['sp_sc402','sp_st3285','sp_st3283'],lo:['sp_st3285'],hi:['sp_st3284','sp_st4471','sp_gf1092']},
+  'present|only':{p:['sp_st403','sp_st3356','sp_st321'],lo:['sp_st4238'],hi:['sp_st4039','sp_st321','sp_st3356']},
+  'present|set':{p:['sp_st403','sp_st3356','sp_st321'],lo:['sp_st4238'],hi:['sp_st4039','sp_st321','sp_st3356']}};
 var PN_CUR={
   give:{p:['sp_g2008','sp_g1282','sp_g1103'],lo:['sp_g1282'],hi:['sp_g3387','sp_i138']},
-  desk:{p:['sp_i138','sp_g3386','sp_g3387'],lo:['sp_g2009','sp_g2008'],hi:['sp_g3388','sp_g3108']},
+  desk:{p:['sp_i138','sp_g3386','sp_g3387'],lo:['sp_g4057','sp_g2009','sp_g2008'],hi:['sp_g3115','sp_g3388','sp_g3108']},
   exec:{p:['sp_g3148','sp_g3112','sp_g3373'],lo:['sp_g3388','sp_g3108'],hi:['sp_g3373','sp_gf4179','sp_st4349']},
-  pack:{p:['sp_i158','sp_g1297','sp_i157'],lo:['sp_g1297'],hi:['sp_i157']}};
+  pack:{p:['sp_i158','sp_i163','sp_g1297','sp_i157'],lo:['sp_g1296','sp_g1299','sp_g1297'],hi:['sp_i157','sp_g1297']}};
 var TC_CUR={
   desk:{p:['sp_t150','sp_t92','sp_t148'],lo:[],hi:['sp_gf947','sp_gf951']},
   go:{p:['sp_t1460','sp_t148'],lo:['sp_bg709'],hi:['sp_gf941','sp_gf953']},
@@ -13743,19 +13744,19 @@ var TC_CUR={
   box:{p:['sp_gf951','sp_gf947','sp_gf953'],lo:['sp_gf945','sp_gf941'],hi:['sp_gf951']}};
 var KT_BUD=[{id:'b1',lab:'Under $50',sub:'per kit',lo:0,hi:50},{id:'b2',lab:'$50 – $90',sub:'per kit',lo:50,hi:90},{id:'b3',lab:'$90 – $130',sub:'per kit',lo:90,hi:130},{id:'b4',lab:'$130 +',sub:'per kit',lo:130,hi:1e9}];
 var KT_LIST={newhire:['sp_bb192','sp_bb196','sp_gf969','sp_gf977','sp_bb199','sp_bb197','sp_gf996','sp_gf945'],
-  clients:['sp_gf142','sp_lf144','sp_lf132','sp_gf947','sp_gf145','sp_bb905','sp_bb897','sp_gf7414','sp_gf951','sp_gf141','sp_lf136','sp_lf129','sp_gf151'],
-  travel:['sp_bb905','sp_bb897','sp_gf7414','sp_bb197','sp_gf950','sp_gf940','sp_gf920','sp_gf953'],
+  clients:['sp_gf142','sp_lf131','sp_lf144','sp_lf132','sp_gf947','sp_lf118','sp_lf138','sp_gf145','sp_bb905','sp_bb897','sp_gf7414','sp_gf951','sp_gf141','sp_lf136','sp_lf129','sp_gf151'],
+  travel:['sp_bb905','sp_bb897','sp_gf7414','sp_bb197','sp_gf954','sp_gf950','sp_gf940','sp_gf920','sp_gf953'],
   team:['sp_gf969','sp_gf977','sp_gf142','sp_gf141','sp_bb192','sp_gf945','sp_gf947','sp_gf996','sp_gf143','sp_lf124','sp_lf110','sp_gf145','sp_bb197','sp_lf129','sp_gf951'],
   best:['sp_bb192','sp_gf142','sp_gf947','sp_bb905','sp_gf969','sp_bb197','sp_gf951','sp_lf132','sp_gf145','sp_gf141','sp_lf144']};
 /* The Gift advisor: who, what kind, budget per person, how many. Pools are in our order of preference per recipient. */
 var GIFT_POOL={
   staff:{wear:['vest','st_nautilusjkt','cbc_traverse_qz','st_avalanteqz','st_altitude','st_stavanger','st_tundrashacket','st_oxide','cb_qzip','st_avalante','st_stavangervest','forge','flux','st_matrix','st_denali'],
-    bag:['st_nautilus70','sp_bgr105','sp_bg210','st_deluge','sp_bg127','st_saturna24','sp_bg132','st_magellan30','sp_bg218','sp_bg125','st_roadwarrior','sp_bg128','st_nautilus110','sp_bg507','st_aquacooler12'],
-    box:['sp_bb192','sp_gf142','sp_bb196','sp_gf969','sp_bb199','sp_gf1092','sp_bb197','sp_gf947','sp_gf951','sp_bb905'],
+    bag:['st_nautilus70','sp_bgr105','sp_bg210','st_deluge','sp_bg127','st_saturna24','sp_bg132','st_magellan30','sp_bg218','sp_bg125','st_roadwarrior','sp_bg128','st_nautilus110','sp_bg805','sp_bg507','st_aquacooler12'],
+    box:['sp_bb192','sp_gf142','sp_bb196','sp_gf969','sp_bb199','sp_gf1092','sp_bb197','sp_gf954','sp_gf947','sp_gf951','sp_lf131','sp_bb905'],
     desk:['sp_dw335','sp_t92','sp_t150','sp_lf113','sp_dw422','sp_st4864','sp_dw802','sp_t1460','sp_lf124']},
   clients:{wear:['cbc_traverse_qz','cb_qzip','st_altitude','vest','st_avalanteqz','cbc_evoke_fleece','cb_roamqz','st_bushwick','st_stavanger','st_nautilusjkt','st_matrix','flux'],
-    bag:['sp_bg127','sp_bg133','sp_bg210','sp_bg506','sp_bg215','sp_bg218','sp_bg128','sp_bg508','st_nautilus70','sp_bgr105','st_deluge','sp_bg507','st_roadwarrior','st_nautilus110','st_nautilus35','st_saturna24','st_aquabp22'],
-    box:['sp_gf142','sp_bb197','sp_gf141','sp_gf947','sp_gf951','sp_bb905','sp_bb897','sp_gf4179','sp_gf1092'],
+    bag:['sp_bg127','sp_bg133','sp_bg210','sp_bg506','sp_bg215','sp_bg218','sp_bg128','sp_bg508','st_nautilus70','sp_bg805','sp_bgr105','st_deluge','sp_bg507','st_roadwarrior','st_nautilus110','st_nautilus35','st_saturna24','st_aquabp22'],
+    box:['sp_gf142','sp_bb197','sp_gf141','sp_gf947','sp_lf131','sp_gf951','sp_bb905','sp_gf4678','sp_bb897','sp_gf4179','sp_lf118','sp_gf1092'],
     desk:['sp_t92','sp_st4660','sp_dw335','sp_lf113','sp_t150','sp_lf124','sp_dw802','sp_dw422','sp_st4864']}};
 /* "Not sure" -- the strongest pick per budget across every kind, in our order */
 var GIFT_BEST={staff:['vest','st_nautilus70','sp_bb192','cbc_traverse_qz','st_nautilusjkt','sp_bg127','sp_gf142','sp_dw335','st_stavanger','sp_bb197','st_altitude','flux','sp_t92','st_matrix'],
@@ -13779,7 +13780,7 @@ function gaShelfKeys(m,subs){var out=[],B=BUCKETS[m]||{};(subs||Object.keys(B)).
 /* a curated category advisor: our pick for these answers, then the nearest real step down and step up */
 function gaCurResolve(cfg,A,qo){var q=qo||gaQ(A),C=cfg.cur(A);if(!C)return null;var pool=cfg.pool(A);
   var pk=gaFirst(C.p,q);
-  if(!pk){var fb=pool.filter(function(k){return gaOk(k,q);}).sort(function(a,b){return gaUnit(a,q)-gaUnit(b,q);});pk=fb[0]||null;}
+  if(!pk&&!cfg.noPoolPick){var fb=pool.filter(function(k){return gaOk(k,q);}).sort(function(a,b){return gaUnit(a,q)-gaUnit(b,q);});pk=fb[0]||null;}
   if(!pk)return {q:q,none:true};
   var pp=gaUnit(pk,q),near=function(list,below){var c=(list||[]).filter(function(k){return k!==pk&&gaOk(k,q)&&(below?gaUnit(k,q)<pp*0.93:gaUnit(k,q)>pp*1.07);});
       c.sort(function(a,b){return below?gaUnit(b,q)-gaUnit(a,q):gaUnit(a,q)-gaUnit(b,q);});return c[0]||null;},lo=near(C.lo,true),hi=near(C.hi,false);
@@ -13881,7 +13882,7 @@ function gaChk(){return '<svg viewBox="0 0 24 24" width="14" height="14" fill="n
 function gaProof(cfg){var ks=(cfg.proof||[]).filter(function(k){return BYKEY[k];});if(cfg.id==='gifts'&&isUS())ks=['vest','st_nautilus70','cbc_traverse_qz'].filter(function(k){return BYKEY[k];});
   if(ks.length<2)return '';
   return '<div class="caproof" aria-hidden="true"><div class="caprow">'+ks.slice(0,3).map(function(k){return '<span class="caprf"><span class="capst">'+gaShot(k)+'</span></span>';}).join('')+'</div>'+
-    '<span class="capcap">'+(cfg.cat?'Your logo included in every price':'Every pick priced per person')+'</span></div>';}
+    '<span class="capcap">'+(cfg.id==='bags'?'Every bag shown with your logo':(cfg.cat?'Your logo included in every price':'Every pick priced per person'))+'</span></div>';}
 function gaHtml(cfg){var A=gaA(cfg.id),qs=cfg.qs(),ready=gaReady(cfg,A)&&A._m!=='q';
   if(ready)return gaResultHtml(cfg,A);
   var i=Math.min(A._i!=null?A._i:gaStepNow(cfg,A),qs.length-1),q=qs[i];
@@ -13895,7 +13896,7 @@ function gaHtml(cfg){var A=gaA(cfg.id),qs=cfg.qs(),ready=gaReady(cfg,A)&&A._m!==
   return '<section class="xpert cadv2 m-q gav" aria-label="'+esc(cfg.eyb)+'"><div class="caband"><div class="cahd"><span class="xpeyb">'+esc(cfg.eyb)+'</span>'+
       '<span class="cahdr">'+(gaStepNow(cfg,A)>0?'<button type="button" class="carst" data-gareset="1"><span aria-hidden="true">↺</span> Start over</button>':'')+'<span class="castep">'+(i+1)+' of '+qs.length+'</span></span></div>'+
       '<div class="caintro"><div class="caintx"><h3 class="xph">'+esc(cfg.h)+'</h3><p class="xpadv">'+esc(cfg.sub)+'</p>'+
-      '<ul class="catrust"><li>'+(cfg.cat?'Logo included in the price':'Your logo on every gift')+'</li><li>Priced at your count</li><li>Free digital proof before anything is made</li></ul></div>'+gaProof(cfg)+'</div></div>'+
+      '<ul class="catrust"><li>'+(cfg.id==='bags'?'Your logo on every bag':(cfg.cat?'Logo included in the price':'Your logo on every gift'))+'</li><li>Priced at your count</li><li>Free digital proof before anything is made</li></ul></div>'+gaProof(cfg)+'</div></div>'+
     '<div class="cainner">'+steps+'<h3 class="caq">'+esc(q.q)+'</h3>'+
       '<div class="caopts '+(q.pics?'pics ':'gachips ')+'n'+Math.min(q.opts.length,5)+' single" role="radiogroup" aria-label="'+esc(q.q)+'">'+opts+'</div>'+
       '<div class="canav">'+(i>0?'<button type="button" class="jalink" data-gago="'+(i-1)+'">← Back</button>':'')+
@@ -13918,7 +13919,7 @@ function gaAltHtml(cfg,r,role,pp,PK){if(!r)return '';var d=r.p-pp,lab=role==='lo
    the buyer's own number decides, never ours. A buyer's own tick or untick always wins. */
 function gaBoxOff(cfg,A,R){var B=R.box,sig=B.main+'|'+R.q+'|'+(A.bud||''),o=GA_OFF[cfg.id];
   if(o&&o._sig===sig)return o;o=GA_OFF[cfg.id]={_sig:sig};
-  var hi=R.B?R.B.hi:1e9,run=gaUnit(B.main,R.q);B.adds.forEach(function(k){var p=gaUnit(k,R.q);if(run+p<=hi+0.001)run+=p;else o[k]=true;});return o;}
+  var hi=R.B?R.B.hi:(B.offAll?-1:1e9),run=gaUnit(B.main,R.q);B.adds.forEach(function(k){var p=gaUnit(k,R.q);if(run+p<=hi+0.001)run+=p;else o[k]=true;});return o;}
 function gaBoxHtml(cfg,A,R){var B=R.box;if(!B)return '';var q=R.q,main=R.pick.k,off=gaBoxOff(cfg,A,R);
   var lines=[main].concat(B.adds),on=lines.filter(function(k){return k===main||!off[k];});
   var per=on.reduce(function(s,k){return s+gaUnit(k,q);},0),bud=R.B,fit=bud?(per<bud.hi?'Fits your budget':('+'+money(per-bud.hi)+' over your top of '+money0(bud.hi))):'';
@@ -14042,14 +14043,15 @@ giftEntryHtml=(function(prev){return function(){var html='';try{html=prev();}cat
 /* A clear-every-answer path when the gift view opens from a link that says so */
 /* Each category advisor lives in the Advisor tab like every other advisor, with its own deep link: ?view=advisor&a=<category>.
    The old ?view=advisor&a=accessories link opens the hub, where the five now sit together. */
-function gaCatOn(c){return GA_CATS.indexOf(c)>=0&&!isUS()&&!!BUCKETS[c];}
+var GA_ADV=GA_CATS.concat(['bags']);   /* round 23: the Canadian Bag advisor runs on this engine too (US keeps the Stormtech-only one) */
+function gaCatOn(c){return GA_ADV.indexOf(c)>=0&&!isUS()&&!!BUCKETS[c]&&!!GA_CFG[c];}
 var _gaOAV=openAdvView;openAdvView=function(c,src){
   if(c==='accessories'){try{jvClose();}catch(e){}JVIEW='adv';ADV_CUR=null;renderAdvView();jvSync();syncViewUrl();
     setTimeout(function(){var g=document.getElementById('gaEss');if(g)window.scrollTo({top:Math.max(0,window.scrollY+g.getBoundingClientRect().top-90),behavior:'smooth'});},60);return;}
   if(gaCatOn(c)){try{jvClose();}catch(e){}JVIEW='adv';ADV_CUR=c;renderAdvView();jvSync();syncViewUrl();window.scrollTo({top:0,behavior:'auto'});jdpTrack('adv_go',{c:c,src:src||''});return;}
   return _gaOAV(c,src);};
 var _gaRAV=renderAdvView;renderAdvView=function(){var el=document.getElementById('advvin');
-  if(el&&ADV_CUR&&GA_CFG[ADV_CUR]&&GA_CATS.indexOf(ADV_CUR)>=0){var c=ADV_CUR;
+  if(el&&ADV_CUR&&gaCatOn(ADV_CUR)){var c=ADV_CUR;
     el.innerHTML='<nav class="crumbs advcr" aria-label="You are here"><button type="button" class="crb" data-advhub="1"><span aria-hidden="true">\u2190</span> All advisors</button><span class="crsep" aria-hidden="true">/</span><b>'+esc(GA_CATNAME[c])+'</b>'+
       '<button type="button" class="advbrowse" data-gashelfx="1">Browse all '+(TOTALS[c]||'')+' '+esc(GA_CATNAME[c].toLowerCase())+' <span aria-hidden="true">\u2192</span></button></nav><div id="gaCat"></div>';
     gaRender(document.getElementById('gaCat'),GA_CFG[c]);var bx=el.querySelector('[data-gashelfx]');if(bx)bx.addEventListener('click',function(){try{jvClose();}catch(e){}setCat(c,false);try{jvSync();syncViewUrl();}catch(e){}window.scrollTo({top:0,behavior:'auto'});});return;}
@@ -14087,6 +14089,159 @@ var _gaRPS=renderPromoSheet;renderPromoSheet=function(){_gaRPS();try{var it=BYKE
   if(!sh.querySelector('.shblurb')&&it.blurb){var pr=sh.querySelector('.pprice-sub')||sh.querySelector('.pprice');if(pr)pr.insertAdjacentHTML('afterend','<p class="shblurb">'+esc(it.blurb)+'</p>');}
   var sp=[];var dl=dwSpecLine(it);if(dl)sp.push(dl);if(it.dims){var dd=String(it.dims).replace(/[()]/g,'').trim().split(/\s*x\s*/i).filter(Boolean);if(dd.length>1)sp.push('Size '+dd.map(function(x){return x+'″';}).join(' × '));}
   if(sp.length&&!sh.querySelector('.gaspec')){var bl=sh.querySelector('.shblurb')||sh.querySelector('.pprice-sub');if(bl)bl.insertAdjacentHTML('afterend','<div class="gaspec">'+esc(sp.join(' · '))+'</div>');}}catch(e){}};
+
+/* ===== ROUND 23 — SPECTOR BAGS IN THE BAG ADVISOR, AND EVERY ADVISOR MADE VISIBLE ON ITS AISLE (Steven, 2026-11-26) =====
+   1. "Add Spector bags to the bag advisor." The old Bag advisor could only ever pick from the nine Stormtech bags, so 26
+      Spector bags -- the executive laptop packs, weekenders, garment duffels and totes, most of them with the logo already
+      in the price -- could never be the answer. A bag also has a supplier minimum (Stormtech 12, Spector 10 to 50), so in
+      Canada the Bag advisor now runs on the minimum-aware engine: what it carries, who it's for, HOW MANY. A buyer with 15
+      people is never shown a 25-piece bag; at 25+ the Spector pack usually wins on price because the logo is included.
+      A fifth answer -- totes and crossbodies -- covers the conference tote and the bag people carry to the office.
+      US stores keep the Stormtech advisor (Spector has no US pricing).
+   2. "Make the 'not sure' advisor prompt as prominent as it is on Jackets, for every category with an advisor." The single
+      grey "Not sure which to choose?" line is replaced on every aisle and shelf by the jacket-style card: the advisor's
+      name, a plain question, three of its own picks shown with the buyer's logo, and one button. */
+GA_CATNAME.bags='Bags';
+var BAG_CA={
+  'laptop|team':{p:['sp_bg125','st_roadwarrior','sp_bgr105'],lo:['sp_bgr105','sp_bg131','st_aquabp22','sp_bg126'],hi:['sp_bg130','sp_bg128','st_roadwarrior']},
+  'laptop|gift':{p:['sp_bg127','sp_bg130','st_roadwarrior'],lo:['sp_bg132','sp_bg133','sp_bg125'],hi:['sp_bg128','sp_bg124']},
+  'laptop|event':{p:['sp_bg131','st_sargasso','sp_bgr105'],lo:[],hi:['sp_bgr105','sp_bg126','st_aquabp22']},
+  'site|team':{p:['st_deluge','sp_bg103'],lo:['sp_bg103','st_aquabp22'],hi:['st_nautilus110','sp_bg216']},
+  'site|gift':{p:['st_deluge','sp_bg103'],lo:['sp_bg103','st_aquabp22'],hi:['st_nautilus110','sp_bg216']},
+  'site|event':{p:['sp_bg103','st_aquabp22'],lo:['st_sargasso','sp_bg131'],hi:['st_deluge']},
+  'travel|team':{p:['st_nautilus70','sp_bg213','sp_bgr200'],lo:['sp_bg213','sp_bgr200','st_nautilus35'],hi:['sp_bg216','st_nautilus110','sp_bg217']},
+  'travel|gift':{p:['sp_bg210','sp_bg212','st_nautilus70'],lo:['sp_bg217','st_nautilus70','sp_bg213'],hi:['sp_bg215','sp_bg218']},
+  'travel|event':{p:['sp_bgr200','sp_bg214','st_nautilus35'],lo:['sp_bg214'],hi:['sp_bg213','st_nautilus35']},
+  'tote|team':{p:['sp_bg507','sp_bg508'],lo:['sp_bg505'],hi:['sp_bg508','sp_bg506','sp_bg405']},
+  'tote|gift':{p:['sp_bg508','sp_bg506'],lo:['sp_bg805','sp_bg507','sp_bg800'],hi:['sp_bg219','sp_bg405']},
+  'tote|event':{p:['sp_bg505','sp_bg507'],lo:[],hi:['sp_bg800','sp_bg507']},
+  'cooler|team':{p:['st_aquacooler24','st_magellan30'],lo:['st_aquacooler12'],hi:['st_saturna24','st_saltspring']},
+  'cooler|gift':{p:['st_saturna24','st_aquacooler24'],lo:['st_aquacooler24','st_magellan30'],hi:['st_saltspring']},
+  'cooler|event':{p:['st_aquacooler12','st_magellan30'],lo:[],hi:['st_magellan30','st_aquacooler24']}};
+(function(){var W={
+  st_roadwarrior:['A dedicated computer backpack — the everyday carry for office, sales and travel days, embroidered with your logo.','Computer backpack'],
+  st_deluge:['A waterproof 26 L backpack — rain, mud and a truck floor don’t get in.','Waterproof 26 L backpack'],
+  st_aquabp22:['An everyday 22 L backpack, embroidered with your logo — built to be used.','Everyday 22 L backpack'],
+  st_sargasso:['A 20 L everyday backpack at the friendliest embroidered price — built for a crowd.','Everyday 20 L backpack'],
+  st_nautilus35:['A 35 L waterproof duffel — the overnight size.','Waterproof 35 L duffel'],
+  st_nautilus70:['A 70 L waterproof duffel — a week on the road or a full kit of gear, in seven colours.','Waterproof 70 L duffel'],
+  st_nautilus110:['The 110 L waterproof duffel — a truck’s worth of gear in one bag.','Waterproof 110 L duffel'],
+  st_aquacooler24:['A cooler that wears like a backpack — a full shift’s food and drinks, hands free.','24-can cooler backpack'],
+  st_aquacooler12:['The lunch-size cooler bag at the lowest price in the range — a giveaway people keep.','Lunch-size cooler bag'],
+  st_saturna24:['A 24-can cooler backpack in three colours — the summer gift that goes to every game and job site.','Cooler backpack, three colours'],
+  st_saltspring:['The top-of-range cooler bag — 16 cans, built to last for years.','Premium cooler bag'],
+  st_magellan30:['A 30-can cooler bag for the crew lunch or the team barbecue.','30-can cooler bag'],
+  sp_bg125:['A 17″ laptop backpack with room for the whole workday — your logo screen printed, included in the price.','17″ laptop backpack'],
+  sp_bg126:['The slim version of the Roam — a 15.5″ laptop backpack without the bulk.','Slim 15.5″ laptop backpack'],
+  sp_bg131:['A recycled 17″ laptop backpack at a price that works for a whole team or an event.','Recycled 17″ laptop backpack'],
+  sp_bgr105:['A recycled two-tone 16″ laptop backpack — the everyday bag at a team price.','Recycled 16″ laptop backpack'],
+  sp_bg127:['A clean, recycled 15″ laptop backpack with a debossed leather logo patch — it reads as a gift, not a giveaway.','Leather-patch 15″ laptop backpack'],
+  sp_bg130:['A structured 17″ laptop backpack with real organization inside — your logo embroidered.','Structured 17″ laptop backpack'],
+  sp_bg128:['An expandable 17″ laptop backpack for people who live out of their bag — our top laptop pack.','Expandable 17″ laptop backpack'],
+  sp_bg132:['A quilted 17″ laptop backpack with a leather logo patch — modern and gift-ready.','Quilted 17″ laptop backpack'],
+  sp_bg133:['A quilted 17″ laptop backpack in recycled nylon, with a leather logo patch.','Quilted nylon laptop backpack'],
+  sp_bg124:['A premium backpack with a debossed leather logo patch — the executive carry.','Premium leather-patch backpack'],
+  sp_bg103:['A water-resistant 22 L roll-top built for weather — and you can order it from just 10.','Water-resistant 22 L roll-top'],
+  sp_bg213:['A rubberized duffle that moves between weekend trips and business travel.','Rubberized travel duffle'],
+  sp_bgr200:['A recycled duffle with a ventilated shoe pocket — travel or gym, at a team price.','Recycled duffle'],
+  sp_bg214:['A recycled duffel for travel, the gym or every day, at the lowest duffel price.','Recycled everyday duffel'],
+  sp_bg210:['A mesh-and-canvas weekender that reads as a real gift — the bag people take on every trip.','Weekender'],
+  sp_bg212:['A premium duffle with a debossed leather logo patch — the executive travel gift.','Leather-patch duffle'],
+  sp_bg215:['A garment duffel that unfolds to carry a suit — made for business trips.','Garment duffel'],
+  sp_bg216:['A duffel that converts to a backpack — one bag for the flight and the walk.','Duffel that converts to a backpack'],
+  sp_bg217:['A roomy duffel with a separate shoe compartment.','Duffel with shoe compartment'],
+  sp_bg218:['Our top duffel: recycled PU with a debossed leather logo patch.','Top-of-range duffel'],
+  sp_bg219:['An expandable 17″ laptop duffle — the office and an overnight in one bag.','Expandable laptop duffle'],
+  sp_bg405:['A duffel brief for work and travel, with a leather logo patch.','Duffel brief'],
+  sp_bg506:['An expandable 17″ laptop tote — structured, with a debossed leather logo patch.','Expandable laptop tote'],
+  sp_bg508:['A quilted 17″ laptop tote with sleek hardware and a leather logo patch — the tote people carry to work.','Quilted laptop tote'],
+  sp_bg507:['A compact recycled canvas tote in six colours — the everyday tote, your logo screen printed.','Canvas tote, six colours'],
+  sp_bg505:['A sturdy recycled tote with your logo printed full colour — the conference and giveaway bag at the lowest price in the range.','Full-colour giveaway tote'],
+  sp_bg800:['A crossbody with a zippered back pocket that sits against the body — hands free, essentials secure.','Crossbody bag'],
+  sp_bg805:['A quilted fanny pack with a leather logo patch — hands-free carry people actually wear.','Quilted fanny pack'],
+  sp_st324:['A hard cover spiral journal in seven modern colours — lies flat, your logo debossed.','Spiral journal, seven colours'],
+  sp_st4159:['A classic Fabrizio hard cover journal with 192 lined pages and a back pocket, at an everyday price.','Classic hard cover journal'],
+  sp_st326:['A large A4 spiral journal for planning and presenting — more page for bigger ideas.','Large A4 spiral journal'],
+  sp_st4471:['A buttery Neoskin soft cover journal with a matching pen — the meeting set people keep using.','Soft-touch journal and pen'],
+  sp_st3285:['A pocket spiral notepad with a pen — the set for a conference bag or a site visit.','Pocket notepad and pen'],
+  sp_gf4678:['A genuine-leather refillable journal and an aluminum pen in a black gift box — ready to hand to a client.','Leather journal and pen, boxed'],
+  sp_st4238:['A refillable vinyl junior portfolio with a pen loop — the padfolio at the friendliest price.','Junior portfolio'],
+  sp_i163:['Three laser-engraved metal pens in a full-colour sleeve — and it orders from 75.','Three metal pens in a sleeve'],
+  sp_g1296:['Five pens in a full-colour sleeve with your design — a desk supply as one branded piece.','Five pens in a sleeve'],
+  sp_g1299:['Three pens in a full-colour sleeve — the lowest-cost pen pack.','Three pens in a sleeve'],
+  sp_g3115:['A brass twist pen with a stylus tip — real weight at an everyday price.','Brass pen with stylus'],
+  sp_g4057:['A rubberized aluminum pen with gunmetal trim, laser engraved.','Rubberized aluminum pen'],
+  sp_gf954:['A notepad and pen, luggage tag, passport holder and bottle in one colour — the travel set under $50.','Four-piece travel set'],
+  sp_lf131:['A vacuum-insulated wine chiller with two tumblers — the client gift that gets opened at the next dinner.','Wine chiller and tumblers'],
+  sp_lf118:['A golf-themed wine accessory set in a presentation box — the thank-you after the round.','Golf wine accessory set'],
+  sp_lf138:['A 6.3 L enamelled cast iron Dutch oven — the holiday gift people use for years.','Cast iron Dutch oven']};
+  Object.keys(W).forEach(function(k){GA_WHY[k]=W[k][0];GA_ANG[k]=W[k][1];});})();
+function gaBagOk(k){var it=BYKEY[k];return !!it&&!/^(ch|nk|tnf|ad)_/.test(k)&&!GA_NOREC.test(it.brand||'')&&!/dog|leash|collar|throw|chore coat/i.test(it.name||'');}
+GA_CFG.bags={id:'bags',cat:'bags',noPoolPick:true,eyb:'Bag advisor',noun:'bags',h:'The right bag, in three questions.',
+  sub:'What it carries, who it’s for and how many — then the bag we’d order with your logo on it, priced at your count, plus a lower-cost and a step-up option.',
+  qs:function(){return [{id:'use',q:'What will it carry?',short:'Carries',pics:true,opts:[
+      {id:'laptop',lab:'Laptop & the commute',sub:'Office, sales and travel days',pic:'sp_bg125'},{id:'site',lab:'Job-site & truck gear',sub:'Rain, mud and a truck floor',pic:'st_deluge'},
+      {id:'travel',lab:'Overnight & travel',sub:'Duffels and weekenders',pic:'st_nautilus70'},{id:'tote',lab:'A tote or crossbody',sub:'The office, conferences, hands-free days',pic:'sp_bg508'},
+      {id:'cooler',lab:'Lunch & cold drinks',sub:'A cooler for the shift',pic:'st_aquacooler24'}]},
+    {id:'for',q:'Who is it for?',short:'Who it’s for',opts:GA_FOR},{id:'qty',q:'How many bags?',short:'How many',opts:GA_QTY}];},
+  cur:function(A){return BAG_CA[A.use+'|'+A['for']];},
+  pool:function(A){var S={laptop:['Backpacks','Totes & Crossbody Bags'],site:['Backpacks','Duffels & Tool Bags'],travel:['Duffels & Tool Bags'],tote:['Totes & Crossbody Bags'],cooler:['Coolers & Lunch']}[A.use];
+    var ks=gaShelfKeys('bags',S).filter(gaBagOk);
+    if(A.use==='laptop')ks=ks.filter(function(k){return /laptop|computer|aquarius backpack|sargasso/i.test((BYKEY[k]||{}).name||'');});
+    if(A.use==='site')ks=ks.filter(function(k){return /waterproof|roll-top|aquarius backpack|nautilus/i.test((BYKEY[k]||{}).name||'');});
+    return ks;},
+  box:function(pk,q,A){if(A['for']!=='gift')return null;var cool=/cooler/i.test((BYKEY[pk]||{}).name||''),adds=[];
+    var d=gaFirst(cool?['sp_dw335','sp_dw334']:GIFT_ADD.drink,q,function(x){return x!==pk;});if(d)adds.push(d);
+    if(!cool){var j=gaFirst(GIFT_ADD.journal,q);if(j)adds.push(j);}
+    return adds.length?{main:pk,adds:adds,offAll:true,title:'Fill the bag',copy:'A bag lands better as a gift with something inside. Tick a bottle or a journal to add it — each with your logo, ordered at your count.',cta:'Add to my quote →'}:null;},
+  title:'Our bag pick for you',proof:['sp_bg127','st_deluge','st_nautilus70'],tile:['Bags','Laptop, job-site, travel, tote or cooler — by what it carries','st_nautilus110']};
+GA_CFG.bags.resolve=function(A){return gaCatResolve(GA_CFG.bags,A);};
+/* in Canada the Bags tile, the aisle card and every "advisor" button for bags open this advisor */
+var _r23AdvGo=advGo;advGo=function(c,src,sub){if(c==='bags'&&gaCatOn('bags')){try{closeAdvPicker();}catch(e){}openAdvView('bags',src||'');return;}return _r23AdvGo(c,src,sub);};
+var _r23AHT=advHubTile;advHubTile=function(c){if(c==='bags'&&gaCatOn('bags')){var t=GA_CFG.bags.tile;return gaHubTile('bags',t[0],t[1],t[2],'3 questions');}return _r23AHT(c);};
+var _r23CHT=caHubTiles;caHubTiles=function(cls){var h=_r23CHT(cls);if(!gaCatOn('bags'))return h;
+  return h.replace(/<button type="button" class="ahtile([^"]*)" data-advgo="bags">[\s\S]*?<\/button>(?=<button|$)/,function(m){return m.replace(/(<i>)[\s\S]*?(<\/i>)/,'$1'+esc(GA_CFG.bags.tile[1])+'$2').replace(/<em class="ahq">[\s\S]*?<\/em>/,'<em class="ahq">Three questions</em>');});};
+
+/* ---- the advisor card on every aisle and shelf that has an advisor ---- */
+var ADV_BAN={
+  vests:{nm:'vest',h:'Not sure which vest? We’ll pick one for each group.',q:'who wears it and where it’s worn'},
+  tops:{nm:'shirt',h:'Not sure which shirt? We’ll pick one for each group.',q:'who wears it and the look'},
+  layers:{nm:'fleece & sweater',h:'Not sure which hoodie, quarter-zip or fleece? We’ll pick for each group.',q:'who wears it, the style and how warm'},
+  headwear:{nm:'hat',h:'Not sure which cap or toque? We’ll pick for the season and the crowd.',q:'the season and who it’s for'},
+  bottoms:{nm:'work pant',h:'Not sure which work pants? We’ll pick one for each crew.',q:'who wears them, who washes them and tools on the leg'},
+  fr:{nm:'FR',h:'Not sure which FR piece? We’ll match it to your rating.',q:'the hazard, the rating, what you need and hi-vis'},
+  golf:{nm:'golf',h:'Not sure what to wear or give for the golf day? We’ll pick the kit.',q:'the occasion and the weather'},
+  bags:{nm:'bag',h:'Not sure which bag? We’ll pick it by what it carries.',q:'what it carries, who it’s for'},
+  drinkware:{nm:'drinkware',h:'Not sure which bottle, tumbler or mug? We’ll pick it.',q:'where it’s used, who it’s for, how many'},
+  giftsets:{nm:'gift set',h:'Not sure which kit? We’ll pick it for your budget.',q:'who it’s for, the budget per kit, how many'},
+  notebooks:{nm:'notebook',h:'Not sure which journal or padfolio? We’ll pick it.',q:'what it’s for, with or without a pen, how many'},
+  pens:{nm:'pen',h:'Not sure which pen? We’ll pick it.',q:'what they’re for and how many'},
+  tech:{nm:'tech',h:'Not sure which tech gift? We’ll pick it.',q:'what it should do and how many'}};
+function advBanCard(eyb,head,line,ks,btn,attr){
+  return '<div class="jkadv advban" role="region" aria-label="'+esc(eyb)+'"><div class="jkadvtx"><span class="jkadvey">'+caSvg('spark',14)+' '+esc(eyb)+'</span><b>'+esc(head)+'</b><i>'+esc(line)+'</i></div>'+
+    (ks.length?('<div class="jkadvimg" aria-hidden="true">'+ks.map(function(k){var h='';try{h=caThumb(k);}catch(e){}return '<span class="jkadvk"><span class="capst">'+h+'</span></span>';}).join('')+'</div>'):'')+
+    '<button type="button" class="jkadvgo" '+attr+'>'+esc(btn)+' <span aria-hidden="true">\u2192</span></button></div>';}
+function advBanHtml(c){if(!c||c==='carhartt')return '';try{if(noAdvHere())return '';}catch(e){}var B=ADV_BAN[c];
+  if(gaCatOn(c)){var cfg=GA_CFG[c],A=gaA(c),rd=gaReady(cfg,A),n=cfg.qs().length,ks=(cfg.proof||[]).filter(function(k){return BYKEY[k];}).slice(0,3);if(!B)return '';
+    var bq=(c==='bags'?'what it carries, who it’s for, how many':B.q);
+    return advBanCard(cfg.eyb,rd?('Your '+B.nm+' pick is ready'):B.h,
+      rd?'Our pick for your answers, priced at your count with your logo — plus a lower-cost and a step-up option.':(nwords(n)+' quick questions — '+bq+'. Our pick priced at your count with your logo, plus a lower-cost and a step-up option.'),
+      ks,rd?'See my pick':('Start the '+B.nm+' advisor'),'data-gacat="'+esc(c)+'" data-src="aisle_banner"');}
+  var g=caCfgFor(c);if(!g)return '';
+  if(JK_CATS[c]&&c!=='vests')return jkAdvHtml();   /* jackets and hi-vis keep their own card */
+  if(!B)return '';var A2=caSt(g.id),rd2=caReady(g,A2),q0=(g.qs||[])[0]||{},M=CA_PIC[g.id+'.'+q0.id]||{},
+    ks2=Object.keys(M).map(function(o){return M[o];}).filter(function(k,i,a){return BYKEY[k]&&a.indexOf(k)===i;}).slice(0,3);
+  if(ks2.length<3)(CAT_TILE_PREF[c]||[]).concat(((BUCKETS[c]||{})[subNames(c)[0]]||[]).slice(0,6)).forEach(function(k){if(ks2.length<3&&BYKEY[k]&&ks2.indexOf(k)<0&&!/^(ch|nk|tnf|ad)_/.test(k))ks2.push(k);});
+  return advBanCard(g.label,rd2?('Your '+B.nm+' picks are ready'):B.h,
+    rd2?'Hand-picked for your answers, with your logo on each — plus a lower-cost and a premium option.':(caQword(g,A2)+' quick questions — '+B.q+'. You get our pick with your logo, plus a lower-cost and a premium option.'),
+    ks2,rd2?'See my picks':('Start the '+B.nm+' advisor'),'data-advgo="'+esc(c)+'" data-src="aisle_banner"');}
+var _r23JP=jvPost;jvPost=function(){_r23JP();try{var c=VIEW.cat,hd=document.getElementById('gridhd');if(!hd||!c||(VIEW.q||'').trim())return;
+  var html=advBanHtml(c);if(!html)return;
+  hd.querySelectorAll('.jvask,.jkadv').forEach(function(x){x.remove();});
+  hd.insertAdjacentHTML('beforeend',html);wireAdvGo(hd);
+  var b=hd.querySelector('.jkadv [data-gacat]');if(b)b.addEventListener('click',function(){jdpTrack('adv_go',{c:c,src:'aisle_banner'});openAdvView(c,'aisle_banner');});}catch(e){}};
+/* the totes shelf opens on the laptop totes, then the everyday and giveaway totes */
+['sp_bg508','sp_bg506','sp_bg507','sp_bg505','sp_bg805','sp_bg800'].forEach(function(k){if(BAG_LEAD.indexOf(k)<0)BAG_LEAD.push(k);});
 
 var cel=document.getElementById('jdpcfg');
 if(cel){try{go(JSON.parse(cel.textContent));}catch(e){}}
