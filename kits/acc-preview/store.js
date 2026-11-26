@@ -13430,7 +13430,15 @@ function gaSeedPromo(){if(GA_PROMO_SEEN||!CFG)return;GA_PROMO_SEEN=true;
     if(add.length)o.promo=(o.promo||[]).concat(add);
     /* near-duplicate gift sets and promo pens fold onto one representative card; the rest stay searchable */
     Object.keys(BYKEY).forEach(function(k){var it=BYKEY[k];if(it&&it.fold&&BYKEY[it.fold])DUP_OF[k]=it.fold;});}catch(e){}}
+/* Each accessories shelf opens on its strongest pieces, the way the Bags aisle leads with BAG_LEAD -- a $23 journal set is
+   not the first thing a buyer should see on a shelf of $150 executive kits. Stable: only the named items move. */
+var ACC_LEAD={'Kits & Gift Sets':['sp_bb192','sp_bb197','sp_gf142','sp_bb905','sp_gf951','sp_gf947','sp_bb196','sp_bb199'],
+  'Water Bottles':['sp_dw334','sp_dw335','sp_dw329','sp_dw339'],'Tumblers':['sp_dw332','sp_dw343'],'Mugs':['sp_dw422','sp_dw802'],
+  'Notebooks & Pens':['sp_st4864','sp_st4143','sp_st4660','sp_st3207'],'Tech':['sp_t92','sp_t150','sp_t1460','sp_bg709'],
+  'Travel Accessories':['sp_lf113','sp_st4660'],'Lifestyle':['sp_lf124','sp_lf123']};
 var _gaBB=buildBuckets;buildBuckets=function(){gaSeedPromo();_gaBB();
+  try{var AC=BUCKETS.accessories||{};Object.keys(ACC_LEAD).forEach(function(s){var a=AC[s];if(!a)return;var L=ACC_LEAD[s];
+    AC[s]=a.filter(function(k){return L.indexOf(k)>=0;}).sort(function(x,y){return L.indexOf(x)-L.indexOf(y);}).concat(a.filter(function(k){return L.indexOf(k)<0;}));});}catch(e){}
   /* sell-through and restocking lines go to the back of their shelf: on the shelf, never first */
   try{Object.keys(BUCKETS).forEach(function(m){Object.keys(BUCKETS[m]).forEach(function(s){var a=BUCKETS[m][s];
       if(!a.some(function(k){var it=BYKEY[k];return it&&(it.eol||it.oos);}))return;
