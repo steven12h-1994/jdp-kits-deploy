@@ -13602,7 +13602,7 @@ var GIFT_POOL={
     box:['sp_bb192','sp_gf142','sp_bb196','sp_gf969','sp_bb199','sp_gf1092','sp_bb197','sp_gf947','sp_gf951','sp_bb905'],
     desk:['sp_dw335','sp_t92','sp_t150','sp_lf113','sp_dw422','sp_st4864','sp_dw802','sp_t1460','sp_lf124']},
   clients:{wear:['cbc_traverse_qz','cb_qzip','st_altitude','vest','st_avalanteqz','cbc_evoke_fleece','cb_roamqz','st_bushwick','st_stavanger','st_nautilusjkt','st_matrix','flux'],
-    bag:['sp_bg127','sp_bg133','sp_bg210','sp_bg506','sp_bg215','sp_bg218','sp_bg128','sp_bg508','st_nautilus70','sp_bgr105','st_deluge','sp_bg507'],
+    bag:['sp_bg127','sp_bg133','sp_bg210','sp_bg506','sp_bg215','sp_bg218','sp_bg128','sp_bg508','st_nautilus70','sp_bgr105','st_deluge','sp_bg507','st_roadwarrior','st_nautilus110','st_nautilus35','st_saturna24','st_aquabp22'],
     box:['sp_gf142','sp_bb197','sp_gf141','sp_gf947','sp_gf951','sp_bb905','sp_bb897','sp_gf4179','sp_gf1092'],
     desk:['sp_t92','sp_st4660','sp_dw335','sp_lf113','sp_t150','sp_lf124','sp_dw802','sp_dw422','sp_st4864']}};
 /* "Not sure" -- the strongest pick per budget across every kind, in our order */
