@@ -1,0 +1,17 @@
+{
+  "generator": "client-app",
+  "version": "1795662088",
+  "slug": "jdp-trillium-health-care-products",
+  "client": "Trillium Health Care Products",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_004775.png",
+    "img/lg_full_72975b.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}
