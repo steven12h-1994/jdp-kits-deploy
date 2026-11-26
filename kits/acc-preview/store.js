@@ -13737,7 +13737,7 @@ var PN_CUR={
   exec:{p:['sp_g3148','sp_g3112','sp_g3373'],lo:['sp_g3388','sp_g3108'],hi:['sp_g3373','sp_gf4179','sp_st4349']},
   pack:{p:['sp_i158','sp_g1297','sp_i157'],lo:['sp_g1297'],hi:['sp_i157']}};
 var TC_CUR={
-  desk:{p:['sp_t150','sp_t92','sp_t148'],lo:['sp_bg709'],hi:['sp_gf947','sp_gf951']},
+  desk:{p:['sp_t150','sp_t92','sp_t148'],lo:[],hi:['sp_gf947','sp_gf951']},
   go:{p:['sp_t1460','sp_t148'],lo:['sp_bg709'],hi:['sp_gf941','sp_gf953']},
   track:{p:['sp_lf113'],lo:['sp_bg709'],hi:['sp_gf920','sp_gf953']},
   box:{p:['sp_gf951','sp_gf947','sp_gf953'],lo:['sp_gf945','sp_gf941'],hi:['sp_gf951']}};
@@ -13745,7 +13745,7 @@ var KT_BUD=[{id:'b1',lab:'Under $50',sub:'per kit',lo:0,hi:50},{id:'b2',lab:'$50
 var KT_LIST={newhire:['sp_bb192','sp_bb196','sp_gf969','sp_gf977','sp_bb199','sp_bb197','sp_gf996','sp_gf945'],
   clients:['sp_gf142','sp_lf144','sp_lf132','sp_gf947','sp_gf145','sp_bb905','sp_bb897','sp_gf7414','sp_gf951','sp_gf141','sp_lf136','sp_lf129','sp_gf151'],
   travel:['sp_bb905','sp_bb897','sp_gf7414','sp_bb197','sp_gf950','sp_gf940','sp_gf920','sp_gf953'],
-  team:['sp_gf969','sp_gf977','sp_gf142','sp_gf141','sp_bb192','sp_gf945','sp_gf947','sp_gf996','sp_gf143','sp_lf124','sp_lf110','sp_gf145'],
+  team:['sp_gf969','sp_gf977','sp_gf142','sp_gf141','sp_bb192','sp_gf945','sp_gf947','sp_gf996','sp_gf143','sp_lf124','sp_lf110','sp_gf145','sp_bb197','sp_lf129','sp_gf951'],
   best:['sp_bb192','sp_gf142','sp_gf947','sp_bb905','sp_gf969','sp_bb197','sp_gf951','sp_lf132','sp_gf145','sp_gf141','sp_lf144']};
 /* The Gift advisor: who, what kind, budget per person, how many. Pools are in our order of preference per recipient. */
 var GIFT_POOL={
@@ -13863,7 +13863,7 @@ var GA_CFG={
         {id:'desk',lab:'Charge at the desk',sub:'Stands and charging mousepads',pic:'sp_t92'},{id:'go',lab:'Charge on the go',sub:'For the bag and the car',pic:'sp_t1460'},
         {id:'track',lab:'Never lose a bag',sub:'Apple Find My trackers',pic:'sp_lf113'},{id:'box',lab:'Everything in one gift box',sub:'Chargers, boxed together',pic:'sp_gf951'}]},
       {id:'qty',q:'How many do you need?',short:'How many',opts:GA_QTY}];},
-    cur:function(A){return TC_CUR[A.need];},pool:function(A){return A.need==='box'?['sp_gf951','sp_gf947','sp_gf953','sp_gf945','sp_gf941']:gaShelfKeys('tech');},noFillLo:true,
+    cur:function(A){return TC_CUR[A.need];},pool:function(A){return A.need==='box'?['sp_gf951','sp_gf947','sp_gf953','sp_gf945','sp_gf941']:(A.need==='track'?gaShelfKeys('tech',['Trackers & Cases']):gaShelfKeys('tech',['Charging']).concat(A.need==='go'?['sp_bg709']:[]));},noFillLo:true,
     title:'Our tech pick for you',proof:['sp_t92','sp_t150','sp_lf113'],tile:['Technology','Chargers, trackers and tech gift boxes — by what they need','sp_t92']},
   gifts:{id:'gifts',eyb:'Gift advisor',h:'The right gift, in four questions.',
     sub:'Who it’s for, what kind, the budget per person and how many — then our pick and a ready-made gift box, priced per person with your logo on it.',
