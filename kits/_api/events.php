@@ -323,7 +323,9 @@ function dash_feed(int $days, string $only = ''): array {
     /* --- leads --- */
     $contacts = jread(data_root() . '/_dash/contacts.json'); $marks = jread(data_root() . '/_dash/marks.json');
     $sends = []; $sendN = []; $sf = data_root() . '/_dash/sends.jsonl'; $since = $now - $days * 86400;
+    $sdup = [];                                                         // the ops feed re-posts the same send every tick: count each send once (2026-11-26)
     if (is_file($sf)) { $fh = @fopen($sf, 'r'); if ($fh) { while (($ln = fgets($fh)) !== false) { $r = json_decode($ln, true); if (!is_array($r) || empty($r['kit'])) continue;
+        $dk = $r['kit'] . '|' . ($r['step'] ?? '') . '|' . strtolower((string)($r['to'] ?? '')) . '|' . (int)($r['t'] ?? 0); if (isset($sdup[$dk])) continue; $sdup[$dk] = 1;
         $sends[$r['kit']][] = $r; if ((int)$r['t'] >= $since) { $k2 = preg_match('/^nl/', $r['step']) ? 'utm:' . $r['step'] : 'ct:' . $r['step']; $sendN[$k2] = ($sendN[$k2] ?? 0) + 1; } } fclose($fh); } }
     $calls = []; $lf = data_root() . '/_dash/marklog.jsonl';          // Steven's call outcomes, newest last
     if (is_file($lf)) foreach (array_slice(file($lf, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [], -3000) as $ln) { $r = json_decode($ln, true); if (is_array($r) && !empty($r['kit'])) $calls[$r['kit']][] = $r; }
