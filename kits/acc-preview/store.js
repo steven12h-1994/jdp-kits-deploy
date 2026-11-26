@@ -14239,6 +14239,8 @@ var _r23JP=jvPost;jvPost=function(){_r23JP();try{var c=VIEW.cat,hd=document.getE
   hd.querySelectorAll('.jvask,.jkadv').forEach(function(x){x.remove();});
   hd.insertAdjacentHTML('beforeend',html);wireAdvGo(hd);
   var b=hd.querySelector('.jkadv [data-gacat]');if(b)b.addEventListener('click',function(){jdpTrack('adv_go',{c:c,src:'aisle_banner'});openAdvView(c,'aisle_banner');});}catch(e){}};
+/* the totes shelf opens on the laptop totes, then the everyday and giveaway totes */
+['sp_bg508','sp_bg506','sp_bg507','sp_bg505','sp_bg805','sp_bg800'].forEach(function(k){if(BAG_LEAD.indexOf(k)<0)BAG_LEAD.push(k);});
 
 var cel=document.getElementById('jdpcfg');
 if(cel){try{go(JSON.parse(cel.textContent));}catch(e){}}
