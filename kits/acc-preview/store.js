@@ -13780,7 +13780,7 @@ function gaShelfKeys(m,subs){var out=[],B=BUCKETS[m]||{};(subs||Object.keys(B)).
 /* a curated category advisor: our pick for these answers, then the nearest real step down and step up */
 function gaCurResolve(cfg,A,qo){var q=qo||gaQ(A),C=cfg.cur(A);if(!C)return null;var pool=cfg.pool(A);
   var pk=gaFirst(C.p,q);
-  if(!pk){var fb=pool.filter(function(k){return gaOk(k,q);}).sort(function(a,b){return gaUnit(a,q)-gaUnit(b,q);});pk=fb[0]||null;}
+  if(!pk&&!cfg.noPoolPick){var fb=pool.filter(function(k){return gaOk(k,q);}).sort(function(a,b){return gaUnit(a,q)-gaUnit(b,q);});pk=fb[0]||null;}
   if(!pk)return {q:q,none:true};
   var pp=gaUnit(pk,q),near=function(list,below){var c=(list||[]).filter(function(k){return k!==pk&&gaOk(k,q)&&(below?gaUnit(k,q)<pp*0.93:gaUnit(k,q)>pp*1.07);});
       c.sort(function(a,b){return below?gaUnit(b,q)-gaUnit(a,q):gaUnit(a,q)-gaUnit(b,q);});return c[0]||null;},lo=near(C.lo,true),hi=near(C.hi,false);
@@ -14104,7 +14104,7 @@ var _gaRPS=renderPromoSheet;renderPromoSheet=function(){_gaRPS();try{var it=BYKE
 GA_CATNAME.bags='Bags';
 var BAG_CA={
   'laptop|team':{p:['sp_bg125','st_roadwarrior','sp_bgr105'],lo:['sp_bgr105','sp_bg131','st_aquabp22','sp_bg126'],hi:['sp_bg130','sp_bg128','st_roadwarrior']},
-  'laptop|gift':{p:['sp_bg127','sp_bg130','st_roadwarrior'],lo:['sp_bg132','sp_bg133','sp_bg125','st_deluge'],hi:['sp_bg128','sp_bg124']},
+  'laptop|gift':{p:['sp_bg127','sp_bg130','st_roadwarrior'],lo:['sp_bg132','sp_bg133','sp_bg125'],hi:['sp_bg128','sp_bg124']},
   'laptop|event':{p:['sp_bg131','st_sargasso','sp_bgr105'],lo:[],hi:['sp_bgr105','sp_bg126','st_aquabp22']},
   'site|team':{p:['st_deluge','sp_bg103'],lo:['sp_bg103','st_aquabp22'],hi:['st_nautilus110','sp_bg216']},
   'site|gift':{p:['st_deluge','sp_bg103'],lo:['sp_bg103','st_aquabp22'],hi:['st_nautilus110','sp_bg216']},
@@ -14177,7 +14177,7 @@ var BAG_CA={
   sp_lf138:['A 6.3 L enamelled cast iron Dutch oven — the holiday gift people use for years.','Cast iron Dutch oven']};
   Object.keys(W).forEach(function(k){GA_WHY[k]=W[k][0];GA_ANG[k]=W[k][1];});})();
 function gaBagOk(k){var it=BYKEY[k];return !!it&&!/^(ch|nk|tnf|ad)_/.test(k)&&!GA_NOREC.test(it.brand||'')&&!/dog|leash|collar|throw|chore coat/i.test(it.name||'');}
-GA_CFG.bags={id:'bags',cat:'bags',eyb:'Bag advisor',noun:'bags',h:'The right bag, in three questions.',
+GA_CFG.bags={id:'bags',cat:'bags',noPoolPick:true,eyb:'Bag advisor',noun:'bags',h:'The right bag, in three questions.',
   sub:'What it carries, who it’s for and how many — then the bag we’d order with your logo on it, priced at your count, plus a lower-cost and a step-up option.',
   qs:function(){return [{id:'use',q:'What will it carry?',short:'Carries',pics:true,opts:[
       {id:'laptop',lab:'Laptop & the commute',sub:'Office, sales and travel days',pic:'sp_bg125'},{id:'site',lab:'Job-site & truck gear',sub:'Rain, mud and a truck floor',pic:'st_deluge'},
