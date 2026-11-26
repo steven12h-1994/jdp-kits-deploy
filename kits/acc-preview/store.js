@@ -14204,6 +14204,7 @@ var _r23CHT=caHubTiles;caHubTiles=function(cls){var h=_r23CHT(cls);if(!gaCatOn('
 
 /* ---- the advisor card on every aisle and shelf that has an advisor ---- */
 var ADV_BAN={
+  vests:{nm:'vest',h:'Not sure which vest? We’ll pick one for each group.',q:'who wears it, where it’s worn and the work'},
   tops:{nm:'shirt',h:'Not sure which shirt? We’ll pick one for each group.',q:'who wears it and the look'},
   layers:{nm:'fleece & sweater',h:'Not sure which hoodie, quarter-zip or fleece? We’ll pick for each group.',q:'who wears it, the style and how warm'},
   headwear:{nm:'hat',h:'Not sure which cap or toque? We’ll pick for the season and the crowd.',q:'the season and who it’s for'},
@@ -14227,7 +14228,7 @@ function advBanHtml(c){if(!c||c==='carhartt')return '';try{if(noAdvHere())return
       rd?'Our pick for your answers, priced at your count with your logo — plus a lower-cost and a step-up option.':(nwords(n)+' quick questions — '+bq+'. Our pick priced at your count with your logo, plus a lower-cost and a step-up option.'),
       ks,rd?'See my pick':('Start the '+B.nm+' advisor'),'data-gacat="'+esc(c)+'" data-src="aisle_banner"');}
   var g=caCfgFor(c);if(!g)return '';
-  if(JK_CATS[c])return jkAdvHtml();   /* jackets, vests and hi-vis keep their own card */
+  if(JK_CATS[c]&&c!=='vests')return jkAdvHtml();   /* jackets and hi-vis keep their own card */
   if(!B)return '';var A2=caSt(g.id),rd2=caReady(g,A2),q0=(g.qs||[])[0]||{},M=CA_PIC[g.id+'.'+q0.id]||{},
     ks2=Object.keys(M).map(function(o){return M[o];}).filter(function(k,i,a){return BYKEY[k]&&a.indexOf(k)===i;}).slice(0,3);
   if(ks2.length<3)(CAT_TILE_PREF[c]||[]).concat(((BUCKETS[c]||{})[subNames(c)[0]]||[]).slice(0,6)).forEach(function(k){if(ks2.length<3&&BYKEY[k]&&ks2.indexOf(k)<0&&!/^(ch|nk|tnf|ad)_/.test(k))ks2.push(k);});
