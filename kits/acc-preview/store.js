@@ -13550,7 +13550,8 @@ function gaA(id){var S=gaLoad();return S[id]=S[id]||{};}
 var GA_QTY=[{id:'u25',lab:'Fewer than 25',sub:'A team or a few clients',lo:1,hi:24},{id:'25',lab:'25 – 49',sub:'A department',lo:25,hi:49},
   {id:'50',lab:'50 – 99',sub:'A whole office',lo:50,hi:99},{id:'100',lab:'100 – 249',sub:'Company-wide',lo:100,hi:249},{id:'250',lab:'250 or more',sub:'Every location',lo:250,hi:1e9}];
 function gaQtyBand(id){var L=GA_QTY.concat(typeof GA_PQTY!=='undefined'?GA_PQTY:[]);for(var i=0;i<L.length;i++)if(L[i].id===id)return L[i];return null;}
-function gaUW(cfg){return cfg.id==='gifts'?'person':(cfg.id==='giftsets'?'kit':(cfg.id==='pens'?'pen':'piece'));}
+function gaUW(cfg,A){A=A||gaA(cfg.id);return cfg.id==='gifts'?'person':(cfg.id==='giftsets'?'kit':(cfg.id==='pens'?(A.use==='pack'?'pack':'pen'):'piece'));}
+function gaUWs(cfg,A){var w=gaUW(cfg,A);return w==='person'?'people':w+'s';}
 /* The count: the buyer's own number if they typed one here, else their store headcount when it falls in the band they
    picked, else the bottom of the band. Never a number they didn't give us. */
 function gaQ(A){var b=gaQtyBand(A.qty);if(!b)return 0;var n=parseInt(A.n,10)||0;if(n)return n;var hc=getHC();
@@ -13940,7 +13941,7 @@ function gaResultHtml(cfg,A){var R=cfg.resolve(A),qs=cfg.qs();
   var q=R.q,P=R.pick,k=P.k,it=BYKEY[k],col=gaCol(k),tot=P.p*q,facts=gaFacts(k),deco=gaDecoTxt(k),sizes=gaHasSizes(k);
   var nearNote=(R.minUp?'<p class="ganear">These have a supplier minimum of '+R.minUp+' pieces, so we’ve priced '+R.minUp+' — the smallest order that can be placed.'+(cfg.cat?' Need fewer? Ask Steven — he’ll tell you what can be done.':'')+'</p>':'')+(R.near?'<p class="ganear">Nothing in this kind lands inside your budget at '+q+' pieces, so this is the closest we stock. The options below go either way.</p>':'');
   if(cfg.box&&A.pen==='set'&&!R.box&&(BYKEY[k]||{}).psub!=='Journal & Pen Sets')nearNote+='<p class="ganear">Our metal pens start at 75 pieces, so at '+q+' we’ve shown the notebook on its own — add pens at 75 or more, or ask Steven to pair one.</p>';
-  var kpis='<div class="cakpis"><div><b>'+q+'</b><i>'+(cfg.id==='gifts'?'people':(cfg.id==='giftsets'?'kits':'pieces'))+'</i></div><div><b>'+money(P.p)+'</b><i>per '+(cfg.id==='gifts'?'person':(cfg.id==='giftsets'?'kit':'piece'))+'</i></div>'+
+  var kpis='<div class="cakpis"><div><b>'+q+'</b><i>'+gaUWs(cfg,A)+'</i></div><div><b>'+money(P.p)+'</b><i>per '+gaUW(cfg,A)+'</i></div>'+
     '<div class="big"><b>'+money(tot)+'</b><i>estimate for '+q+'</i></div><div><b>'+gaMin(k)+'</b><i>minimum order</i></div></div>';
   var main='<article class="cpc"><header class="cpchd"><span class="cpcfor">Our recommendation</span><span class="cpcbadge">✓ Our pick</span></header><div class="cpcbody">'+
     '<div class="cpcvis"><button type="button" class="cpcimg" data-gaopen="'+esc(k)+'" aria-label="See '+esc(it.name)+'"><span class="capfl" aria-hidden="true"></span><span class="capst" data-gaimg="'+esc(k)+'">'+gaShot(k,col)+'</span><span class="cpclogo">'+esc(gaLogoTag(k))+'</span></button>'+
