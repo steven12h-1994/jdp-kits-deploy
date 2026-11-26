@@ -13709,7 +13709,7 @@ var GA_PQTY=[{id:'p1',lab:'Fewer than 100',sub:'A team',lo:1,hi:99,def:75},{id:'
   {id:'p4',lab:'500 – 999',sub:'Several events',lo:500,hi:999},{id:'p5',lab:'1,000 or more',sub:'A year of events',lo:1000,hi:1e9}];
 var DW_CUR={
   'allday|team':{p:['sp_dw334','sp_dw329','sp_dw339'],lo:['sp_dw336','sp_dw328','sp_dw107'],hi:['sp_dw335']},
-  'allday|gift':{p:['sp_dw335','sp_dw334'],lo:['sp_dw334','sp_dw339'],hi:['sp_gf941']},
+  'allday|gift':{p:['sp_dw335','sp_dw334'],lo:['sp_dw334','sp_dw339'],hi:[]},
   'allday|event':{p:['sp_dw107','sp_dw108','sp_dw105'],lo:[],hi:['sp_dw336','sp_dw328','sp_dw334']},
   'move|team':{p:['sp_dw332','sp_dw342','sp_dw331'],lo:['sp_dw403'],hi:['sp_dw343','sp_dw335']},
   'move|gift':{p:['sp_dw343','sp_dw332'],lo:['sp_dw342','sp_dw403'],hi:['sp_dw335']},
@@ -13718,13 +13718,13 @@ var DW_CUR={
   'desk|gift':{p:['sp_dw802','sp_dw422'],lo:['sp_dw800'],hi:['sp_gf142','sp_dw422']},
   'desk|event':{p:['sp_dw800','sp_dw802'],lo:[],hi:['sp_dw422']},
   'outdoor|team':{p:['sp_dw335','sp_dw329'],lo:['sp_dw329','sp_dw334'],hi:[]},
-  'outdoor|gift':{p:['sp_dw335'],lo:['sp_dw329'],hi:['sp_gf941']},
+  'outdoor|gift':{p:['sp_dw335'],lo:['sp_dw329'],hi:[]},
   'outdoor|event':{p:['sp_dw334','sp_dw329'],lo:['sp_dw336'],hi:['sp_dw335']}};
 var NB_CUR={
   'meet|only':{p:['sp_st4143','sp_st4864','sp_st4865'],lo:['sp_st3202','sp_st4213'],hi:['sp_st4862','sp_st4660']},
   'meet|set':{p:['sp_st3283','sp_st3284','sp_gf1092'],lo:['sp_sc402'],hi:['sp_gf1092','sp_st4235','sp_gf4179']},
   'client|only':{p:['sp_st4660','sp_st601','sp_st4670'],lo:['sp_st4864','sp_st4862'],hi:['sp_st4670','sp_st604']},
-  'client|set':{p:['sp_gf4179','sp_gf1092','sp_st4349'],lo:['sp_gf1092','sp_st4235'],hi:['sp_st4349','sp_gf7414']},
+  'client|set':{p:['sp_gf4179','sp_gf1092','sp_st4349'],lo:['sp_gf1092','sp_st4235'],hi:['sp_st4349']},
   'event|only':{p:['sp_st3202','sp_ec3090','sp_st4213'],lo:[],hi:['sp_st4143']},
   'event|set':{p:['sp_sc402','sp_st3283'],lo:[],hi:['sp_st3284','sp_gf1092']},
   'present|only':{p:['sp_st403','sp_st3356','sp_st321'],lo:[],hi:['sp_st4039','sp_st321','sp_st3356']},
@@ -13822,7 +13822,7 @@ var GA_CFG={
         {id:'allday',lab:'All day, refilled',sub:'Water at work, at home, at the gym',pic:'sp_dw334'},{id:'move',lab:'On the move',sub:'The commute, the truck — fits a cup holder',pic:'sp_dw332'},
         {id:'desk',lab:'At a desk',sub:'Coffee and tea',pic:'sp_dw422'},{id:'outdoor',lab:'Outdoors & long shifts',sub:'Big, insulated, cold for hours',pic:'sp_dw335'}]},
       {id:'for',q:'Who is it for?',short:'Who it’s for',opts:GA_FOR},{id:'qty',q:'How many do you need?',short:'How many',opts:GA_QTY}];},
-    cur:function(A){return DW_CUR[A.use+'|'+A['for']];},pool:function(A){return gaShelfKeys('drinkware');},noFillLo:false,
+    cur:function(A){return DW_CUR[A.use+'|'+A['for']];},pool:function(A){return gaShelfKeys('drinkware',{allday:['Water Bottles'],outdoor:['Water Bottles'],move:['Tumblers & Cups','Water Bottles'],desk:['Mugs','Tumblers & Cups']}[A.use]);},noFillLo:false,
     title:'Our drinkware pick for you',proof:['sp_dw334','sp_dw332','sp_dw422'],tile:['Drinkware','Bottles, tumblers and mugs — by where they’re used and who for','sp_dw334']},
   giftsets:{id:'giftsets',cat:'giftsets',eyb:'Gift set advisor',noun:'gift sets',budget:true,h:'The right kit, in three questions.',
     sub:'Who the kit is for, the budget per kit and how many — then the ready-boxed set we’d order, priced per kit with your logo on every piece.',
@@ -13937,6 +13937,7 @@ function gaResultHtml(cfg,A){var R=cfg.resolve(A),qs=cfg.qs();
       '<div class="cainner"><div class="casum"><span class="casuml">Picked for</span>'+chips+'</div><div class="cpfoot"><span>Want something specific?</span><button type="button" class="jalink" data-gaask="1">Have Steven source it</button></div></div></section>';}
   var q=R.q,P=R.pick,k=P.k,it=BYKEY[k],col=gaCol(k),tot=P.p*q,facts=gaFacts(k),deco=gaDecoTxt(k),sizes=gaHasSizes(k);
   var nearNote=(R.minUp?'<p class="ganear">These have a supplier minimum of '+R.minUp+' pieces, so we’ve priced '+R.minUp+' — the smallest order that can be placed.'+(cfg.cat?' Need fewer? Ask Steven — he’ll tell you what can be done.':'')+'</p>':'')+(R.near?'<p class="ganear">Nothing in this kind lands inside your budget at '+q+' pieces, so this is the closest we stock. The options below go either way.</p>':'');
+  if(cfg.box&&A.pen==='set'&&!R.box&&(BYKEY[k]||{}).psub!=='Journal & Pen Sets')nearNote+='<p class="ganear">Our metal pens start at 75 pieces, so at '+q+' we’ve shown the notebook on its own — add pens at 75 or more, or ask Steven to pair one.</p>';
   var kpis='<div class="cakpis"><div><b>'+q+'</b><i>'+(cfg.id==='gifts'?'people':(cfg.id==='giftsets'?'kits':'pieces'))+'</i></div><div><b>'+money(P.p)+'</b><i>per '+(cfg.id==='gifts'?'person':(cfg.id==='giftsets'?'kit':'piece'))+'</i></div>'+
     '<div class="big"><b>'+money(tot)+'</b><i>estimate for '+q+'</i></div><div><b>'+gaMin(k)+'</b><i>minimum order</i></div></div>';
   var main='<article class="cpc"><header class="cpchd"><span class="cpcfor">Our recommendation</span><span class="cpcbadge">✓ Our pick</span></header><div class="cpcbody">'+
@@ -14014,8 +14015,9 @@ function gaSwapped(R,A){if(!R||!R.pick||!A._swap||!BYKEY[A._swap])return R;var s
   var old=R.pick,ns=gaRes(s,q),lo=null,hi=null;[old,R.lo,R.hi].forEach(function(x){if(!x||x.k===s)return;if(x.p<ns.p){if(!lo||x.p>lo.p)lo=x;}else{if(!hi||x.p<hi.p)hi=x;}});
   var o={};for(var p in R)o[p]=R[p];o.pick=ns;o.lo=lo;o.hi=hi;o.near=false;if(R.box)o.box=(R._boxFn||giftBox)(s,q,A);return o;}
 /* Below a supplier's minimum we don't dead-end: we price the lowest count that CAN be ordered and say so plainly. */
-function gaMinUp(res,A,pool){var R=res(A);if(!R||!R.none)return R;var m=1e9;(pool||[]).forEach(function(k){var it=BYKEY[k];if(it&&!it.eol&&!it.oos&&!/^(ch|nk|tnf|ad)_/.test(k))m=Math.min(m,gaMin(k));});
-  if(m<1e9&&m>R.q){var R2=res(A,m);if(R2&&!R2.none&&R2.pick){R2.minUp=m;R2.asked=R.q;return R2;}}return R;}
+function gaMinUp(res,A,pool){var R=res(A);if(!R||!R.none)return R;var ms=[];(pool||[]).forEach(function(k){var it=BYKEY[k];if(it&&!it.eol&&!it.oos&&!/^(ch|nk|tnf|ad)_/.test(k)){var m=gaMin(k);if(m>R.q&&m<1e9&&ms.indexOf(m)<0)ms.push(m);}});
+  /* the smallest count at which something here can actually be ordered -- tried in order, so one unpriced line can't block it */
+  ms.sort(function(a,b){return a-b;});for(var i=0;i<ms.length;i++){var R2=res(A,ms[i]);if(R2&&!R2.none&&R2.pick){R2.minUp=ms[i];R2.asked=R.q;return R2;}}return R;}
 function gaCatResolve(cfg,A){var base=function(A2,q){return cfg.budget?gaBudResolve(cfg,A2,q):gaCurResolve(cfg,A2,q);};
   var C=cfg.cur?(cfg.cur(A)||{}):{},all=[].concat(C.p||[],C.lo||[],C.hi||[],cfg.pool(A)||[]);
   var R=gaMinUp(base,A,all);
