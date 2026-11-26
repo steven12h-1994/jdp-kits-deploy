@@ -13868,7 +13868,7 @@ var _gaRPS=renderPromoSheet;renderPromoSheet=function(){_gaRPS();try{var it=BYKE
   if(q&&it.noov)q.insertAdjacentHTML('afterend','<div class="gasamp">The photo shows a sample logo. Your free digital proof shows yours before anything is made.</div>');
   var h2=sh.querySelector('.shb h2');
   if(!sh.querySelector('.shblurb')&&it.blurb){var pr=sh.querySelector('.pprice-sub')||sh.querySelector('.pprice');if(pr)pr.insertAdjacentHTML('afterend','<p class="shblurb">'+esc(it.blurb)+'</p>');}
-  var sp=[];var dl=dwSpecLine(it);if(dl)sp.push(dl);if(it.dims)sp.push('Size '+String(it.dims).replace(/[()]/g,'').trim()+'″');
+  var sp=[];var dl=dwSpecLine(it);if(dl)sp.push(dl);if(it.dims){var dd=String(it.dims).replace(/[()]/g,'').trim().split(/\s*x\s*/i).filter(Boolean);if(dd.length>1)sp.push('Size '+dd.map(function(x){return x+'″';}).join(' × '));}
   if(sp.length&&!sh.querySelector('.gaspec')){var bl=sh.querySelector('.shblurb')||sh.querySelector('.pprice-sub');if(bl)bl.insertAdjacentHTML('afterend','<div class="gaspec">'+esc(sp.join(' · '))+'</div>');}}catch(e){}};
 
 var cel=document.getElementById('jdpcfg');
