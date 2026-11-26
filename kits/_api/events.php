@@ -135,7 +135,7 @@ function send_link(string $why, array $summary = []): bool {
  * -- opening products, running the advisor, building a quote -- decayed by age so this morning beats last month.
  * Staff traffic is kept out: the store marks a browser that has opened this dashboard (same origin) or used
  * ?jdpstaff=1, and the server remembers the network the dashboard was opened from. */
-const DASH_KITS_SKIP = ['demo', '_lib', '_app', '_dash', '_catalog', '_api'];
+const DASH_KITS_SKIP = ['demo', 'acc-preview', '_lib', '_app', '_dash', '_catalog', '_api'];   // acc-preview = our own 'Your Company' template, never a buyer
 const LEAD_W = ['view' => 0, 'engaged' => 3, 'search' => 2, 'search0' => 3, 'sheet' => 2, 'add' => 6, 'board' => 4,
     'checkout' => 14, 'sent' => 30, 'quote_view' => 6, 'quote_pdf' => 12, 'quote_share' => 10, 'quote_qty' => 3,
     'quote_sizes' => 4, 'quote_sizes_open' => 2, 'rfq_open' => 6, 'program' => 3, 'program_quote' => 8,
