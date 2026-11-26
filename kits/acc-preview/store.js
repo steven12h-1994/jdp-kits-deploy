@@ -13558,7 +13558,7 @@ var GA_ANG={sp_dw334:'Insulated 21 oz steel bottle',sp_dw335:'32 oz insulated bo
   sp_bgr105:'Recycled canvas laptop backpack',sp_bg125:'17″ laptop backpack',sp_bg210:'Weekender with laptop pocket',sp_bg212:'Duffle with laptop sleeve',sp_bg215:'Garment duffel for suits',
   sp_bg216:'Duffel that converts to a backpack',sp_bg218:'Premium recycled-PU duffel',sp_bg219:'Expandable laptop duffle',sp_bg506:'Expandable laptop tote',sp_bg508:'Quilted laptop tote',
   sp_bg507:'Recycled canvas tote',sp_bgr200:'Recycled canvas duffle',
-  vest:'Quilted vest — the most-requested piece',st_nautilusjkt:'Quilted jacket',cbc_traverse_qz:'Cutter & Buck stretch quarter-zip',st_avalanteqz:'Sweater-knit fleece quarter-zip',
+  vest:'Quilted vest',st_nautilusjkt:'Quilted jacket',cbc_traverse_qz:'Cutter & Buck stretch quarter-zip',st_avalanteqz:'Sweater-knit fleece quarter-zip',
   st_altitude:'Ultralight quilted jacket',st_stavanger:'Quilted jacket for real cold',st_tundrashacket:'Quilted shirt-jacket',st_oxide:'Sherpa-lined canvas jacket',cb_qzip:'Cutter & Buck soft-knit half-zip',
   st_avalante:'Full-zip fleece',forge:'Heavyweight hoodie',flux:'Quarter-zip sweatshirt',st_matrix:'3-in-1 jacket',st_bushwick:'Structured quilted jacket',cbc_evoke_fleece:'Cutter & Buck honeycomb softshell',
   cb_roamqz:'Cutter & Buck soft-knit quarter-zip',st_pacificawind:'Ultra-light hooded shell',st_stavangervest:'Packable quilted vest',st_basecampvest:'Heavier quilted vest',
@@ -13632,8 +13632,10 @@ function giftResolve(A){var q=gaQ(A),B=null;GIFT_BUD.forEach(function(b){if(b.id
   var inB=pool.filter(function(k){var p=gaUnit(k,q);return p>=B.lo&&p<B.hi;}),pk=inB[0],near=false;
   if(!pk){near=true;pk=pool.slice().sort(function(a,b){function d(k){var p=gaUnit(k,q);return p<B.lo?B.lo-p:p-B.hi;}return d(a)-d(b);})[0];}
   var pp=gaUnit(pk,q);
-  var lo=pool.filter(function(k){return k!==pk&&gaUnit(k,q)<pp*0.93;})[0]||null;
-  var hi=pool.filter(function(k){return k!==pk&&gaUnit(k,q)>pp*1.07;})[0]||null;
+  /* the neighbours either side of the pick: the closest real step down and the closest real step up, so the trade-off reads
+     as one decision rather than a jump from a $234 jacket to a $56 vest */
+  var lo=pool.filter(function(k){return k!==pk&&gaUnit(k,q)<pp*0.93;}).sort(function(a,b){return gaUnit(b,q)-gaUnit(a,q);})[0]||null;
+  var hi=pool.filter(function(k){return k!==pk&&gaUnit(k,q)>pp*1.07;}).sort(function(a,b){return gaUnit(a,q)-gaUnit(b,q);})[0]||null;
   return {q:q,B:B,near:near,pick:gaRes(pk,q),lo:gaRes(lo,q),hi:gaRes(hi,q),box:giftBox(pk,q,A)};}
 /* The gift box: the pick plus what makes it a box. A boxed set is already one. Add-ons respect the count's minimums. */
 function giftBox(pk,q,A){var K=gaKind(pk);if(K==='kit'||isUS())return null;
@@ -13697,12 +13699,17 @@ function gaTierHtml(k,q){var T=gaTiers(k);if(T.length<2)return '';var on=0;T.for
   return '<div class="cpctiers"><div class="cpctier" role="list" aria-label="Price per piece by quantity">'+T.map(function(t,i){return '<span role="listitem" class="'+(i===on?'on':'')+'"><i>'+t.q+'+</i><b>'+money(t.p)+'</b></span>';}).join('')+'</div>'+note+'</div>';}
 function gaCostLine(keys){var app=keys.some(function(k){return !gaPromo(k);}),pro=keys.some(gaPromo);
   return (pro&&!app)?'your logo included · no setup fee · before tax &amp; freight':(app&&!pro?'your logo included · before one-time logo setup, tax &amp; freight':'logo included on every piece · one-time logo setup on apparel only · before tax &amp; freight');}
-function gaAltHtml(cfg,r,role,pp){if(!r)return '';var d=r.p-pp,lab=role==='lo'?'Lower cost':'Step up';
+function gaAltHtml(cfg,r,role,pp,PK){if(!r)return '';var d=r.p-pp,lab=role==='lo'?'Lower cost':'Step up';
   return '<div class="cpcalt"><button type="button" class="cpcaimg" data-gaopen="'+esc(r.k)+'" aria-label="See '+esc(BYKEY[r.k].name)+'">'+gaShot(r.k)+'</button>'+
     '<div class="cpcab"><span class="cpcal"><em>'+lab+'</em><span class="cpcad '+(d<0?'lo':'hi')+'">'+(d<0?('Save '+money(-d)+' a person'):('+'+money(d)+' a person'))+'</span></span>'+
-    '<b class="cpcan">'+esc(BYKEY[r.k].name)+'</b><span class="cpcabr">'+esc(gaBrand(r.k))+' · '+money(r.p)+' each</span><span class="cpcatr">'+esc(gaAng(r.k))+(role==='lo'?' — the lower-cost way to do it':' — what the extra buys')+'</span></div>'+
+    '<b class="cpcan">'+esc(BYKEY[r.k].name)+'</b><span class="cpcabr">'+esc(gaBrand(r.k))+' · '+money(r.p)+' each</span><span class="cpcatr">'+esc(gaAng(r.k))+' instead of '+esc(gaAng(PK).charAt(0).toLowerCase()+gaAng(PK).slice(1))+'</span></div>'+
     '<button type="button" class="cpcuse" data-gachoose="'+esc(r.k)+'">Choose this</button></div>';}
-function gaBoxHtml(cfg,A,R){var B=R.box;if(!B)return '';var q=R.q,main=R.pick.k,off=GA_OFF[cfg.id]||{};
+/* Add-ons that keep the box inside the buyer's budget start ticked; the rest start unticked with their price showing --
+   the buyer's own number decides, never ours. A buyer's own tick or untick always wins. */
+function gaBoxOff(cfg,A,R){var B=R.box,sig=B.main+'|'+R.q+'|'+(A.bud||''),o=GA_OFF[cfg.id];
+  if(o&&o._sig===sig)return o;o=GA_OFF[cfg.id]={_sig:sig};
+  var hi=R.B?R.B.hi:1e9,run=gaUnit(B.main,R.q);B.adds.forEach(function(k){var p=gaUnit(k,R.q);if(run+p<=hi+0.001)run+=p;else o[k]=true;});return o;}
+function gaBoxHtml(cfg,A,R){var B=R.box;if(!B)return '';var q=R.q,main=R.pick.k,off=gaBoxOff(cfg,A,R);
   var lines=[main].concat(B.adds),on=lines.filter(function(k){return k===main||!off[k];});
   var per=on.reduce(function(s,k){return s+gaUnit(k,q);},0),bud=R.B,fit=bud?(per<bud.hi?'Fits your budget':('+'+money(per-bud.hi)+' over your top of '+money0(bud.hi))):'';
   return '<article class="cpc gabox"><header class="cpchd"><span class="cpcfor">Make it a gift box</span><span class="cpcbadge">'+on.length+' piece'+(on.length===1?'':'s')+' a person</span></header>'+
@@ -13710,7 +13717,7 @@ function gaBoxHtml(cfg,A,R){var B=R.box;if(!B)return '';var q=R.q,main=R.pick.k,
     '<div class="gaboxl">'+lines.map(function(k){var isM=k===main,o=isM||!off[k];
       return '<div class="gabi'+(o?'':' off')+'"><span class="gabimg"><span class="capst">'+gaShot(k)+'</span></span><span class="gabtx"><b>'+esc(BYKEY[k].name)+'</b><i>'+esc(isM?'Your pick':gaAng(k))+' · '+money(gaUnit(k,q))+'</i>'+
         (isM?'':'<span class="gabdeco">'+esc(gaDecoTxt(k))+'</span>')+'</span>'+
-        (isM?'<span class="gabtag">Included</span>':'<label class="gabtog"><input type="checkbox" data-gaoff="'+esc(k)+'"'+(o?' checked':'')+'> In the box</label>')+'</div>';}).join('')+'</div>'+
+        (isM?'<span class="gabtag">Included</span>':'<label class="gabtog"><input type="checkbox" data-gaoff="'+esc(k)+'"'+(o?' checked':'')+'> '+(o?'In the box':('Add · +'+money(gaUnit(k,q))))+'</label>')+'</div>';}).join('')+'</div>'+
     '<div class="gaboxt"><div><b>'+money(per)+'</b><i>per person · '+money(per*q)+' for '+q+' · '+gaCostLine(on)+'</i>'+(fit?'<em class="'+(per<(bud?bud.hi:1e9)?'ok':'over')+'">'+esc(fit)+'</em>':'')+'</div>'+
       '<button type="button" class="jaall cpadd" data-gaaddbox="1">Add the gift box to my quote →</button></div></article>';}
 function gaResultHtml(cfg,A){var R=cfg.resolve(A),qs=cfg.qs();
@@ -13738,8 +13745,9 @@ function gaResultHtml(cfg,A){var R=cfg.resolve(A),qs=cfg.qs();
       '<input class="cpsi" type="text" inputmode="numeric" pattern="[0-9]*" data-gaqi="1" value="'+q+'" aria-label="How many"><button type="button" class="cpsb" data-gaq="1" aria-label="More">+</button></div>'+
       '<div class="cpcprice"><b>'+money(P.p)+'</b><i>each at '+q+', '+(gaPromo(k)?'your logo included':'your logo included · plus one-time setup')+'</i></div>'+
       '<div class="cpcline"><span>Line total</span><b>'+money(tot)+'</b></div>'+gaTierHtml(k,q)+
+      (!(parseInt(A.n,10)>0)&&getHC()!==q?'<p class="gahint">Priced at '+q+(A.qty==='u25'?', our apparel minimum':', the bottom of your range')+' — enter your exact count above.</p>':'')+
       '<button type="button" class="jaall gaadd1" data-gaadd="'+esc(k)+'">'+(cartHasAny(k)?'✓ In your quote — view it':'Add to my quote →')+'</button></div></div>'+
-    ((R.lo||R.hi)?('<div class="cpcalts"><div class="cpcalth"><span>Other options at '+q+'</span></div><div class="cpcaltl">'+gaAltHtml(cfg,R.lo,'lo',P.p)+gaAltHtml(cfg,R.hi,'hi',P.p)+'</div></div>'):
+    ((R.lo||R.hi)?('<div class="cpcalts"><div class="cpcalth"><span>Other options at '+q+'</span></div><div class="cpcaltl">'+gaAltHtml(cfg,R.lo,'lo',P.p,k)+gaAltHtml(cfg,R.hi,'hi',P.p,k)+'</div></div>'):
       '<div class="cpcalts"><div class="cpcalth"><span>This is already the lowest-cost way to do it at '+q+'</span></div></div>')+'</article>';
   var box=cfg.id==='gifts'?gaBoxHtml(cfg,A,R):'';
   var browse=cfg.id==='gifts'?('<div class="gabrowse"><span>Rather see everything?</span>'+(BUCKETS.accessories&&BUCKETS.accessories['Kits & Gift Sets']?'<button type="button" class="jalink" data-gashelf="accessories|Kits & Gift Sets">Boxed gift sets →</button>':'')+
@@ -13782,7 +13790,7 @@ function gaWire(host,cfg){if(host._gaw)return;host._gaw=1;
     if(d.gaopen!=null){jdpTrack('xp_open',{k:d.gaopen,src:'ga_'+cfg.id});openSheet(d.gaopen,GA_COL[d.gaopen]||null);return;}
     if(d.gaadd!=null){var k=d.gaadd;if(cartHasAny(k)){openQuote('advisor');return;}var R3=cfg.resolve(A);gaAddLine(k,R3?R3.q:gaMin(k),gaCol(k));setHC(R3?R3.q:0);
       jdpTrack('ga_add',{c:cfg.id,k:k,q:R3?R3.q:0});toast('Added to your quote · '+BYKEY[k].name);b.textContent='✓ In your quote — view it';return;}
-    if(d.gaaddbox!=null){var R4=cfg.resolve(A);if(!R4||!R4.box)return;var off=GA_OFF[cfg.id]||{},L=[R4.box.main].concat(R4.box.adds).filter(function(x){return x===R4.box.main||!off[x];});
+    if(d.gaaddbox!=null){var R4=cfg.resolve(A);if(!R4||!R4.box)return;var off=gaBoxOff(cfg,A,R4),L=[R4.box.main].concat(R4.box.adds).filter(function(x){return x===R4.box.main||!off[x];});
       L.forEach(function(x){gaAddLine(x,R4.q,gaCol(x));});setHC(R4.q);jdpTrack('ga_addbox',{c:cfg.id,n:L.length,q:R4.q});
       toast('Added '+L.length+' piece'+(L.length===1?'':'s')+' × '+R4.q+' to your quote');b.textContent='✓ In your quote — view it';b.dataset.gaaddbox=null;b.removeAttribute('data-gaaddbox');b.setAttribute('data-gaview','1');return;}
     if(d.gaview!=null){openQuote('advisor');return;}
@@ -13790,7 +13798,7 @@ function gaWire(host,cfg){if(host._gaw)return;host._gaw=1;
     if(d.gashelf!=null){var s=d.gashelf.split('|');jdpTrack('ga_browse',{c:cfg.id,to:d.gashelf});try{jvClose();}catch(x){}setCat(s[0],false);if(s[1])try{setSub(s[1]);}catch(x){}try{jvSync();syncViewUrl();}catch(x){}window.scrollTo({top:0,behavior:'auto'});return;}
   });
   host.addEventListener('change',function(e){var t=e.target;if(!t)return;var A=gaA(cfg.id);
-    if(t.dataset&&t.dataset.gaoff!=null){var o=GA_OFF[cfg.id]=GA_OFF[cfg.id]||{};o[t.dataset.gaoff]=!t.checked;jdpTrack('ga_boxtog',{k:t.dataset.gaoff,on:t.checked?1:0});gaRe(cfg);return;}
+    if(t.dataset&&t.dataset.gaoff!=null){var R5=cfg.resolve(A),o=(R5&&R5.box)?gaBoxOff(cfg,A,R5):(GA_OFF[cfg.id]=GA_OFF[cfg.id]||{});o[t.dataset.gaoff]=!t.checked;jdpTrack('ga_boxtog',{k:t.dataset.gaoff,on:t.checked?1:0});gaRe(cfg);return;}
     if(t.dataset&&t.dataset.gaqi!=null){var n=parseInt(t.value,10)||0;if(n>0){A.n=n;gaSave();gaRe(cfg);}}});}
 function gaTop(host){try{var r=host.getBoundingClientRect();if(r.top<0||r.top>window.innerHeight*0.6)window.scrollTo({top:Math.max(0,window.scrollY+r.top-90),behavior:'smooth'});}catch(e){}}
 /* "Choose this" swaps the alternative in as the pick, keeping the original as an alternative -- one tap, no re-asking */
