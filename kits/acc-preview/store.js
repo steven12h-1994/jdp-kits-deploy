@@ -13615,18 +13615,18 @@ var GIFT_ADD={drink:['sp_dw334','sp_dw339','sp_dw335','sp_dw329'],journal:['sp_s
 /* ---- 5. RESOLVERS ------------------------------------------------------------------------------------------------- */
 function gaFirst(list,q,test){for(var i=0;i<(list||[]).length;i++){var k=list[i];if(gaOk(k,q)&&(!test||test(k)))return k;}return null;}
 function gaRes(k,q,why){if(!k)return null;return {k:k,p:gaUnit(k,q),why:why||gaWhy(k)};}
-function accResolve(A){var q=gaQ(A),C=ACC_CUR[A.what+'|'+A['for']];if(!C)return null;
+function accResolve(A,qo){var q=qo||gaQ(A),C=ACC_CUR[A.what+'|'+A['for']];if(!C)return null;
   var pk=gaFirst(C.p,q);
   if(!pk){var fb=accPool(A.what).filter(function(k){return gaOk(k,q);}).sort(function(a,b){return gaUnit(a,q)-gaUnit(b,q);});pk=fb[0]||null;}
   if(!pk)return {q:q,none:true};
-  var pp=gaUnit(pk,q),lo=gaFirst(C.lo,q,function(k){return k!==pk&&gaUnit(k,q)<pp-0.01;}),hi=gaFirst(C.hi,q,function(k){return k!==pk&&gaUnit(k,q)>pp+0.01;});
-  if(!lo&&A['for']!=='event'){var L=accPool(A.what).filter(function(k){return k!==pk&&gaOk(k,q)&&gaUnit(k,q)<pp-0.01;}).sort(function(a,b){return gaUnit(b,q)-gaUnit(a,q);});lo=L[0]||null;}
+  var pp=gaUnit(pk,q),lo=gaFirst(C.lo,q,function(k){return k!==pk&&gaUnit(k,q)<pp*0.93;}),hi=gaFirst(C.hi,q,function(k){return k!==pk&&gaUnit(k,q)>pp*1.07;});
+  if(!lo&&A['for']!=='event'){var L=accPool(A.what).filter(function(k){return k!==pk&&gaOk(k,q)&&gaUnit(k,q)<pp*0.93;}).sort(function(a,b){return gaUnit(b,q)-gaUnit(a,q);});lo=L[0]||null;}
   return {q:q,pick:gaRes(pk,q),lo:gaRes(lo,q),hi:gaRes(hi,q)};}
 function accPool(what){var subs={drink:['Water Bottles','Tumblers','Mugs','Drinkware'],desk:['Notebooks & Pens'],tech:['Tech'],kit:['Kits & Gift Sets']}[what]||[],out=[];
   subs.forEach(function(s){((BUCKETS.accessories||{})[s]||[]).forEach(function(k){if(out.indexOf(k)<0)out.push(k);});});return out;}
 function giftFloorOk(k,q){var it=BYKEY[k];return !!it&&(it.gift===true||gaUnit(k,q)>=GIFT_FLOOR);}
 function giftPoolFor(A){var who=A.who==='staff'?'staff':'clients',P=GIFT_POOL[who];if(A.kind==='best')return GIFT_BEST[who];return (P&&P[A.kind])||[];}
-function giftResolve(A){var q=gaQ(A),B=null;GIFT_BUD.forEach(function(b){if(b.id===A.bud)B=b;});if(!B)return null;
+function giftResolve(A,qo){var q=qo||gaQ(A),B=null;GIFT_BUD.forEach(function(b){if(b.id===A.bud)B=b;});if(!B)return null;
   var pool=giftPoolFor(A).filter(function(k){return gaOk(k,q)&&giftFloorOk(k,q);});
   if(!pool.length)return {q:q,none:true};
   var inB=pool.filter(function(k){var p=gaUnit(k,q);return p>=B.lo&&p<B.hi;}),pk=inB[0],near=false;
@@ -13729,7 +13729,7 @@ function gaResultHtml(cfg,A){var R=cfg.resolve(A),qs=cfg.qs();
       esc(R&&R.q?('At '+R.q+' pieces none of these meet the supplier’s minimum. Change the count or the kind of gift — or have Steven source the exact thing.'):'Change an answer, or have Steven source the exact thing.')+'</p></div>'+
       '<div class="cainner"><div class="casum"><span class="casuml">Picked for</span>'+chips+'</div><div class="cpfoot"><span>Want something specific?</span><button type="button" class="jalink" data-gaask="1">Have Steven source it</button></div></div></section>';}
   var q=R.q,P=R.pick,k=P.k,it=BYKEY[k],col=gaCol(k),tot=P.p*q,facts=gaFacts(k),deco=gaDecoTxt(k),sizes=gaHasSizes(k);
-  var nearNote=R.near?'<p class="ganear">Nothing in this kind lands inside your budget at '+q+' pieces, so this is the closest we stock. The options below go either way.</p>':'';
+  var nearNote=(R.minUp?'<p class="ganear">These have a supplier minimum of '+R.minUp+' pieces, so we’ve priced '+R.minUp+' — the smallest order that can be placed.'+(cfg.id==='acc'?' Fewer than that? A boxed set starts at 10, or ask Steven.':'')+'</p>':'')+(R.near?'<p class="ganear">Nothing in this kind lands inside your budget at '+q+' pieces, so this is the closest we stock. The options below go either way.</p>':'');
   var kpis='<div class="cakpis"><div><b>'+q+'</b><i>'+(cfg.id==='gifts'?'people':'pieces')+'</i></div><div><b>'+money(P.p)+'</b><i>per '+(cfg.id==='gifts'?'person':'piece')+'</i></div>'+
     '<div class="big"><b>'+money(tot)+'</b><i>estimate for '+q+'</i></div><div><b>'+gaMin(k)+'</b><i>minimum order</i></div></div>';
   var main='<article class="cpc"><header class="cpchd"><span class="cpcfor">Our recommendation</span><span class="cpcbadge">✓ Our pick</span></header><div class="cpcbody">'+
@@ -13745,7 +13745,7 @@ function gaResultHtml(cfg,A){var R=cfg.resolve(A),qs=cfg.qs();
       '<input class="cpsi" type="text" inputmode="numeric" pattern="[0-9]*" data-gaqi="1" value="'+q+'" aria-label="How many"><button type="button" class="cpsb" data-gaq="1" aria-label="More">+</button></div>'+
       '<div class="cpcprice"><b>'+money(P.p)+'</b><i>each at '+q+', '+(gaPromo(k)?'your logo included':'your logo included · plus one-time setup')+'</i></div>'+
       '<div class="cpcline"><span>Line total</span><b>'+money(tot)+'</b></div>'+gaTierHtml(k,q)+
-      (!(parseInt(A.n,10)>0)&&getHC()!==q?'<p class="gahint">Priced at '+q+(A.qty==='u25'?', our apparel minimum':', the bottom of your range')+' — enter your exact count above.</p>':'')+
+      (!R.minUp&&!(parseInt(A.n,10)>0)&&getHC()!==q?'<p class="gahint">Priced at '+q+(A.qty==='u25'?', our apparel minimum':', the bottom of your range')+' — enter your exact count above.</p>':'')+
       '<button type="button" class="jaall gaadd1" data-gaadd="'+esc(k)+'">'+(cartHasAny(k)?'✓ In your quote — view it':'Add to my quote →')+'</button></div></div>'+
     ((R.lo||R.hi)?('<div class="cpcalts"><div class="cpcalth"><span>Other options at '+q+'</span></div><div class="cpcaltl">'+gaAltHtml(cfg,R.lo,'lo',P.p,k)+gaAltHtml(cfg,R.hi,'hi',P.p,k)+'</div></div>'):
       '<div class="cpcalts"><div class="cpcalth"><span>This is already the lowest-cost way to do it at '+q+'</span></div></div>')+'</article>';
@@ -13806,7 +13806,11 @@ var _accR=accResolve,_giftR=giftResolve;
 function gaSwapped(R,A){if(!R||!R.pick||!A._swap||!BYKEY[A._swap])return R;var s=A._swap,q=R.q;if(R.pick.k===s)return R;
   var old=R.pick,ns=gaRes(s,q),lo=null,hi=null;[old,R.lo,R.hi].forEach(function(x){if(!x||x.k===s)return;if(x.p<ns.p){if(!lo||x.p>lo.p)lo=x;}else{if(!hi||x.p<hi.p)hi=x;}});
   var o={};for(var p in R)o[p]=R[p];o.pick=ns;o.lo=lo;o.hi=hi;o.near=false;if(R.box)o.box=giftBox(s,q,A);return o;}
-accResolve=function(A){return gaSwapped(_accR(A),A);};giftResolve=function(A){return gaSwapped(_giftR(A),A);};
+/* Below a supplier's minimum we don't dead-end: we price the lowest count that CAN be ordered and say so plainly. */
+function gaMinUp(res,A,pool){var R=res(A);if(!R||!R.none)return R;var m=1e9;(pool||[]).forEach(function(k){var it=BYKEY[k];if(it&&!it.eol&&!it.oos&&!/^(ch|nk|tnf|ad)_/.test(k))m=Math.min(m,gaMin(k));});
+  if(m<1e9&&m>R.q){var R2=res(A,m);if(R2&&!R2.none&&R2.pick){R2.minUp=m;R2.asked=R.q;return R2;}}return R;}
+function accPoolAll(A){var C=ACC_CUR[A.what+'|'+A['for']]||{};return [].concat(C.p||[],C.lo||[],C.hi||[],accPool(A.what));}
+accResolve=function(A){return gaSwapped(gaMinUp(_accR,A,accPoolAll(A)),A);};giftResolve=function(A){return gaSwapped(gaMinUp(_giftR,A,giftPoolFor(A)),A);};
 GA_CFG.acc.resolve=function(A){return accResolve(A);};GA_CFG.gifts.resolve=function(A){return giftResolve(A);};
 /* any change of answer clears a swap */
 
