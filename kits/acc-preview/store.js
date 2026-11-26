@@ -13927,7 +13927,7 @@ function gaBoxHtml(cfg,A,R){var B=R.box;if(!B)return '';var q=R.q,main=R.pick.k,
     '<div class="gaboxl">'+lines.map(function(k){var isM=k===main,o=isM||!off[k];
       return '<div class="gabi'+(o?'':' off')+'"><span class="gabimg"><span class="capst">'+gaShot(k)+'</span></span><span class="gabtx"><b>'+esc(BYKEY[k].name)+'</b><i>'+esc(isM?'Your pick':gaAng(k))+' · '+money(gaUnit(k,q))+'</i>'+
         (isM?'':'<span class="gabdeco">'+esc(gaDecoTxt(k))+'</span>')+'</span>'+
-        (isM?'<span class="gabtag">Included</span>':'<label class="gabtog"><input type="checkbox" data-gaoff="'+esc(k)+'"'+(o?' checked':'')+'> '+(o?'In the box':('Add · +'+money(gaUnit(k,q))))+'</label>')+'</div>';}).join('')+'</div>'+
+        (isM?'<span class="gabtag">Included</span>':'<label class="gabtog"><input type="checkbox" data-gaoff="'+esc(k)+'"'+(o?' checked':'')+'> '+(o?(cfg.id==='gifts'?'In the box':'Added'):('Add · +'+money(gaUnit(k,q))))+'</label>')+'</div>';}).join('')+'</div>'+
     '<div class="gaboxt"><div><b>'+money(per)+'</b><i>per '+gaUW(cfg)+' · '+money(per*q)+' for '+q+' · '+gaCostLine(on)+'</i>'+(fit?'<em class="'+(per<(bud?bud.hi:1e9)?'ok':'over')+'">'+esc(fit)+'</em>':'')+'</div>'+
       '<button type="button" class="jaall cpadd" data-gaaddbox="1">'+esc(B.cta||'Add the gift box to my quote →')+'</button></div></article>';}
 function gaResultHtml(cfg,A){var R=cfg.resolve(A),qs=cfg.qs();
@@ -14056,11 +14056,13 @@ var _gaRAV=renderAdvView;renderAdvView=function(){var el=document.getElementById
   _gaRAV();
   /* the hub: one group for gifts and the five accessory categories, each tile with its own product photo */
   try{if(!el||ADV_CUR)return;var tiles=GA_CATS.filter(gaCatOn).map(function(c){var t=GA_CFG[c].tile;return gaHubTile(c,t[0],t[1],t[2],GA_CFG[c].qs().length+' questions');});
-    tiles.push(gaHubTile('gifts','Gifts','A gift and a ready-made gift box for your budget and headcount',isUS()?'vest':'sp_gf142','4 questions'));
-    var html='<section class="ah4g" id="gaEss" aria-label="Gifts, drinkware &amp; desk essentials"><header class="ah4gh"><h2>Gifts, drinkware &amp; desk essentials</h2>'+
-      '<p>Bottles, journals, pens, tech and boxed sets — every price with your logo included.</p></header><div class="ah4gt n'+(tiles.length===6?'6':Math.min(tiles.length,4))+'">'+tiles.join('')+'</div></section>';
+    var gtile=gaHubTile('gifts','Gifts','A gift and a ready-made gift box for your budget and headcount',isUS()?'vest':'sp_gf142','4 questions');
     var occ=null;el.querySelectorAll('.ah4g').forEach(function(s){if(/Occasions/.test(s.getAttribute('aria-label')||''))occ=s;});
-    if(occ)occ.insertAdjacentHTML('afterend',html);else{var or=el.querySelector('.ah4x');if(or)or.insertAdjacentHTML('beforebegin',html);else el.insertAdjacentHTML('beforeend',html);}
+    if(!tiles.length){var og=occ&&occ.querySelector('.ah4gt');if(og){og.insertAdjacentHTML('beforeend',gtile);var n=og.querySelectorAll('.ah4t').length;og.className=og.className.replace(/\bn\d+\b/,'n'+Math.min(n,4));}}
+    else tiles.push(gtile);
+    var html=tiles.length<2?'':'<section class="ah4g" id="gaEss" aria-label="Gifts, drinkware &amp; desk essentials"><header class="ah4gh"><h2>Gifts, drinkware &amp; desk essentials</h2>'+
+      '<p>Bottles, journals, pens, tech and boxed sets — every price with your logo included.</p></header><div class="ah4gt n'+(tiles.length===6?'6':Math.min(tiles.length,4))+'">'+tiles.join('')+'</div></section>';
+    if(!html){}else if(occ)occ.insertAdjacentHTML('afterend',html);else{var or=el.querySelector('.ah4x');if(or)or.insertAdjacentHTML('beforebegin',html);else el.insertAdjacentHTML('beforeend',html);}
     el.querySelectorAll('.ah4xc[data-jv="gifts"] i').forEach(function(i){i.textContent='Four quick questions — our pick and a gift box, priced per person.';});
     el.querySelectorAll('[data-gahub]').forEach(function(b){b.addEventListener('click',function(){var c=b.dataset.gahub;jdpTrack('adv_go',{c:c,src:'hub'});
       if(c==='gifts'){try{jvClose();}catch(e){}setGiftView(true);}else openAdvView(c,'hub');});});}catch(e){}};
