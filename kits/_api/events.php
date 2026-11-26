@@ -67,6 +67,11 @@ const SIG_MAIL_CAP = 60;         // fallback alert emails per day, if the relay 
 const SIG_ABANDON  = 1200;       // checkout opened, nothing sent this long after -> checkout_abandon
 const SCAN_WIN     = 60;         // 3+ page-load-only sessions on one store inside this many seconds = a scanner
 const SIG_ACTION_SKIP = ['view', 'exit_show', 'market_hint'];   // not something a person chose to do
+/* ONE definition of "a person was in the store", shared by the alerts (sig_check) and the dashboard (dash_feed).
+   Until 2026-11-26 the dashboard ignored `engaged` (first real scroll/tap/key) while the alerts counted it, so a
+   buyer who scrolled got a "call now" email but never appeared on the dashboard (North America Construction,
+   Nov 25). Never fork this test again: both sides call person_ev(). */
+function person_ev(string $e): bool { return $e !== '' && !in_array($e, SIG_ACTION_SKIP, true); }
 
 function data_root(): string { return dirname(__DIR__, 3) . '/jdp-board-data'; }
 function ensure_dir(string $d): bool { return is_dir($d) || (@mkdir($d, 0775, true) && is_dir($d)); }
@@ -216,9 +221,9 @@ function dash_feed(int $days, string $only = ''): array {
        nothing else. A session that only ever loaded the page is never a lead (view scores 0); three or more of
        them on one store inside SCAN_WIN seconds are dropped from every count, so they cannot pad the funnel either. */
     $bare = [];
-    foreach ($sess as $sid => $S) { if (!empty($S['i'])) continue; $only = true;
-        foreach ($S['ev'] as $r) if (($r['e'] ?? '') !== 'view') { $only = false; break; }
-        if ($only) $bare[$S['kit']][] = [(int)$S['ev'][0]['t'], $sid]; }
+    foreach ($sess as $sid => $S) { if (!empty($S['i'])) continue; $bareOnly = true;     // NOT $only: that is the company filter (clobbered until 2026-11-26)
+        foreach ($S['ev'] as $r) if (($r['e'] ?? '') !== 'view') { $bareOnly = false; break; }
+        if ($bareOnly) $bare[$S['kit']][] = [(int)$S['ev'][0]['t'], $sid]; }
     $scan = 0;
     foreach ($bare as $kit => $rows) { usort($rows, static fn($a, $b) => $a[0] <=> $b[0]); $n = count($rows);
         for ($a = 0; $a < $n; $a++) { $b = $a; while ($b + 1 < $n && $rows[$b + 1][0] - $rows[$a][0] <= SCAN_WIN) $b++;
@@ -236,8 +241,8 @@ function dash_feed(int $days, string $only = ''): array {
         if ($utm !== '' && strpos($utm, 'nl') === 0) $src = 'utm:' . $utm;          // a newsletter edition beats the generic 'nl' step
         elseif ($ctS !== '') $src = 'ct:' . $ctS; elseif ($utm !== '') $src = 'utm:' . $utm;
         $acts = 0; $brow = false; $strong = false;
-        foreach ($ev as $r) { $e0 = $r['e'] ?? ''; if ($e0 === 'engaged') $brow = true;
-            elseif (!in_array($e0, ['view', 'exit_show', 'market_hint', 'logo_home'], true)) { $acts++; $brow = true; }
+        foreach ($ev as $r) { $e0 = (string)($r['e'] ?? '');
+            if (person_ev($e0)) { $acts++; $brow = true; }
             if (in_array($e0, ['sent', 'checkout', 'quote_pdf', 'quote_share', 'quote_view', 'ca_add', 'program_quote', 'program_share', 'sheet_quote', 'board_quote'], true)) $strong = true; }
         $stg = 0; $sql = null; foreach ($ev as $r) { $stg = max($stg, stage_of((string)($r['e'] ?? ''))); if (!empty($r['ql'])) $sql = $r; }
         if ($acts) { $wk = gmdate('o-\WW', $first); $W = &$WK[$wk]; $W['visits'] = ($W['visits'] ?? 0) + 1; $W['stores'][$kit] = 1;
@@ -379,6 +384,33 @@ function dash_feed(int $days, string $only = ''): array {
             'quotes' => array_map(static fn($x) => ['t' => $x['t'], 'tot' => $x['tot'], 'lines' => array_map(static fn($l) => ['name' => $names[$l['k'] ?? ''] ?? ($l['k'] ?? ''), 'colour' => $l['col'] ?? '', 'qty' => (int)($l['q'] ?? 0)], $x['ql'])],
                 array_slice(array_reverse($K['quotes'] ?? []), 0, $only !== '' ? 50 : 3))];
     }
+    /* --- every alert we emailed Steven is on the dashboard, full stop (2026-11-26) ---
+       Read straight from the signal log, so an account that got a "call now" email can never be missing here, even if
+       a later change to the visit rules disagrees with the alert rules. A store with an alert but no counted session
+       still gets a row. */
+    $AL = []; $alerts = []; $sgf = sig_dir() . '/signals.jsonl'; $a7 = $now - 7 * 86400;
+    if (is_file($sgf)) { $fh = @fopen($sgf, 'r'); if ($fh) { while (($ln = fgets($fh)) !== false) { $r = json_decode($ln, true);
+        if (!is_array($r) || !empty($r['test']) || empty($r['kit'])) continue; $k = (string)$r['kit']; $t = (int)($r['t'] ?? 0);
+        if (in_array($k, DASH_KITS_SKIP, true) || strpos($k, 'test') === 0 || strpos($k, 'zz-sigtest') === 0) continue;
+        if ($only !== '' && $k !== $only) continue; if ($t < $since) continue;
+        $a = ['t' => $t, 'trigger' => (string)($r['trigger'] ?? ''), 'detail' => (string)($r['detail'] ?? ''), 'ct' => (string)($r['ct'] ?? '')];
+        if (!empty($r['total'])) $a['total'] = (int)$r['total'];
+        $AL[$k][] = $a; if ($t >= $a7) $alerts[] = $a + ['kit' => $k]; } fclose($fh); } }
+    $have = array_flip(array_column($leads, 'kit')); $kn2 = kit_names(array_keys(array_diff_key($AL, $have)));
+    foreach ($AL as $k => $list) if (!isset($have[$k])) { $t0 = (int)$list[0]['t']; $t1 = (int)end($list)['t'];
+        $leads[] = ['kit' => $k, 'client' => $kn2[$k] ?? $k, 'score' => 0, 'tier' => 'cool', 'live' => false, 'first' => $t0, 'last' => $t1,
+            'sessions' => 0, 'engaged' => 0, 'days' => 1, 'counts' => new stdClass(), 'signals' => [], 'products' => [], 'searches' => [],
+            'advisor' => new stdClass(), 'market' => null, 'refs' => [], 'devices' => [], 'timeline' => [], 'contact' => $contacts[$k] ?? null,
+            'mark' => $marks[$k] ?? null, 'quiet' => false, 'people' => [], 'forwarded' => false, 'priced' => [], 'priced_total' => null, 'sources' => [],
+            'real' => 0, 'calls' => [], 'sends' => array_slice(array_reverse($sends[$k] ?? []), 0, 12), 'stage' => 1, 'stage_t' => new stdClass(),
+            'devices_n' => 0, 'quotes' => []]; }
+    foreach ($leads as &$ld) { $list = array_reverse($AL[$ld['kit']] ?? []);
+        $ld['alerts_n'] = count($list); $ld['alerts'] = array_slice($list, 0, $only !== '' ? 100 : 5);
+        if ($list) { $ld['last'] = max((int)$ld['last'], (int)$list[0]['t']); if (empty($ld['stage'])) $ld['stage'] = 1; } }
+    unset($ld);
+    usort($alerts, static fn($a, $b) => $b['t'] <=> $a['t']);
+    $kn3 = kit_names(array_unique(array_column($alerts, 'kit')));
+    foreach ($alerts as &$a) $a['client'] = (($contacts[$a['kit']] ?? [])['company'] ?? '') ?: ($kn3[$a['kit']] ?? $a['kit']); unset($a);
     usort($leads, static fn($a, $b) => ($a['quiet'] <=> $b['quiet']) ?: ($b['score'] <=> $a['score']));
     /* --- improvement rollups --- */
     $pr = [];
@@ -399,7 +431,7 @@ function dash_feed(int $days, string $only = ''): array {
             if (!empty($o['k']) && isset($names[$o['k']])) $o['kn'] = $names[$o['k']]; return $o; }, $lv['ev']); }
     unset($lv);
     return ['ok' => true, 'now' => $now, 'days' => $days, 'events' => $evn, 'sessions' => count($sess), 'internal_sessions' => $internal, 'scanner_sessions' => $scan,
-        'live' => $live, 'leads' => array_slice($leads, 0, 2000),
+        'live' => $live, 'leads' => array_slice($leads, 0, 2000), 'alerts' => array_slice($alerts, 0, 60),
         'weeks' => array_map(static fn($w) => ['visits' => $w['visits'] ?? 0, 'pricing' => $w['pricing'] ?? 0, 'requests' => $w['requests'] ?? 0, 'stores' => count($w['stores'] ?? [])], (function () use ($WK) { ksort($WK); return $WK; })()),
         'demand' => (function () use ($prod, $PQ, $names) { $o = []; foreach (array_unique(array_merge(array_keys($prod), array_keys($PQ))) as $k)
             $o[] = ['k' => $k, 'name' => $names[$k] ?? $k, 'opened' => count($prod[$k]['sheet'] ?? []), 'added' => count($prod[$k]['add'] ?? []), 'priced_qty' => $PQ[$k]['qty'] ?? 0, 'priced_by' => count($PQ[$k]['stores'] ?? [])];
@@ -637,7 +669,7 @@ function sig_seed(): array {                       // once: every store's real h
     for ($i = 89; $i >= 0; $i--) { $f = data_root() . '/_events/' . gmdate('Y-m-d', time() - 86400 * $i) . '.jsonl'; if (!is_file($f)) continue;
         $fh = @fopen($f, 'r'); if (!$fh) continue;
         while (($ln = fgets($fh)) !== false) { $r = json_decode($ln, true); if (!is_array($r) || !empty($r['i'])) continue;
-            $e = (string)($r['e'] ?? ''); $k = (string)($r['kit'] ?? ''); if ($k === '' || in_array($e, SIG_ACTION_SKIP, true)) continue;
+            $e = (string)($r['e'] ?? ''); $k = (string)($r['kit'] ?? ''); if ($k === '' || !person_ev($e)) continue;
             $t = (int)($r['t'] ?? 0); $first[$k] = min($first[$k] ?? PHP_INT_MAX, $t); $days[$k][gmdate('Y-m-d', $t)] = 1; }
         fclose($fh); }
     $n = 0; foreach ($first as $k => $t) { $f = sig_dir() . '/' . $k . '.json'; if (is_file($f) || !slug($k)) continue;
@@ -655,7 +687,7 @@ function sig_check(array $rec): void {
     $f = sig_dir() . '/' . $kit . '.json'; $fh = @fopen($f, 'c+'); if (!$fh) return; flock($fh, LOCK_EX);
     $S = json_decode((string)stream_get_contents($fh), true); if (!is_array($S)) $S = [];
     $once = static function (string $tr) use (&$S, $day, &$fire, $rec) { if (($S['fired'][$tr] ?? '') === $day) return; $S['fired'][$tr] = $day; $fire[] = [$tr, []]; };
-    $action = !in_array($e, SIG_ACTION_SKIP, true);
+    $action = person_ev($e);
     if ($action) {
         if (empty($S['first'])) { $S['first'] = $rec['t']; $S['fired']['first_visit'] = $day; $fire[] = ['first_visit', []]; }
         elseif (empty($S['days'][$day])) $once('return');
