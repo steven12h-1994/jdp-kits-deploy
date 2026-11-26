@@ -14204,7 +14204,7 @@ var _r23CHT=caHubTiles;caHubTiles=function(cls){var h=_r23CHT(cls);if(!gaCatOn('
 
 /* ---- the advisor card on every aisle and shelf that has an advisor ---- */
 var ADV_BAN={
-  vests:{nm:'vest',h:'Not sure which vest? We’ll pick one for each group.',q:'who wears it, where it’s worn and the work'},
+  vests:{nm:'vest',h:'Not sure which vest? We’ll pick one for each group.',q:'who wears it and where it’s worn'},
   tops:{nm:'shirt',h:'Not sure which shirt? We’ll pick one for each group.',q:'who wears it and the look'},
   layers:{nm:'fleece & sweater',h:'Not sure which hoodie, quarter-zip or fleece? We’ll pick for each group.',q:'who wears it, the style and how warm'},
   headwear:{nm:'hat',h:'Not sure which cap or toque? We’ll pick for the season and the crowd.',q:'the season and who it’s for'},
