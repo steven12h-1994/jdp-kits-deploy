@@ -8379,10 +8379,48 @@ function jdpSid(){
     try{sessionStorage.setItem('jdp_sid',JDP_SID);}catch(e){}}
   return JDP_SID;
 }
+/* ---- WHO and WHAT (2026-11-18, deal signals) -------------------------------------------------
+   Steven: "re think the Store visits tracking that is optimal for steven to get new deals". A store is a company, but a
+   call is to a person. Outbound links carry an opaque contact token ?c=<rec6>.<contact><step> (the ops agent owns the
+   mapping; it always has one dot, which is what keeps it apart from the product-share link's ?c=<colour>). The store
+   keeps it per kit and strips it from the address bar, so a buyer who copies the URL to a colleague does not hand over
+   their own identity -- the colleague's visit then reads as a forward. `did` is a random per-browser id, so the server
+   can tell a second person from the same person coming back. Quote events carry the lines and total, so the call
+   opens on "48 Vault hoodies in Black, about $1.7k". No names, emails or IPs ever leave the page. */
+var JDP_CT=null,JDP_DID=null;
+function jdpCt(){
+  if(JDP_CT!==null)return JDP_CT;JDP_CT='';
+  try{var kit=jdpKit();if(!kit)return JDP_CT;
+    var m=/[?&]c=([A-Za-z0-9]{3,12}\.[A-Za-z0-9_\-]{1,12})(?=&|#|$)/.exec(location.search);
+    if(m&&!/[?&]item=/.test(location.search)){JDP_CT=m[1];
+      try{localStorage.setItem('jdp_ct_'+kit,JDP_CT);}catch(e){}
+      try{var qs=location.search.replace(/([?&])c=[^&#]*(&|$)/,function(a,p1,p2){return p2?p1:'';}).replace(/[?&]$/,'');
+        history.replaceState(history.state,'',location.pathname+qs+location.hash);}catch(e){}}
+    else{try{JDP_CT=localStorage.getItem('jdp_ct_'+kit)||'';}catch(e){}}
+  }catch(e){}
+  return JDP_CT;
+}
+jdpCt();                                    // capture before any view code rewrites the address bar
+function jdpDid(){
+  if(JDP_DID)return JDP_DID;
+  try{JDP_DID=localStorage.getItem('jdp_did');}catch(e){}
+  if(!JDP_DID||!/^[a-z0-9]{8,32}$/.test(JDP_DID)){JDP_DID=Math.random().toString(36).slice(2,10)+Date.now().toString(36);
+    try{localStorage.setItem('jdp_did',JDP_DID);}catch(e){}}
+  return JDP_DID;
+}
+var JDP_QL_EV={quote_view:1,quote_pdf:1,quote_share:1,checkout:1,sent:1,board_quote:1,sheet_quote:1,program_quote:1,band_quote:1,gift_quote:1};
+function jdpQuoteLines(p){
+  try{var ks=Object.keys(CART||{});if(!ks.length)return;
+    p.ql=ks.slice(0,12).map(function(k){var c=CART[k]||{};return {k:bkey(k),col:String(c.colour||'').slice(0,30),q:+c.qty||0};});
+    var t=cartSubtotal();if(t>0)p.tot=Math.round(t);}catch(e){}
+}
 function jdpTrack(e,x){
   try{
     if(!jdpKit()||CFG&&CFG.notrack)return;
-    var p={kit:jdpKit(),e:e,sid:jdpSid()};if(x)for(var k in x)p[k]=x[k];
+    var p={kit:jdpKit(),e:e,sid:jdpSid(),did:jdpDid()};if(x)for(var k in x)p[k]=x[k];
+    var ct=jdpCt();if(ct)p.ct=ct;
+    try{if(navigator.webdriver||/HeadlessChrome|Browserbase/i.test(navigator.userAgent))p.i=1;}catch(_){}   // automated browsers are never a lead
+    if(JDP_QL_EV[e])jdpQuoteLines(p);
     if(jdpStaff())p.i=1;                                 // our own visits never score as a lead
     var body=JSON.stringify(p),url=apiBase()+'/events.php';
     if(navigator.sendBeacon){navigator.sendBeacon(url,new Blob([body],{type:'text/plain'}));}
