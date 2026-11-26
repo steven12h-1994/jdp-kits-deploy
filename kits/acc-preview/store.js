@@ -13549,7 +13549,8 @@ function gaSave(){try{localStorage.setItem(gaKey(),JSON.stringify(GA_ST||{}));}c
 function gaA(id){var S=gaLoad();return S[id]=S[id]||{};}
 var GA_QTY=[{id:'u25',lab:'Fewer than 25',sub:'A team or a few clients',lo:1,hi:24},{id:'25',lab:'25 – 49',sub:'A department',lo:25,hi:49},
   {id:'50',lab:'50 – 99',sub:'A whole office',lo:50,hi:99},{id:'100',lab:'100 – 249',sub:'Company-wide',lo:100,hi:249},{id:'250',lab:'250 or more',sub:'Every location',lo:250,hi:1e9}];
-function gaQtyBand(id){for(var i=0;i<GA_QTY.length;i++)if(GA_QTY[i].id===id)return GA_QTY[i];return null;}
+function gaQtyBand(id){var L=GA_QTY.concat(typeof GA_PQTY!=='undefined'?GA_PQTY:[]);for(var i=0;i<L.length;i++)if(L[i].id===id)return L[i];return null;}
+function gaUW(cfg){return cfg.id==='gifts'?'person':(cfg.id==='giftsets'?'kit':(cfg.id==='pens'?'pen':'piece'));}
 /* The count: the buyer's own number if they typed one here, else their store headcount when it falls in the band they
    picked, else the bottom of the band. Never a number they didn't give us. */
 function gaQ(A){var b=gaQtyBand(A.qty);if(!b)return 0;var n=parseInt(A.n,10)||0;if(n)return n;var hc=getHC();
@@ -13739,6 +13740,7 @@ var TC_CUR={
   go:{p:['sp_t1460','sp_t148'],lo:['sp_bg709'],hi:['sp_gf941','sp_gf953']},
   track:{p:['sp_lf113'],lo:['sp_bg709'],hi:['sp_gf920','sp_gf953']},
   box:{p:['sp_gf951','sp_gf947','sp_gf953'],lo:['sp_gf945','sp_gf941'],hi:['sp_gf951']}};
+var KT_BUD=[{id:'b1',lab:'Under $50',sub:'per kit',lo:0,hi:50},{id:'b2',lab:'$50 – $90',sub:'per kit',lo:50,hi:90},{id:'b3',lab:'$90 – $130',sub:'per kit',lo:90,hi:130},{id:'b4',lab:'$130 +',sub:'per kit',lo:130,hi:1e9}];
 var KT_LIST={newhire:['sp_bb192','sp_bb196','sp_gf969','sp_gf977','sp_bb199','sp_bb197','sp_gf996','sp_gf945'],
   clients:['sp_gf142','sp_lf144','sp_lf132','sp_gf947','sp_gf145','sp_bb905','sp_bb897','sp_gf7414','sp_gf951','sp_gf141','sp_lf136','sp_lf129','sp_gf151'],
   travel:['sp_bb905','sp_bb897','sp_gf7414','sp_bb197','sp_gf950','sp_gf940','sp_gf920','sp_gf953'],
@@ -13783,7 +13785,7 @@ function gaCurResolve(cfg,A,qo){var q=qo||gaQ(A),C=cfg.cur(A);if(!C)return null;
   if(!lo&&!cfg.noFillLo)lo=near(pool,true);if(!hi)hi=near(pool,false);
   return {q:q,pick:gaRes(pk,q),lo:gaRes(lo,q),hi:gaRes(hi,q)};}
 /* a budget advisor (kits): our first choice inside the budget, else the closest; neighbours either side */
-function gaBudResolve(cfg,A,qo){var q=qo||gaQ(A),B=null;GIFT_BUD.forEach(function(b){if(b.id===A.bud)B=b;});if(!B)return null;
+function gaBudResolve(cfg,A,qo){var q=qo||gaQ(A),B=null;(cfg.buds||GIFT_BUD).forEach(function(b){if(b.id===A.bud)B=b;});if(!B)return null;
   var pool=cfg.list(A).filter(function(k){return gaOk(k,q);});if(!pool.length)return {q:q,none:true};
   var inB=pool.filter(function(k){var p=gaUnit(k,q);return p>=B.lo&&p<B.hi;}),pk=inB[0],near=false;
   if(!pk){near=true;pk=pool.slice().sort(function(a,b){function d(k){var p=gaUnit(k,q);return p<B.lo?B.lo-p:p-B.hi;}return d(a)-d(b);})[0];}
@@ -13830,8 +13832,8 @@ var GA_CFG={
         {id:'newhire',lab:'New hires',sub:'A welcome on day one',pic:'sp_bb192'},{id:'clients',lab:'Clients & partners',sub:'A gift that reads as considered',pic:'sp_gf142'},
         {id:'travel',lab:'People who travel for work',sub:'Sales, field leads, executives',pic:'sp_bb905'},{id:'team',lab:'The whole team',sub:'A thank-you for everyone',pic:'sp_gf969'},
         {id:'best',lab:'Not sure — show your best pick',sub:'We choose across every kit for your budget',pic:''}]},
-      {id:'bud',q:'What’s the budget per kit?',short:'Budget',opts:GIFT_BUD},{id:'qty',q:'How many kits?',short:'How many',opts:GA_QTY}];},
-    list:function(A){return KT_LIST[A.who]||[];},pool:function(A){return KT_LIST[A.who]||[];},
+      {id:'bud',q:'What’s the budget per kit?',short:'Budget',opts:KT_BUD},{id:'qty',q:'How many kits?',short:'How many',opts:GA_QTY}];},
+    buds:KT_BUD,list:function(A){return KT_LIST[A.who]||[];},pool:function(A){return KT_LIST[A.who]||[];},
     title:'Our kit pick for you',proof:['sp_bb192','sp_gf142','sp_gf947'],tile:['Kits & Gift Sets','Welcome, client, travel and desk kits — by who it’s for and the budget','sp_bb192']},
   notebooks:{id:'notebooks',cat:'notebooks',eyb:'Notebook advisor',noun:'notebooks',h:'The right journal or padfolio, in three questions.',
     sub:'What it’s for, with or without a pen, and how many — then the piece we’d order, priced per piece with your logo included, plus a lower-cost and a step-up option.',
@@ -13908,7 +13910,7 @@ function gaCostLine(keys){var app=keys.some(function(k){return !gaPromo(k);}),pr
   return (pro&&!app)?'your logo included · no setup fee · before tax &amp; freight':(app&&!pro?'your logo included · before one-time logo setup, tax &amp; freight':'logo included on every piece · one-time logo setup on apparel only · before tax &amp; freight');}
 function gaAltHtml(cfg,r,role,pp,PK){if(!r)return '';var d=r.p-pp,lab=role==='lo'?'Lower cost':'Step up';
   return '<div class="cpcalt"><button type="button" class="cpcaimg" data-gaopen="'+esc(r.k)+'" aria-label="See '+esc(BYKEY[r.k].name)+'">'+gaShot(r.k)+'</button>'+
-    '<div class="cpcab"><span class="cpcal"><em>'+lab+'</em><span class="cpcad '+(d<0?'lo':'hi')+'">'+(d<0?('Save '+money(-d)+' a person'):('+'+money(d)+' a person'))+'</span></span>'+
+    '<div class="cpcab"><span class="cpcal"><em>'+lab+'</em><span class="cpcad '+(d<0?'lo':'hi')+'">'+(d<0?('Save '+money(-d)+' a '+gaUW(cfg)):('+'+money(d)+' a '+gaUW(cfg)))+'</span></span>'+
     '<b class="cpcan">'+esc(BYKEY[r.k].name)+'</b><span class="cpcabr">'+esc(gaBrand(r.k))+' · '+money(r.p)+' each</span><span class="cpcatr">'+esc(gaAng(r.k))+' instead of '+esc(gaAng(PK).charAt(0).toLowerCase()+gaAng(PK).slice(1))+'</span></div>'+
     '<button type="button" class="cpcuse" data-gachoose="'+esc(r.k)+'">Choose this</button></div>';}
 /* Add-ons that keep the box inside the buyer's budget start ticked; the rest start unticked with their price showing --
@@ -13919,13 +13921,13 @@ function gaBoxOff(cfg,A,R){var B=R.box,sig=B.main+'|'+R.q+'|'+(A.bud||''),o=GA_O
 function gaBoxHtml(cfg,A,R){var B=R.box;if(!B)return '';var q=R.q,main=R.pick.k,off=gaBoxOff(cfg,A,R);
   var lines=[main].concat(B.adds),on=lines.filter(function(k){return k===main||!off[k];});
   var per=on.reduce(function(s,k){return s+gaUnit(k,q);},0),bud=R.B,fit=bud?(per<bud.hi?'Fits your budget':('+'+money(per-bud.hi)+' over your top of '+money0(bud.hi))):'';
-  return '<article class="cpc gabox"><header class="cpchd"><span class="cpcfor">'+esc(B.title||'Make it a gift box')+'</span><span class="cpcbadge">'+on.length+' piece'+(on.length===1?'':'s')+' a person</span></header>'+
+  return '<article class="cpc gabox"><header class="cpchd"><span class="cpcfor">'+esc(B.title||'Make it a gift box')+'</span><span class="cpcbadge">'+on.length+' piece'+(on.length===1?'':'s')+(cfg.id==='gifts'?' a person':' each')+'</span></header>'+
     '<p class="gaboxp">'+esc(B.copy||'Your pick plus the pieces that make it feel like a box — each with your logo, each ordered at your count. Untick anything you don’t want.')+'</p>'+
     '<div class="gaboxl">'+lines.map(function(k){var isM=k===main,o=isM||!off[k];
       return '<div class="gabi'+(o?'':' off')+'"><span class="gabimg"><span class="capst">'+gaShot(k)+'</span></span><span class="gabtx"><b>'+esc(BYKEY[k].name)+'</b><i>'+esc(isM?'Your pick':gaAng(k))+' · '+money(gaUnit(k,q))+'</i>'+
         (isM?'':'<span class="gabdeco">'+esc(gaDecoTxt(k))+'</span>')+'</span>'+
         (isM?'<span class="gabtag">Included</span>':'<label class="gabtog"><input type="checkbox" data-gaoff="'+esc(k)+'"'+(o?' checked':'')+'> '+(o?'In the box':('Add · +'+money(gaUnit(k,q))))+'</label>')+'</div>';}).join('')+'</div>'+
-    '<div class="gaboxt"><div><b>'+money(per)+'</b><i>per person · '+money(per*q)+' for '+q+' · '+gaCostLine(on)+'</i>'+(fit?'<em class="'+(per<(bud?bud.hi:1e9)?'ok':'over')+'">'+esc(fit)+'</em>':'')+'</div>'+
+    '<div class="gaboxt"><div><b>'+money(per)+'</b><i>per '+gaUW(cfg)+' · '+money(per*q)+' for '+q+' · '+gaCostLine(on)+'</i>'+(fit?'<em class="'+(per<(bud?bud.hi:1e9)?'ok':'over')+'">'+esc(fit)+'</em>':'')+'</div>'+
       '<button type="button" class="jaall cpadd" data-gaaddbox="1">'+esc(B.cta||'Add the gift box to my quote →')+'</button></div></article>';}
 function gaResultHtml(cfg,A){var R=cfg.resolve(A),qs=cfg.qs();
   var chips=qs.map(function(x){return '<button type="button" class="casumc" data-gaedit="'+esc(x.id)+'" title="Change: '+esc(x.q)+'">'+esc(gaAnsLab(x,A[x.id])||'—')+' <span aria-hidden="true">✎</span></button>';}).join('');
