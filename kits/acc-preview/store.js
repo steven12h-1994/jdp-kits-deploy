@@ -14204,11 +14204,11 @@ var _r23CHT=caHubTiles;caHubTiles=function(cls){var h=_r23CHT(cls);if(!gaCatOn('
 
 /* ---- the advisor card on every aisle and shelf that has an advisor ---- */
 var ADV_BAN={
-  tops:{nm:'shirt',h:'Not sure which shirt? We’ll pick one for each group.',q:'who wears it, the look, who washes it'},
-  layers:{nm:'fleece & sweater',h:'Not sure which hoodie, quarter-zip or fleece? We’ll pick for each group.',q:'who wears it, the style, how warm'},
-  headwear:{nm:'hat',h:'Not sure which cap or toque? We’ll pick for the season and the crowd.',q:'the season, the look, who it’s for'},
-  bottoms:{nm:'work pant',h:'Not sure which work pants? We’ll pick one for each crew.',q:'who wears them, who washes them, tools on the leg'},
-  fr:{nm:'FR',h:'Not sure which FR piece? We’ll match it to your rating.',q:'the hazard, the rating, what you need'},
+  tops:{nm:'shirt',h:'Not sure which shirt? We’ll pick one for each group.',q:'who wears it and the look'},
+  layers:{nm:'fleece & sweater',h:'Not sure which hoodie, quarter-zip or fleece? We’ll pick for each group.',q:'who wears it, the style and how warm'},
+  headwear:{nm:'hat',h:'Not sure which cap or toque? We’ll pick for the season and the crowd.',q:'the season and who it’s for'},
+  bottoms:{nm:'work pant',h:'Not sure which work pants? We’ll pick one for each crew.',q:'who wears them, who washes them and tools on the leg'},
+  fr:{nm:'FR',h:'Not sure which FR piece? We’ll match it to your rating.',q:'the hazard, the rating, what you need and hi-vis'},
   golf:{nm:'golf',h:'Not sure what to wear or give for the golf day? We’ll pick the kit.',q:'the occasion and the weather'},
   bags:{nm:'bag',h:'Not sure which bag? We’ll pick it by what it carries.',q:'what it carries, who it’s for'},
   drinkware:{nm:'drinkware',h:'Not sure which bottle, tumbler or mug? We’ll pick it.',q:'where it’s used, who it’s for, how many'},
