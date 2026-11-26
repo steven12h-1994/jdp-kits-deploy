@@ -5685,3 +5685,56 @@ html.r11 .jwgt th.mk em{display:block!important;font-style:normal!important;font
 @media(max-width:640px){.hvintro2{padding:18px 16px}.hvintro2 h2{font-size:20px}.hvintro2 .hvmx{font-size:12.5px}.hvintro2 .hvmx th,.hvintro2 .hvmx td{padding:9px 8px}
   .xpert .hvreq{padding:16px 14px 14px 18px}.xpert .hvreqc{font-size:22px}.xpert .hvot{max-width:100%;flex:1 1 100%}.xpert .hvplus{display:none}}
 @media(max-width:640px){.hvintro2 .hvi2c:not(:first-child){display:none}.hvintro2 .hvi2b{gap:12px;margin-top:14px}.hvintro2 .hvi2h p{font-size:13.5px}}
+
+/* ===== ROUND 21 — accessories & gift advisors (2026-11-26). Rides on the shared advisor look (.xpert.cadv2); only what is new. */
+.gifts.gav-wrap{background:#fff!important;color:var(--ink)!important;padding:18px 0 44px!important;margin:0!important}
+.gifts.gav-wrap .gfback{color:var(--ink);background:#fff;border:1px solid var(--line);border-radius:999px;padding:7px 14px;font-weight:600;font-size:13.5px;margin:0 0 14px;cursor:pointer}
+.gav{display:block!important}
+.gav .caopts.gachips{grid-template-columns:repeat(auto-fill,minmax(min(100%,180px),1fr))!important;gap:10px!important}
+.gav .caopts.gachips .caopt{min-height:64px}
+.gav .capic .gaq{display:flex;align-items:center;justify-content:center;width:100%;height:100%;min-height:150px;font-size:54px;font-weight:700;color:color-mix(in srgb,var(--a) 70%,#9ca3af)}
+.gav .castepsb li.done .cst i{display:block;font-style:normal;font-size:12px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:160px}
+.gav .gasw{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.gav .gacd{width:22px;height:22px;border-radius:50%;border:1px solid rgba(0,0,0,.18);cursor:pointer;padding:0}
+.gav .gacd.on{outline:2px solid var(--ink);outline-offset:2px}
+.gav .gacm{font-size:12px;color:var(--mut);align-self:center}
+.gav .gaadd1{width:100%;margin-top:12px}
+.gav .ganear{margin:0 0 12px;padding:10px 14px;border-radius:12px;background:#fff8e6;border:1px solid #f3d58a;font-size:13.5px;color:#5b4300}
+.gav .gabox{margin-top:16px}
+.gav .gaboxp{margin:12px 18px 4px;color:var(--mut);font-size:14px}
+.gav .gaboxl{display:grid;gap:10px;padding:10px 18px}
+.gav .gabi{display:grid;grid-template-columns:76px 1fr auto;gap:14px;align-items:center;padding:10px;border:1px solid var(--line);border-radius:14px;background:#fff}
+.gav .gabi.off{opacity:.55}
+.gav .gabimg{position:relative;display:block;width:76px;height:76px;border-radius:10px;overflow:hidden;background:#f5f6f8}
+.gav .gabimg .capst{position:absolute;inset:0;display:block}
+.gav .gabimg img.g{width:100%;height:100%;object-fit:contain;display:block}
+.gav .gabimg img.l{position:absolute;transform:translate(-50%,-50%)}
+.gav .gabtx{display:flex;flex-direction:column;gap:2px;min-width:0}
+.gav .gabtx b{font-size:14.5px;line-height:1.25}
+.gav .gabtx i{font-style:normal;font-size:13px;color:var(--mut)}
+.gav .gabdeco{font-size:12px;color:var(--mut)}
+.gav .gabtag{font-size:12px;font-weight:700;color:var(--a);white-space:nowrap}
+.gav .gabtog{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;white-space:nowrap;cursor:pointer}
+.gav .gabtog input{width:18px;height:18px;accent-color:var(--a)}
+.gav .gaboxt{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin:6px 18px 18px;padding:14px 16px;border-radius:14px;background:#f6f7f9}
+.gav .gaboxt b{font-size:24px;display:block}
+.gav .gaboxt i{font-style:normal;font-size:13px;color:var(--mut);display:block;max-width:520px}
+.gav .gaboxt em{display:inline-block;margin-top:6px;font-style:normal;font-size:12.5px;font-weight:700;padding:3px 9px;border-radius:999px}
+.gav .gaboxt em.ok{background:#e8f6ee;color:#16683b}
+.gav .gaboxt em.over{background:#fff1e6;color:#9a4a00}
+.gav .gabrowse{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center;margin:18px 0 4px;font-size:14px;color:var(--mut)}
+.gasamp{margin:8px 0 0;font-size:12.5px;color:var(--mut)}
+.gaspec{margin:6px 0 10px;font-size:13px;color:var(--mut)}
+@media (max-width:820px){
+  .gav .gabi{grid-template-columns:60px 1fr;row-gap:6px}
+  .gav .gabimg{width:60px;height:60px}
+  .gav .gabtog,.gav .gabtag{grid-column:2}
+  .gav .gaboxt{margin:6px 12px 14px}
+  .gav .gaboxl{padding:10px 12px}
+  .gav .cpsi{font-size:16px}
+}
+.gav .gahint{margin:8px 0 0;font-size:12.5px;color:var(--mut)}
+.gav .cpctier{display:flex!important;flex-wrap:nowrap!important;gap:6px!important}
+.gav .cpctier span{flex:1 1 0;min-width:0}
+.gav .cpctier span b{font-size:13px}
+.gav .gaadd1{display:flex!important;width:100%!important;justify-content:center}
