@@ -13475,7 +13475,7 @@ function gaShot(k,col){var it=BYKEY[k];if(!it)return '';var h='';try{h=caThumb(k
   return h;}
 function gaLogoTag(k){return (gaPromo(k)&&BYKEY[k].noov)?'Sample logo shown — yours goes here':'Shown with your logo';}
 function gaBrand(k){var it=BYKEY[k]||{};return it.layer==='promo'?(it.sku==='Gift Set'?'Ready-boxed gift set':(it.brand||'')):(it.brand||it.sku||'');}
-function gaHasSizes(k){var it=BYKEY[k];try{return !!(it&&!oneSize(it));}catch(e){return gaKind(k)==='wear';}}
+function gaHasSizes(k){var it=BYKEY[k];if(gaKind(k)!=='wear')return false;try{return !!(it&&!oneSize(it));}catch(e){return true;}}
 
 /* ---- 3. STATE ------------------------------------------------------------------------------------------------------- */
 var GA_ST=null,GA_COL={},GA_OFF={};
@@ -13619,7 +13619,8 @@ function accResolve(A,qo){var q=qo||gaQ(A),C=ACC_CUR[A.what+'|'+A['for']];if(!C)
   var pk=gaFirst(C.p,q);
   if(!pk){var fb=accPool(A.what).filter(function(k){return gaOk(k,q);}).sort(function(a,b){return gaUnit(a,q)-gaUnit(b,q);});pk=fb[0]||null;}
   if(!pk)return {q:q,none:true};
-  var pp=gaUnit(pk,q),lo=gaFirst(C.lo,q,function(k){return k!==pk&&gaUnit(k,q)<pp*0.93;}),hi=gaFirst(C.hi,q,function(k){return k!==pk&&gaUnit(k,q)>pp*1.07;});
+  var pp=gaUnit(pk,q),near=function(list,below){var c=(list||[]).filter(function(k){return k!==pk&&gaOk(k,q)&&(below?gaUnit(k,q)<pp*0.93:gaUnit(k,q)>pp*1.07);});
+      c.sort(function(a,b){return below?gaUnit(b,q)-gaUnit(a,q):gaUnit(a,q)-gaUnit(b,q);});return c[0]||null;},lo=near(C.lo,true),hi=near(C.hi,false);
   if(!lo&&A['for']!=='event'){var L=accPool(A.what).filter(function(k){return k!==pk&&gaOk(k,q)&&gaUnit(k,q)<pp*0.93;}).sort(function(a,b){return gaUnit(b,q)-gaUnit(a,q);});lo=L[0]||null;}
   return {q:q,pick:gaRes(pk,q),lo:gaRes(lo,q),hi:gaRes(hi,q)};}
 function accPool(what){var subs={drink:['Water Bottles','Tumblers','Mugs','Drinkware'],desk:['Notebooks & Pens'],tech:['Tech'],kit:['Kits & Gift Sets']}[what]||[],out=[];
