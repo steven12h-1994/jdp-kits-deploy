@@ -270,7 +270,8 @@ function dash_feed(int $days, string $only = ''): array {
         if ($acts || $brow) $K['src'][$src] = max($K['src'][$src] ?? 0, $last);
         if ($acts) $K['real'] = ($K['real'] ?? 0) + 1;
         if ($stg > ($K['stage'] ?? 0)) $K['stage'] = $stg; if ($stg >= 2) $K['st_t'][$stg] = max($K['st_t'][$stg] ?? 0, $last);
-        if ($sql) { $sig2 = json_encode($sql['ql']); if (($K['qsig'] ?? '') !== $sig2) { $K['quotes'][] = ['t' => (int)$sql['t'], 'ql' => $sql['ql'], 'tot' => $sql['tot'] ?? null]; $K['qsig'] = $sig2; } }
+        if ($sql) { $sig2 = json_encode($sql['ql']); if (($K['qsig'] ?? '') !== $sig2) { $K['quotes'][] = ['t' => (int)$sql['t'], 'ql' => $sql['ql'], 'tot' => $sql['tot'] ?? null, 'qb' => $sql['qb'] ?? '', 'qn' => $sql['qn'] ?? null]; $K['qsig'] = $sig2; }
+            elseif (!empty($sql['qb'])) { $K['quotes'][count($K['quotes']) - 1]['qb'] = $sql['qb']; } }
         $K['score'] = ($K['score'] ?? 0) + $sc; $K['sessions'] = ($K['sessions'] ?? 0) + 1;
         $eng = count($ev) > 1 || !empty($seen['engaged']); if ($eng) { $K['eng'] = ($K['eng'] ?? 0) + 1; $K['edays'][$day] = 1; }
         $K['days'][$day] = 1; $K['first'] = min($K['first'] ?? PHP_INT_MAX, $first); $K['last'] = max($K['last'] ?? 0, $last);
@@ -383,7 +384,8 @@ function dash_feed(int $days, string $only = ''): array {
             'sources' => array_keys($K['src'] ?? []), 'real' => $K['real'] ?? 0, 'calls' => array_slice(array_reverse($calls[$kit] ?? []), 0, 8),
             'sends' => array_slice(array_reverse($sends[$kit] ?? []), 0, $only !== '' ? 200 : 12),
             'stage' => $K['stage'] ?? 0, 'stage_t' => $K['st_t'] ?? new stdClass(), 'devices_n' => count($K['did'] ?? []),
-            'quotes' => array_map(static fn($x) => ['t' => $x['t'], 'tot' => $x['tot'], 'lines' => array_map(static fn($l) => ['name' => $names[$l['k'] ?? ''] ?? ($l['k'] ?? ''), 'colour' => $l['col'] ?? '', 'qty' => (int)($l['q'] ?? 0)], $x['ql'])],
+            'quotes' => array_map(static fn($x) => ['t' => $x['t'], 'tot' => $x['tot'], 'url' => quote_url($kit, (string)($x['qb'] ?? '')), 'lines_n' => $x['qn'] ?? count($x['ql']),
+                'lines' => array_map(static fn($l) => ['name' => wname($names[$l['k'] ?? ''] ?? ($l['k'] ?? ''), !empty($l['w'])), 'colour' => $l['col'] ?? '', 'qty' => (int)($l['q'] ?? 0)], $x['ql'])],
                 array_slice(array_reverse($K['quotes'] ?? []), 0, $only !== '' ? 50 : 3))];
     }
     /* --- every alert we emailed Steven is on the dashboard, full stop (2026-11-26) ---
@@ -617,8 +619,13 @@ function sig_label(string $tr, array $rec, array $x): string {
 }
 function sig_lines(array $ql): array {
     $names = cat_names(); $o = [];
-    foreach ($ql as $l) $o[] = ['name' => $names[$l['k'] ?? ''] ?? ($l['k'] ?? ''), 'colour' => $l['col'] ?? '', 'qty' => (int)($l['q'] ?? 0)];
+    foreach ($ql as $l) $o[] = ['name' => wname($names[$l['k'] ?? ''] ?? ($l['k'] ?? ''), !empty($l['w'])), 'colour' => $l['col'] ?? '', 'qty' => (int)($l['q'] ?? 0)];
     return $o;
+}
+function wname(string $n, bool $w): string { if (!$w) return $n; $i = strpos($n, ' · '); return $i === false ? $n . " (women's)" : substr($n, 0, $i) . " (women's)" . substr($n, $i); }
+/* The link that opens the buyer's own quote (their quote is in their browser; the store alone shows ours). */
+function quote_url(string $kit, string $qb): string {
+    return $qb === '' ? '' : 'https://justdealspromotions.com/kits/' . $kit . '/?b=' . rawurlencode($qb) . '&quote=1&jdpstaff=1';
 }
 function sig_deliver(string $kit, string $tr, array $rec, array $x = []): void {
     $kn = kit_names([$kit])[$kit] ?? $kit; $ct = (string)($x['ct'] ?? ($rec['ct'] ?? ''));
@@ -626,7 +633,9 @@ function sig_deliver(string $kit, string $tr, array $rec, array $x = []): void {
     $test = strpos($kit, 'zz-sigtest') === 0;
     $p = ['event' => 'store_signal', 'test' => $test, 'kit' => $kit, 'client' => $kn, 'store' => 'https://justdealspromotions.com/kits/' . $kit . '/',
         'ct' => $ct, 'trigger' => $tr, 'detail' => sig_label($tr, $rec, $x), 'lines' => $ql ? sig_lines($ql) : [], 'total' => $tot !== null ? (int)round((float)$tot) : null,
-        'q' => $tr === 'no_stock' ? (string)($rec['q'] ?? '') : '', 'also' => $x['also'] ?? [], 't' => (int)$rec['t']];
+        'q' => $tr === 'no_stock' ? (string)($rec['q'] ?? '') : '', 'also' => $x['also'] ?? [], 't' => (int)$rec['t'],
+        'quote_url' => quote_url($kit, (string)($x['qb'] ?? ($rec['qb'] ?? ''))), 'lines_n' => (int)($x['qn'] ?? ($rec['qn'] ?? count($ql))),
+        'pieces' => array_sum(array_map(static fn($l) => (int)($l['q'] ?? 0), $ql))];
     if ($p['also']) $p['detail'] .= ' (also: ' . implode('; ', array_map(static fn($a) => lcfirst(sig_label($a, $rec, [])), $p['also'])) . ')';
     $ctx = stream_context_create(['http' => ['method' => 'POST', 'timeout' => 8, 'ignore_errors' => true,
         'header' => "Content-Type: application/json\r\n", 'content' => json_encode($p, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)]]);
@@ -650,6 +659,7 @@ function sig_mail(array $p): bool {
     if ($who) $L[] = 'Who: ' . $who;
     foreach ($p['lines'] as $l) $L[] = '  ' . $l['qty'] . ' x ' . $l['name'] . ($l['colour'] ? ' (' . $l['colour'] . ')' : '');
     if ($p['total']) $L[] = 'About $' . number_format($p['total']) . ' before setup, freight and tax';
+    if (!empty($p['quote_url'])) $L[] = 'Their exact quote: ' . $p['quote_url'];
     $L[] = ''; $L[] = 'Their store: ' . $p['store']; $L[] = 'Live leads dashboard: ' . dash_url();
     $body = json_encode(['_subject' => ($p['test'] ? '[TEST] ' : '') . 'Call now: ' . $p['client'] . ' — ' . $p['detail'], '_template' => 'box', '_captcha' => 'false', 'alert' => implode("\n", $L)]);
     $ctx = stream_context_create(['http' => ['method' => 'POST', 'timeout' => 10, 'ignore_errors' => true,
@@ -703,7 +713,7 @@ function sig_check(array $rec): void {
     }
     if (in_array($e, ['quote_pdf', 'quote_share', 'program_share', 'program_quote', 'board_quote', 'sheet_quote'], true) || ($e === 'quote_view' && (int)($rec['n'] ?? 0) > 0)) $once('quote');
     if ($e === 'search0') $once('no_stock');
-    if ($e === 'checkout') $S['pend'][$rec['sid']] = ['t' => $rec['t'], 'ct' => $rec['ct'] ?? '', 'ql' => $rec['ql'] ?? [], 'tot' => $rec['tot'] ?? null];
+    if ($e === 'checkout') $S['pend'][$rec['sid']] = ['t' => $rec['t'], 'ct' => $rec['ct'] ?? '', 'ql' => $rec['ql'] ?? [], 'tot' => $rec['tot'] ?? null, 'qb' => $rec['qb'] ?? '', 'qn' => $rec['qn'] ?? null];
     if ($e === 'sent') { unset($S['pend'][$rec['sid']]); $fire[] = ['sent', []]; }
     if (!empty($S['pend'])) { $px = data_root() . '/_dash/sig/_pend.json'; $P = jread($px); $P[$kit] = min(array_column($S['pend'], 't')); jwrite($px, $P); }
     ftruncate($fh, 0); rewind($fh); fwrite($fh, json_encode($S, JSON_UNESCAPED_SLASHES)); fflush($fh); flock($fh, LOCK_UN); fclose($fh);
@@ -731,7 +741,7 @@ function sig_sweep(): void {
 }
 
 /* ---- write: one anonymous event --------------------------------------------------------------- */
-$raw = file_get_contents('php://input', false, null, 0, 4096) ?: '';
+$raw = file_get_contents('php://input', false, null, 0, 8192) ?: '';
 $in = json_decode($raw, true);
 if (!is_array($in)) { http_response_code(204); exit; }
 $kit = slug($in['kit'] ?? ''); $e = (string)($in['e'] ?? '');
@@ -748,9 +758,11 @@ if (isset($in['m'])) $rec['m'] = $in['m'] ? 1 : 0;
 if (isset($in['ct']) && ($ct = ctok($in['ct'])) !== '') $rec['ct'] = $ct;
 if (isset($in['did']) && preg_match('/^[a-z0-9]{8,32}$/', (string)$in['did'])) { $rec['did'] = (string)$in['did']; $rec['ipt'] = ip_tag(); }
 if (isset($in['ql']) && is_array($in['ql'])) { $ql = [];
-    foreach (array_slice($in['ql'], 0, 12) as $l) { if (!is_array($l)) continue; $k = slug((string)($l['k'] ?? ''), 60); if (!$k) continue;
-        $ql[] = ['k' => $k, 'col' => sclean($l['col'] ?? '', 30), 'q' => max(0, min(100000, (int)($l['q'] ?? 0)))]; }
+    foreach (array_slice($in['ql'], 0, 30) as $l) { if (!is_array($l)) continue; $k = slug((string)($l['k'] ?? ''), 60); if (!$k) continue;
+        $o = ['k' => $k, 'col' => sclean($l['col'] ?? '', 30), 'q' => max(0, min(100000, (int)($l['q'] ?? 0)))]; if (!empty($l['w'])) $o['w'] = 1; $ql[] = $o; }
     if ($ql) $rec['ql'] = $ql; }
+if (isset($in['qn']) && is_numeric($in['qn'])) $rec['qn'] = max(0, min(500, (int)$in['qn']));
+if (isset($in['qb']) && preg_match('/^(us-)?q-[a-z0-9\-]{3,60}$/', (string)$in['qb'])) $rec['qb'] = (string)$in['qb'];   // frozen copy of THIS buyer's quote (2026-11-27)
 if (isset($in['tot']) && is_numeric($in['tot'])) $rec['tot'] = max(0, min(10000000, (int)round((float)$in['tot'])));
 if (isset($in['ref'])) { $h = strtolower((string)parse_url('http://' . preg_replace('#^[a-z]+://#i', '', (string)$in['ref']), PHP_URL_HOST)); if (preg_match('/^[a-z0-9.\-]{3,80}$/', $h)) $rec['ref'] = $h; }
 /* Our own traffic never scores. Three ways in: the store's staff flag (?jdpstaff=1 or a browser that opened the dashboard),
