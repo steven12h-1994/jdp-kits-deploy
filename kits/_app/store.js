@@ -8411,8 +8411,18 @@ function jdpDid(){
 var JDP_QL_EV={quote_view:1,quote_pdf:1,quote_share:1,checkout:1,sent:1,board_quote:1,sheet_quote:1,program_quote:1,band_quote:1,gift_quote:1};
 function jdpQuoteLines(p){
   try{var ks=Object.keys(CART||{});if(!ks.length)return;
-    p.ql=ks.slice(0,12).map(function(k){var c=CART[k]||{};return {k:bkey(k),col:String(c.colour||'').slice(0,30),q:+c.qty||0};});
-    var t=cartSubtotal();if(t>0)p.tot=Math.round(t);}catch(e){}
+    /* 2026-11-27 (Enersolv): men's and women's cuts of one style are two lines (k / k#w) -- say which, and send
+       every line (was 12, which cut a 13-line quote short). */
+    p.qn=ks.length;
+    p.ql=ks.slice(0,30).map(function(k){var c=CART[k]||{},o={k:bkey(k),col:String(c.colour||'').slice(0,30),q:+c.qty||0};
+      if(/#w$/.test(k)||c.fit==='womens')o.w=1;return o;});
+    var t=cartSubtotal();if(t>0)p.tot=Math.round(t);
+    /* The quote lives in the buyer's browser, so Steven opening the store sees his own (empty) quote. Freeze the
+       buyer's exact quote server-side (the same frozen copy the Share button makes, never listed as a board) and
+       send its slug, so the alert and the dashboard can open THEIR quote. Only for a quote that is open as-is. */
+    var L=(LISTS||{})[ALID];
+    if(!p.i&&QREF&&L&&L.qref===QREF&&L.qsig===quoteSig())p.qb=quoteSnapshot();
+  }catch(e){}
 }
 function jdpTrack(e,x){
   try{
