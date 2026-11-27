@@ -147,7 +147,7 @@ function gate(msg){
 var STG=['','Browsing','Evaluating','Pricing','Requested a quote'],STC=['','cool','cool','warm','hot'];
 /* Same rule as the server's person_ev(): any scroll/tap/click counts, and any store we emailed an alert about is always shown (2026-11-26). */
 function isReal(l){return (l.real||0)>0||(l.stage||0)>=2||(l.alerts_n||0)>0;}
-var TRN={first_visit:'First visit',return:'Came back',forwarded:'Passed on',quote:'Built a quote',checkout_abandon:'Left checkout',no_stock:'Searched, found nothing',sent:'Sent a request'};
+
 function co(l){return (l.contact&&l.contact.company)||l.client;}
 function storeUrl(kit){return'https://justdealspromotions.com/kits/'+encodeURIComponent(kit)+'/?jdpstaff=1';}
 function win(){return DAYS?'the last '+DAYS+' days':'all time';}
@@ -192,8 +192,6 @@ function homeHtml(){
      return'<div class="kpi'+(i===1?' h':'')+'"><b>'+k[0]+'</b><span>'+k[1]+'</span></div>';}).join('')+'</div><p class="lede">'+esc(win().replace(/^./,function(c){return c.toUpperCase();}))+'. Only people doing things: email scanners, bare page loads and our own visits are left out.</p>';
   if(live.length)h+='<h2>In a store right now</h2>'+live.map(function(s){var last=(s.ev||[]).map(say).filter(Boolean).pop();
      return'<button class="acc" data-co="'+esc(s.kit)+'"><span class="dot"></span><span class="nm">'+esc(s.client)+'</span><span class="dt">'+esc(last||'Browsing')+'</span><span class="ag">'+ago(s.last)+'</span></button>';}).join('');
-  var AL=(D.alerts||[]);if(AL.length)h+='<h2>Alerts we sent you · last 7 days</h2><p class="lede">Every store alert that went to your inbox, newest first. Click one for that company.</p><div class="list">'+AL.slice(0,20).map(function(a){
-     return'<button class="acc" data-co="'+esc(a.kit)+'"><span class="nm">'+esc(a.client||a.kit)+'</span><span class="pill '+(a.trigger==='sent'||a.trigger==='quote'||a.trigger==='checkout_abandon'?'hot':a.trigger==='forwarded'||a.trigger==='return'?'warm':'cool')+'">'+esc(TRN[a.trigger]||a.trigger)+'</span><span class="dt">'+esc(a.detail)+'</span><span class="ag">'+ago(a.t)+'</span></button>';}).join('')+'</div>';
   h+='<h2>Accounts by buying stage</h2><p class="lede">Furthest along first, then most recent. Click any account for its full history.</p>';
   var show=ALL?leads:leads.slice(0,25);
   h+=show.length?'<div class="list">'+show.map(rowHtml).join('')+'</div>':'<div class="empty">No real buyer activity in this window.</div>';
@@ -261,7 +259,7 @@ function companyHtml(){
    +'<div class="facts"><span>first seen <b>'+esc(when(l.first))+'</b></span><span>last active <b>'+ago(l.last)+'</b></span><span><b>'+(l.real||0)+'</b> real visits on <b>'+(l.days||1)+'</b> day'+((l.days||1)===1?'':'s')+'</span>'
      +'<span><b>'+(l.devices_n||1)+'</b> '+((l.devices_n||1)===1?'person':'people / devices')+'</span>'+(l.sources&&l.sources.length?'<span>came from <b>'+l.sources.map(srcn).map(esc).join(', ')+'</b></span>':'')+'</div>';
   if((l.alerts||[]).length)h+='<div class="sub">Alerts we sent you</div>'+l.alerts.map(function(a){return'<div class="visit"><b>'+esc(when(a.t))+'</b><div>'+esc(a.detail)+'</div></div>';}).join('');
-  if(qs.length)h+='<div class="sub">What they priced</div>'+qs.map(function(q){return'<div class="visit"><b>'+esc(when(q.t))+'</b><div>'+esc(quoteTxt(q))+'</div></div>';}).join('');
+  if(qs.length)h+='<div class="sub">What they priced</div>'+qs.map(function(q){return'<div class="visit"><b>'+esc(when(q.t))+'</b><div>'+esc(quoteTxt(q))+'</div>'+(q.url?'<div><a class="btn sm" href="'+esc(q.url)+'" target="_blank" rel="noopener">Open their exact quote</a></div>':'')+'</div>';}).join('');
   if(it.length)h+='<div class="sub">Interested in</div><div>'+esc(it.join(', '))+'</div>';
   if(srch.length)h+='<div class="sub">Searched for</div><div>'+srch.map(function(x){return'“'+esc(x)+'”'+(l.searches[x]==='search0'?' <span class="mu">(nothing shown)</span>':'');}).join(', ')+'</div>';
   h+='<div class="sub">Every visit</div>'+(V.length?V.map(function(v){return'<div class="visit"><b>'+esc(when(v.t))+'</b>'+v.lines.slice(0,15).map(function(x){return'<div>'+esc(x)+'</div>';}).join('')+'</div>';}).join(''):'<div class="mu">Only page loads so far.</div>');
