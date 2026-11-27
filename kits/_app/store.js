@@ -7849,7 +7849,7 @@ function renderPromoSheet(){
   sh.querySelectorAll('.ppick').forEach(function(b){b.addEventListener('click',function(){SH.qty=+b.dataset.q;renderPromoSheet();});});
   sh.querySelectorAll('.pqty button').forEach(function(b){b.addEventListener('click',function(){var cur=parseInt(document.getElementById('pqin').value,10)||min;SH.qty=Math.max(min,cur+parseInt(b.dataset.d,10));renderPromoSheet();});});
   var qin=document.getElementById('pqin');if(qin)qin.addEventListener('change',function(){SH.qty=Math.max(min,parseInt(qin.value,10)||min);renderPromoSheet();});
-  document.getElementById('shAdd').addEventListener('click',function(){var was=!!CART[SH.key];CART[SH.key]={qty:q.qty,colour:SH.colour,mi:SH.mi,locs:SH.locs,promo:true};saveCart();closeAll();refreshCartUI();syncBoardIfOpen();toast((was?'Updated · ':'Added · ')+item.name);});
+  document.getElementById('shAdd').addEventListener('click',function(){var was=!!CART[SH.key];CART[SH.key]={qty:q.qty,colour:SH.colour,mi:SH.mi,locs:SH.locs,promo:true};saveCart();closeAll();refreshCartUI();syncBoardIfOpen();if(QEDIT&&quoteOpen()){QEDIT=null;quoteRefresh();toast('Updated · '+item.name);return;}toast((was?'Updated · ':'Added · ')+item.name);});
 }
 function pdpSizesHtml(it){
   if(!it||oneSize(it))return '';
@@ -8188,6 +8188,7 @@ function addFromSheet(){
   if(Object.keys(sz).length)saveSpread(sz,SH.fit,BYKEY[SH.key].name);
   CART[_ck]=entry;
   saveCart();var _k=SH.key,_col=SH.colour,_fit=SH.fit;closeAll();refreshCartUI();syncBoardIfOpen();
+  if(QEDIT&&quoteOpen()){var _ed=QEDIT;QEDIT=null;if(_ed!==_ck&&CART[_ed]){delete CART[_ed];saveCart();}quoteRefresh();toast('Updated · '+BYKEY[_k].name);return;}
   if(SH_QUOTE){SH_QUOTE=false;openCart();openCheckout();return;}
   addedPanel(_k,was,_col,_fit);
 }
@@ -12517,7 +12518,7 @@ function persistContact(c){try{localStorage.setItem('jdpkit_contact',JSON.string
      * No payment terms, validity window or turnaround is stated -- we do not invent commercial
        terms, and the real invoice number comes from JDP's own system, so this carries a reference. */
 function quoteSig(){try{return JSON.stringify(Object.keys(CART).sort().map(function(k){var c=CART[k]||{};
-  return [k,c.qty,c.colour,c.fit,c.sizes||null,(c.decos||[]).filter(function(d){return d.on;}).map(function(d){return [d.pl,d.method,d.lg,d.colours||''];}),c.note||''];}).concat([[(((LISTS||{})[ALID])||{}).qmsg||'']]));}catch(e){return String(Math.random());}}
+  return [k,c.qty,c.colour,c.fit,c.sizes||null,(c.decos||[]).filter(function(d){return d.on;}).map(function(d){return [d.pl,d.method,d.lg,d.colours||''];})];}));}catch(e){return String(Math.random());}}
 /* ONE QUOTE, ONE REFERENCE (2026-10-08). The reference was rebuilt from the clock on every open, so the
    PDF an approver held and the request Steven received could carry different numbers for the same quote.
    It now belongs to the quote's contents: unchanged contents keep it, any change mints the next one. */
@@ -12837,6 +12838,9 @@ function orderText(c){c=c||{};
    stated, because JDP publishes none. Taxes and freight are excluded, as the proforma already says. */
 var JDP_ADDR='4490 Chesswood Drive, Unit 6, Toronto, ON';
 var QREF='';
+var QEDIT=null;
+function quoteRefresh(){var el=document.getElementById('qdoc');if(!el||!el.classList.contains('on'))return;
+  QREF=stableRef();var st=el.scrollTop;el.innerHTML=quoteDocHtml();wireQuote(el);el.scrollTop=st;document.body.style.overflow='hidden';}
 function quoteOpen(){var e=document.getElementById('qdoc');return !!(e&&e.classList.contains('on'));}
 function quoteLines(){
   var tiers=(CFG.pricing&&CFG.pricing.cols)||[12,48,144];
@@ -12844,12 +12848,20 @@ function quoteLines(){
     var e=lineEconomics(ck);if(!e)return null;
     var it=BYKEY[bkey(ck)],c=CART[ck];
     var thumb=qThumbHtml(it,c,e.promo,64);
-    var vol=e.promo?'':tiers.slice(1).map(function(t){return t+'+: '+money(unitPrice(ck,c.decos,t));}).join(' · ');
-    /* within reach of the next price break: say how many more and what each would cost */
-    var nud=null;
-    if(!e.promo){var tq=tierQty(ck),nt=nextTier(tq);
+    /* every line shows its price breaks with the one it is on highlighted -- apparel from the engine,
+       promo goods (mugs, bottles, bags) from the maker's own published tiers */
+    var vol=[],nud=null;
+    /* the first chip is what they pay at the quantity on the line (the engine has more breaks than the
+       three it advertises, so "12+" would not be their price at 24); then each bigger break */
+    if(!e.promo){var tq=tierQty(ck);
+      vol=[{q:e.qty,p:e.unit,on:true}].concat(tiers.filter(function(t){return t>tq;}).map(function(t){return {q:t,p:unitPrice(ck,c.decos,t)};}).filter(function(t){return t.p<e.unit;}));
+      var nt=nextTier(tq);
       if(nt&&(nt-tq)<=Math.max(4,Math.ceil(nt*0.12))){   /* genuinely close only: 44->48, 128->144 -- not a sales push on every line */var ua=unitPrice(ck,c.decos,tq),ub=unitPrice(ck,c.decos,nt);
         if(ub<ua)nud={need:nt-tq,tier:nt,unit:ub};}}
+    else{var pt=(it.tiers||[]),pq=e.qty;
+      vol=[{q:pq,p:e.unit,on:true}].concat(pt.filter(function(t){return t.q>pq&&t.p<e.unit;}).slice(0,3));
+      var pn=pt.filter(function(t){return t.q>pq;})[0];
+      if(pn&&(pn.q-pq)<=Math.max(4,Math.ceil(pn.q*0.12))&&pn.p<e.unit)nud={need:pn.q-pq,tier:pn.q,unit:pn.p};}
     return {ck:ck,e:e,it:it,c:c,thumb:thumb,vol:vol,nud:nud,canSz:!e.promo&&!oneSize(it),
       det:[c.colour,fitTag(it,c),e.promo?'logo included':decoSummary(it,c)].filter(Boolean).join(' · '),
       sizes:sizesSummary(c,it),sku:fitSku(it,c)};
@@ -12870,6 +12882,10 @@ var QSZ_OPEN={};
    and a line of "why this one" per piece; the customer lands on an at-a-glance summary (their logo on
    every piece, the total, per-person cost, one action), and the address bar keeps the quote link so a
    refresh or a forward still opens it. */
+/* QUOTE V2 (2026-11-27 pm, Steven: "I do not want notes. I want it simple and clean ... the quote page I work on
+   should be the same one they see ... I cannot click on the items and view more details or edit."): one page for
+   everyone, no notes, every line opens its product sheet to change colour/logo/fit and saves back here, and every
+   line -- promo goods included -- shows its price breaks starting from the price at its own quantity. */
 function qL(){return ((LISTS||{})[ALID])||{};}
 var QSELLER_BY='Steven \u00b7 Just Deals Promotions';
 function qSeller(){return /just deals/i.test(qL().by||'');}          /* this quote was prepared and sent by JDP */
@@ -12886,22 +12902,16 @@ function qThumbHtml(it,c,promo,px){
 }
 /* The first screen: what they are getting (with their logo), what it costs, and the one thing to do. */
 function qSumHtml(L,sub,pcs,setup){
-  var tot=sub+setup,hc=qHcOf(),show=L.slice(0,16),more=L.length-show.length,stf=qStaffEdit();
-  var who=stf?('What '+esc(CFG.client||'they')+' see first'):(qSeller()?'Prepared for '+esc(CFG.client||'you')+' by Steven · Just Deals Promotions':(APPROVER?'The quote you were sent':'Your quote'));
+  var tot=sub+setup,hc=qHcOf();
   return '<section class="qsum" aria-label="Quote summary">'+
-    '<div class="qsumtx"><span class="qsumk">'+who+'</span>'+
-      '<div class="qsumt"><b>'+money(tot)+(isUS()?' <small>USD</small>':'')+'</b><span>total before tax &amp; freight</span></div>'+
-      '<div class="qsums">'+
-        '<span><b>'+L.length+'</b> style'+(L.length===1?'':'s')+'</span><span><b>'+pcs+'</b> pieces</span>'+
-        (hc>0?('<span><b>'+money0(tot/hc)+'</b> per person · '+hc+' people</span>'):'')+
-        '<span>Your logo on every piece</span></div>'+
-      (stf?'<button type="button" class="qgo qsumgo" data-qcopy="1">Copy link for '+esc(CFG.client||'customer')+' ↗</button>':
-        '<a class="qgo qsumgo" href="#qact">'+(APPROVER?'Approve &amp; get free proofs →':'Send for confirmation →')+'</a>')+
-      '<i class="qsumi">'+(stf?'They open this exact quote, ready to approve':'No payment now · nothing is made until you approve a proof')+'</i></div>'+
-    '<div class="qsumimgs">'+show.map(function(l){return '<a class="qsumim" href="#qln-'+esc(bslug(l.ck))+'" title="'+esc(l.e.name)+'">'+qThumbHtml(l.it,l.c,l.e.promo,112)+
-        '<span>'+esc(l.e.name)+'</span></a>';}).join('')+
-      (more>0?('<a class="qsumim qsummore" href="#qtab"><span class="qth">+'+more+'</span><span>more</span></a>'):'')+'</div>'+
-    ((!stf&&String(qL().qmsg||'').trim())?('<div class="qmsg qsummsg"><b>A note from Steven</b><p>'+esc(String(qL().qmsg).trim()).replace(/\n/g,'<br>')+'</p></div>'):'')+
+    '<div class="qsumtx"><span class="qsumk">Quote for '+esc(CFG.client||'your team')+'</span>'+
+      '<div class="qsumt"><b>'+money(tot)+(isUS()?' <small>USD</small>':'')+'</b><span>total before tax &amp; freight · your logo included</span></div>'+
+      '<div class="qsums"><span><b>'+L.length+'</b> style'+(L.length===1?'':'s')+'</span><span><b>'+pcs+'</b> pieces</span>'+
+        (hc>0?('<span><b>'+money0(tot/hc)+'</b> per person</span>'):'')+'</div>'+
+      '<a class="qgo qsumgo" href="#qact">Approve &amp; get free proofs →</a>'+
+      '<i class="qsumi">No payment now · nothing is made until you approve a proof</i></div>'+
+    '<div class="qsumimgs">'+L.map(function(l){return '<button type="button" class="qsumim" data-qed="'+esc(l.ck)+'" title="View or change '+esc(l.e.name)+'">'+qThumbHtml(l.it,l.c,l.e.promo,112)+
+        '<span>'+esc(l.e.name)+'</span></button>';}).join('')+'</div>'+
   '</section>';
 }
 function qszRowHtml(l){
@@ -12915,99 +12925,72 @@ function qszRowHtml(l){
 function quoteDocHtml(){
   if(!cartCount())return quoteEmptyHtml();
   var L=quoteLines(),sub=0,pcs=0;L.forEach(function(l){sub+=l.e.revenue;pcs+=l.e.qty;});
-  var setup=cartSetup(),sb=setupBreakdown(),T=JDP_TRUST,saved={},staff=qStaffEdit(),seller=APPROVER&&qSeller(),QL=qL(),msg=String(QL.qmsg||'').trim(),hc=qHcOf();
-  var edited=APPROVER&&QL.qsent&&QL.qsent!==quoteSig();
+  var setup=cartSetup(),sb=setupBreakdown(),T=JDP_TRUST,saved={},hc=qHcOf(),tot=sub+setup;
   try{saved=JSON.parse(localStorage.getItem('jdpkit_contact')||'{}');}catch(e){}
   var mark=heroMarkHtml('qmark');
   var rows=L.map(function(l,i){
-    var why=String(l.c.note||'').trim();
-    return '<tr id="qln-'+esc(bslug(l.ck))+'"><td class="qn">'+(i+1)+'</td><td class="qimg">'+l.thumb+'</td>'+
-      '<td class="qitem"><b>'+esc(l.e.name)+'</b>'+
+    var tiers=l.vol.length>1?('<span class="qtiers" aria-label="Volume pricing">'+l.vol.map(function(t){
+      return t.on?('<em class="on">'+t.q+' pcs <b>'+money(t.p)+'</b></em>'):('<em>'+t.q+'+ <b>'+money(t.p)+'</b></em>');}).join('')+'</span>'):'';
+    return '<tr id="qln-'+esc(bslug(l.ck))+'"><td class="qn">'+(i+1)+'</td>'+
+      '<td class="qimg"><button type="button" class="qthb" data-qed="'+esc(l.ck)+'" aria-label="View or change '+esc(l.e.name)+'">'+l.thumb+'</button></td>'+
+      '<td class="qitem"><button type="button" class="qname" data-qed="'+esc(l.ck)+'">'+esc(l.e.name)+'</button>'+
         '<i>'+esc([l.it.brand||l.it.sku,l.sku].filter(Boolean).join(' · '))+'</i>'+
         '<span>'+esc(l.det)+'</span>'+
-        (staff?('<textarea class="qwhyin" rows="1" maxlength="320" data-qwhy="'+esc(l.ck)+'" placeholder="Why this piece suits '+esc(CFG.client||'them')+' (optional — shows on their quote)">'+esc(why)+'</textarea>'+
-            (why?'<span class="qwhy qpronly">'+esc(why)+'</span>':'')):
-          (why?('<span class="qwhy">'+(qSeller()?'<b>Why this one</b> ':'')+esc(why)+'</span>'):''))+
-        (l.canSz?('<span class="qsz">'+(l.sizes?('Sizes: '+esc(l.sizes)):'Sizes: not set yet')+
-          ' <em class="qszt'+(l.c.szset?' mine':'')+'">'+(l.c.szset?'your sizes':(l.sizes?'estimated':''))+'</em>'+
+        (l.canSz?('<span class="qsz">'+(l.sizes?esc(l.sizes):'Sizes not set')+(l.c.szset?'':' <em class="qszt">estimate</em>')+
           ' <button type="button" class="qszb" data-qsz="'+esc(l.ck)+'">'+(l.c.szset?'Edit sizes':'Enter sizes')+'</button></span>'):
-          (l.sizes?('<span>Sizes: '+esc(l.sizes)+'</span>'):''))+
-        (l.vol?('<span class="qvol">Volume pricing — '+esc(l.vol)+'</span>'):'')+
+          (l.sizes?('<span>'+esc(l.sizes)+'</span>'):''))+
+        tiers+
         (l.nud?('<button type="button" class="qnud" data-qnud="'+esc(l.ck)+'" data-qtier="'+l.nud.tier+'">Add '+l.nud.need+' more → '+money(l.nud.unit)+' each</button>'):'')+'</td>'+
       '<td class="qq"><span class="qqv">'+l.e.qty+'</span><input class="qqin" type="number" inputmode="numeric" min="1" value="'+l.e.qty+'" data-qk="'+esc(l.ck)+'" aria-label="Quantity of '+esc(l.e.name)+'">'+
-        '<button type="button" class="qrm" data-qrm="'+esc(l.ck)+'" aria-label="Remove '+esc(l.e.name)+'">Remove</button></td>'+
+        '<span class="qlact"><button type="button" class="qedb" data-qed="'+esc(l.ck)+'">Edit</button><button type="button" class="qrm" data-qrm="'+esc(l.ck)+'" aria-label="Remove '+esc(l.e.name)+'">Remove</button></span></td>'+
       '<td class="qu">'+money(l.e.unit)+'</td><td class="qa">'+money(l.e.revenue)+'<i class="qum">'+money(l.e.unit)+' each</i></td></tr>'+
       (l.canSz?qszRowHtml(l):'');}).join('');
-  var who=listName(ALID);
-  var shareLbl=staff?('Copy link for '+esc(CFG.client||'customer')):(seller?'Share with a colleague':'Share with an approver');
   return '<div class="qwrap">'+
     '<div class="qbar"><button type="button" class="qback" id="qBack">‹ <span class="qlong">Back to store</span><span class="qshort">Store</span></button>'+
-      '<div class="qbarbtns"><button type="button" class="qbtn" id="qPdf"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg><span><span class="qlong">Download </span>PDF</span></button>'+
-      '<button type="button" class="qbtn'+(staff?' qstaffsh':'')+'" id="qShare"><span><span class="qlong">'+shareLbl+'</span><span class="qshort">Share</span> ↗</span></button>'+
-      (staff?'':'<a class="qbtn qsend" href="#qact">'+(APPROVER?'Approve →':'Send to confirm →')+'</a>')+'</div></div>'+
-    (staff?('<div class="qstaff"><b>You’re building a quote to send.</b> Add a note and a line of “why” per piece if you like, then <b>'+shareLbl+'</b>. '+esc(CFG.client||'They')+' opens this exact quote, with your note, ready to approve.</div>'):'')+
-    ((APPROVER&&(edited||!seller))?('<div class="qappr">'+
-      (edited?('<b>You’ve changed this quote</b><span>New reference '+esc(QREF)+'. Send it below and we confirm your version in writing.</span>'):
-       ('<b>'+(QL.by?esc(QL.by)+' shared this quote for your approval':'This quote was shared with you for approval')+'</b>'+
-        '<span>Reference '+esc(QREF)+' · exactly as it was sent. Approve it below and Just Deals confirms in writing — or download the PDF for your records.</span>'))+'</div>'):'')+
+      '<div class="qbarbtns"><button type="button" class="qbtn" id="qPdf"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg><span>PDF</span></button>'+
+      '<button type="button" class="qbtn" id="qShare"><span>Share ↗</span></button>'+
+      '<a class="qbtn qsend" href="#qact">Approve →</a></div></div>'+
     qSumHtml(L,sub,pcs,setup)+
     '<div class="qgrid">'+
     '<article class="qpaper" id="qpaper">'+
       '<header class="qhd"><div><div class="qbrand">Just Deals Promotions</div>'+
         '<div class="qaddr">'+esc(JDP_ADDR)+'<br>'+esc(T.phone)+' · '+esc(T.email)+'</div></div>'+
-        '<div class="qmeta"><h2>Quote</h2><dl><dt>Reference</dt><dd>'+esc(QREF)+'</dd><dt>Date</dt><dd>'+esc(docDate())+'</dd><dt>Ship to</dt><dd>'+(isUS()?'United States · USD':'Canada · CAD')+'</dd>'+
-        (who&&!/^(my board|quote .*)$/i.test(who)?('<dt>For</dt><dd>'+esc(who)+'</dd>'):'')+'</dl></div></header>'+
+        '<div class="qmeta"><h2>Quote</h2><dl><dt>Reference</dt><dd>'+esc(QREF)+'</dd><dt>Date</dt><dd>'+esc(docDate())+'</dd><dt>Ship to</dt><dd>'+(isUS()?'United States · USD':'Canada · CAD')+'</dd></dl></div></header>'+
       '<div class="qparty"><div><span>Prepared for</span>'+(mark?('<div class="qmk">'+mark+'</div>'):'')+'<b>'+esc(CFG.client||'')+'</b></div>'+
         '<div><span>Prepared by</span><b>Steven · Just Deals Promotions</b><i>'+esc(T.phone)+'</i></div></div>'+
-      (staff?('<div class="qmsg qmsged"><label for="qMsgIn">Note to '+esc(CFG.client||'the customer')+' <i>optional — opens their quote</i></label>'+
-          '<textarea id="qMsgIn" rows="3" maxlength="1200" placeholder="e.g. Hi Jen — here’s what I’d recommend for the field crew and the office. Prices include your logo; change any quantity right on the quote.">'+esc(msg)+'</textarea></div>'+
-          (msg?('<div class="qmsg qpronly"><b>A note from Steven</b><p>'+esc(msg).replace(/\n/g,'<br>')+'</p></div>'):'')):
-        (msg?('<div class="qmsg qpronly"><b>A note from Steven</b><p>'+esc(msg).replace(/\n/g,'<br>')+'</p></div>'):''))+
-      '<div class="qhc"><label for="qHC">How many people?</label><input id="qHC" type="number" inputmode="numeric" min="1" placeholder="e.g. 40" value="'+(getHC()||'')+'">'+
-        '<button type="button" id="qHCgo">Update quote</button><i>Every line is set to one per person — change any line. Sizes are a starting split until you enter your own; nothing is produced until you confirm.</i></div>'+
-      '<div class="qadd"><button type="button" class="qbtn" id="qMore">+ Add more items</button><button type="button" class="qbtn" id="qProg">+ Add a program</button></div>'+
       '<table class="qtab" id="qtab"><thead><tr><th>#</th><th></th><th>Item</th><th>Qty</th><th>Unit'+(isUS()?' (USD)':'')+'</th><th>Amount'+(isUS()?' (USD)':'')+'</th></tr></thead><tbody>'+rows+'</tbody></table>'+
+      '<div class="qtools"><button type="button" class="qlnk" id="qMore">+ Add items</button>'+
+        '<span class="qhc"><label for="qHC">People</label><input id="qHC" type="number" inputmode="numeric" min="1" placeholder="e.g. 40" value="'+(hc||'')+'">'+
+        '<button type="button" id="qHCgo">Set one each</button></span></div>'+
       '<div class="qtot"><div><span>Subtotal · '+pcs+' pieces</span><b>'+money(sub)+'</b></div>'+
-        (setup>0?('<div><span>One-time setup</span><b>'+money(setup)+'</b></div>'+
-          '<div class="qsb">'+sb.map(function(x){return esc(x.label)+' — '+money(x.amount);}).join('<br>')+'<br>Charged once per design, location and method — not per piece.</div>'):'')+
-        '<div class="qgt"><span>Total'+(isUS()?' in USD':'')+' (before tax &amp; freight)</span><b>'+money(sub+setup)+(isUS()?' <small class="qcur">USD</small>':'')+'</b></div>'+
-        (hc>0?('<div class="qpp"><span>Works out to about</span><b>'+money(Math.ceil((sub+setup)/hc*100)/100)+' per person · '+hc+' people</b></div>'):'')+'</div>'+
-      '<div class="qnotes"><b>Notes</b><ul>'+
-        (isUS()?'<li>All prices are in US dollars (USD).</li>':'')+
-        '<li>Your logo decoration is included in every unit price above.</li>'+
-        '<li>Nothing is produced until you approve a proof of your logo and this quote.</li>'+
-        '<li>Taxes and freight are not included. Just Deals Promotions confirms this quote in writing — usually within '+esc(T.reply)+'.</li>'+
-        '<li>Price-match: send us a lower written quote for the same job and we will match it. Every order carries our Logo Reprint Guarantee.</li>'+
-      '</ul></div>'+
+        (setup>0?('<div><span>One-time logo setup</span><b>'+money(setup)+'</b></div>'+
+          '<div class="qsb">'+sb.map(function(x){return esc(x.label)+' — '+money(x.amount);}).join('<br>')+'<br>Once per logo, not per piece.</div>'):'')+
+        '<div class="qgt"><span>Total'+(isUS()?' in USD':'')+' (before tax &amp; freight)</span><b>'+money(tot)+(isUS()?' <small class="qcur">USD</small>':'')+'</b></div>'+
+        (hc>0?('<div class="qpp"><span>Per person · '+hc+' people</span><b>'+money(Math.ceil(tot/hc*100)/100)+'</b></div>'):'')+'</div>'+
+      '<ul class="qnotes">'+
+        (isUS()?'<li>All prices in US dollars.</li>':'')+
+        '<li>Your logo is included in every unit price.</li>'+
+        '<li>Nothing is made until you approve a free proof of your logo.</li>'+
+        '<li>Taxes and freight extra. We confirm in writing within '+esc(T.reply)+'. Price-match on any written quote for the same job.</li>'+
+      '</ul>'+
       '<footer class="qfoot">Just Deals Promotions · '+(isUS()?'Since ':'Canadian since ')+T.since+' · '+esc(T.teams)+' teams · '+T.rating.toFixed(1)+'★ on Google</footer>'+
     '</article>'+
-    (staff?('<aside class="qact qactstf" id="qact"><h3>Send this quote to '+esc(CFG.client||'the customer')+'</h3>'+
-      '<p>They open this exact quote'+(msg?' with your note':'')+' — reference '+esc(QREF)+' — and can approve it, change quantities and sizes, or forward it to whoever signs off.</p>'+
-      '<button type="button" class="qgo" data-qcopy="1">Copy link for '+esc(CFG.client||'customer')+' ↗</button>'+
-      '<a class="qbtn qstfa" id="qMailIt" href="#">Email it from your mail app</a>'+
-      '<a class="qbtn qstfa" id="qPrev" href="#" target="_blank" rel="noopener">Preview what they see ↗</a>'+
-      '<div class="qside">Every price includes their logo. Their visits, the quote opening and an approval all reach you as store alerts.</div>'+
-      '<details class="qside qstfd"><summary>Submit it for them instead</summary>'):'')+
-    '<aside class="qact" id="'+(staff?'qact2':'qact')+'"><h3>'+(seller?'Ready to go ahead?':(APPROVER?'Approve this quote':'Send to Just Deals to confirm'))+'</h3>'+
-      '<p>'+(seller?'Approve it and Steven sends a free proof of your logo on every piece. Nothing is made or charged until you sign off the proof.':(APPROVER?'Send your approval and Just Deals confirms the order in writing and sends a proof of the logo. No payment now.':'We check it, confirm it in writing and send a proof of your logo. No payment now, no obligation.'))+'</p>'+
+    '<aside class="qact" id="qact"><h3>Approve this quote</h3>'+
+      '<p>We confirm it in writing and send a free proof of your logo on every piece. No payment now.</p>'+
       '<form id="qForm" novalidate>'+
         '<label>Work email<input id="qEmail" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" value="'+esc(saved.email||'')+'" placeholder="you@company.com" aria-describedby="qEmailErr"></label>'+
         '<p class="qerrm" id="qEmailErr" role="alert" hidden>Enter your work email — the written confirmation goes there.</p>'+
         '<label>Your name <i>optional</i><input id="qName" autocomplete="name" value="'+esc(saved.name||'')+'"></label>'+
-        '<label>Company<input id="qCompany" autocomplete="organization" value="'+esc(saved.company||CFG.client||'')+'"></label>'+
-        '<label>PO number, deadline or notes <i>optional</i><textarea id="qNote" rows="3" placeholder="PO #, in-hands date, delivery address, anything procurement needs"></textarea></label>'+
-        '<label class="qfile">Attach a file <i>optional — PO, vendor forms, RFQ or your logo</i><input id="qFile" type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.ai,.eps,.svg,.png,.jpg,.jpeg"></label>'+
-        '<button type="submit" class="qgo" id="qGo">'+(seller?'Approve — send my free proofs →':(APPROVER?'Approve &amp; send →':'Send for confirmation →'))+'</button>'+
+        '<input id="qCompany" type="hidden" value="'+esc(saved.company||CFG.client||'')+'">'+
+        '<details class="qmore"><summary>Add a PO, deadline or file</summary>'+
+          '<label>PO number, in-hands date or notes<textarea id="qNote" rows="3" placeholder="PO #, in-hands date, delivery address"></textarea></label>'+
+          '<label class="qfile">File <i>PO, vendor forms or your logo</i><input id="qFile" type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.ai,.eps,.svg,.png,.jpg,.jpeg"></label></details>'+
+        '<button type="submit" class="qgo" id="qGo">Approve &amp; get free proofs →</button>'+
       '</form>'+
-      (seller?'<div class="qside"><b>Want it different?</b> Change any quantity, size or line right on the quote — the total updates as you go.</div>':'')+
-      (APPROVER?('<div class="qside qtalk"><b>A question first?</b> Call Steven at <a href="tel:'+esc(T.tel)+'">'+esc(T.phone)+'</a> or '+
-        '<a href="mailto:'+esc(T.email)+'?subject='+encodeURIComponent('Quote '+QREF+' — '+(CFG.client||''))+'&body='+encodeURIComponent('Hi Steven,\n\nAbout quote '+QREF+' ('+location.origin+location.pathname+'?b='+(QL.qsnap||'')+'&quote=1):\n\n')+'">email him</a> — he replies within '+esc(T.reply)+'.</div>'):'')+
-      '<div class="qside"><b>Ordering for both countries?</b> This is your '+(isUS()?'US':'Canadian')+' quote. '+
-        '<button type="button" class="qlnk" id="qMkt">Build the '+(isUS()?'Canadian':'US')+' quote →</button> We combine both under one PO.</div>'+
-      '<div class="qside"><b>Need us set up as a vendor?</b> Attach your supplier forms above, or call '+esc(T.phone)+'.</div>'+
-    '</aside>'+(staff?'</details></aside>':'')+'</div>'+
-    '<div class="qmbar"><div><b>'+money(sub+setup)+(isUS()?' USD':'')+'</b><span>'+pcs+' pieces'+(hc>0?(' · '+money0((sub+setup)/hc)+'/person'):'')+'</span></div>'+
-      '<a class="qgo" href="#qact">'+(APPROVER?'Approve →':'Send to confirm →')+'</a></div>'+
+      '<div class="qside">Questions? Call <a href="tel:'+esc(T.tel)+'">'+esc(T.phone)+'</a> or <a href="mailto:'+esc(T.email)+'?subject='+encodeURIComponent('Quote '+QREF+' — '+(CFG.client||''))+'">email Steven</a>.</div>'+
+    '</aside></div>'+
+    '<div class="qmbar"><div><b>'+money(tot)+(isUS()?' USD':'')+'</b><span>'+pcs+' pieces'+(hc>0?(' · '+money0(tot/hc)+'/person'):'')+'</span></div>'+
+      '<a class="qgo" href="#qact">Approve →</a></div>'+
   '</div>';
 }
 function quoteEmptyHtml(){
@@ -13027,13 +13010,10 @@ function wireQuoteEdit(el){
   var p=document.getElementById('qProg');if(p)p.addEventListener('click',function(){jdpTrack('quote_prog');quoteToPrograms();});
   var r=document.getElementById('qRfq');if(r)r.addEventListener('click',function(){closeQuote();openRfq();});
   var rerender=function(){QREF=stableRef();var st=el.scrollTop;el.innerHTML=quoteDocHtml();wireQuote(el);el.scrollTop=st;refreshCartUI();};
-  var mi=document.getElementById('qMsgIn');
-  if(mi){mi.addEventListener('input',function(){var L=qL();L.qmsg=mi.value.slice(0,1200);try{persistLists();}catch(e){}});
-    mi.addEventListener('change',function(){jdpTrack('quote_note');rerender();});}
-  el.querySelectorAll('[data-qwhy]').forEach(function(t){
-    var fit=function(){t.style.height='auto';t.style.height=Math.min(140,t.scrollHeight+2)+'px';};fit();
-    t.addEventListener('input',function(){var c=CART[t.dataset.qwhy];if(!c)return;var v=t.value.slice(0,320);if(v.trim())c.note=v;else delete c.note;delete c.note0;saveCart();fit();});
-    t.addEventListener('change',function(){rerender();});});
+  /* tap a line (photo, name or Edit) to see the product and change colour, logo or sizes; saving comes back here */
+  el.querySelectorAll('[data-qed]').forEach(function(b){b.addEventListener('click',function(){
+    var ck=b.dataset.qed;if(!CART[ck]||!BYKEY[bkey(ck)])return;jdpTrack('quote_edit',{k:bkey(ck)});
+    openSheet(ck);QEDIT=ck;});});
   /* in-page anchors scroll the quote, not the store behind it */
   el.querySelectorAll('a[href^="#q"]').forEach(function(a){a.addEventListener('click',function(e){
     var t=el.querySelector(a.getAttribute('href'));if(!t)return;e.preventDefault();
@@ -13070,7 +13050,7 @@ function wireQuoteEdit(el){
     rerender();});});
   el.querySelectorAll('[data-qnud]').forEach(function(b){b.addEventListener('click',function(){
     var ck=b.dataset.qnud,c=CART[ck],it=BYKEY[bkey(ck)],tier=parseInt(b.dataset.qtier,10)||0;if(!c||!it||!tier)return;
-    var add=tier-tierQty(ck);if(add<=0)return;
+    var add=tier-((it.layer==='promo')?(c.qty||0):tierQty(ck));if(add<=0)return;
     if(c.sizes&&!oneSize(it)){var ex=spreadSizes(add,c.fit,it);Object.keys(ex).forEach(function(z){c.sizes[z]=(c.sizes[z]||0)+ex[z];});c.qty=sizeSum(c.sizes);}
     else c.qty=(c.qty||0)+add;
     saveCart();jdpTrack('quote_nudge',{t:tier});toast('Now '+c.qty+' — priced at the '+tier+'+ tier');rerender();});});
@@ -13107,12 +13087,9 @@ function quoteSnapshot(){
   try{
     if(L.qsnap===b)return b;
     var who='';try{who=(JSON.parse(localStorage.getItem('jdpkit_contact')||'{}').name||'');}catch(e){}
-    var items=JSON.parse(JSON.stringify(asItems(CART))),stf=qStaffEdit();
-    var body={kit:SLUG,b:b,name:'Quote '+QREF,items:items,by:stf?QSELLER_BY:who};
-    if(stf){Object.keys(items).forEach(function(k){if(items[k]&&items[k].note)items[k].note0=items[k].note;});
-      if(String(L.qmsg||'').trim())body.msg=String(L.qmsg).trim().slice(0,1200);
-      if(getHC())body.hc=getHC();}
-    else if(qSeller()){body.by=L.by;if(L.qmsg)body.msg=L.qmsg;if(L.qhc)body.hc=L.qhc;}   /* a forwarded copy of Steven's quote stays Steven's */
+    var items=JSON.parse(JSON.stringify(asItems(CART)));
+    var body={kit:SLUG,b:b,name:'Quote '+QREF,items:items,by:(qStaffEdit()||qSeller())?QSELLER_BY:who};
+    if(qHcOf())body.hc=qHcOf();   /* the headcount it was priced for travels with the link (per-person cost) */
     fetch(boardsApi(),{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify(body)}).then(function(r){
         if(r&&(r.ok||r.status===409)){L.qsnap=b;try{persistLists();}catch(e){}}}).catch(function(){});
@@ -13133,19 +13110,12 @@ function wireQuote(el){
     setTimeout(function(){try{window.print();}catch(e){}document.documentElement.classList.remove('qprint');document.title=t;},50);});
   document.getElementById('qShare').addEventListener('click',function(){
     QREF=stableRef();var u=quoteShareUrl();jdpTrack('quote_share');
-    var done=function(){toast(qStaffEdit()?('Link copied — '+(CFG.client||'they')+' open this exact quote'+(String(qL().qmsg||'').trim()?' with your note':'')+' · '+QREF):('Link copied — your approver opens this exact quote, reference '+QREF));};
+    var done=function(){toast('Link copied — it opens this exact quote · '+QREF);};
     try{if(navigator.share&&matchMedia('(hover:none)').matches){navigator.share({title:'Quote '+QREF,url:u}).catch(function(){});return;}
       if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(u).then(done,function(){window.prompt('Copy this link',u);});return;}}catch(e){}
     window.prompt('Copy this link',u);});
-  el.querySelectorAll('[data-qcopy]').forEach(function(b){b.addEventListener('click',function(){document.getElementById('qShare').click();});});
-  var qmi=document.getElementById('qMailIt');if(qmi)qmi.addEventListener('click',function(e){e.preventDefault();QREF=stableRef();var u=quoteShareUrl();jdpTrack('quote_share',{m:'mail'});
-    var n=cartCount(),tot=money(cartSubtotal()+cartSetup())+(isUS()?' USD':'');
-    location.href='mailto:?subject='+encodeURIComponent('Your '+(CFG.client||'')+' apparel quote — '+n+' style'+(n===1?'':'s')+', '+tot)+
-      '&body='+encodeURIComponent('Hi,\n\nHere’s the quote I put together for '+(CFG.client||'your team')+' — every piece shown with your logo, priced with decoration included:\n\n'+u+
-        '\n\nChange any quantity or size right on the quote, then hit Approve and I’ll send free proofs. Nothing is made until you sign off.\n\nSteven\nJust Deals Promotions · '+JDP_TRUST.phone);});
-  var qpv=document.getElementById('qPrev');if(qpv)qpv.addEventListener('click',function(){QREF=stableRef();qpv.href=quoteShareUrl();});
   var hc=document.getElementById('qHC'),go=document.getElementById('qHCgo');
-  var upd=function(){var n=parseInt(hc.value,10)||0;if(n<1){hc.focus();return;}applyHeadcount(n);jdpTrack('quote_qty',{n:n});
+  var upd=function(){var n=parseInt(hc.value,10)||0;if(n<1){hc.focus();return;}applyHeadcount(n);qL().qhc=n;try{persistLists();}catch(e){}jdpTrack('quote_qty',{n:n});
     QREF=stableRef();var st=el.scrollTop;el.innerHTML=quoteDocHtml();wireQuote(el);el.scrollTop=st;
     toast('Quote updated for '+n+' people'+(KEPT_SIZES?(' · kept your sizes on '+KEPT_SIZES+' line'+(KEPT_SIZES===1?'':'s')):''));};
   go.addEventListener('click',upd);hc.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();upd();}});
