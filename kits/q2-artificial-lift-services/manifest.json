@@ -1,0 +1,17 @@
+{
+  "generator": "client-app",
+  "version": "1795797053",
+  "slug": "q2-artificial-lift-services",
+  "client": "Q2 Artificial Lift Services",
+  "files": [
+    "index.html",
+    "client.json",
+    "img/favicon.png",
+    "img/lg_full_1b497d.png",
+    "img/lg_full_brand.png",
+    "img/lg_full_dark.png",
+    "img/lg_full_ec2024.png",
+    "img/lg_full_white.png",
+    "img/logo-white.png"
+  ]
+}
