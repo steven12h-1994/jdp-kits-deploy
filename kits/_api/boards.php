@@ -284,6 +284,12 @@ $board = [
     'rev'     => $curRev + 1,
     'updated' => time(),
 ];
+/* A quote JDP prepares and sends (2026-11-27) can carry Steven's note to the customer and the headcount
+   it was priced for. Both optional; absent means the board is exactly what it always was. */
+$msg = trim((string)($in['msg'] ?? ''));
+if ($msg !== '') $board['msg'] = mb_substr($msg, 0, 1200);
+$hc = (int)($in['hc'] ?? 0);
+if ($hc > 0) $board['hc'] = min($hc, 100000);
 
 /* Keep the version we are about to replace. DELETE has always archived a soft copy, but an
    OVERWRITE kept nothing -- write_atomic renames straight over the file -- so when eddy-group's
